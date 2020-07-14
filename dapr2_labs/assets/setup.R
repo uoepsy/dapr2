@@ -6,4 +6,20 @@
 source('assets/dropdowns.R')
 
 # Knitr settings
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+    echo = TRUE,
+    message = FALSE, 
+    warning = FALSE,
+    fig.align = 'center',
+    out.width = '60%'
+    )
+
+# ggplot settings
+library(ggplot2)
+theme_set(
+    theme_bw(base_size = 15) + 
+        theme(plot.title = element_text(hjust = 0.5))
+)
+
+# reproducibility
+set.seed(953)
