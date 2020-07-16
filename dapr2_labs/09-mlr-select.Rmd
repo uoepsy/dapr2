@@ -40,7 +40,7 @@ $$
 R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
 $$
 
-However, when we add more and more predictors into a multiple regression model, $SSE$ cannot increase, and may decrease by pure chance alone, even if the predictors are unrelated to the outcome variable. Because $SSTotal$ is constant, the calculation $1-\frac{SSE}{SSTotal}$ will increase by chance alone. 
+However, when we add more and more predictors into a multiple regression model, $SS_{Residual}$ cannot increase, and may decrease by pure chance alone, even if the predictors are unrelated to the outcome variable. Because $SS_{Total}$ is constant, the calculation $1-\frac{SS_{Residual}}{SS_{Total}}$ will increase by chance alone. 
 
 An alternative, the Adjusted-$R^2$, does not necessarily increase with the addition of more explanatory variables, by including a penalty according to the number of explanatory variables in the model. It is not by itself meaningful, but can be useful in determining what predictors to include in a model. 
 $$
@@ -118,6 +118,7 @@ Does the model provide a better fit to the data than a model with no explanatory
 
 ```{r}
 wb_mdl1 <- lm(wellbeing ~ social_int + isRural, data=mwdata2)
+summary(wb_mdl1)
 ```
 
 :::int
@@ -200,37 +201,61 @@ pf(fstat, df_1, df_2, lower.tail = FALSE)
 
 
 `r qbegin(3)`
-Fit the model specified below, and assign it the name "wb_mdl2"
+Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural)?  
 
-+ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \beta_3 \cdot \text{Outdoor time} +  \epsilon$ 
-
-Which model, **wb_mdl1** or **wb_mdl2**, explains more of the variation in Wellbeing scores?  
-Does **wb_mdl2** provide a significantly better fit of the data compared to **wb_mdl1**?  
+Provide an answer to this question by fitting and comparing two models (one of them you may already have fitted in an earlier question). 
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS)`
+We can compare the following models which predict wellbeing scores from weekly social interactions and location, with and without weekly outdoor time.  
+
++ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$ 
++ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \beta_3 \cdot \text{Outdoor time} +  \epsilon$ 
+
+We have already fitted the first model and assigned it the name `wb_mdl1`.  
+We need to fit the second:
 ```{r}
 wb_mdl2 <- lm(wellbeing ~ 1 + social_int + isRural + outdoor_time, data=mwdata2)
-
-summary(wb_mdl1)$adj.r.squared
-summary(wb_mdl2)$adj.r.squared
-
-anova(wb_mdl1, wb_mdl2)
 ```
 
+Let's look at the amount of variation in wellbeing scores explained by each model:
+```{r}
+summary(wb_mdl1)$adj.r.squared
+summary(wb_mdl2)$adj.r.squared
+```
+
+The model *with* weekly outdoor time as a predictor explains 30\% of the variance, and the model *without* explains 25\%.  
+Does including weekly outdoor time as a predictor provide a significantly better fit of the data (**wb_mdl2** compared to **wb_mdl1**)?  
+```{r}
+anova(wb_mdl1, wb_mdl2)
+```
+```{r include=FALSE}
+mc <- anova(wb_mdl1, wb_mdl2)
+names(mc)[6]<-"p"
+```
+
+:::int
+Weekly outdoor time was found to explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural)  
+$F$(`r paste(mc$Df[2],mc$Res.df[2],collapse=",")`)=`r round(mc$F,2)`, p`r map_chr(mc$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`.
+:::
+
 `r solend()`
+
 
 :::frame 
 # Incremental validity - A caution  
 
 A common goal for researchers is to determine which variables matter (and which do not) in contributing to some outcome variable. A common approach to answer such questions is to consider whether some variable $X$'s contribution remains significant _after_ controlling for variables $Z$.  
 
-The reasoning:   
-<center>If our measure of $X$ correlates significantly with outcome $Y$ _even when controlling for our measure of $Z$, then $X$ contributes to $y$ over and above the contribution of $Z$.</center>
+The reasoning:  
 
-In multiple regression, we might fit the model $Y = \beta_0 + \beta_1 \cdot X + \beta_2 \cdot Z + \epsilon$ and conclude that $X$ is a useful predictor of $Y$ over and above $Z$ based on the the estimate $\hat \beta_1$.  
-
-__Toy Example:__  
++ If our measure of $X$ correlates significantly with outcome $Y$ even when controlling for our measure of $Z$, then $X$ contributes to $y$ *over and above* the contribution of $Z$. 
+    
+  
+In multiple regression, we might fit the model $Y = \beta_0 + \beta_1 \cdot X + \beta_2 \cdot Z + \epsilon$ and conclude that $X$ is a useful predictor of $Y$ *over and above* $Z$ based on the estimate $\hat \beta_1$, or via model comparison between that model and the model without $Z$ as a predictor ($Y = \beta_0 + \beta_1 \cdot X + \epsilon$).  
+  
+__A Toy Example__
+  
 Suppose we have monthly data over a seven year period which captures the number of shark attacks on swimmers each month, and the number of ice-creams sold by beach vendors each month.  
 Consider the relationship between the two:  
 ```{r echo=FALSE}
@@ -261,21 +286,23 @@ We might answer this with a multiple regression model including both temperature
 shark_mdl2 <- lm(shark_attacks ~ ice_cream_sales + temperature, data = sharkdata)
 summary(shark_mdl2)
 ```
-
-What do you conclude? 
+<br>
+What do you conclude?
 
 `r qend()`
 `r solbegin(show=TRUE, toggle=FALSE)`
 It appears that numbers of ice cream sales is _not_ a significant predictor of sharks attack numbers over and above the temperature.  
 `r solend()`
 
+__However...__
 In psychology, we can rarely observe and directly measure the constructs which we are interested in (for example, personality traits, intelligence, emotional states etc.). We rely instead on measurements of, e.g. behavioural tendencies, as a proxy for personality traits.  
 
 Let's suppose that instead of including temperature in degrees celsius, we asked a set of people to self-report on a scale of 1 to 7 how hot it was that day. This measure should hopefully correlate well with the _actual_ temperature, however, there will likely be some variation: 
-```{r}
+```{r echo=FALSE}
 ggplot(data = sharkdata, aes(x = temperature, y = sr_heat)) + 
   geom_point() + 
-  labs(title = paste0("r = ",round(cor(sharkdata$temperature, sharkdata$sr_heat),2)))
+  labs(title = paste0("r = ",round(cor(sharkdata$temperature, sharkdata$sr_heat),2)), 
+       x = "actual temperature",y="self report measure of heat")
 ```
 
 `r qbegin()`
@@ -285,8 +312,8 @@ Is $X$ (the number of ice-cream sales) a useful predictor of $Y$ (numbers of sha
 shark_mdl2a <- lm(shark_attacks ~ ice_cream_sales + sr_heat, data = sharkdata)
 summary(shark_mdl2a)
 ```
-
-What do you conclude? 
+<br>
+What do you conclude?
 `r qend()`
 
 Moral of the story: be considerate of what exactly it is that you are measuring. 
@@ -298,9 +325,104 @@ This example was adapted from [Westfall and Yarkoni, 2020](https://onlinelibrary
 
 
 
-AIC and BIC
 
-## model selection
+:::frame
+## AIC & BIC  
+
+We can also compare models using information criterion statistics, such as AIC and BIC. These combine information about the sample size, the number of model parameters and the residual sums of squares ($SS_{residual}$). Models do not need to be nested to be compared via AIC and BIC, but they need to have been fit to the same dataset.  
+For both of these fit indices, lower values are better, and both include a penalty for the number of predictors in the model, although BIC's penalty is harsher:
+
+$$
+AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k \\
+\quad \\
+BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n) \\
+\quad \\
+\begin{align}
+& \text{Where:} \\
+& SS_{residual} = \text{sum of squares residuals} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+& \text{ln} = \text{natural log function} 
+\end{align}
+$$
+
+---
+
+**In R,** we can calculate AIC and BIC by using the `AIC()` and `BIC()` functions. 
+
+:::
+
+
+
+`r qbegin(4)`
+The code below fits 5 different models:
+
+```{r eval=FALSE}
+model1 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata2)
+model2 <- lm(wellbeing ~ social_int + outdoor_time + age, data = mwdata2)
+model3 <- lm(wellbeing ~ social_int + outdoor_time + routine, data = mwdata2)
+model4 <- lm(wellbeing ~ social_int + outdoor_time + routine + age, data = mwdata2)
+model5 <- lm(wellbeing ~ social_int + outdoor_time + routine + steps_k, data = mwdata2)
+```
+
+For each of the below pairs of models, what methods are/are not available for us to use for comparison and why?  
+
++ `model1` vs `model2`
++ `model2` vs `model3`
++ `model1` vs `model4`
++ `model3` vs `model5`
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS)`
+
++ `model1` vs `model2`  
+  These models are nested - `model2` contains all the variables of `model1` and they are fitted on the same dataset.  
+  We can therefore use an F-test, AIC or BIC.  
+    
++ `model2` vs `model3`  
+  These models are __not__ nested, but they are fitted on the same dataset.  
+  We can therefore use AIC or BIC, but we cannot use an F-test.  
+    
++ `model1` vs `model4`
+  These models are nested - `model4` contains all the variables of `model1` and they are fitted on the same dataset.  
+  We can therefore use an F-test, AIC or BIC.  
+    
++ `model3` vs `model5`  
+  These models are __not__ nested, and they are __not__ fitted on the same dataset. the "steps_k" variable contains missing values, and so these whole rows are excluded from `model5` (but they are included in `model3`). We cannot compare these models.   
+
+`r solend()`
+
+
+# Model Selection  
+
+:::frame
+## Stepwise
+
+__Forward__  
+
++ Start with variable which has highest association with DV.
++ Add the variable which most increases $R^2$ out of all which remain.
++ Continue until no variables improve $R^2$.  
+
+__Backward__  
+
++ Start with all variables in the model.
++ Remove the predictor with the highest p-value.
++ Run the model again and repeat.  
++ Stop when all p-values for predictors are less than the _a priori_ set critical level.  
+
+<br>
+Note that we can have different criteria for selecting models in this stepwise approach, for instance, choosing the model with the biggest decrease in AIC. 
+
+:::
+
+```{r}
+scs_study <- read_csv("data/scs_study.csv")
+step(lm(dass~., data=scs_study), direction="forward")
+```
+
+
+
 https://link.springer.com/article/10.1007/s10463-009-0234-4
 
 step/drop1
