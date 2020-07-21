@@ -467,10 +467,6 @@ div.tocify {
 </div>
 
 
-<div class="red">
-<p><strong>PRE-LAB ACTIVITIES</strong></p>
-<p>Before attempting the lab please read ?.</p>
-</div>
 <div class="lo">
 <p><strong>LEARNING OBJECTIVES</strong></p>
 <ol style="list-style-type: decimal">
@@ -786,18 +782,18 @@ Solution <span id="sol-start-41" class="fa fa-plus solution-icon clickable" oncl
 <div class="frame">
 <p>We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:</p>
 <ul>
-<li>Regression outliers: A large residual <span class="math inline">\(\hat \epsilon_i\)</span> - i.e., a big discrepancy between their predicted y-value and their observed y-value.
+<li><strong>Regression outliers:</strong> A large residual <span class="math inline">\(\hat \epsilon_i\)</span> - i.e., a big discrepancy between their predicted y-value and their observed y-value.
 <ul>
-<li>Standardised residuals: For residual <span class="math inline">\(\hat \epsilon_i\)</span>, divide by the estimate of the standard deviation of the residuals.</li>
-<li>Studentised residuals: For residual <span class="math inline">\(\hat \epsilon_i\)</span>, divide by the estimate of the standard deviation of the residuals excluding case <span class="math inline">\(i\)</span>. In R, the <code>studres()</code> function from the <strong>MASS package</strong>.</li>
+<li><strong>Standardised residuals:</strong> For residual <span class="math inline">\(\hat \epsilon_i\)</span>, divide by the estimate of the standard deviation of the residuals. In R, the <code>rstandard()</code> function will give you these</li>
+<li><strong>Studentised residuals:</strong> For residual <span class="math inline">\(\hat \epsilon_i\)</span>, divide by the estimate of the standard deviation of the residuals excluding case <span class="math inline">\(i\)</span>. In R, the <code>rstudent()</code> function will give you these.</li>
 </ul></li>
-<li>High leverage cases: These are cases which have considerable <em>potential</em> to influence the regression model (e.g., cases with an unusual combination of predictor values).
+<li><strong>High leverage cases:</strong> These are cases which have considerable <em>potential</em> to influence the regression model (e.g., cases with an unusual combination of predictor values).
 <ul>
-<li>Hat values are used to assess leverage. In R, The <code>hatvalues()</code> function will retrieve these.</li>
+<li><strong>Hat values:</strong> are used to assess leverage. In R, The <code>hatvalues()</code> function will retrieve these.</li>
 </ul></li>
-<li>High influence cases: When a case has high leverage <em>and</em> is an outlier, it will have a large influence on the regression model.
+<li><strong>High influence cases:</strong> When a case has high leverage <em>and</em> is an outlier, it will have a large influence on the regression model.
 <ul>
-<li>Cook’s Distance combines <em>leverage</em> (hatvalues) with <em>outlying-ness</em> to capture influence. In R, the <code>cooks.distance()</code> function will provide these.</li>
+<li><strong>Cook’s Distance:</strong> combines <em>leverage</em> (hatvalues) with <em>outlying-ness</em> to capture influence. In R, the <code>cooks.distance()</code> function will provide these.</li>
 </ul></li>
 </ul>
 </div>
@@ -807,7 +803,7 @@ Question 8
 <div class="question-body">
 <p>Create a new tibble which contains:</p>
 <ol style="list-style-type: decimal">
-<li>The original variables from the model</li>
+<li>The original variables from the model (Hint, what does <code>wb_mdl1$model</code> give you?)</li>
 <li>The fitted values from the model <span class="math inline">\(\hat y\)</span><br />
 </li>
 <li>The residuals <span class="math inline">\(\hat epsilon\)</span></li>
@@ -822,7 +818,15 @@ Question 8
 Solution <span id="sol-start-42" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-42&#39;, &#39;sol-start-42&#39;)"></span>
 </div>
 <div id="sol-body-42" class="solution-body" style="display: none;">
-
+<pre class="r"><code>mdl_diagnost &lt;- 
+  tibble(
+  wb_mdl1$model,
+  fitted = fitted(wb_mdl1),
+  resid = residuals(wb_mdl1),
+  studres = rstudent(wb_mdl1),
+  hats = hatvalues(wb_mdl1),
+  cooksd = cooks.distance(wb_mdl1)
+)</code></pre>
 </div>
 <p class="solution-end">
 </p>
@@ -830,8 +834,7 @@ Solution <span id="sol-start-42" class="fa fa-plus solution-icon clickable" oncl
 Question 9
 </div>
 <div class="question-body">
-<p>are there any outliers?
-are there any influential cases?</p>
+<p>Looking at the studentised residuals, are there any outliers?</p>
 <p class="question-end">
 </p>
 </div>
@@ -839,20 +842,30 @@ are there any influential cases?</p>
 Solution <span id="sol-start-43" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-43&#39;, &#39;sol-start-43&#39;)"></span>
 </div>
 <div id="sol-body-43" class="solution-body" style="display: none;">
-
+<p>Recall from the lectures, studentised residuals of <span class="math inline">\(&gt;2\)</span> or <span class="math inline">\(&lt; -2\)</span> indicate potential outlyingness.</p>
+<p>We can ask R whether the <em>absolute</em> values are <span class="math inline">\(&gt;2\)</span>:</p>
+<pre class="r"><code>abs(mdl_diagnost$studres) &gt; 2</code></pre>
+<pre><code>##     1     2     3     4     5     6     7     8     9    10    11    12    13 
+## FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE 
+##    14    15    16    17    18    19    20    21    22    23    24    25    26 
+## FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE 
+##    27    28    29    30    31    32 
+## FALSE FALSE FALSE FALSE FALSE FALSE</code></pre>
+<p>We could <em>filter</em> our newly created tibble to these observations:</p>
+<pre class="r"><code>mdl_diagnost %&gt;% 
+  filter(abs(studres)&gt;2)</code></pre>
+<pre><code>## # A tibble: 0 x 8
+## # … with 8 variables: wellbeing &lt;dbl&gt;, outdoor_time &lt;dbl&gt;, social_int &lt;dbl&gt;,
+## #   fitted &lt;dbl&gt;, resid &lt;dbl&gt;, studres &lt;dbl&gt;, hats &lt;dbl&gt;, cooksd &lt;dbl&gt;</code></pre>
+<p>There are zero rows.</p>
 </div>
 <p class="solution-end">
 </p>
-<div id="influence-measures" class="section level3">
-<h3>Influence measures</h3>
-<div class="frame">
-
-</div>
 <div class="question-begin">
 Question 10
 </div>
 <div class="question-body">
-<p>use <code>influence.measures()</code> to</p>
+<p>Looking at the hat values, are there any observations with high leverage?</p>
 <p class="question-end">
 </p>
 </div>
@@ -860,6 +873,91 @@ Question 10
 Solution <span id="sol-start-44" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-44&#39;, &#39;sol-start-44&#39;)"></span>
 </div>
 <div id="sol-body-44" class="solution-body" style="display: none;">
+<p>Recall from the lectures, hat values of more than <span class="math inline">\(2 \bar{h}\)</span> (2 times the average hat value) are considered high leverage.</p>
+<p>The average hat value, <span class="math inline">\(\bar{h}\)</span> is calculated as <span class="math inline">\(\frac{k + 1}{n}\)</span>, where <span class="math inline">\(k\)</span> is the number of predictors, and <span class="math inline">\(n\)</span> is the sample size.
+For our model:
+<span class="math display">\[
+\bar h = \frac{k+1}{n} = \frac{2+1}{32} = \frac{3}{32} = 0.094
+\]</span></p>
+<p>We can ask whether any of observations have hat values which are greater than <span class="math inline">\(\bar h\)</span>:</p>
+<pre class="r"><code>mdl_diagnost %&gt;%
+  filter(hats &gt; 0.094)</code></pre>
+<pre><code>## # A tibble: 13 x 8
+##    wellbeing outdoor_time social_int fitted resid studres   hats  cooksd
+##        &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;
+##  1        30            7          8   23.9  6.06   1.07  0.149  0.0665 
+##  2        21            9          8   25.1 -4.13  -0.719 0.141  0.0288 
+##  3        38           14         10   31.7  6.30   1.08  0.0967 0.0415 
+##  4        27           16         10   32.9 -5.88  -1.01  0.107  0.0410 
+##  5        20            1         10   24.0 -4.00  -0.710 0.177  0.0367 
+##  6        40           24         12   41.2 -1.23  -0.214 0.156  0.00291
+##  7        26            5         14   33.6 -7.58  -1.31  0.0956 0.0592 
+##  8        52           26         14   46.0  5.98   1.06  0.152  0.0665 
+##  9        49            5         20   44.4  4.60   0.815 0.167  0.0448 
+## 10        57           26         21   58.6 -1.64  -0.282 0.128  0.00401
+## 11        45            8         22   49.8 -4.79  -0.849 0.169  0.0493 
+## 12        56           14         22   53.3  2.66   0.451 0.105  0.00815
+## 13        63           27         24   64.6 -1.65  -0.292 0.186  0.00674</code></pre>
+<p>Note that quite a few observations (13) have high leverage.</p>
+</div>
+<p class="solution-end">
+</p>
+<div class="question-begin">
+Question 11
+</div>
+<div class="question-body">
+<p>Looking at the Cook’s Distance values, are there any highly influential points?</p>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution <span id="sol-start-45" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-45&#39;, &#39;sol-start-45&#39;)"></span>
+</div>
+<div id="sol-body-45" class="solution-body" style="display: none;">
+<p>Recall from the lectures that we have a Cook’s Distance cut-off of <span class="math inline">\(\frac{4}{n-k-1}\)</span>, where <span class="math inline">\(k\)</span> is the number of predictors, and <span class="math inline">\(n\)</span> is the sample size.<br />
+For our model:
+<span class="math display">\[
+D_{cutoff} = \frac{4}{n-k-1} = \frac{4}{32 - 2 - 1} = \frac{4}{29} = 0.138
+\]</span></p>
+<p>There are no observations which have a high influence on our model estimates:</p>
+<pre class="r"><code>mdl_diagnost %&gt;%
+  filter(cooksd &gt; 0.138)</code></pre>
+<pre><code>## # A tibble: 0 x 8
+## # … with 8 variables: wellbeing &lt;dbl&gt;, outdoor_time &lt;dbl&gt;, social_int &lt;dbl&gt;,
+## #   fitted &lt;dbl&gt;, resid &lt;dbl&gt;, studres &lt;dbl&gt;, hats &lt;dbl&gt;, cooksd &lt;dbl&gt;</code></pre>
+</div>
+<p class="solution-end">
+</p>
+</div>
+<div id="other-influence.measures" class="section level2">
+<h2>Other influence.measures()</h2>
+<div class="frame">
+<p>Alongside Cook’s Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.</p>
+<ul>
+<li><strong>DFFit:</strong> the change in the predicted value at the <span class="math inline">\(i^{th}\)</span> observation with and without the <span class="math inline">\(i^{th}\)</span> observation is included in the regression.<br />
+</li>
+<li><strong>DFbeta:</strong> the change in a specific coefficient with and without the <span class="math inline">\(i^{th}\)</span> observation is included in the regression.<br />
+</li>
+<li><strong>DFbetas:</strong> the change in a specific coefficient divided by the standard error, with and without the <span class="math inline">\(i^{th}\)</span> observation is included in the regression.<br />
+</li>
+<li><strong>COVRATIO:</strong> measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation’s influence on standard errors.</li>
+</ul>
+</div>
+<div class="question-begin">
+Question 12
+</div>
+<div class="question-body">
+<p>Use the function <code>influence.measures()</code> to extract these delete-1 measures of influence.</p>
+<p>Try plotting the distributions of some of these measures.</p>
+<p><strong>Tip:</strong> the function <code>influence.measures()</code> returns an <code>infl</code>-type object. To plot this, we need to find a way to extract the actual numbers from it.<br />
+What do you think <code>names(influence.measures(wb_mdl1))</code> shows you? How can we use <code>influence.measures(wb_mdl1)$&lt;insert name here&gt;</code> to extract the matrix of numbers?</p>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution <span id="sol-start-46" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-46&#39;, &#39;sol-start-46&#39;)"></span>
+</div>
+<div id="sol-body-46" class="solution-body" style="display: none;">
 <pre class="r"><code>influence.measures(wb_mdl1)</code></pre>
 <pre><code>## Influence measures of
 ##   lm(formula = wellbeing ~ outdoor_time + social_int, data = mwdata) :
@@ -897,21 +995,27 @@ Solution <span id="sol-start-44" class="fa fa-plus solution-icon clickable" oncl
 ## 30  0.11226  0.25745 -0.30386 -0.3826 1.238 0.049262 0.1686    
 ## 31 -0.07637 -0.05313  0.12879  0.1542 1.214 0.008153 0.1047    
 ## 32  0.10249 -0.07000 -0.07662 -0.1399 1.353 0.006736 0.1864   *</code></pre>
-<pre class="r"><code>covratio(wb_mdl1)</code></pre>
-<pre><code>##         1         2         3         4         5         6         7         8 
-## 1.1574528 1.2249192 1.0878516 1.1169082 1.2789109 1.1414257 1.0874455 1.3093821 
-##         9        10        11        12        13        14        15        16 
-## 1.0876945 1.0269827 1.1661534 1.1643316 1.0165228 1.0392108 0.8153214 0.8730325 
-##        17        18        19        20        21        22        23        24 
-## 1.1771313 1.1589161 1.0550972 1.0649102 1.1313403 1.0199551 1.1377308 0.9113904 
-##        25        26        27        28        29        30        31        32 
-## 1.1314532 1.2427244 0.8300350 1.2632786 1.0667246 1.2381483 1.2142731 1.3531258</code></pre>
+<p>Let’s plot the distribution of COVRATIO statistics.<br />
+Recall that values which are <span class="math inline">\(&gt;1+\frac{3(k+1)}{n}\)</span> or <span class="math inline">\(&lt;1-\frac{3(k+1)}{n}\)</span> are considered as having strong influence.<br />
+For our model:
+<span class="math display">\[
+1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{32} \quad = \quad 1\pm \frac{9}{32} \quad = \quad 1\pm0.28
+\]</span></p>
+<p>The “infmat” bit of an <code>infl</code>-type object contains the numbers. To use it with ggplot, we will need to turn it into a dataframe (<code>as.data.frame()</code>), or a tibble (<code>as_tibble()</code>):</p>
+<pre class="r"><code>infdata &lt;- influence.measures(wb_mdl1)$infmat %&gt;%
+  as_tibble()
+
+ggplot(data = infdata, aes(x = cov.r)) + 
+  geom_histogram() +
+  geom_vline(aes(xintercept = c(1-0.28)))+
+  geom_vline(aes(xintercept = c(1+0.28)))</code></pre>
+<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-17-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p>It looks like a few observations may be having quite a high influence here. This is perhaps not that surprising as we only have 32 datapoints.</p>
 </div>
 <p class="solution-end">
 </p>
 <hr />
 <hr />
-</div>
 </div>
 </div>
 <div id="less-guided-exercises" class="section level1">
@@ -942,15 +1046,17 @@ Question 11
 <ul>
 <li>When there is an interaction in the model, assessing linearity becomes difficult. In fact, <code>crPlots()</code> will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.<br />
 </li>
-<li>Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables like we have here will reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)</li>
+<li>Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables like we have here will reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)<br />
+</li>
+<li>You can fit a model and exclude specific observations. For instance, to remove the 3rd and 5th rows of the dataset: <code>lm(y ~ x1 + x2, data = dataset[-c(3,5),])</code>. Be careful to remember that these values remain in the dataset, they have simply been excluded from the model fit.</li>
 </ul>
 <p class="question-end">
 </p>
 </div>
 <div class="solution-begin">
-Solution <span id="sol-start-45" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-45&#39;, &#39;sol-start-45&#39;)"></span>
+Solution <span id="sol-start-47" class="fa fa-plus solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-47&#39;, &#39;sol-start-47&#39;)"></span>
 </div>
-<div id="sol-body-45" class="solution-body" style="display: none;">
+<div id="sol-body-47" class="solution-body" style="display: none;">
 <p>We’re going to mean-center the <code>scs</code> variable from the outset.</p>
 <pre class="r"><code>scs_study &lt;- read_csv(&quot;data/scs_study.csv&quot;)  
 
@@ -962,22 +1068,22 @@ scs_study &lt;-
 
 dass_mdl2 &lt;- lm(dass ~ 1 + scs_mc * zn, data = scs_study)</code></pre>
 <pre class="r"><code>plot(dass_mdl2)</code></pre>
-<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-15-1.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-15-2.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-15-3.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-15-4.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-21-1.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-21-2.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-21-3.png" width="60%" style="display: block; margin: auto;" /><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-21-4.png" width="60%" style="display: block; margin: auto;" /></p>
 <p>From quick visual inspection, it looks like there is at least one very influential point, which has been labelled for us as case number 35.</p>
 <pre class="r"><code>scs_study[35,]</code></pre>
 <pre><code>## # A tibble: 1 x 8
 ##      zo    zc    ze     za    zn   scs  dass scs_mc
 ##   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;  &lt;dbl&gt;
-## 1 0.645 -1.49  1.31 -0.484  2.24    54    65   18.2</code></pre>
+## 1 0.645 -1.49 0.970 -0.121  2.24    54    65   18.2</code></pre>
 <p>The code below fits a new model and assigns it the name <code>dass_mdl3</code>. How is it different from the previous model?</p>
 <pre class="r"><code>dass_mdl3 &lt;- lm(dass ~ 1 + scs_mc * zn, data = scs_study[-35, ])</code></pre>
 <p>Does this new model meet the assumptions of multiple regression?</p>
 <p><strong>Linearity</strong></p>
 <pre class="r"><code>plot(dass_mdl3, which = 1)</code></pre>
-<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-19-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-25-1.png" width="60%" style="display: block; margin: auto;" /></p>
 <p><strong>Equal variances (Homoscedasticity)</strong></p>
 <pre class="r"><code>residualPlots(dass_mdl3)</code></pre>
-<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-20-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-26-1.png" width="60%" style="display: block; margin: auto;" /></p>
 <pre><code>##            Test stat Pr(&gt;|Test stat|)
 ## scs_mc        1.6260           0.1044
 ## zn           -0.5074           0.6121
@@ -994,7 +1100,7 @@ durbinWatsonTest(dass_mdl3)</code></pre>
 ##  Alternative hypothesis: rho != 0</code></pre>
 <p><strong>Normality</strong></p>
 <pre class="r"><code>hist(residuals(dass_mdl3))</code></pre>
-<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-22-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<p><img src="08-mlr-assumpt_files/figure-html/unnamed-chunk-28-1.png" width="60%" style="display: block; margin: auto;" /></p>
 <pre class="r"><code>shapiro.test(residuals(dass_mdl3))</code></pre>
 <pre><code>## 
 ##  Shapiro-Wilk normality test

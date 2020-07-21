@@ -13,12 +13,6 @@ source('assets/setup.R')
 ```
 
 
-:::red
-**PRE-LAB ACTIVITIES**
-
-Before attempting the lab please read ?.
-:::
-
 :::lo
 **LEARNING OBJECTIVES**
 
@@ -327,20 +321,20 @@ VIF values <5 indicate that multicollinearity is not adversely affecting model e
 :::frame
 We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:  
 
-+ Regression outliers: A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
-    + Standardised residuals: For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals.
-    + Studentised residuals: For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `studres()` function from the **MASS package**.
-+ High leverage cases: These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
-    + Hat values are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
-+ High influence cases: When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
-    + Cook's Distance combines *leverage* (hatvalues) with *outlying-ness* to capture influence. In R, the `cooks.distance()` function will provide these. 
++ **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
+    + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
+    + **Studentised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `rstudent()` function will give you these.
++ **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
+    + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
++ **High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
+    + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence. In R, the `cooks.distance()` function will provide these. 
 
 :::
 
 `r qbegin(8)`
 Create a new tibble which contains:  
 
-1. The original variables from the model
+1. The original variables from the model (Hint, what does `wb_mdl1$model` give you?)
 2. The fitted values from the model $\hat y$  
 3. The residuals $\hat epsilon$
 4. The studentised residuals
@@ -350,41 +344,139 @@ Create a new tibble which contains:
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS)`
 
+```{r}
+
+mdl_diagnost <- 
+  tibble(
+  wb_mdl1$model,
+  fitted = fitted(wb_mdl1),
+  resid = residuals(wb_mdl1),
+  studres = rstudent(wb_mdl1),
+  hats = hatvalues(wb_mdl1),
+  cooksd = cooks.distance(wb_mdl1)
+)
+```
+
+
+
 `r solend()`
 
 `r qbegin(9)`
-
-are there any outliers?
-are there any influential cases?
-
+Looking at the studentised residuals, are there any outliers?  
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS)`
+Recall from the lectures, studentised residuals of $>2$ or $< -2$ indicate potential outlyingness.  
+
+We can ask R whether the *absolute* values are $>2$:
+```{r}
+abs(mdl_diagnost$studres) > 2
+```
+
+We could *filter* our newly created tibble to these observations:
+```{r}
+mdl_diagnost %>% 
+  filter(abs(studres)>2)
+```
+There are zero rows. 
 
 `r solend()`
 
-### Influence measures  
+`r qbegin(10)`
+Looking at the hat values, are there any observations with high leverage?  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS)`
+Recall from the lectures, hat values of more than $2 \bar{h}$ (2 times the average hat value) are considered high leverage.  
+
+The average hat value, $\bar{h}$ is calculated as $\frac{k + 1}{n}$, where $k$ is the number of predictors, and $n$ is the sample size. 
+For our model:
+$$
+\bar h = \frac{k+1}{n} = \frac{2+1}{32} = \frac{3}{32} = 0.094
+$$
+
+We can ask whether any of observations have hat values which are greater than $\bar h$:
+
+```{r}
+mdl_diagnost %>%
+  filter(hats > 0.094)
+```
+
+Note that quite a few observations (`r sum(mdl_diagnost$hats > 0.094)`) have high leverage. 
+
+`r solend()`
+  
+`r qbegin(11)`
+Looking at the Cook's Distance values, are there any highly influential points?
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS)`
+Recall from the lectures that we have a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
+For our model:
+$$
+D_{cutoff} = \frac{4}{n-k-1} = \frac{4}{32 - 2 - 1} = \frac{4}{29} = 0.138
+$$
+
+There are no observations which have a high influence on our model estimates:
+```{r}
+mdl_diagnost %>%
+  filter(cooksd > 0.138)
+```
+
+`r solend()`
+
+
+
+
+## Other influence.measures()
 
 :::frame
 
+Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
 
-
++ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
++ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  
++ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
++ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors.
 
 :::
 
 
+`r qbegin(12)`
 
-`r qbegin(10)`
+Use the function `influence.measures()` to extract these delete-1 measures of influence.  
 
-use `influence.measures()` to 
+Try plotting the distributions of some of these measures.  
+
+**Tip:** the function `influence.measures()` returns an `infl`-type object. To plot this, we need to find a way to extract the actual numbers from it.  
+What do you think `names(influence.measures(wb_mdl1))` shows you? How can we use `influence.measures(wb_mdl1)$<insert name here>` to extract the matrix of numbers?  
+
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS)`
 ```{r}
 influence.measures(wb_mdl1)
-covratio(wb_mdl1)
+```
+  
+Let's plot the distribution of COVRATIO statistics.  
+Recall that values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence.  
+For our model:
+$$
+1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{32} \quad = \quad 1\pm \frac{9}{32} \quad = \quad 1\pm0.28
+$$
+
+The "infmat" bit of an `infl`-type object contains the numbers. To use it with ggplot, we will need to turn it into a dataframe (`as.data.frame()`), or a tibble (`as_tibble()`):   
+```{r}
+infdata <- influence.measures(wb_mdl1)$infmat %>%
+  as_tibble()
+
+ggplot(data = infdata, aes(x = cov.r)) + 
+  geom_histogram() +
+  geom_vline(aes(xintercept = c(1-0.28)))+
+  geom_vline(aes(xintercept = c(1+0.28)))
 ```
 
+It looks like a few observations may be having quite a high influence here. This is perhaps not that surprising as we only have 32 datapoints. 
+
 `r solend()`
+
 
 ---
 
@@ -415,6 +507,7 @@ scs_study <- read_csv("data/scs_study.csv")
 
 + When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
 + Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
++ You can fit a model and exclude specific observations. For instance, to remove the 3rd and 5th rows of the dataset: `lm(y ~ x1 + x2, data = dataset[-c(3,5),])`. Be careful to remember that these values remain in the dataset, they have simply been excluded from the model fit.  
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS)`

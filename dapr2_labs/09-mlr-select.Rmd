@@ -13,19 +13,13 @@ source('assets/setup.R')
 ```
 
 
-:::red
-**PRE-LAB ACTIVITIES**
-
-Before attempting the lab please read ?.
-:::
-
 :::lo
 **LEARNING OBJECTIVES**
 
 1. Understand measures of model fit using $R^2$ and F.  
 2. Understand the principles of model selection and how to compare models via $R^2$ and F tests. 
 3. Understand AIC and BIC.
-4. Understand the basics of Backward elimination, Forward selection and stepwise regression. 
+4. Understand the basics of backward elimination, forward selection and stepwise regression. 
 
 :::
 
@@ -103,11 +97,10 @@ mwdata2 <-
   mwdata2 %>% mutate(
   isRural = ifelse(location=="rural","rural","notrural")
 )
-head(mwdata2)
 ```
 
 
-Fits the following model, and assign it the name "wb_mdl1".
+Fit the following model, and assign it the name "wb_mdl1".
 
 + $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$  
 
@@ -243,7 +236,7 @@ $F$(`r paste(mc$Df[2],mc$Res.df[2],collapse=",")`)=`r round(mc$F,2)`, p`r map_ch
 
 
 :::frame 
-# Incremental validity - A caution  
+## Incremental validity - A caution  
 
 A common goal for researchers is to determine which variables matter (and which do not) in contributing to some outcome variable. A common approach to answer such questions is to consider whether some variable $X$'s contribution remains significant _after_ controlling for variables $Z$.  
 
@@ -393,18 +386,122 @@ For each of the below pairs of models, what methods are/are not available for us
 `r solend()`
 
 
+
+
+
+
+`r qbegin(5)`
+Recall the data on Big 5 Personality traits, perceptions of social ranks, and depression and anxiety scale scores: 
+
+```{r}
+scs_study <- read_csv("data/scs_study.csv")
+summary(scs_study)
+```
+
+
+> **Research question**   
+> 
+> + Beyond neuroticism and its interaction with social comparison, do other personality traits predict symptoms of depression, anxiety and stress?
+>   
+
+Construct and compare multiple regression models to answer this question. Remember to check that your models meet assumptions (for this exercises, a quick eyeball of the diagnostic plots will suffice. Were this an actual research project, you would want to provide a more thorough check, for instance conducting formal tests of the assumptions).  
+<br>
+Although the solutions are available immediately for this question, we strongly advocate that you attempt it yourself before looking at them. 
+`r qend()`
+`r solbegin(show=TRUE)`
+
+First let us mean-center our social comparison scale scores, as we did in the previous labs.
+```{r}
+scs_study <- 
+  scs_study %>%
+  mutate(
+    scs_mc = scs - mean(scs)
+  )
+```
+
+
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+```
+
+The question is asking whether including a group of predictors (the O, C, E, A personality traits) improves model fit beyond a model with just neuoriticism, social comparison score and their interaction.  
+
+Notice how our initial model has one very influential point, which we will remove
+```{r}
+dass_mod <- lm(dass ~ scs_mc * zn, data = scs_study)
+plot(dass_mod)
+```
+
+
+```{r}
+dass_mod <- lm(dass ~ scs_mc * zn, data = scs_study[-35, ])
+plot(dass_mod)
+```
+
+And our full model, with the other personality variables included:
+```{r}
+dass_mod2 <- lm(dass ~ scs_mc * zn + zo + zc + ze + za, data = scs_study[-35, ])
+plot(dass_mod2)
+```
+
+```{r echo=FALSE}
+par(mfrow=c(1,1))
+```
+
+We can explore the individual coefficients of our full model, and we notice that none of the other personality variables (`zo`, `zc`, `ze`, `za`) significantly predict DASS-21 scores:
+```{r}
+summary(dass_mod2)
+```
+
+However, when we compare the two models, we find that including these predictors does significantly improve model fit. 
+```{r}
+anova(dass_mod, dass_mod2)
+```
+
+This may be a bit confusing - are we saying that none of openness, conscientiousness, agreeableness, or extraversion significantly predict DASS-21 scores, but collectively they do?  
+  
+This sort of discrepancy can often be the result of multicollinearity. Note that there may be some correlation between the `za` and `ze` variables: 
+```{r}
+library(car)
+vif(dass_mod2)
+```
+
+What may actually be happening here is that one variable is _masking_ the effect of the other. Note that when we take one of them out, the other becomes significant: 
+```{r}
+lm(dass ~ scs_mc * zn + zo + zc + ze, data = scs_study[-35, ]) %>% summary
+```
+
+`r solend()`
+
+
+
 # Model Selection  
+
+__"Which predictors should I include in my model?"__  
+
+As a rule of thumb, you should include as predictors your variables of interest (i.e., those required to answer your questions), and those which theory suggests you should take into account (for instance, if theory tells you that temperature is likely to influence the number of shark attacks on a given day, it would be remiss of you to not include it in your model).  
+
+However, in some specific situations, you may simply want to let the data tell you whatever there is to tell, without being guided by theory. This is where analysis becomes **exploratory** in nature (and therefore should *not* be used as confirmatory evidence in support of theory).  
+
+In both the design and the analysis of a study, you will have to make many many choices. Each one takes you a different way, and leads to a different set of choices. This idea has become widely known as the [garden of forking paths](https://www.americanscientist.org/article/the-statistical-crisis-in-science), and has important consequences for your statistical inferences.  
+
+Out of all the possible paths you could have taken, some will end with what you consider to be a significant finding, and some you will simply see as dead ends. If you reach a dead-end, do you go back and try a different path? Why might this be a risky approach to statistical analyses? 
+
+For a given set of data, there will likely be some significant relationships between variables which are there simply by chance (recall that $p<.05$ corresponds to a 1 in 20 chance - if we study 20 different relationships, we would expect one of them two be significant by chance). The more paths we try out, the more likely we are to find a significant relationship, even though it may actually be completely spurious!  
+
+Model selection is a means of answering the question "which predictors should I include in my model?", but it is a big maze of forking paths, which will result in keeping only those predictors which meet some criteria (e.g., significance). 
 
 :::frame
 ## Stepwise
 
-__Forward__  
+__Forward Selection__  
 
 + Start with variable which has highest association with DV.
 + Add the variable which most increases $R^2$ out of all which remain.
 + Continue until no variables improve $R^2$.  
 
-__Backward__  
+__Backward Elimination__  
 
 + Start with all variables in the model.
 + Remove the predictor with the highest p-value.
@@ -416,20 +513,59 @@ Note that we can have different criteria for selecting models in this stepwise a
 
 :::
 
+
+`r qbegin(6)`
+Using the backward elimination approach, construct a final model to predict wellbeing scores using the `mwdata2` dataset from above.   
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS)`
+We will stop when all p-values are $<.05$
+
+Note that we have two variables in there which are direct transformations of one another - "location" and "isRural". We can't have both.
 ```{r}
-scs_study <- read_csv("data/scs_study.csv")
-step(lm(dass~., data=scs_study), direction="forward")
+summary(mwdata2)
+
+full_model <- lm(wellbeing ~ age + outdoor_time + social_int + routine + location + steps_k, data = mwdata2)
+summary(full_model)
 ```
 
+We will remove the "steps_k" variable, as it is the predictor with the highest p-value (don't be tempted to think that "location" has the highest p-value. The estimated difference between urban and suburban does indeed have a high p-value, but the difference between rural and urban has a very low p-value).
+
+```{r}
+model1 <- lm(wellbeing ~ age + outdoor_time + social_int + routine + location, data = mwdata2)
+summary(model1)
+```
+And now the "age" variable:
+
+```{r}
+model2 <- lm(wellbeing ~ outdoor_time + social_int + routine + location, data = mwdata2)
+summary(model2)
+```
+
+In this model, all our predictors have p-values lower than our critical level of $.05$. 
+
+`r solend()`
 
 
-https://link.springer.com/article/10.1007/s10463-009-0234-4
+`r qbegin(7)`
+There are functions in R which automate the stepwise procedure for us.  
+`step(<modelname>)` will by default use backward elimination to choose the model with the lowest AIC.  
 
-step/drop1
-http://joshualoftus.com/post/model-selection-bias-invalidates-significance-tests/
+1. Using data on the Big 5 Personality traits, perceptions of social ranks, and depression and anxiety, fit the full model to predict DASS-21 scores.
+2. Use `step()` to determine which predictors to keep in your model. 
+3. What predictors do you have in your final model?
 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS)`
+```{r}
+full_dass_model <- lm(dass ~ zn*scs_mc + zo + zc + ze + za + zn, data = scs_study)
+step(full_dass_model)
+```
+`r solend()`
 
+--- 
 
+Extra reading: [Joshua Loftus' Blog: Model selection bias invalidates significance tests](http://joshualoftus.com/post/model-selection-bias-invalidates-significance-tests/)
+    
 
 
 
