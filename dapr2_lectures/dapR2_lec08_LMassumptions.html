@@ -38,15 +38,16 @@ class: center, middle, inverse, title-slide
 ---
 # Topics for today
 + What are the assumptions of regression and how can we test them?
-	+ Normally distributed errors
-	+ Homoscedasticity
 	+ Linearity
 	+ Independence of errors
+	+ Normality of errors
+	+ Equal variance (Homoscedasticity)
+
 
 ---
 # Regression assumptions 
 + So far, we have discussed evaluating regression models with respect to:
-	+ Overall model fit ($F$-ratio, `\(R^2\)`)
+	+ Overall model fit ( `\(F\)` -ratio, `\(R^2\)`)
 	+ Individual predictors
 	+ Individual cases
 
@@ -56,16 +57,22 @@ class: center, middle, inverse, title-slide
 
 + Thus, we also need to test these assumptions
 
----
-# Example: 
-
 
 ---
-# The lm() results
+# Today's example
++ Today we will continue using our test score example.
+
++ As of next week, we will move on to using examples from published papers.
 
 
-+ We do all our assumption testing after fitting the lm( ) model.
-  + We will need to use information from the object `M1`
+```r
+df &lt;- read_csv("./dapr2_lec07.csv")
+m1 &lt;- lm(score ~ hours, data = df)
+m2 &lt;- lm(score ~ study, data = df)
+```
+
++ We do all our assumption testing after fitting the `lm()` model.
+  + We will need to use information from the object `M1` and `M2`
 
 ???
 + This is a good time to make sure we are happy with the idea of objects
@@ -78,6 +85,7 @@ class: center, middle, inverse, title-slide
 
 + In general, graphical methods are often more useful
 	+ Easier to see the nature and magnitude of the assumption violation
+	+ There is also a very useful function for producing them all.
 
 + Statistical tests often suggest assumptions are violated when problem is small
 
@@ -85,8 +93,72 @@ class: center, middle, inverse, title-slide
 Make the general point about power and tests.
 
 ---
+# Visualizations made easy
++ For a majority of assumption and diagnostic plots, we will make use of the `plot()` function.
+
++ If we give `plot()` a linear model object, we can automatically get 6 useful plots.
+  + we will explain these over the the next few weeks.
+
+
+---
+#  Linearity 
++ **Assumption**: The relationship between `\(y\)` and `\(x\)` is linear.
+  + Assuming a linear relation when the true relation is non-linear can result in under-estimating that relation
+
++ Investigated with:
+  + Scatterplots with loess lines. 
+
+
+---
+# Linear vs non-linear
+
+.pull-left[
+
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+
+]
+
+.pull-right[
+
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+
+]
+
+---
+#  What is a loess line?
+
++ **LO**cally
++ **E**stimated
++ **S**catterplot
++ **S**moothing
+
++ Produces a line that follows the data.
+
+---
+# Visualization
+
+.pull-left[
+
+```r
+lin_m1 &lt;- df %&gt;%
+  ggplot(., aes(x=hours, y=score)) +
+  geom_point()+
+  geom_smooth(method = "lm", se=F) +
+  geom_smooth(method = "loess", se=F, 
+              col = "red") +
+  labs(x= "Hours Study", y="Test Score", 
+       title = "Scatterplot with linear (blue) and loess (red) lines")
+```
+]
+
+.pull-right[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
+]
+
+---
 # Normally distributed errors 
-+ **Assumption 1**: The residuals ($\epsilon_i$) are normally distributed around each predicted values.
++ **Assumption**: The residuals ($\epsilon_i$) are normally distributed around each predicted values.
 
 + Investigated with:
   + QQ-plots
@@ -98,71 +170,93 @@ Make the general point about power and tests.
 # Visualizations 
 + **Histograms**: Plot the frequency distribution of the residuals.
 
+
+```r
+hist(m1$residuals)
+```
+
 --
+
 + **Q-Q Plots**: Quantile comparison plots.
-	+ Plot the studentised residuals from the model against their theoretically expected values.
+	+ Plot the standardized residuals from the model against their theoretically expected values.
 	+ If the residuals are normally distributed, the points should fall neatly on the diagonal of the plot.
 	+ Non-normally distributed residuals cause deviations of points from the diagonal.
 		+ The specific shape of these deviations are characteristic of the distribution of the residuals.
+
+
+```r
+*plot(m1, which = 2)
+```
+
 
 ---
 # Visualizations
 
 .pull-left[
 
-
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-9-1.png)&lt;!-- --&gt;
 
 ]
 
 
 .pull-right[
 
-
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-10-1.png)&lt;!-- --&gt;
 
 ]
 
 ---
 # shapiro.test() 
 + The Shapiro-Wilk test provides a significance test on the departure from normality.
-+ A significant `\(p\)`-value ($\alpha = .05$) suggests that the residuals deviate from normality.
++ A significant `\(p\)`-value ( `\(\alpha = .05\)` ) suggests that the residuals deviate from normality.
 
 
+```r
+shapiro.test(m1$residuals)
+```
+
+```
+## 
+## 	Shapiro-Wilk normality test
+## 
+## data:  m1$residuals
+## W = 0.99198, p-value = 0.5628
+```
 
 
 
 ---
-#  Homoscedasticity 
+#  Equal variance (Homoscedasticity) 
 
-+ **Assumption**: Error variance is constant and not related to the values of the predictors or the predicted values
++ **Assumption**: The equal variances assumption is constant across values of the predictors `\(x_1\)`, ... `\(x_k\)`, and across values of the fitted values `\(\hat{y}\)`
 	+ Heteroscedasticity refers to when this assumption is violated (non-constant variance)
 
 + Investigated with:
-  + Plot residual values against each predictor and the predicted Y values
+  + Plot Pearson residual values against the predicted values ($\hat{y}$).
 	+ Breusch-Pagan test (Non-constant variance test)
 
 ---
 #  Residual-vs-predicted values plot 
-+ In R, we can plot the Pearson residuals against the predictor values and predicted y-values using the `residualPlots()` function from the `car` package
-
---
-+  residualPlots() output 
++ In R, we can plot the residuals vs predicted values using `residualPlot()` function in the `car` package. 
   + Categorical predictors should show a similar spread of residual values across their levels
   + The plots for continuous predictors should look like a random array of dots
 	  + The solid line should follow the dashed line closely
 
 
+```r
+residualPlot(m1)
+```
+
 ---
 #  Residual-vs-predicted values plot 
 
 .pull-left[
-+cont
-
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-13-1.png)&lt;!-- --&gt;
 
 ]
 
 .pull-right[
-+cat
-
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
 
 ]
 
@@ -181,43 +275,17 @@ Make the general point about power and tests.
 .pull-right[
 
 
+```r
+ncvTest(m1)
+```
+
+```
+## Non-constant Variance Score Test 
+## Variance formula: ~ fitted.values 
+## Chisquare = 4.975437, Df = 1, p = 0.02571
+```
 
 ]
-
-
----
-#  Linearity 
-+ **Assumption**: Each predictor has a linear relationship (straight line) with the outcome
-  + Assuming a linear relation when the true relation is non-linear can result in under-estimating that relation
-
-+ Investigated with:
-  + Scatterplots with lowess lines. 
-
-
----
-# Linear vs non-linear
-
-.pull-left[
-+linear
-
-
-]
-
-.pull-right[
-+non-linear
-
-
-]
-
----
-#  What is a lowess line?
-
-
----
-# Visualization
-
-
-
 
 ---
 #  Independence of errors 
@@ -234,6 +302,15 @@ Make the general point about power and tests.
 + Durbin-Watson test implemented in R using the `durbinWatsonTest()` function:
 
 
+```r
+durbinWatsonTest(m1)
+```
+
+```
+##  lag Autocorrelation D-W Statistic p-value
+##    1     -0.07672954      2.148216   0.386
+##  Alternative hypothesis: rho != 0
+```
 
 
 + The D-W statistic can take values between 0 and 4
@@ -256,22 +333,88 @@ What do we do about non-normality of residuals, heteroscedasticity and non-linea
 
 ---
 # Non-linear transformations 
-+ Often non-normal residuals, heteroscedasticity and non-linearity can be ameliorated by a non-linear transformation of the DV and/or IVs
-+ This involves applying a function to the values of a variable to change its values and overall shape of its distribution
-	+ For non-normal residuals and heteroscedasticity, skewed DVs can be transformed to normality
-	+ Non-linearity may be helped by a transformation of both IV and DV
++ Often non-normal residuals, heteroscedasticity and non-linearity can be ameliorated by a non-linear transformation of the outcome and/or predictors.
+
++ This involves applying a function (see first week) to the values of a variable. 
+  + This changes the values and overall shape of the distribution
+
++ For non-normal residuals and heteroscedasticity, skewed outcomes can be transformed to normality
+
++ Non-linearity may be helped by a transformation of both predictors and outcomes
 
 ---
 #  Transforming variables to normality 
-+ Positively skewed data can be made more normally distributed using a log-transformation
++ Positively skewed data can be made more normally distributed using a log-transformation.
+
 + Negatively skewed data can be made more normally distributed using same procedure but first reflecting the variable (make biggest values the smallest and smallest the biggest) and then applying the log-transform
+
++ What does skew look like?
+
+
+---
+# Visualizing Skew
+
+.pull-left[
+
+
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-17-1.png)&lt;!-- --&gt;
+
+]
+
+.pull-right[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-18-1.png)&lt;!-- --&gt;
+
+]
 
 ---
 #  Log-transformations 
-+ Log-transformations can be implemented in R using the log() function
++ Log-transformations can be implemented in R using the `log()` function.
+
 + If your variable contains zero or negative values, you need to first add a constant to make all your values positive
 	+ A good strategy is to add a constant so that your minimum value is one
 	+ E.g., if your minimum value is -1.5, add 2.5 to all your values
+
+
+---
+# Log-transformation in action
+
+
+```r
+df_skew &lt;- df_skew %&gt;%
+  mutate(
+*   log_pos = log(pos),
+*   neg_ref = ((-1)*neg) + (max(neg)+1),
+*   log_neg = log(neg_ref)
+  )
+```
+
+
+---
+# Log-transformation in action
+
+.pull-left[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-20-1.png)&lt;!-- --&gt;
+
+]
+
+.pull-right[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-21-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+# Log-transformation in action
+
+.pull-left[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-22-1.png)&lt;!-- --&gt;
+
+]
+
+.pull-right[
+![](dapR2_lec08_LMassumptions_files/figure-html/unnamed-chunk-23-1.png)&lt;!-- --&gt;
+
+]
 
 ---
 #  Other potential solutions 
