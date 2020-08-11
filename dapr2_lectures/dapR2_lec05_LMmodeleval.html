@@ -4,6 +4,7 @@
     <title>Week 3: Model evaluation</title>
     <meta charset="utf-8" />
     <meta name="author" content="TOM BOOTH" />
+    <script src="libs/kePrint/kePrint.js"></script>
     <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
   </head>
   <body>
@@ -24,89 +25,650 @@ class: center, middle, inverse, title-slide
 
 
 
----
+
+
+
 # Weeks Learning Objectives
 1. Understand the calculation and interpretation of the coefficient of determination. 
+
 2. Understand the calculation and interpretation of the F-test of model utility.
+
 3. Understand how to standardized model coefficients and when this is appropriate to do.
+
 4. Understand the relationship between the correlation coefficient and the regression slope.
 
 ---
 # Topics for today
 + Overall model evaluation
-  + Coefficent of determination
+  + Coefficent of determination ($R^2$)
   + F-test for the model
 
----
-#  Quality of the overall model 
-
-+ The aim of our linear model is to build a model which describes Y as a function of X.
-	+ That is we are trying to explain Y using X.
-+ This model gives us predicted values for Y, and the difference between these an the actual values is:
-+ SSE captures the misfit of our model.
-	+ If SSE is small, then our model is good.
 
 ---
 #  Quality of the overall model 
++ When we measure an outcome ($y$) in some data, the scores will vary (we hope).
+  + This we can think of as the total variation we are interested in.
 
-+ But how do we quantify small?
-+ Well if the total variation is given by:
-+ Then we might quantify small as the proportion of residual variance as compared to total variance.
+--
+
++ The aim of our linear model is to build a model which describes `\(Y\)` as a function of `\(X\)`.
+	+ That is we are trying to explain variation in `\(Y\)` using `\(X\)`.
+	+ So our model will explain (again, we hope) some variation in `\(Y\)`
+
+--
+
++ But it wont explain it all.
+  + What is left is the residual variance.
+
+--
+
++ We calculate the total, model and residual variances using sums of squares.
+
+`$$SS_{total} = SS_{model} + SS_{residual}$$`
 
 ---
 #  Coefficient of determination 
++ One way to consider how good our model is, would be to consider the proportion of total variance our model accounts for. 
 
-+ R 2 = coefficient of determination
++ Enter `\(R^2\)`.
+
++ `\(R^2\)` = coefficient of determination
+
 + Quantifies the amount of variability in the outcome accounted for by the predictors.
-+ Can be written as:
+  + More variance accounted for, the better.
+  
++ Represents the extent to which the prediction of `\(Y\)` is improved when predictions are based on the linear relation between `\(X\)` and `\(Y\)`.
 
-Or:
++ Let's see how it works.
+  + To do so, we need to calculate the different sums of squares.
+
+
+---
+# Total Sums of Squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{total} = \sum_{i}^{n}(y_i - \bar{Y})^2$$`
+
++ Squared distance of each data point from the mean of `\(y\)`.
+
++ Mean is our baseline. 
+
++ Without any other information, our best guess at the value of `\(y\)` for any person is the mean.
+
+]
+
+.pull-right[
+
+![](dapR2_lec05_LMmodeleval_files/figure-html/unnamed-chunk-2-1.png)&lt;!-- --&gt;
+
+]
+
+---
+# Calculations
+
+.pull-left[
+
+```r
+ss_tab &lt;- test %&gt;%
+  mutate(
+  y_dev = score - mean(score), 
+  y_dev2 = y_dev^2
+  )
+```
+
+
+```r
+ss_tab %&gt;%
+  summarize(
+    ss_tot = sum(y_dev2)
+  )
+```
+
+```
+## # A tibble: 1 x 1
+##   ss_tot
+##    &lt;dbl&gt;
+## 1   44.1
+```
+
+]
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; student &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_dev &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_dev2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.69 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.69 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.49 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22.09 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Residual sums of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{residual} = \sum_{i}^{n}(y_i - \hat{y}_i)^2$$`
+
++ Which you may recognise.
+
++ `\(SS_{residual} = SSE\)`
+
++ Squared distance of each point from the predicted value.
+]
+
+.pull-right[
+
+![](dapR2_lec05_LMmodeleval_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
+]
+
+---
+# Calculations
+
+.pull-left[
+
+```r
+ss_tab &lt;- ss_tab %&gt;%
+  mutate(
+    y_pred = round(res$fitted.values,2),
+    pred_dev = round((score - y_pred),2),
+    pred_dev2 = round(pred_dev^2,2)
+  )
+```
+
+
+```r
+ss_tab %&gt;%
+  summarize(
+    ss_tot = sum(y_dev2),
+*   ss_resid = sum(pred_dev2)
+  )
+```
+
+```
+## # A tibble: 1 x 2
+##   ss_tot ss_resid
+##    &lt;dbl&gt;    &lt;dbl&gt;
+## 1   44.1     21.2
+```
+
+]
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; student &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_pred &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pred_dev &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pred_dev2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.93 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.07 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.00 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.55 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.40 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.98 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.98 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.96 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.26 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.04 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.04 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.08 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.56 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.95 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.09 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.09 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.19 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.62 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.62 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.62 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.32 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.67 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.43 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+
+---
+# Model sums of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{model} = \sum_{i}^{n}(\hat{y}_i - \bar{Y})^2$$`
+
++ That is, it is the deviance of the predicted scores from the mean of Y.
+
++ But it is easier to simply take:
+
+`$$SS_{model} = SS_{total} - SS_{residual}$$`
+
+]
+
+.pull-right[
+
+![](dapR2_lec05_LMmodeleval_files/figure-html/unnamed-chunk-10-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+# Calculations
+
+.pull-left[
+
+`$$SS_{model} = SS_{total} - SS_{residual}$$`
+
+
+```r
+ss_tab %&gt;%
+  summarize(
+    ss_tot = sum(y_dev2),
+    ss_resid = sum(pred_dev2)
+  ) %&gt;%
+* mutate(
+*   ss_mod = ss_tot - ss_resid
+  )
+```
+
+```
+## # A tibble: 1 x 3
+##   ss_tot ss_resid ss_mod
+##    &lt;dbl&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1   44.1     21.2   22.9
+```
+
+]
+
+.pull-right[
+
+![](dapR2_lec05_LMmodeleval_files/figure-html/unnamed-chunk-12-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+#  Coefficient of determination 
++ Now we can finally come back to `\(R^2\)`.
+
+`$$R^2 = 1 - \frac{SS_{residual}}{SS_{total}}$$`
+
++ Or
+
+`$$R^2 = \frac{SS_{model}}{SS_{total}}$$`
+
++ So in our example:
+
+`$$R^2 = \frac{SS_{model}}{SS_{total}} = \frac{22.9}{44.1} = 0.519$$`
+
++ **$R^2$ = 0.519 means that 52% of the variation in test scores is accounted for by hours of revision.**
 
 ---
 #  Our example 
 
 
+```r
+res &lt;- lm(score ~ hours, data = test)
+summary(res)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6182 -1.0773 -0.7454  1.1773  2.4364 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.4000     1.1111   0.360   0.7282  
+## hours         1.0545     0.3581   2.945   0.0186 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.626 on 8 degrees of freedom
+## Multiple R-squared:  0.5201,	Adjusted R-squared:  0.4601 
+## F-statistic:  8.67 on 1 and 8 DF,  p-value: 0.01858
+```
+
+???
+As at the end of last session, we can check this against the R-ouput:
+Be sure to flag small amounts of rounding difference from working through "by hand" and so presenting to less decimal places.
 
 ---
 #  Significance of the overall model 
-
 + The test of the individual predictors (IVs, or X?s) does not tell us if the overall model is significant or not.
 	+ Neither does R-square
 	+ But both are indicative
-+ To test the significance of the model as a whole, we conduct an F-test.
-	+ You will talk much more about F-tests in the context of ANOVA so this is just a brief intro
+
++ To test the significance of the model as a whole, we conduct an `\(F\)`-test.
 
 ---
-#  F-statistic 
+#  F-ratio
++ `\(F\)`-ratio tests the null hypothesis that all the regression slopes in a model are all zero
+  + We are currently talking about a model with only one `\(x\)`, thus one slope.
+  + But the `\(F\)`-ratio test will generalise.
 
-+ Model variation is regression, is a little more complex than in ANOVA. So we will wait to discuss this in detail.
-+ In short:
-	+ If there is equivalent residual to model variation, F=1
-	+ If there is more model than residual F &gt; 1
++ `\(F\)`-ratio is a ratio of the explained to unexplained variance:
 
----
-#  Null hypothesis for F 
+`$$F = \frac{MS_{model}}{MS_{residual}}$$`
 
-+ In words, the null hypothesis for the model says that the best guess of any individuals Y value is the mean of Y plus error.
-	+ Or, that the X variables carry no information collectively about Y.
-+ The alternative is that the best prediction of an individual Yi value includes the predictors.
++ Where MS = mean squares
 
----
-#  F-distribution 
-
-+ The *F-* distribution is a continuous probability (sampling) distribution used when we want to compare two chi-square distributions.
-	+ Why is that relevant here?
-+ Chi-square distributions are used when we have ?sums of squared? quantities.
-	+ Think about the calculation of the chi-square statistic.
-+ And what is the *F-* statistic?
-	+ Ratio of variances (which are sums of squares)
-+ The parameters of the F-distribution are the degrees of freedom association which each of the variance estimates (model and residual).
++ **What are mean squares?**
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
+  + The degrees of freedom are defined by the number of values associated with the different calculations.
 
 ---
-#  Decision about the null (model) 
+# F-table
 
-+ For our example:
-  
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; k &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS_model/df_model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MS_model/MS_residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(df_model,df_residual) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; n-k-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS_residual/df_residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+# Our example: F-table
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Component &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22.9 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 22.9 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8.641509 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(1,8) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 21.2 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 44.1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+# F-ratio
++ Bigger `\(F\)`-ratios indicate better models.
+  + It means the model variance is big compared to the residual variance.
+
++ The null hypothesis for the model says that the best guess of any individuals `\(Y\)` value is the mean of `\(Y\)` plus error.
+	+ Or, that the `\(X\)` variables carry no information collectively about `\(Y\)`.
+	
++ `\(F\)`-ratio will be close to 1 when the null hypothesis is true
+  + If there is equivalent residual to model variation, `\(F\)`=1
+	+ If there is more model than residual `\(F\)` &gt; 1
+	
++ `\(F\)`-ratio is then evaluated against an `\(F\)`-distribution with `\(df_{model}\)` and `\(df_{residual}\)` and a pre-defined `\(\alpha\)`
+
++ Testing the `\(F\)`-ratio evaluates statistical significance of the overall model
+
+---
+# Visualize the test
+
+.pull-left[
+
+![](dapR2_lec05_LMmodeleval_files/figure-html/unnamed-chunk-16-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
++ Critical value and `\(p\)`-value:
+
+```r
+tibble(
+  Crit = round(qf(0.95, 1, 8),3),
+  Exactp = 1-pf(8.64, 1, 8)
+)
+```
+
+```
+## # A tibble: 1 x 2
+##    Crit Exactp
+##   &lt;dbl&gt;  &lt;dbl&gt;
+## 1  5.32 0.0187
+```
+
++ From this we would **reject the null**. 
+
+]
+
+---
+#  Our example 
+
+
+```r
+res &lt;- lm(score ~ hours, data = test)
+summary(res)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6182 -1.0773 -0.7454  1.1773  2.4364 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.4000     1.1111   0.360   0.7282  
+## hours         1.0545     0.3581   2.945   0.0186 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.626 on 8 degrees of freedom
+## Multiple R-squared:  0.5201,	Adjusted R-squared:  0.4601 
+## F-statistic:  8.67 on 1 and 8 DF,  p-value: 0.01858
+```
+
+???
+As at the end of last session, we can check this against the R-ouput:
+Comment on the minor differences for rounding.
+
 ---
 # Summary of today
 
@@ -116,6 +678,7 @@ Or:
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
 <script>var slideshow = remark.create({
+"ratio": "16:9",
 "highlightStyle": "github",
 "highlightLines": true,
 "countIncrementalSlides": false

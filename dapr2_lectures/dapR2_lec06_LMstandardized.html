@@ -24,91 +24,185 @@ class: center, middle, inverse, title-slide
 
 
 
----
+
+
+
 # Weeks Learning Objectives
 1. Understand the calculation and interpretation of the coefficient of determination. 
+
 2. Understand the calculation and interpretation of the F-test of model utility.
+
 3. Understand how to standardized model coefficients and when this is appropriate to do.
+
 4. Understand the relationship between the correlation coefficient and the regression slope.
 
 ---
 # Topics for today
 + Standardization of coefficients
+  + Two ways to calculate standardized coefficients
+  + Reasons to standardize
+  + Standardized `\(b\)` and correlation coefficient ($r$)
 
 ---
-# Unstandardized Coefficient
+# Unstandardized vs standardized coefficients
+- So far we have calculated unstandardized `\(b\)`.
 
-+ make point b is unstandardized
-+ interpretaion in units of variables
++ We interpreted the slope as the change in `\(Y\)` units for a unit change in `\(X\)`
+  + Where the unit is determined by how we have measured our variables.
+
++ In our running example:
+  + A unit of study time is 1 hour.
+  + A unit of test score is 1 point.
+  
++ However, sometimes we may want to represent our results in standard units.
 
 ---
 # Standardized units
-+ why it might be useful
++ Why might standard units be useful?
+
+--
+
++ **If the scales of our variables are arbitrary.**
+  + Example: A sum score of questionnaire items answered on a Likert scale.
+  + A unit here would equal moving from a 2 to 3 on one item.
+  + This is not especially meaningful (and actually has A LOT of associated assumptions)
+
+--
+
++ **If we want to compare the effects of variables on different scales**
+  + If we want to say something like, the effect of `\(x_1\)` is stronger than the effect of `\(x_2\)`, we need a common scale.
+  + Note, this is exactly the same argument as we made in dapR1 concerning use of effect sizes.
+
 
 ---
-# Standardized coefficients
+# Standardizing the coefficients
++ After calculating a `\(b\)`, it can be standardized by:
 
-+ how to calculate
 
---- 
-# Interpretation
+`$$\beta_1 = b_1\frac{SD_x}{SD_y}$$`
 
++ where;
+  + `\(\beta_1\)` = standardized beta coefficient
+  + `\(b_1\)` = unstandardized beta coefficient
+  + `\(SD_x\)` = standard deviation of `\(x\)`
+  + `\(SD_y\)` = standard deviation of `\(y\)`
+  
+---
+# Standardizing the variables
+
++ Alternatively, for continuous variables, transforming both the IV and DV to `\(z\)`-scores (mean=0, SD=1) prior to fitting the model yields standardised betas.
+
++ `\(z\)`-score for `\(x\)`:
+
+`$$Z_{xi} = \frac{x_i - \bar{x}}{SD_x}$$`
+
++ and the `\(z\)`-score for `\(y\)`:
+
+`$$Z_{yi} = \frac{y_i - \bar{y}}{SD_y}$$`
+
++ That is, we divide the individual deviations from the mean by the `\(SD\)`
+  
+---
+# Two approaches in action
+
+
+
+```r
+res &lt;- lm(score ~ hours, data = test)
+summary(res)$coefficients
+```
+
+```
+##             Estimate Std. Error   t value  Pr(&gt;|t|)
+## (Intercept) 0.400000  1.1111010 0.3600033 0.7281636
+## hours       1.054545  0.3581403 2.9445039 0.0185812
+```
+
+
+```r
+*1.055 * (sd(test$hours)/sd(test$score))
+```
+
+```
+## [1] 0.7214897
+```
+
+---
+# Two approaches in action
+
+
+```r
+test &lt;- test %&gt;%
+  mutate(
+    z_score = scale(score, center = T, scale = T),
+    z_hours = scale(hours, center = T, scale = T)
+  )
+
+*res_z &lt;- lm(z_score ~ z_hours, data = test)
+summary(res_z)$coefficients
+```
+
+```
+##                  Estimate Std. Error       t value  Pr(&gt;|t|)
+## (Intercept) -1.208554e-16  0.2323550 -5.201327e-16 1.0000000
+## z_hours      7.211789e-01  0.2449237  2.944504e+00 0.0185812
+```
+
+
+---
+#  Interpreting standardised regression coefficients  
++ `\(R^2\)` , `\(F\)` and `\(t\)`-test remain the same for the standardised coefficients as for unstandardised coefficients.
+
++ `\(b_0\)` (intercept) = zero when all slopes are standardised.
+
++ The interpretation of the coefficients becomes the increase in `\(Y\)` in standard deviation units for every standard deviation increase in `\(X\)`
+
++ So, in our example:
+
+&gt;**For every standard deviaton increase in hours of study, test score increases by 0.72 standard deviations**
 
 ---
 # Relationship to r
++ Standardized beta's ($\beta$) = correlation coefficient ($r$) for a linear model with a single continuous predictor.
+
++ In our example, the `\(\beta_{hours}\)` = 0.72
 
 
----
-# Coverting b to r
+```r
+cor(test$hours, test$score)
+```
 
---- 
-# Example in R
+```
+## [1] 0.7211789
+```
+
++ `\(r\)` is a standardized measure of linear association
+
++ `\(\beta\)` is a standardized measure of the linear slope.
 
 ---
 # Which should we use? 
++ Unstandardised regression coefficients are often more useful when the variables are on  meaningful scales
+	+ E.g. X additional hours of exercise per week adds Y years of healthy life
 
++ Sometimes it's useful to obtain standardised regression coefficients
+	+ When the scales of variables are arbitrary
+	+ When there is a desire to compare the effects of variables measured on different scales	
+
++ Cautions
+	+ Just because you can put regression coefficients on a common metric doesn't mean they can be meaningfully compared.
+	+ The SD is a poor measure of spread for skewed distributions, therefore, be cautious of their use with skewed variables
+	
 ---
 # Summary of today
 
 ---
 # Next tasks
-
-
----
-#  Standardised regression coefficients 
-
-+ Unstandardised regression coefficients are often more useful when the variables are on  meaningful scales
-	+ E.g. X additional hours of exercise per week adds Y years of healthy life
-+ Sometimes it?s useful to obtain standardised regression coefficients
-	+ When the scales of variables are arbitrary
-	+ When there is a desire to compare the effects of variables measured on different scales
-+ For continuous IVs, transforming both the IV and DV to z-scores (mean=0, SD=1) prior to fitting the regression yields standardised betas.
-+ Alternatively, unstandardised betas can be converted to standardised betas using:
-
-
----
-#  Standardised regression coefficients 
-
-+ For our revision and test score example, we can compute the SDs for IV and DV:
-	+ SD for revision hours (X) = 1.513
-	+ SD for test scores (Y) = 2.213
-+ Using these to compute the standardised regression coefficient:
-+ *For every SD unit increase in hours revised, test scores are expected to increase by* *0.72* *SD units*
-
----
-#  Interpreting standardised regression coefficients  
-
-+ R 2 , *F* and *t-test* remain the same for the standardised coefficients as for unstandardised coefficients
-+ The intercept becomes zero when all slopes are standardised
-+ The interpretation of the coefficients becomes the increase in Y in standard deviation units for every standard deviation increase in X
-+ Standardised betas in simple regression are equal to the Pearson correlation between X and Y
-+ Cautions
-	+ Just because you can put regression coefficients on a common metric doesn?t mean they can be meaningfully compared.
-	+ The SD is a poor measure of spread for skewed distributions, therefore, be cautious of their use with skewed variables
     </textarea>
 <style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
 <script>var slideshow = remark.create({
+"ratio": "16:9",
 "highlightStyle": "github",
 "highlightLines": true,
 "countIncrementalSlides": false
