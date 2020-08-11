@@ -12,7 +12,7 @@ knitr::opts_chunk$set(
     warning = FALSE,
     fig.align = 'center',
     out.width = '60%'
-    )
+)
 
 # ggplot settings
 library(ggplot2)
