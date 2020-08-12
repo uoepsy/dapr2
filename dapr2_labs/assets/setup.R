@@ -20,6 +20,3 @@ theme_set(
     theme_bw(base_size = 15) + 
         theme(plot.title = element_text(hjust = 0.5))
 )
-
-# reproducibility
-set.seed(953)

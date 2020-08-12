@@ -1,0 +1,814 @@
+---
+title: "Simple linear regression"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+# knitr::opts_chunk$set(cache = TRUE)
+set.seed(1)
+```
+
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Be able to specify a simple linear model to predict a quantitative variable using a quantitative predictor.
+2. Be able to interpret the coefficients of a fitted model.
+3. Understand what fitted values and residuals are.
+4. Be able to test hypotheses and construct confidence intervals for the regression coefficients.
+5. Understand the coefficient of determination and the F-test of model utility.
+:::
+
+
+# Introduction and research question
+
+> Suppose a group of researchers was studying income differences among local government employees in Riverview, a hypothetical medium-size Midwestern city in the US. Exploratory interviews suggest a relationship between income and education. Specifically, those employees with more formal training appear to receive better pay. In an attempt to verify whether this is so, they gathered relevant data.
+> The researchers did not have the time or money to interview the entire population: all 320 employees on the city payroll. Therefore, they decided to interview a simple random sample of 32, selected from the personnel list that the city clerk kindly provided.
+>
+> --- @Lewis-Beck2015
+
+
+In this lab we will use the [riverview.csv](#dc-riverview) data to examine whether education level is related to income. 
+Please take a look at the [data codebook](#dc-riverview) for a preview of the data and a link to download the file.
+
+
+
+`r qbegin(1)`
+Load the required libraries and import the riverview data into R. 
+Assign the data to a variable called `riverview`.
+`r qend()`
+
+`r solbegin()`
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+
+riverview <- read_csv(file = "data/riverview.csv")
+head(riverview)
+```
+`r solend()`
+
+
+
+# Data exploration
+
+## Marginal distributions {-}
+
+`r qbegin(2)`
+Investigate the marginal distribution of employee incomes.
+
+`r optbegin('Give me more guidance', FALSE)`
+Typical steps when examining the marginal distribution of a quantitative variable are:
+
+1. *Plot the variable*. 
+Display the distribution of the variable. You could use, for example, `geom_density()` for a density plot or `geom_histogram()` for a histogram.
+
+1. *Comment on the shape of the distribution*. 
+Look at the shape, centre and spread of the distribution.
+Is it symmetric or skewed? Is it unimodal or bimodal?
+
+1. *Identify any unusual observations*. 
+Is there evidence of observations that falls outside the overall pattern of the graph?
+`r optend()`
+
+`r qend()`
+
+`r solbegin()`
+We can plot the marginal distribution of employee incomes as a density curve, and add a boxplot underneath to check for the presence of outliers.
+
+```{r fig.cap="Density plot and boxplot of employee incomes."}
+ggplot(data = riverview, aes(x = income)) +
+  geom_density() +
+  geom_boxplot(width = 1/300) +
+  labs(x = "Income (in thousands of U.S. dollars)", y = "Probability density")
+```
+
+The plot suggests that the distribution of employee incomes is unimodal and most of the incomes are between roughly \$45,000 and \$70,000. The smallest income in the sample is about \$25,000 and the largest income is over \$80,000. (We could find the exact values using the `summary()` function.) This suggests there is a fair amount of variation in the data. 
+Furthermore, the boxplot does not highlight any outliers in the data.
+
+To further summarize the distribution, it is typical to compute and report numerical summary statistics such as the mean and standard deviation. One way to compute these values is to use the `summary() `function from the `tidyverse` library:
+
+```{r}
+riverview %>% 
+  summarize(
+    M = mean(income), 
+    SD = sd(income)
+    )
+```
+
+Following the exploration above, we can describe this variable as follows:
+
+:::int
+The marginal distribution of income is unimodal with a mean of approximately \$53,700. There is variation in employees' salaries (SD = \$14,553). 
+:::
+
+`r solend()`
+
+
+
+
+`r qbegin(3)`
+Examine the marginal distribution of the education level variable.
+`r qend()`
+
+`r solbegin()`
+We can visualise the marginal distribution of the education level variable using a density curve, and add a boxplot underneath to check for the presence of outliers.
+
+```{r fig.cap='Density plot and boxplot of employee education levels.'}
+ggplot(data = riverview, aes(x = education)) +
+  geom_density() +
+  geom_boxplot(width = 1/100) +
+  labs(x = "Education (in years)", y = "Probability density")
+```
+
+Below are the summary statistics for the employees' level of education:
+```{r}
+riverview %>%
+  summarize(
+    M = mean(education),
+    SD = sd(education)
+    )
+```
+
+Again, we might write:
+
+:::int
+The marginal distribution of education is unimodal with a mean of 16 years. There is variation in employees' level of education (SD = 4.4 years).
+:::
+`r solend()`
+
+
+
+
+
+## Relationship between variables {-}
+
+After examining the marginal distributions of the variables of interest in the analysis, we typically move on to examining relationships between the variables.
+
+`r qbegin(4)`
+Create a scatterplot to investigate the relationship between income and education level.
+`r qend()`
+
+`r solbegin()`
+```{r riverview-scatterplot, fig.cap='Scatterplot displaying the relationship between employee education levels and incomes.'}
+ggplot(data = riverview, aes(x = education, y = income)) +
+  geom_point(alpha = 0.5) +
+  labs(x = "Education (in years)", y = "Income (in thousands of U.S. dollars)")
+```
+`r solend()`
+
+
+`r qbegin(5)`
+Using the scatterplot from the previous question, describe the relationship between income and level of education among the employees in the sample.
+
+`r optbegin('Give me more guidance', FALSE)`
+Describing the relationship between two quantitative variables involves looking at their scatterplot and commenting on four characteristics of the relationship:
+
+1. The *direction* of the association indicates whether large values of one variable tend to go with large values of the other (positive association) or with small values of the other (negative association).
+1. The *form* of association refers to whether the relationship between the variables can be summarized well with a straight line or some more complicated pattern.
+1. The *strength* of association entails how closely the points fall to a recognizable pattern such as a line.
+1. *Unusual observations* that do not fit the pattern of the rest of the observations and which are worth examining in more detail.
+`r optend()`
+`r qend()`
+
+`r solbegin()`
+
+1. Direction: positive
+1. Form: approximately linear
+1. Strength: we compute the strength of a linear association using the correlation coefficient. 
+The closer the correlation coefficient to −1 or 1, the stronger the linear association between the variables.
+The closer the correlation coefficient to 0, the weaker the linear association between the variables.
+1. Unusual observations: no evidence of outliers
+
+Correlation coefficient:
+```{r}
+riverview %>%
+  select(education, income) %>%
+  cor()
+```
+
+that is, 
+$$
+r_{\text{education, income}} = 0.79
+$$
+
+
+We might write:
+
+:::int
+There is a strong, positive, linear relationship between education level and income for the employees in the sample.
+Employee incomes tend to be higher, on average, as the years of formal education increases.
+There appears to be some variation around the linear trend, so we will investigate the strength of the relationship in more detail later on.
+It appears that there are no extreme observations, i.e. points that do not fit with the rest of the data.
+:::
+`r solend()`
+
+
+
+
+## Model specification {-}
+
+`r qbegin(6)`
+Looking back at the data exploration, specify a model for the relationship between income and education level *in the population*.
+
+Pick a model from one of the following:
+
+A) $y = \beta_0 + \epsilon$
+B) $y = \beta_0 + \beta_1 x + \epsilon$
+C) $y = \beta_1 x^2 + \epsilon$
+D) $y = e^{\beta_1 \cdot x} \cdot \epsilon$
+
+where $\epsilon \sim N(0, \sigma) \text{ independently}$.
+`r qend()`
+
+`r solbegin()`
+The relationship appears to be linear, and the points appear to be scattered around an underlying linear pattern with a spread that seems to be pretty much constant as x varies.
+
+We will try and fit a linear model (option B)
+$$
+y = \beta_0 + \beta_1 x + \epsilon \quad \text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
+$$
+`r solend()`
+
+
+# Fit
+
+`r qbegin(7)`
+Fit the line to the data using the `lm()` function and assign the output to an object called `mdl`.
+
+The syntax is: 
+```
+lm(<response variable> ~ 1 + <explanatory variable>, data = <dataframe>)
+```
+
+Finally, write down the equation of the fitted line.
+`r qend()`
+
+`r solbegin()`
+The fitted model in our example can be written as
+$$
+\widehat{Income} = \hat \beta_0 + \hat \beta_1 \ Education
+$$
+or
+$$
+\widehat{Income} = \hat \beta_0 \cdot 1 + \hat \beta_1 \cdot Education
+$$
+
+When we specify the linear model in R, we include after the tilde `~` the variables that appear to the right of the $\hat \beta$s, that's why the 1 is included.
+
+As the variables are in the `riverview` dataframe, we would write:
+```{r}
+mdl <- lm(income ~ 1 + education, data = riverview)
+mdl
+```
+
+Note that by calling the name of the fitted model, `mdl`, you can see the estimated regression coefficients $\hat \beta_0$ and $\hat \beta_1$. The fitted line is:
+$$
+\widehat{Income} = 11.32 + 2.65 \ Education \\
+$$
+`r solend()`
+
+
+`r qbegin(8)`
+Explore the following equivalent ways to obtain the estimated regression coefficients (i.e., the intercept and slope) from the fitted model `mdl`:
+
+`mdl`, `mdl$coefficients`, `coef(mdl)`, `coefficients(mdl)`, `summary(mdl)`
+
+Explore the following equivalent ways to obtain the estimated standard deviation of the errors $\hat \sigma$ from the fitted model `mdl`:
+
+`sigma(mdl)`, `summary(mdl)`
+
+`r optbegin('Huh? What is $\\sigma$?', FALSE)`
+The standard deviation of the errors, denoted by $\sigma$ is an important quantity to estimate because it measures how much individual data points tend to deviate above and below the regression line. 
+
+A small $\sigma$ indicates that the points hug the line closely and we should expect fairly accurate predictions, while a large $\sigma$ suggests that, even if we estimate the line perfectly, we can expect individual values to deviate from it by substantial amounts.
+
+The *estimated* standard deviation of the errors is denoted (surprise) $\hat \sigma$.
+`r optend()`
+`r qend()`
+
+`r solbegin()`
+To obtain the estimated coefficients you can either:
+
+- type `mdl`, i.e. simply invoke the name of the fitted model;
+- type `mdl$coefficients`;
+- use the `coef(mdl)` function;
+- use the `coefficients(mdl)` function;
+- use the `summary(mdl)` function and look under the "Estimate" column.
+
+The estimated parameters returned by the above methods are all equivalent. However, `summary()` returns more information and you need to look under the column "Estimate".
+
+```{r}
+mdl
+mdl$coefficients
+coef(mdl)
+coefficients(mdl)
+summary(mdl)
+```
+
+The estimated intercept is $\hat \beta_0 = 11.32$ and the estimated slope is $\hat \beta_1 = 2.65$.
+
+---
+
+The estimated standard deviation of the errors can be equivalently obtained by:
+
+- typing `sigma(mdl)`;
+- looking at the "Residual standard error" entry of the `summary(mdl)` output.
+
+_**Note:** As `help(sigma)` says, the term "Residual standard error" is a misnomer but it's hard to get rid of this bad practice as it has been used in too many books which show R output._
+
+
+```{r}
+sigma(mdl)
+summary(mdl)
+```
+The estimated standard deviation of the errors is $\hat \sigma = 8.98$.
+
+---
+
+We can interpret the estimated intercept as follows,
+
+:::int
+The estimated average income associated to zero years of formal education is \$11,321.
+:::
+
+For the estimated slope we might write,
+
+:::int
+The estimated increase in average income associated to a one year increase in education is \$2,651.
+:::
+
+And finally, to interpret the estimated standard deviation of the errors we can use the fact that about 95\% of values from a normal distribution fall within two standard deviations of the centre to interpret what the value $\hat \sigma = 8.98$ says about employee incomes:
+
+:::int
+For any particular level of education, employee incomes should be distributed above and below the regression line with standard deviation estimated to be $\hat \sigma = 8.98$. 
+Since $2 \hat \sigma = 2 (8.98) = 17.96$, we expect most (about 95\%) of the employee incomes to be within about \$18,000 from the regression line.
+:::
+`r solend()`
+
+
+`r qbegin(9)`
+Plot the data and the fitted regression line.
+
+`r optbegin('Give me more guidance', FALSE)`
+
+1. Extract the intercept using the function `coef(mdl)[1]`;
+1. Extract the slope using the function `coef(mdl)[2]`;
+1. Provide the intercept and slope to the function `geom_abline(intercept = <intercept>, slope = <slope>)`.
+`r optend()`
+`r qend()`
+
+
+`r solbegin()`
+
+The function `coef(mdl)` returns a *vector*: that is, a sequence of numbers all of the same type.
+To get the first element of the sequence you simply use `[1]`, and `[2]` for the second.
+
+We can plot the model as follows:
+```{r}
+intercept <- coef(mdl)[1]
+slope <- coef(mdl)[2]
+
+ggplot(data = riverview, aes(x = education, y = income)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = intercept, slope = slope, color = 'blue', size = 1) + 
+  labs(x = "Education (in years)", y = "Income (in thousands of U.S. dollars)")
+```
+`r solend()`
+
+
+A predicted value is the estimate made from the model
+
+<!-- The model-predicted values are obtained using the function `predict()`, which takes as first input the fitted regression model. -->
+
+The model-predicted values represent the estimated average response, and are obtained using the fitted line. R provides different functions according to what your goal is.
+
+1. To obtain the predicted values for the observed $x$ values in the sample:
+
+- `predict(<FITTED MODEL>)`
+- `fitted(<FITTED MODEL>)`
+- `fitted.values(<FITTED MODEL>)`
+- `mdl$fitted.values`
+
+```{r}
+# Fitted values
+predict(mdl)
+```
+
+2. To obtain predicted values for new $x$ values provided via `<NEW DATA>`:
+
+- `predict(<FITTED MODEL>, newdata = <NEW DATA>)`
+
+```{r}
+# Predictions for values not in the sample
+education_query <- tibble(education = c(0, 20.5))
+predict(mdl, newdata = education_query)
+```
+
+
+## Residuals {-}
+
+The residuals represent the deviations between the actual responses and the predicted responses and can be obtained either as
+
+- `mdl$residuals`;
+- `resid(mdl)`;
+- `residuals(mdl)`;
+- computing them as the difference between the response and the predicted response.
+
+
+`r qbegin(9)`
+Use `predict(mdl)` to compute the fitted values and residuals. Mutate the `riverview` dataframe to include the fitted values and residuals as extra columns.
+
+Assign to the following symbols the corresponding numerical values:
+
+- $y_{3}$ = response variable for unit $i = 3$ in the sample data
+- $\hat y_{3}$ = fitted value for the third unit
+- $\hat \epsilon_{5} = y_{5} - \hat y_{5}$ = the residual corresponding to the 5th unit.
+`r qend()`
+
+`r solbegin()`
+```{r}
+riverview_fitted <- riverview %>%
+  mutate(
+    income_hat = predict(mdl),
+    resid = income - income_hat
+  )
+
+head(riverview_fitted)
+```
+
+- $y_{3}$ = 47.03
+- $\hat y_{3}$ = 37.83
+- $\hat \epsilon_{5} = y_{5} - \hat y_{5}$ = -12.36
+
+`r solend()`
+
+
+`r qbegin(10)`
+Plot the original income vs education data points as black dots, along with the regression line in blue, the residuals as vertical red lines, and fitted values as blue dots.
+`r qend()`
+
+`r solbegin()`
+```{r}
+ggplot(riverview_fitted) +
+  geom_point(aes(x = education, y = income), color = 'black', size = 2, alpha = 0.5) +
+  geom_abline(intercept = intercept, slope = slope, color = 'blue') +
+  geom_segment(aes(x = education, y = income_hat, xend = education, yend = income), 
+               color = 'tomato1', alpha = 0.5) +
+  geom_point(aes(x = education, y = income_hat), color = 'blue', size = 3)
+```
+`r solend()`
+
+
+# Understanding the fit
+
+## Tests and confidence intervals for slope and intercept {-}
+
+Consider again the output of the `summary()` function, which takes as input the fitted regression object:
+```{r}
+summary(mdl)
+```
+
+We already saw that the "Estimate" column returns the estimated regression coefficients.
+
+To quantify the amount of uncertainty in each estimated coefficient that is due to sampling variability, we use the standard error (SE) of the coefficient. 
+_Recall that a standard error gives a numerical answer to the question of how variable a statistic will be because of random sampling._
+
+The standard errors are found in the column "Std. Error". That is, the SE of the intercept is 6.1232, and the SE of the slope corresponding to the education variable is 0.3696.
+
+In this example the slope, 2.651, has a standard error of 0.37. One way to envision this is as a distribution. Our best guess (mean) for the slope parameter is 2.651. The standard deviation of this distribution is 0.37, which indicates the precision (uncertainty) of our estimate.
+
+```{r echo=FALSE, fig.cap='Sampling distribution of the slope coefficient. The distribution is approximately bell-shaped with a mean of 2.651 and a standard error of 0.37.'}
+ggplot(tibble(x = c(-3 * 0.37 + 2.651, 3 * 0.37 + 2.651)), aes(x = x)) +
+    stat_function(fun = dnorm, args = list(mean = 2.651, sd = 0.37)) +
+  labs(x = "Estimate for employee incomes", y = '')
+```
+
+It shouldn't surprise you that the reference distribution in this case is a t-distribution with $n-2$ degrees of freedom, where $n$ is the sample size.
+Recall the main formulas for obtaining a confidence interval and a test-statistic:
+
+:::frame
+**Confidence interval**: A confidence interval for the population slope is
+$$
+\hat \beta_1 \pm t^* \cdot SE
+$$
+where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
+
+**Test statistic**: A test statistic for $H_0: \beta_1 = 0$ is
+$$
+t = \frac{\hat \beta_1 - 0}{SE}
+$$
+which follows a t-distribution with $n-2$ degrees of freedom.
+:::
+
+In the riverview example, for 95\% confidence we have $t^* = 2.04$. The confidence interval is:
+```{r}
+n <- nrow(riverview)
+tstar <- qt(0.975, df = n - 2)
+tstar
+
+beta1_ci <- tibble(
+  lower = 2.6513 - tstar * 0.3696,
+  upper = 2.6513 + tstar * 0.3696,
+)
+beta1_ci
+```
+
+In R it is easy to obtain the confidence intervals for the regression coefficients using the command `confint()`:
+```{r}
+confint(mdl, level = 0.95)
+```
+The result is exactly the same (up to rounding errors) as the previous one.
+
+We typically report our uncertainty in a statistic by providing $\text{estimate} \pm t^* \cdot \text{SE}$. Here we would say that because of sampling variation, we are 95\% confident that the slope is between 1.896 and 3.406. Interpreting this, we might say,
+
+:::int
+For all Riverview city employees, each one-year difference in formal education is associated with a difference in income between \$1,896 and \$3,406, on average.
+:::
+    
+Similarly, we could express the uncertainty in the intercept $\hat \beta_0$ as:
+
+:::int
+The average income for all Riverview city employees with zero years of education is between \$-1184 and \$23,827.
+:::
+
+
+`r qbegin(11)`
+Test the hypothesis that the population slope is zero.
+That is, that there is no linear association between income and education level in the population.
+`r qend()`
+
+`r solbegin()`
+We calculate the test statistic
+$$
+t = \frac{\hat \beta_1 - 0}{SE} = \frac{ 2.6513 - 0 }{0.3696} = 7.173
+$$
+and compare it with the 5% critical value from a t-distribution with $n-2$ degrees of freedom, which is:
+```{r}
+n <- nrow(riverview)
+tstar <- qt(0.975, df = n - 2)
+tstar
+```
+
+As $|t| >> t^*$, we reject then null hypothesis as have strong evidence against it.
+
+The p-value, shown below, also confirms the conclusion.
+```{r}
+2 * (1 - pt(7.173, n - 2))
+```
+
+Please note that the same information was already contained in the row corresponding to the variable "education" in the output of `summary(mdl)`, which reported the t-statistic under `t value` and the p-value under `Pr(>|t|)`:
+```{r}
+summary(mdl)
+```
+
+Before we interpret the results, recall that the p-value `5.56e-08` in the `Pr(>|t|)` column simply means $5.56 \times 10^{-8}$. This is a very small value, hence we will report it as <.001 following the APA guidelines.
+
+:::int
+We performed a t-test against the null hypothesis that education is not a significant predictor of income: $t(30) = 7.173,\ p < .001$, two-sided.
+The large t-statistic leads to a very small p-value, meaning that we have strong evidence against the null hypothesis.
+:::
+
+
+`r solend()`
+
+
+## ANOVA for regression {-}
+
+The term ANOVA is an acronym for **AN**alysis **O**f **VA**riance. In a nutshell it means that we are examining/partitioning the total variability of a response variable.
+
+To assess how well the model is capturing the variability of the response, we can split the total variability in the response $y$ as the sum of the variability explained by the model (the fitted regression line) plus the variability that is left unexplained in the residuals.
+
+$$
+\text{total variability in response = variability explained by model + unexplained variability in residuals}
+$$
+
+Each of these part is measured by a sum of squares:
+
+$$
+\begin{aligned}
+SS_{Total} &= SS_{Model} + SS_{Residual} \\
+\sum_i (y_i - \bar y)^2 &= \sum_i (\hat y_i - \bar y)^2 + \sum_i (y_i - \hat y_i)^2 
+\end{aligned}
+$$
+
+`r qbegin(12)`
+What is the proportion of the total variability in incomes explained by the linear relationship with education level?
+
+_**Hint:** The question asks what is the value of $R^2 = SS_{Model} / SS_{Total}$ for this model?_
+`r qend()`
+
+`r solbegin()`
+The proportion of the total variability in incomes explained by the linear relationship with education level is given by R-squared.
+
+
+**Option 1**
+
+```{r}
+summary(mdl)
+```
+
+The output of `summary()` displays the R-squared value in the following line:
+```
+Multiple R-squared:  0.6317
+```
+
+For the moment, ignore "Adjusted R-squared". We will come back to this later in the course.
+
+
+**Option 2**
+
+The R-squared can also be obtained as:
+$$
+R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
+$$
+
+We can compute it using R as follows:
+```{r}
+head(riverview_fitted)
+
+riverview_fitted %>%
+  summarise(
+    SSModel = sum( (income_hat - mean(income))^2 ),
+    SSTotal = sum( (income - mean(income))^2 )
+  ) %>%
+  summarise(
+    RSquared = SSModel / SSTotal
+  )
+```
+
+
+**Option 3**
+
+The `anova` function returns the sum of squares of interest:
+```{r}
+mdl_anova <- anova(mdl)
+mdl_anova
+```
+
+Consider the column `Sum Sq`. 
+The entry corresponding to `education` gives $SS_{Model}$ = 4147.3, as education is the explanatory variable. T
+he entry corresponding to `Residuals` gives $SS_{Residual}$ = 2418.2.
+
+```{r}
+SSModel <- mdl_anova$`Sum Sq`[1]
+SSResidual <- mdl_anova$`Sum Sq`[2]
+SSTotal <- SSModel + SSResidual
+
+RSquared <- SSModel / SSTotal
+RSquared
+```
+
+:::int
+Approximately 63\% of the total variability in employee incomes is explained by the linear association with education level.
+:::
+
+`r solend()`
+
+
+Recall that the $R^2$ is computed on the available sample, hence it is a sample statistic and it will vary from sample to sample. How do we check if the model explains a significant amount of the variability of the responses *in the population*, or if the explained variability is due to chance alone? 
+To assess if the sample results could have happened by random chance alone we resort to a formal F-test. In simple linear regression the hypotheses being tested are:
+
+$H_0: \text{the model is ineffective, } \beta_1 = 0$
+
+$H_1: \text{the model is effective, } \beta_1 \neq 0$
+
+The relevant test-statistic compares the amount of variation in the response explained by the model to the amount of variation which left unexplained in the residuals.
+
+The model utility test uses the F-statistic:
+
+$$
+\begin{split}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n-2)} = \frac{MS_{Model}}{MS_{Residual}}
+\end{split}
+$$
+
+The sample F-statistic is compared to an F-distribution with $df_{Model} = 1$ and $df_{Residual} = n - 2$ degrees of freedom.^[
+$SS_{Residual}$ has $n - 2$ degrees of freedom. There are $n$ residuals, but two degrees of freedom are lost in estimating the slope and intercept of the line used to obtain the $\hat y_i$s.
+$SS_{Model}$ has 1 degrees of freedom. Even though there are $n$ deviations $\hat y_i - \bar y$, they are all computed from the same fitted model, which has two degrees of freedoms associated to it: the intercept and the slope. One degree of freedom is lost as the deviations $\hat y_i - \bar y$ are subject to a constraint: they must sum to zero.
+]
+
+`r optbegin('Optional: Another formula for the F-test', FALSE)`
+Recall the following relationships:
+$$
+\begin{split}
+SS_{Total} &= SS_{Model} + SS_{Residual} \\
+\\
+R^2 &= \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
+\end{split}
+$$
+
+With some algebra we can also show that:
+$$
+F = \frac{R^2 / 1}{(1 - R^2) / (n - 2) }
+$$
+
+Proof:
+
+$$
+\begin{aligned}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
+= \frac{\frac{SS_{Model}}{SS_{Total}}}{\frac{SS_{Residual}}{SS_{Total}} \cdot \frac{1}{(n - 2)}} 
+= \frac{R^2 / 1}{(1 - R^2) / (n - 2)}
+\end{aligned}
+$$
+`r optend()`
+
+`r qbegin(13)`
+Look at the output of `summary(mdl)` and `anova(mdl)`.
+
+For each output, identify the relevant information to conduct an F-test against the null hypothesis that the model is ineffective at predicting income using education level.
+`r qend()`
+
+`r solbegin()`
+```{r}
+summary(mdl)
+```
+
+The relevant row is the following:
+```
+F-statistic: 51.45 on 1 and 30 DF,  p-value: 5.562e-08
+```
+
+<br />
+
+Instead, the `anova()` output is:
+```{r}
+anova(mdl)
+```
+
+And the relevant entries are:
+
+- the `Df` column, which contains the degrees of freedom;
+- `F value = 51.452`, which is the F-statistic;
+- `Pr(>F) = 5.562e-08` = $5.562 \times 10^{-8}$, which is the p-value.
+
+
+<br />
+
+We might write up the test results as,
+
+:::int
+We performed an F-test for the overall significance of the regression, $F(1, 30) = 51.45, p < .001$.
+The large F-statistic leads to a very small p-value (<.001), meaning that we have very strong evidence against the null hypothesis that the model is ineffective.
+The data provide strong evidence that education is an effective predictor of income.
+:::
+`r solend()`
+
+
+Please note that in simple linear regression, the F-statistic for overall model significance is equal to the square of the t-statistic for $H_0: \beta_1 = 0$.
+
+Let's check that. Consider the `F value` output of `anova(mdl)` and the `t value` for education returned by `summary(mdl)`
+
+```
+F value = 51.452
+t value = 7.173
+```
+
+You can check that the squared t-statistic is equal, up to rounding error, to the F-statistic:
+$$
+t^2 = F \\
+7.173^2 = 51.452
+$$
+
+`r optbegin('Optional: Equivalence of t-test for the slope and model utility F-test in SLR', FALSE)`
+
+Here we will show the equivalence of the F-test for model effectiveness and t-test for the slope.
+
+Recall the formula of the sum of squares due to the model. We will rewrite it in an equivalent form below:
+$$
+\begin{aligned}
+SS_{Model} &= \sum_i (\hat y_i - \bar y)^2 \\
+&= \sum_i (\hat \beta_0 + \hat \beta_1 x_i - \bar y)^2 \\
+&= \sum_i (\bar y - \hat \beta_1 \bar x + \hat \beta_1 x_i - \bar y)^2 \\
+&= \sum_i (\hat \beta_1 (x_i - \bar x))^2 \\
+&= \hat \beta_1^2 \sum_i (x_i - \bar x)^2
+\end{aligned}
+$$
+
+The F-statistic is given by:
+$$
+\begin{aligned}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
+= \frac{\hat \beta_1^2 \sum_i (x_i - \bar x)^2}{\hat \sigma^2} 
+= \frac{\hat \beta_1^2 }{\hat \sigma^2 / \sum_i (x_i - \bar x)^2}
+\end{aligned}
+$$
+
+Now recall the formula of the t-statistic,
+$$
+t = \frac{\hat \beta_1}{SE} = \frac{\hat \beta_1}{\hat \sigma / \sqrt{\sum_i (x_i - \bar x)^2}}
+$$
+
+It is evident that the latter is obtained as the square root of the former.
+
+`r optend()`
+
+# References
