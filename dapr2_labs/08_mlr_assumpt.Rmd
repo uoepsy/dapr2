@@ -5,7 +5,7 @@ biblio-style: apalike
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: FALSE
+    TOGGLE: TRUE
 ---
 
 ```{r setup, include=FALSE}
@@ -33,10 +33,13 @@ In the previous labs, we have fitted a number of multiple regression models. In 
 knitr::include_graphics("images/mlroutput.png")
 ```
 
+You will recall that **before** we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets the set of assumptions.  
+
 :::red
-All of the estimates, intervals and hypothesis tests resulting from a regression analysis _assume_ a certain set of conditions have been met. Meeting these conditions is what allows us to generalise our findings beyond our sample (i.e., to the population).  
-<br>
-You will recall from the exercises on simple linear regression that **before** we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets the set of assumptions.  
+All of the estimates, intervals and hypothesis tests (see Figure \@ref(fig:mlroutputhyp)) resulting from a regression analysis _assume_ a certain set of conditions have been met. Meeting these conditions is what allows us to generalise our findings beyond our sample (i.e., to the population).  
+```{r mlroutputhyp, echo=FALSE, fig.cap="Multiple regression output in R, summary.lm(). Hypothesis tests highlighted"}
+knitr::include_graphics("images/mlrhyp.png")
+```
 :::
 
 Recall the assumptions of the linear model: 
@@ -108,7 +111,7 @@ The smoother (the pink line) follows quite closely to a linear relationship (the
 :::frame
 The equal variances assumption is that the error variance $\sigma^2$ is constant across values of the predictors $x_1$, ... $x_k$, and across values of the fitted values $\hat y$. This sometimes gets termed "Constant" vs "Non-constant" variance. Figures \@ref(fig:ncv1) & \@ref(fig:ncv2) shows what these look like visually. 
 
-```{r ncv1, echo=FALSE, fig.cap="Non-constant variance for quantitative and qualitative x"}
+```{r ncv1, echo=FALSE, fig.cap="Non-constant variance for numeric and categorical x"}
 library(patchwork)
 n=1000
 x <- runif(n, min = 0, max = 100)
@@ -143,7 +146,7 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
 (p1 | p3 )
 ```
 
-```{r ncv2, echo=FALSE, fig.cap="Constant variance for quantitative and qualitative x"}
+```{r ncv2, echo=FALSE, fig.cap="Constant variance for numeric and categorical x"}
 (p2 | p4)
 ```
 
@@ -152,8 +155,27 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
 `ncvTest(model)` (also from the **car** package) performs a test against the alternative hypothesis that the error variance changes with the level of the fitted value (also known as the "Breusch-Pagan test"). $p >.05$ indicates that we do _not_ have evidence that the assumption has been violated.
 :::
 
-
 `r qbegin(3)`
+Use `residualPlots()` to plot residuals against each predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
+
+Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+residualPlots(wb_mdl1)
+
+#test against the alternative hypothesis that error variance changes with level of fitted value
+ncvTest(wb_mdl1)
+```
+
+:::int
+Partial residual plots show no clear non-linear trends between residuals and predictors.
+Visual inspection of suggested little sign of non-constant variance, with the Breusch-Pagan test failing to reject the null that error varance does not change across the fitted values ($\chi^2(1)=0.002$, $p = .965$).
+:::
+
+`r solend()`
+
+`r qbegin(4)`
 Create the "residuals vs. fitted plot" - a scatterplot with the residuals $\hat \epsilon$ on the y-axis and the fitted values $\hat y$ on the x-axis.  
 <br>
 You can either do this: 
@@ -191,26 +213,6 @@ plot(wb_mdl1, which=1)
 :::int
 The horizontal red line shows that the average of the residual remains close to zero across the fitted values.  
 The spread of the residuals remains reasonably constant across the fitted values. 
-:::
-
-`r solend()`
-
-`r qbegin(4)`
-Use `residualPlots()` to plot residuals against each predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
-
-Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-residualPlots(wb_mdl1)
-
-#test against the alternative hypothesis that error variance changes with level of fitted value
-ncvTest(wb_mdl1)
-```
-
-:::int
-Partial residual plots show no clear non-linear trends between residuals and predictors.
-Visual inspection of suggested little sign of non-constant variance, with the Breusch-Pagan test failing to reject the null that error varance does not change across the fitted values ($\chi^2(1)=0.002$, $p = .965$).
 :::
 
 `r solend()`
@@ -253,7 +255,7 @@ We can also perform a Shapiro-Wilk test against the alternative hypothesis that 
 :::
 
 `r qbegin(6)`
-Assess the normality assumption by producing a qqplot of the residuals, and conducting a Shapiro-Wilk test.  
+Assess the normality assumption by producing a qqplot of the residuals (either manually or using `plot(model, which = ???)`), and conducting a Shapiro-Wilk test.  
   
 Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
 `r qend()`
@@ -407,7 +409,8 @@ Note that quite a few observations (`r sum(mdl_diagnost$hats > 0.094)`) have hig
 `r solend()`
   
 `r qbegin(11)`
-Looking at the Cook's Distance values, are there any highly influential points?
+Looking at the Cook's Distance values, are there any highly influential points?  
+You can also display these graphically using `plot(model, which = 4)` and `plot(model, which = 5)`. 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 Recall from the lectures that we have a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
@@ -527,15 +530,12 @@ scs_study <-
 dass_mdl2 <- lm(dass ~ 1 + scs_mc * zn, data = scs_study)
 ```
 
-
-```{r echo=FALSE}
-par(mfrow=c(2,2))
-```
-```{r}
+```{r eval=FALSE}
 plot(dass_mdl2)
 ```
-
 ```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(dass_mdl2)
 par(mfrow=c(1,1))
 ```
 

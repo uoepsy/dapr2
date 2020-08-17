@@ -40,9 +40,11 @@ style_mono_accent(
 library(tidyverse)
 library(kableExtra)
 library(car)
+
+df <- read_csv("./dapr2_lec07.csv")
+m1 <- lm(score ~ hours, data = df)
 ```
 
----
 # Weeks Learning Objectives
 1. Understand the difference between outliers and influential points. 
 
@@ -50,242 +52,370 @@ library(car)
 
 3. Comment on the issues of correlation vs causation and generalisability of the sample results.
 
-4. Run a full simple regression analysis from start to finish and to correctly interpret the results.
+4. Run a full simple linear model analysis from start to finish and to correctly interpret the results.
 
 ---
 # Topics for today
-+ Regression Outliers
++ Linear model outliers
 
 + Leverage
 
 + Influence
 
-+ Dealing with ?problematic? cases
++ Dealing with problematic cases
 
 ---
-#  Regression Diagnostics 
-+ In previous lectures we have discussed evaluating regression models:
-	+ Evaluating model fit ($R^2$ and $F$-ratio)
+#  Linear model diagnostics 
++ In previous lectures we have discussed evaluating linear models:
+	+ Evaluating model fit ( $R^2$ and $F$-ratio)
 	+ Evaluating individual predictors
 	+ Evaluating assumptions
 
-+ Another important aspect of evaluating regression models pertains to the cases (individuals):
-	+ Does the regression model fit poorly for some individuals?
++ Another important aspect of evaluating linear models pertains to the cases (individuals):
+	+ Does the model fit poorly for some individuals?
 	+ Do some individuals have a lot of influence on the results?
 
-+ Regression diagnostics allow us to explore individual cases in the context of a regression model
++ Linear model diagnostics allow us to explore individual cases in the context of a model
 
 ---
 #  Three important features 
-+ Regression outliers
-	+ Cases for which there is a large discrepancy between their predicted y-value and their observed y-value
++ Model outliers
+	+ Cases for which there is a large discrepancy between their predicted value ( $\hat{y_i}$ ) and their observed value ( $y_i$ )
 
 + High leverage cases
-	+ Cases with an unusual combination of predictor values
+	+ Cases with an unusual combination of predictor ( $x_i$ ) values
 
 + High influence cases
-	+ Cases who are having a large influence on the regression results
+	+ Cases who are having a large impact on the estimation of model
 
 ---
-#  Regression Outliers 
-+ Regression outliers are cases that have unusual DV values given their IV values
-	+ They will show a large difference between its predicted and its observed value
-	+ i.e. they will show a large *residuals*
+#  Model outliers 
++ Linear model outliers are cases that have unusual outcome values given their predictor values
+	+ They will show a large difference between the predicted ( $\hat{y_i}$ ) and the observed value ( $y_i$ )
+
++ **What quantity have we calculated that would summarise this difference?**
+
+--
+
++ Outliers will demonstrate large **residuals** ( $\epsilon_i$ )
+  + If you got stuck here, look back at the introduction to linear models
 
 ---
-#  Why are we interested in regression outliers? 
+#  Why are we interested in linear model outliers? 
+
+.pull-left[
 + They can (but do not necessarily) have a strong influence on the model
-	+ We'll get to this?
+	+ We'll get to this.
 
 + It may be informative to follow-up and investigate outliers
 	+ Is it a data entry error?
-	+ Does the case somehow not belong with the rest of the data?
-		+ E.g., a male in a sample of females
+	+ Does the case somehow not belong with the rest of the data? (E.g., a male in a sample of females)
+]
 
-+ ADD PLOT
+.pull-right[
+```{r, echo=FALSE, message=FALSE}
+df %>% 
+  ggplot(., aes(x=hours, y=score)) +
+  geom_point() +
+  geom_smooth(method = "lm", se=F) +
+  geom_point(aes(x=2, y=9), col="red") +
+  scale_y_continuous(limits = c(0,10), breaks = 0:10, labels =0:10) +
+  geom_segment(aes(x= 2, y= m1$coefficients[1]+(2*m1$coefficients[2]), xend = 2, yend = 9), col= "red", lty =2) +
+  labs(x="Hours Study", y="Test Score", title = "Regression Outlier (red dot)")
+  
+```
+
+]
+
 
 ---
 #  How do we determine if a case is an outlier? 
-+ We judge regression outlying-ness of a case on the basis of the size of its residual
++ We judge linear model outlying-ness of a case on the basis of the size of its residual
 
-+ Unstandardised residuals are
-	+ They are in the same units as the DV
-	+ Fine for comparison across cases within the same regression model
-	+ Difficult to compare across models where the DVs will have different units
++ Unstandardised residuals are:
+
+$$y_i - \hat{y_i}$$
+
++ They are in the same units as the DV
+
++ Fine for comparison across cases within the same linear model model
+
++ Difficult to compare across models where the DVs will have different units
 
 ---
 #  Standardised residuals 
-+ Standardised residuals
++ **Standardised residuals**
 	+ Divide the unstandardised residuals by an estimate of their standard deviation
 	+ Converts the residuals to z-score units
 	+ However, their calculation includes the potential outlier
 
-+ Studentised residuals
++ **Studentised residuals**
 	+ Provide a version of the standardised residual excluding the case
 	+ Values **>+2 or <-2** indicate potential outlyingness
 
 ---
-#  Studentised residuals in R 
-+ Let's imagine we have collected data on n=95 adolescents
+#  Identifying studentised residuals >2 
 
-+ We're interested in whether we can predict violence from gender, alcohol use, and low self-control
+.pull-left[
+```{r, eval=FALSE}
+m1 <- lm(score ~ hours, data = df)
 
-+ We have fit our model using lm() and now want to look for regression outliers
+df %>%
+  mutate(
+    resid = rstudent(m1) #<<
+  ) %>%
+  filter(., resid > 2 | resid < -2) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+]
 
----
-#  studres( ) function 
-+ After fitting our model...
 
-+ we can extract the studentised residuals using the studres () function from the MASS package
+.pull-right[
+
++ Steps:
+  + Extract the studentized residuals from our model.
+  + Identify those outside $\pm > 2$
+]
+
 
 ---
 #  Identifying studentised residuals >2 
-+ The `stdz` object we created stores the studentised residual values for every case in the dataset, e.g., for the first 20 cases:
 
-+ We can check which cases have studentised residuals > , using:
+.pull-left[
+```{r, eval=FALSE}
+m1 <- lm(score ~ hours, data = df)
 
-+ Specifies absolute value to capture both >+2 and <-2
+df %>%
+  mutate(
+    resid = rstudent(m1) #<<
+  ) %>%
+  filter(., resid > 2 | resid < -2) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+]
 
-+ Used to identify cases for which a specified statement is true
 
-+ Row numbers where the value of stdz is greater than
+.pull-right[
+
+```{r, echo=FALSE}
+m1 <- lm(score ~ hours, data = df)
+
+df %>%
+  mutate(
+    resid = rstudent(m1) #<<
+  ) %>%
+  filter(., resid > 2 | resid < -2) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+]
+
+
 
 ---
 #  Leverage 
-+ High leverage cases are those with an unusual IV or combination of IV values
-	+ In simple regression: an X value far from the mean of X
-	+ In multiple regression: a set of X values far from the centroid of X
-		+ Centroid= generalisation of the mean to multivariate space
+.pull-left[
++ High leverage cases are those with an unusual predictor or combination of predictor values
+	+ In simple linear model: an $x$ value far from the $\bar{x}$ 
 
----
-#  Why are we interested in leverage? 
-+ High leverage cases have considerable potential to influence the regression model
-	+ i.e., change the estimates of the intercept and regression slopes
++ **Why are we interested in leverage?** 
++ High leverage cases have potential to influence $b-0$ and $b_1$ 
+]
 
-+ High leverage cases, when they are also regression outliers, will have high **influence**
-
-
-```{r}
-# plots
+.pull-right[
+```{r, echo=FALSE, message=FALSE}
+df %>% 
+  ggplot(., aes(x=hours, y=score)) +
+  geom_point() +
+  geom_smooth(method = "lm", se=F) +
+  geom_point(aes(x=10, y=m1$coefficients[1]+(10*m1$coefficients[2])), col="red") +
+  scale_y_continuous(limits = c(0,12), breaks = seq(0,12,2), labels = seq(0,12,2)) +
+  scale_x_continuous(limits = c(0,10), breaks = seq(0,10,1), labels = seq(0,10,1)) +
+  geom_segment(aes(x= 6.5, y= m1$coefficients[1]+(6.5*m1$coefficients[2]), 
+                   xend = 10, yend = m1$coefficients[1]+(10*m1$coefficients[2])), 
+               col= "red", lty =2) +
+  labs(x="Hours Study", y="Test Score", title = "Leverage Point (red dot)")
+  
 ```
-
+]
 
 ---
-#  How do we determine if a case has high leverage? 
-+ hat values are used to assess leverage in regression
+#  Finding a case with high leverage 
++ **hat values** ( $h_i$ ) are used to assess leverage in linear model
 
-+ For simple regression the hat value for a case would be:
++ For simple linear model the hat value for a case would be:
 
-$$ $$
+$$h_i = \frac{1}{n} + \frac{(x_i - \bar{x})^2}{\sum_i^n(x_i - \bar{x})^2}$$
 
 + Where;
-  + n is the sample size
-  + is the squared deviation of an X value from the mean X
-  + is the sum of squared deviations of each X value from the mean
+  + $n$ is the sample size
+  + $(x_i - \bar{x})^2$ is the squared deviation of an $x$ value from the mean $x$
+  + $\sum_i^n(x_i - \bar{x})^2$ is the sum of all these squared deviations
+
+
+
+---
+#  Finding a case with high leverage 
++ The mean of hat values ( $\bar{h}$ ) is then:
+
+$$\bar{h} = (k+1)/n$$
+
+  + $k$ is the number of predictors
+  + $n$ is the sample size
+
++ As a rough heuristic, values more than $2\bar{h}$ are considered high leverage
+
+---
+#  Hat values in R 
+
+.pull-left[
+```{r, eval=FALSE}
+df %>%
+  mutate(
+    hat = hatvalues(m1) #<<
+  ) %>%
+  filter(., hat > 2*((1+1)/150)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+.pull-right[
+
++ Steps to identify large $h_i$ values:
+  + Extract the $h_i$ from our model.
+  + Identify those outside $2\bar{h}$
+  
+]
 
 
 ---
-#  Hat values 
-+ Hat values range between 1/n and n
+#  Hat values in R 
 
-+ The average hat value for a regression is:
-
-$$ $$
-
-+ where;
-  + k is the number of predictors
-  + n is the sample size
-
-+ As a rough heuristic, values more than 2x are considered high leverage
-
----
-#  `hatvalues()` function 
-+ After fitting our model, we can extract the hat values using the `hatvalues()` function
-
-```{r}
-
+.pull-left[
+```{r, eval=FALSE}
+df %>%
+  mutate(
+    hat = hatvalues(m1) #<<
+  ) %>%
+  filter(., hat > 2*((1+1)/150)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
 ```
 
-+ We can check which cases have hat values >2x the average value:
+]
 
-```{r}
+.pull-right[
 
+```{r, echo=FALSE}
+df %>%
+  mutate(
+    hat = hatvalues(m1) #<<
+  ) %>%
+  filter(., hat > 2*((1+1)/150)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
 ```
+  
+]
+
+
 
 ---
 #  Influence 
++ High leverage cases, when they are also linear model outliers, will have high **influence**
+
 + Cases with high influence, have a strong effect on the coefficients
-	+ Occurs when a case has both high leverage and is a regression outlier
 
-+ If we deleted such a case, the regression coefficients would change substantially
++ If we deleted such a case, the linear model coefficients would change substantially
 
-+ If a handful of influential cases are responsible for the regression results, the conclusions might not generalise very well
 
-```{r}
-# add plot
-```
+---
+# Influence
++ If a handful of influential cases are responsible for the linear model results, the conclusions might not generalise very well
+
++ Multiple ways to consider influence.
+  + Here we will discuss Cook's distance.
+  + In a few weeks we will consider some additional measures
+  
++ Cook's Distance (can be written many ways):
+
+$$D = \frac{standardized Residual}{k+1} * \frac{h_i}{1-h_i}$$
 
 ---
 #  Cooks Distance 
-+ ADD EQUATIONS SHOWING COOKS D COMBINES OUTLIERS WITH HAT VALUES (LEVERAGE)
+$$\frac{standardized Residual}{k+1} = Outlyingness $$
 
-+ So;
+$$\frac{h_i}{1-h_i} = leverage$$
 
-+ PUT IT IN WORDS
++ So $D = outlyingness*leverage$
+
+
++ Cook's distance refers to **the average distance the $\bar{y}$ values will move if a given case is removed.**
+  + If removing one case changes the predicted values a lot (moves the regression line), then it is influencing our results.
+
++ Many different suggestions for cut-off's:
+  +  $D_i > 1$ 
+  + $D_i > \frac{4}{n-k-1}$
+  + Or size relative all values in data set
 
 ---
-#  Cook's Distance 
-+ We look for Cook's distance values where:
+#  Cook's distance in R 
 
-+ ADD EQUATION
+.pull-left[
+```{r}
+df %>%
+  mutate(
+    cook = cooks.distance(m1) #<<
+  ) %>%
+  filter(., cook > 4/(150-1-1)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
 
-+ The cut-off for our violence example with n=95, k=3 would, therefore, be 4/(95-3-1)=0.044.
+]
 
----
-#  Cook?s distance in R 
-+ After fitting our model...
-+ we can extract the Cook?s distance values using the cooks.distance () function
+.pull-right[
+```{r, echo=F}
+plot(m1, which = 4)
+```
+
+]
 
 ---
 #  What should be done about outliers, high leverage and high influence values? 
-
 + Easier to identify unusual cases than it is to decide what to do about them ?
-+ In general, not a good idea to delete cases just because they exceed a threshold on a measure of outlyingness , leverage, or influence
-	+ Especially if they don?t show large influence
-+ Instead, try to investigate why a case is unusual
-+ Think of regression diagnostics more as a way of learning about the limitations of the model
-	+ Which cases can?t it explain very well?
-	+ Do results depend quite strongly on certain cases ?
-+ ? rather than as a justification for deleting cases
 
++ In general, not a good idea to delete cases automatically for exceeding a threshold. 
+	+ Especially if they don't show large influence
+	
++ Instead, try to investigate why a case is unusual
+
++ Think of linear model diagnostics more as a way of learning about the limitations of the model
+	+ Which cases can't it explain very well?
+	+ Do results depend quite strongly on certain cases?
 
 ---
 #  Investigating  and dealing with unusual cases 
 + Is there a data entry error?
 	+ Is the value within the plausible range of values for a variable?
 	+ Can it be corrected? If not, the incorrect value should be deleted
-+ Is the data legit but extreme?
-	+ Consider *winsorisation* ** over deletion to reduce its influence
-		+ Replacing the extreme value with the next largest value for that variable
-		+ Avoids missingness/ preserves information
-	+ Note that deleting or winsorising values can change the model, therefore, different cases might then show up as outlying, high leverage, or influential
-		+ Iterative approach to removing/ winsorising cases is needed
 
----
-#  Investigating and dealing with unusual cases 
 + Is the data legitimate but extreme?
-	+ Might there be unexplained variance that could be explained by predictors missing from your model?
-		+ Or an interaction between predictors (see lecture 11 and 12)
-	+ Is there something about a case that suggests it does not belong with the rest of the sample?
-		+ Does a case come from a different population that would be expected to have substantively different IV-DV relations?
-		+ E.g., do you have clinical cases in a non-clinical sample, children in a largely adult sample etc.
+	+ Consider ways to reduce its influence rather than delete (e.g. **windsorizing**)
+	+ May be model specification problems (e.g. missing variables, interactions - coming soon)
 
----
-#  Investigating and dealing with unusual cases 
 + Are there unusual values as a result of skewness?
-	+ Unusual values can sometimes result from skewed distributions
-	+ Look at a histogram and skewness values to identify problems
-	+ Consider transforming skewed variables to normality  (see lecture tomorrow)
+
+???
++ Replacing the extreme value with the next largest value for that variable
++ Avoids missingness/ preserves information
++ Note that deleting or winsorising values can change the model, therefore, different cases might then show up as outlying, high leverage, or influential
++ Iterative approach to removing/ winsorising cases is needed
+
 
 ---
 #  Sensitivity Analyses 
