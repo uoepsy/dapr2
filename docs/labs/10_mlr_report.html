@@ -475,9 +475,21 @@ div.tocify {
 </div>
 <div class="red">
 <p><strong>Pre-Lab activity</strong></p>
-<p>Please read <span class="citation">Przybylski and Weinstein (<a href="#ref-Przybylski2017">2017</a>)</span>.<br />
-You can find it at <a href="https://journals.sagepub.com/doi/full/10.1177/0956797616678438" class="uri">https://journals.sagepub.com/doi/full/10.1177/0956797616678438</a></p>
+<p>Please read ????
+You can find it at ???</p>
 </div>
+<div id="write-up-task" class="section level1">
+<h1>Write-up task</h1>
+<p>Here, we’re going to walk through a high-level step-by-step guide of what to include in a write-up of a statistical analysis. We’re going to use an example analysis using one of the datasets we have worked with on a number of exercises in previous labs concerning personality traits, social comparison, and depression and anxiety.</p>
+<div class="frame">
+<p>The aim in writing should be that a reader is able to more or less replicate your analyses <strong>without</strong> referring to your R code. This requires detailing all of the steps you took in conducting the analysis.<br />
+The point of using RMarkdown is that you can pull your results <strong>directly</strong> from the code. If your analysis changes, so does your report!</p>
+<p>You can find a .pdf of the take-everywhere write-up checklist <a href="https://uoepsy.github.io/files/writeup_guide.pdf">here</a>.</p>
+</div>
+<div class="optional-begin">
+Research question and analysis<span id="opt-start-70" class="fa fa-plus optional-icon clickable" onclick="toggle_visibility(&#39;opt-body-70&#39;, &#39;opt-start-70&#39;)"></span>
+</div>
+<div id="opt-body-70" class="optional-body" style="display: none;">
 <blockquote>
 <p><strong>Research question</strong><br />
 Previous research has identified an association between an individual’s perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this relationship.<br />
@@ -486,27 +498,55 @@ Specifically:</p>
 <li>Controlling for other personality traits, does neuroticism moderate effects of social comparison on symptoms of depression, anxiety and stress?</li>
 </ul>
 </blockquote>
-<pre class="r"><code>library(tidyverse)
+<pre class="r"><code>library(tidyverse) # for all things!
+library(psych) # good for descriptive stats
+library(car) # for assumption tests
+library(sjPlot) # for plotting models
+
 scs_study &lt;- read_csv(&quot;https://uoepsy.github.io/data/scs_study.csv&quot;)
 
 # scale scs score
 scs_study &lt;- 
   scs_study %&gt;% 
     mutate(
-      zscs = scale(scs)
+      zscs = (scs-mean(scs))/sd(scs)
     )
 
-dass_mdl &lt;- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study)</code></pre>
-<pre class="r"><code>plot(dass_mdl2)</code></pre>
-<p><img src="10_mlr_report_files/figure-html/unnamed-chunk-3-1.png" width="60%" style="display: block; margin: auto;" /><img src="10_mlr_report_files/figure-html/unnamed-chunk-3-2.png" width="60%" style="display: block; margin: auto;" /><img src="10_mlr_report_files/figure-html/unnamed-chunk-3-3.png" width="60%" style="display: block; margin: auto;" /><img src="10_mlr_report_files/figure-html/unnamed-chunk-3-4.png" width="60%" style="display: block; margin: auto;" /></p>
-<pre class="r"><code>dass_mdl2 &lt;- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study[-35, ])
-
-library(car)
-
-residualPlots(dass_mdl2)</code></pre>
+# the describe() function is from the psych package
+describe(scs_study)</code></pre>
+<pre><code>##      vars   n  mean   sd median trimmed  mad   min   max range  skew kurtosis
+## zo      1 656  0.09 1.02   0.08    0.08 1.07 -2.82  3.55  6.37  0.15    -0.08
+## zc      2 656  0.02 1.00   0.00    0.03 1.03 -3.22  3.08  6.30 -0.08    -0.13
+## ze      3 656  0.00 1.00  -0.04   -0.01 1.00 -3.01  2.80  5.81  0.05    -0.13
+## za      4 656  0.00 1.00  -0.02    0.01 1.04 -2.94  2.97  5.91 -0.08    -0.04
+## zn      5 656  0.00 1.00  -0.21   -0.10 1.00 -1.45  3.35  4.80  0.80     0.04
+## scs     6 656 35.77 3.53  35.00   35.59 2.97 27.00 54.00 27.00  0.60     0.96
+## dass    7 656 44.72 6.76  44.00   44.62 5.93 23.00 68.00 45.00  0.18     0.33
+## zscs    8 656  0.00 1.00  -0.22   -0.05 0.84 -2.48  5.16  7.64  0.60     0.96
+##        se
+## zo   0.04
+## zc   0.04
+## ze   0.04
+## za   0.04
+## zn   0.04
+## scs  0.14
+## dass 0.26
+## zscs 0.04</code></pre>
+<pre class="r"><code>dass_mdl &lt;- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study)
+plot(dass_mdl)</code></pre>
+<p><img src="10_mlr_report_files/figure-html/unnamed-chunk-3-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<pre><code>##       35 
+## 2.664798</code></pre>
+<pre class="r"><code>dass_mdl2 &lt;- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study[-35, ])</code></pre>
 <p><img src="10_mlr_report_files/figure-html/unnamed-chunk-5-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># linearity
+plot(dass_mdl2, which=1)</code></pre>
+<p><img src="10_mlr_report_files/figure-html/unnamed-chunk-6-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<pre class="r"><code># equal variances
+residualPlots(dass_mdl2)</code></pre>
+<p><img src="10_mlr_report_files/figure-html/unnamed-chunk-6-2.png" width="60%" style="display: block; margin: auto;" /></p>
 <pre><code>##            Test stat Pr(&gt;|Test stat|)  
-## zscs                                   
+## zscs          1.8141          0.07013 .
 ## zn           -0.5911          0.55467  
 ## zo            1.7801          0.07553 .
 ## zc           -0.2403          0.81018  
@@ -519,77 +559,772 @@ residualPlots(dass_mdl2)</code></pre>
 <pre><code>## Non-constant Variance Score Test 
 ## Variance formula: ~ fitted.values 
 ## Chisquare = 1.508659, Df = 1, p = 0.21934</code></pre>
-<pre class="r"><code>shapiro.test(residuals(dass_mdl2))</code></pre>
+<pre class="r"><code># normality
+shapiro.test(residuals(dass_mdl2))</code></pre>
 <pre><code>## 
 ##  Shapiro-Wilk normality test
 ## 
 ## data:  residuals(dass_mdl2)
 ## W = 0.99826, p-value = 0.7616</code></pre>
-<pre class="r"><code>dwt(dass_mdl2)</code></pre>
+<pre class="r"><code># independence
+dwt(dass_mdl2)</code></pre>
 <pre><code>##  lag Autocorrelation D-W Statistic p-value
 ##    1     -0.03991314      2.078413   0.322
 ##  Alternative hypothesis: rho != 0</code></pre>
-<pre class="r"><code>vif(dass_mdl2)</code></pre>
+<pre class="r"><code># multicollinearity
+vif(dass_mdl2)</code></pre>
 <pre><code>##     zscs       zn       zo       zc       ze       za  zscs:zn 
 ## 1.015133 1.015736 1.013310 1.008235 2.332486 2.342220 1.012475</code></pre>
-<ol start="0" style="list-style-type: decimal">
-<li></li>
-</ol>
-<ul>
-<li>describe study design, data collection, etc.</li>
-</ul>
-<ol style="list-style-type: decimal">
-<li>Describe data</li>
-</ol>
-<ul>
-<li>how many observational units?</li>
-<li>describe the variables of interest - how are they scored, have they been transformed at all?<br />
-</li>
-<li>covariances/correlations</li>
-</ul>
-<ol start="2" style="list-style-type: decimal">
-<li>describe analytical approach</li>
-</ol>
-<ul>
-<li>what type of statistical analysis do you use to answer the question? (e.g., t-test, simple linear regression, multiple linear regression)</li>
-<li>describe the model/analysis structure
-<ul>
-<li>what is your outcome variable?</li>
-<li>what are your predictors?</li>
-<li>any other specifics?</li>
-</ul></li>
-</ul>
-<ol start="3" style="list-style-type: decimal">
-<li>planned analysis vs actual analysis</li>
-</ol>
-<ul>
-<li>Was there anything you had to do differently than planned during the analysis?
-<ul>
-<li>Did you exclude any observations?</li>
-<li>Did you have to do anything (e.g., transform any variables) in order to meet assumptions?</li>
-<li></li>
-</ul></li>
-</ul>
-<ol start="4" style="list-style-type: decimal">
-<li>present results</li>
-</ol>
-<ul>
-<li>provide table of results if applicable (for regression tables, try <code>tab_model()</code> from the <strong>sjPlot</strong> package).</li>
-<li>provide plot if applicable</li>
-</ul>
-<ol start="5" style="list-style-type: decimal">
-<li>interpret results.</li>
-</ol>
-<ul>
-<li>what do your results suggest about your research question?
-<ul>
-<li>be specific - which statistic/test says what?</li>
-</ul></li>
-</ul>
-<div id="refs" class="references">
-<div id="ref-Przybylski2017">
-<p>Przybylski, Andrew K, and Netta Weinstein. 2017. “A Large-Scale Test of the Goldilocks Hypothesis: Quantifying the Relations Between Digital-Screen Use and the Mental Well-Being of Adolescents.” <em>Psychological Science</em> 28 (2). Sage Publications Sage CA: Los Angeles, CA: 204–15.</p>
+<pre class="r"><code>summary(dass_mdl2)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = dass ~ 1 + zscs * zn + zo + zc + ze + za, data = scs_study[-35, 
+##     ])
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -17.1455  -3.8155  -0.0066   3.6905  18.1483 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept) 44.97703    0.22635 198.708  &lt; 2e-16 ***
+## zscs        -1.93818    0.23042  -8.412 2.58e-16 ***
+## zn           1.41639    0.22661   6.250 7.44e-10 ***
+## zo          -0.31435    0.22056  -1.425    0.155    
+## zc           0.09134    0.22515   0.406    0.685    
+## ze           0.52695    0.34233   1.539    0.124    
+## za           0.33847    0.34281   0.987    0.324    
+## zscs:zn     -2.76609    0.24097 -11.479  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 5.733 on 647 degrees of freedom
+## Multiple R-squared:  0.279,  Adjusted R-squared:  0.2712 
+## F-statistic: 35.76 on 7 and 647 DF,  p-value: &lt; 2.2e-16</code></pre>
 </div>
+<p class="optional-end">
+</p>
+<div id="think" class="section level2">
+<h2>Think</h2>
+<div class="yellow">
+<p>What do you know? What do you hope to learn? What did you learn during the exploratory analysis?</p>
+</div>
+<div class="question-begin">
+1: Describe design
+</div>
+<div class="question-body">
+<p>Describe the study design, the data collection strategy, etc.</p>
+<p class="question-end">
+</p>
+</div>
+<div class="question-begin">
+2: Describe the data
+</div>
+<div class="question-body">
+<ul>
+<li>How many observational units?<br />
+</li>
+<li>Are there any observations that have been excluded based on pre-defined criteria? How/why, and how many?</li>
+<li>Describe and visualise the variables of interest. How are they scored? have they been transformed at all?</li>
+<li>Describe and visualise relationships between variables. Report covariances/correlations.</li>
+</ul>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+
+
+
+<p>:::int<br />
+Data was obtained from <a href="https://uoepsy.github.io/data/scs_study.csv" class="uri">https://uoepsy.github.io/data/scs_study.csv</a>: a dataset containing information on 656 participants, including Z-scores on the 5 personality traits assessed by the Big-Five Aspects Scale (BFAS) (Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism). Participants were also assessed on the Social Comparison Scale (SCS), which is an 11-item scale measuring self-perception (relative to others) of social rank, attractiveness and belonging, and the Depression Anxiety and Stress Scale (DASS-21) - a 21 item measure with higher scores indicating higher severity of symptoms. For both of these measures, only total scores are available. Items in the SCS are measured on a 5-point scale, giving minimum and maximum possible scores of 11 and 55 respectively. Items in the DASS-21 are measured on a 4-point scale, meaning that scores can range from a possible 21 to 84.</p>
+<p>All participant data was complete (no missing values), with scores on the SCS and the DASS-21 all within possible ranges (see Table <a href="#tab:scsdasstab">1</a>). Bivariate correlations show a moderate negative relationship between DASS-21 and SCS scores; a moderate positive relationship between DASS-21 and Neuroticism, and a weak positive correlation between SCS and Neuroticism. Additionally, a strong positive relationship is evident between Extraversion and Agreeableness (see Figure <a href="#fig:splom">1</a>).</p>
+<table>
+<caption>
+<span id="tab:scsdasstab">Table 1: </span>SCS and DASS-21 descriptive statistics
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+min
+</th>
+<th style="text-align:right;">
+max
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+scs
+</td>
+<td style="text-align:right;">
+656
+</td>
+<td style="text-align:right;">
+35.77
+</td>
+<td style="text-align:right;">
+3.53
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+54
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dass
+</td>
+<td style="text-align:right;">
+656
+</td>
+<td style="text-align:right;">
+44.72
+</td>
+<td style="text-align:right;">
+6.76
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+68
+</td>
+</tr>
+</tbody>
+</table>
+<div class="figure" style="text-align: center"><span id="fig:splom"></span>
+<img src="10_mlr_report_files/figure-html/splom-1.png" alt="Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21" width="60%" />
+<p class="caption">
+Figure 1: Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21
+</p>
+</div>
+<p>:::</p>
+</div>
+<p class="solution-end">
+</p>
+<div class="question-begin">
+3: Describe the analytical approach
+</div>
+<div class="question-body">
+<ul>
+<li>What type of statistical analysis do you use to answer the research question? (e.g., t-test, simple linear regression, multiple linear regression)</li>
+<li>Describe the model/analysis structure</li>
+<li>What is your outcome variable? What is its type?</li>
+<li>What are your predictors? What are their types?</li>
+<li>Any other specifics?</li>
+</ul>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>To investigate whether, when controlling for other personality traits, neuroticism moderates the effect of social comparison on symptoms of depression, anxiety and stress, total scores on the DASS-21 were modelled using multiple linear regression. The Z-scored measures on each of the big-five personality traits were included as predictors, along with scores on the SCS (Z-scored) and its interaction with the measure of Neuroticism. Effects will be considered statistically significant at <span class="math inline">\(\alpha = 0.01\)</span>.</p>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="question-begin">
+4: Planned analysis vs actual analysis
+</div>
+<div class="question-body">
+<ul>
+<li>Was there anything you had to do differently than planned during the analysis? Did the modelling highlight issues in your data?</li>
+<li>Did you have to do anything (e.g., transform any variables, exclude any observations) in order to meet assumptions?</li>
+</ul>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>One observation was excluded from the final analysis as it was judged to be too influential on the model (Cook’s Distance = 2.66).</p>
+</div>
+</div>
+<p class="solution-end">
+</p>
+</div>
+<div id="show" class="section level2">
+<h2>Show</h2>
+<div class="yellow">
+<p>Show the mechanics and visualisations which will support your conclusions</p>
+</div>
+<div class="question-begin">
+5: Present and describe final model
+</div>
+<div class="question-body">
+<p>Present and describe the model or test which you deemed best to answer your question.</p>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>The final model was fitted to the remaining 655 observations, and took the form:
+<span class="math display">\[
+\text{DASS-21} = \beta_0 + \beta_1 \text{O} + \beta_2 \text{C} + \beta_3 \text{E} + \beta_4 \text{A} + \beta_5 \text{N} + \beta_6 \text{SCS} + \beta_7 \text{SCS} \cdot \text{N} + \epsilon  \\
+\begin{align}
+\text{Where} \\
+&amp; \text{O = Openness} \\
+&amp; \text{C = Conscientiousness} \\
+&amp; \text{E = Extraversion} \\
+&amp; \text{A = Agreeableness} \\
+&amp; \text{N = Neuroticism} \\
+\end{align}
+\]</span></p>
+<p>To address the research question of whether neuroticism moderates the effect of social comparison on depression and anxiety, we will consider the hypothesis test that the interaction coefficient is equal to zero, where:</p>
+<p><span class="math inline">\(H_0: \beta_7 = 0\)</span>. The interaction between SCS and Neuroticism is equal to zero.<br />
+<span class="math inline">\(H_1: \beta_7 \neq 0\)</span>. The interaction between SCS and Neuroticism is not equal to zero.</p>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="question-begin">
+6: Are the assumptions and conditions of your final test or model satisfied?
+</div>
+<div class="question-body">
+<p>For the final model (the one you report results from), were all assumptions met? (Hopefully yes, or there is more work to do…). Include evidence (tests or plots).</p>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>The model model met assumptions of linearity (see plot of model residuals vs fitted values, Figure <a href="#fig:linearityplot">2</a>), homoscedasticity (non-constant variance test indicated no evidence against the null hypothesis that the error variance is constant across level of the response, <span class="math inline">\(\chi^2(1)\)</span>=1.51, <span class="math inline">\(p\)</span>=0.219), independence of errors (Durbin-Watson test for autocorrelation of residuals: <span class="math inline">\(DW\)</span>=2.08, <span class="math inline">\(p\)</span>=0.324), and normality of error term (Shapiro-Wilk test indicated no evidence against the null hypothesis that the residuals were drawn from a normally distributed population: <span class="math inline">\(W\)</span>=1, <span class="math inline">\(p\)</span>=0.762).</p>
+<div class="figure" style="text-align: center"><span id="fig:linearityplot"></span>
+<img src="10_mlr_report_files/figure-html/linearityplot-1.png" alt="Residuals vs Fitted plot demonstrating overall near constant mean and variance of error term across levels of the response" width="60%" />
+<p class="caption">
+Figure 2: Residuals vs Fitted plot demonstrating overall near constant mean and variance of error term across levels of the response
+</p>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="question-begin">
+7: Report your test or model results
+</div>
+<div class="question-body">
+<ul>
+<li>Provide a table of results if applicable (for regression tables, try <code>tab_model()</code> from the <strong>sjPlot</strong> package).<br />
+</li>
+<li>Provide plots if applicable.</li>
+</ul>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>Full regression results including 95% Confidence Intervals are shown in Table <a href="#tab:tabmodel">2</a>. The interaction between social comparison and neuroticism in predicting depression and anxiety is visually presented in Figure <a href="#fig:intplot">3</a>.</p>
+<br>
+<center>
+<table style="border-collapse:collapse; border:none;">
+<caption style="font-weight: bold; text-align:left;">
+<span id="tab:tabmodel">Table 2: </span> Regression table for DASS-21 model. Outcome variable is raw total score on DASS-21, all predictors are Z-scored
+</caption>
+<tr>
+<th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">
+ 
+</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">
+DASS-21
+</th>
+</tr>
+<tr>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">
+Predictors
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+Estimates
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+CI
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+p
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+(Intercept)
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+44.98
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+44.53 – 45.42
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Social Comparison Scale
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-1.94
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-2.39 – -1.49
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Neuroticism
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+1.42
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.97 – 1.86
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Openness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.31
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.75 – 0.12
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.155
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Conscientiousness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.09
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.35 – 0.53
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.685
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Extraversion
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.53
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.15 – 1.20
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.124
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Agreeableness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.34
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.33 – 1.01
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.324
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Social Comparison Scale :<br>Neutoricism
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-2.77
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-3.24 – -2.29
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; padding-top:0.1cm; padding-bottom:0.1cm; border-top:1px solid;">
+Observations
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; padding-top:0.1cm; padding-bottom:0.1cm; text-align:left; border-top:1px solid;" colspan="3">
+655
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; padding-top:0.1cm; padding-bottom:0.1cm;">
+R<sup>2</sup> / R<sup>2</sup> adjusted
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; padding-top:0.1cm; padding-bottom:0.1cm; text-align:left;" colspan="3">
+0.279 / 0.271
+</td>
+</tr>
+</table>
+</center>
+<p><br></p>
+<div class="figure" style="text-align: center"><span id="fig:intplot"></span>
+<img src="10_mlr_report_files/figure-html/intplot-1.png" alt="Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism" width="60%" />
+<p class="caption">
+Figure 3: Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism
+</p>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+</div>
+<div id="tell" class="section level2">
+<h2>Tell</h2>
+<div class="yellow">
+<p>Communicate your findings</p>
+</div>
+<div class="question-begin">
+8: Interpret your results in the context of your research question.
+</div>
+<div class="question-body">
+<ul>
+<li>What do your results suggest about your research question?</li>
+<li>Make direct links from hypotheses to models (which bit is testing hypothesis)</li>
+<li>Be specific - which statistic did you use/what did the statistical test say? Comment on effect sizes.</li>
+<li>Make sure to include measurement units where applicable.</li>
+</ul>
+<p class="question-end">
+</p>
+</div>
+<div class="solution-begin">
+Solution
+</div>
+<div class="solution-body">
+<div class="int">
+<p>Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores (<span class="math inline">\(\beta\)</span> = 44.98,SE = 0.23, p &lt;.01), suggesting that for those at the mean level of neuroticism, scores on the DASS-21 decrease by 44.98 for every 1 standard deviation increase in SCS scores. A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores (<span class="math inline">\(\beta\)</span> = -1.94,SE = 0.23, p &lt;.01), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by -1.94 for every 1 standard deviation increase in neuroticism.
+Crucially, the association between social comparison and symptoms of depression and anxiety was found to be dependent upon the level of neuroticism, with a greater negative association between the two for those with high levels of neuroticism (<span class="math inline">\(\beta\)</span> = -2.77,SE = 0.24, p &lt;.01). This interaction is visually presented in Figure <a href="#fig:intplot">3</a>.</p>
+<p>The results presented here indicate that the association between social comparison and depression and anxiety may depend upon individuals’ levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.</p>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="optional-begin">
+Tying it all together<span id="opt-start-78" class="fa fa-plus optional-icon clickable" onclick="toggle_visibility(&#39;opt-body-78&#39;, &#39;opt-start-78&#39;)"></span>
+</div>
+<div class="optional-body" id = "opt-body-78" style="display: none;">
+
+
+
+<p>Data was obtained from <a href="https://uoepsy.github.io/data/scs_study.csv" class="uri">https://uoepsy.github.io/data/scs_study.csv</a>: a dataset containing information on 656 participants, including Z-scores on the 5 personality traits assessed by the Big-Five Aspects Scale (BFAS) (Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism). Participants were also assessed on the Social Comparison Scale (SCS), which is an 11-item scale measuring self-perception (relative to others) of social rank, attractiveness and belonging, and the Depression Anxiety and Stress Scale (DASS-21) - a 21 item measure with higher scores indicating higher severity of symptoms. For both of these measures, only total scores are available. Items in the SCS are measured on a 5-point scale, giving minimum and maximum possible scores of 11 and 55 respectively. Items in the DASS-21 are measured on a 4-point scale, meaning that scores can range from a possible 21 to 84.</p>
+<p>All participant data was complete (no missing values), with scores on the SCS and the DASS-21 all within possible ranges (see Table <a href="#tab:scsdasstab2">3</a>). Bivariate correlations show a moderate negative relationship between DASS-21 and SCS scores; a moderate positive relationship between DASS-21 and Neuroticism, and a weak positive correlation between SCS and Neuroticism. Additionally, a strong positive relationship is evident between Extraversion and Agreeableness (see Figure <a href="#fig:splom2">4</a>).</p>
+<table>
+<caption>
+<span id="tab:scsdasstab2">Table 3: </span>SCS and DASS-21 descriptive statistics
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+n
+</th>
+<th style="text-align:right;">
+mean
+</th>
+<th style="text-align:right;">
+sd
+</th>
+<th style="text-align:right;">
+min
+</th>
+<th style="text-align:right;">
+max
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+scs
+</td>
+<td style="text-align:right;">
+656
+</td>
+<td style="text-align:right;">
+35.76524
+</td>
+<td style="text-align:right;">
+3.534745
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+54
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+dass
+</td>
+<td style="text-align:right;">
+656
+</td>
+<td style="text-align:right;">
+44.72256
+</td>
+<td style="text-align:right;">
+6.756338
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+68
+</td>
+</tr>
+</tbody>
+</table>
+<div class="figure" style="text-align: center"><span id="fig:splom2"></span>
+<img src="10_mlr_report_files/figure-html/splom2-1.png" alt="Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21" width="60%" />
+<p class="caption">
+Figure 4: Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21
+</p>
+</div>
+<p><strong>Analysis</strong></p>
+<p>To investigate whether, when controlling for other personality traits, neuroticism moderates the effect of social comparison on symptoms of depression, anxiety and stress, total scores on the DASS-21 were modelled using multiple linear regression. The Z-scored measures on each of the big-five personality traits were included as predictors, along with scores on the SCS (Z-scored) and its interaction with the measure of Neuroticism. Effects will be considered statistically significant at <span class="math inline">\(\alpha = 0.01\)</span>. One observation was excluded from the final analysis as it was judged to be too influential on the model (Cook’s Distance = 2.66).<br />
+The final model was fitted to the remaining 655 observations, and took the form:
+<span class="math display">\[
+\text{DASS-21} = \beta_0 + \beta_1 \text{O} + \beta_2 \text{C} + \beta_3 \text{E} + \beta_4 \text{A} + \beta_5 \text{N} + \beta_6 \text{SCS} + \beta_7 \text{SCS} \cdot \text{N} + \epsilon  \\
+\begin{align}
+\text{Where} \\
+&amp; \text{O = Openness} \\
+&amp; \text{C = Conscientiousness} \\
+&amp; \text{E = Extraversion} \\
+&amp; \text{A = Agreeableness} \\
+&amp; \text{N = Neuroticism} \\
+\end{align}
+\]</span></p>
+<p>To address the research question of whether neuroticism moderates the effect of social comparison on depression and anxiety, we will consider the hypothesis test that the interaction coefficient is equal to zero, where:</p>
+<p><span class="math inline">\(H_0: \beta_7 = 0\)</span>. The interaction between SCS and Neuroticism is equal to zero.<br />
+<span class="math inline">\(H_1: \beta_7 \neq 0\)</span>. The interaction between SCS and Neuroticism is not equal to zero.</p>
+<p>The regression model met assumptions of linearity (see plot of model residuals vs fitted values, Figure <a href="#fig:linearityplot2">5</a>), homoscedasticity (non-constant variance test indicated no evidence against the null hypothesis that the error variance is constant across level of the response, <span class="math inline">\(\chi^2(1)\)</span>=1.51, <span class="math inline">\(p\)</span>=0.219), independence of errors (Durbin-Watson test for autocorrelation of residuals: <span class="math inline">\(DW\)</span>=2.08, <span class="math inline">\(p\)</span>=0.324), and normality of error term (Shapiro-Wilk test indicated no evidence against the null hypothesis that the residuals were drawn from a normally distributed population: <span class="math inline">\(W\)</span>=1, <span class="math inline">\(p\)</span>=0.762).</p>
+<div class="figure" style="text-align: center"><span id="fig:linearityplot2"></span>
+<img src="10_mlr_report_files/figure-html/linearityplot2-1.png" alt="Residuals vs Fitted plot demonstrating overall near constant mean and variance of error term across levels of the response" width="60%" />
+<p class="caption">
+Figure 5: Residuals vs Fitted plot demonstrating overall near constant mean and variance of error term across levels of the response
+</p>
+</div>
+<p><strong>Results</strong></p>
+<p>Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores (<span class="math inline">\(\beta\)</span> = 44.98,SE = 0.23, p &lt;.01), suggesting that for those at the mean level of neuroticism, scores on the DASS-21 decrease by 44.98 for every 1 standard deviation increase in SCS scores. A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores (<span class="math inline">\(\beta\)</span> = -1.94,SE = 0.23, p &lt;.01), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by -1.94 for every 1 standard deviation increase in neuroticism.
+Crucially, the association between social comparison and symptoms of depression and anxiety was found to be dependent upon the level of neuroticism, with a greater negative association between the two for those with high levels of neuroticism (<span class="math inline">\(\beta\)</span> = -2.77,SE = 0.24, p &lt;.01). This interaction is visually presented in Figure <a href="#fig:intplot2">6</a>. Full regression results including 95% Confidence Intervals are shown in Table <a href="#tab:tabmodel2">4</a>.<br />
+The results presented here indicate that the association between social comparison and depression and anxiety may depend upon individuals’ levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.</p>
+<br>
+<div class="figure" style="text-align: center"><span id="fig:intplot2"></span>
+<img src="10_mlr_report_files/figure-html/intplot2-1.png" alt="Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism" width="60%" />
+<p class="caption">
+Figure 6: Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism
+</p>
+</div>
+<br>
+<table style="border-collapse:collapse; border:none;">
+<caption style="font-weight: bold; text-align:left;">
+<span id="tab:tabmodel2">Table 4: </span> Regression table for DASS-21 model. Outcome variable is raw total score on DASS-21, all predictors are Z-scored
+</caption>
+<tr>
+<th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">
+ 
+</th>
+<th colspan="3" style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm; ">
+DASS-21
+</th>
+</tr>
+<tr>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  text-align:left; ">
+Predictors
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+Estimates
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+CI
+</td>
+<td style=" text-align:center; border-bottom:1px solid; font-style:italic; font-weight:normal;  ">
+p
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+(Intercept)
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+44.98
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+44.53 – 45.42
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Social Comparison Scale
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-1.94
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-2.39 – -1.49
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Neuroticism
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+1.42
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.97 – 1.86
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Openness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.31
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.75 – 0.12
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.155
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Conscientiousness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.09
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.35 – 0.53
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.685
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Extraversion
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.53
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.15 – 1.20
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.124
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Agreeableness
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.34
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-0.33 – 1.01
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+0.324
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; ">
+Social Comparison Scale :<br>Neutoricism
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-2.77
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+-3.24 – -2.29
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:center;  ">
+<strong>&lt;0.001
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; padding-top:0.1cm; padding-bottom:0.1cm; border-top:1px solid;">
+Observations
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; padding-top:0.1cm; padding-bottom:0.1cm; text-align:left; border-top:1px solid;" colspan="3">
+655
+</td>
+</tr>
+<tr>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; text-align:left; padding-top:0.1cm; padding-bottom:0.1cm;">
+R<sup>2</sup> / R<sup>2</sup> adjusted
+</td>
+<td style=" padding:0.2cm; text-align:left; vertical-align:top; padding-top:0.1cm; padding-bottom:0.1cm; text-align:left;" colspan="3">
+0.279 / 0.271
+</td>
+</tr>
+</table>
+</div>
+<p class="optional-end">
+</p>
+</div>
+</div>
+<div id="reconstructing-published-analysis" class="section level1">
+<h1>Reconstructing published analysis</h1>
 </div>
 
 
