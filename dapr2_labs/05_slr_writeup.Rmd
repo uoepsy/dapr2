@@ -1,0 +1,455 @@
+---
+title: "Writing-up"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+# knitr::opts_chunk$set(cache = TRUE)
+set.seed(1)
+```
+
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Understand the difference between outliers and influential points. 
+1. Understand and apply methods to detect outliers and influential points.
+1. Comment on the issues of correlation vs causation and generalisability of the sample results.
+1. Run a full simple regression analysis from start to finish and to correctly interpret the results.
+:::
+
+
+# Data and research question
+
+A school is interested in investigating how children' performance is affected by anxiety.
+
+Consider the following data on anxiety and academic performance for a sample of 100 children.
+
+
+`r optbegin('Data: anx_perf.csv', FALSE, TRUE, toggle = params$TOGGLE)`
+**Download link**
+
+[Download the data here](https://uoepsy.github.io/data/anx_perf.csv)
+
+**Description**
+
+Level of anxiety and academic performance were measured for one hundred children randomly selected from Green Tree primary school, a hypothetical school.
+
+The measured variables were:
+
+- `anxiety`: pupils' anxiety score
+- `performance`: pupils' academic performance score
+
+**Preview**
+
+The first six rows of the data are:
+
+```{r echo=FALSE}
+library(tidyverse)
+library(kableExtra)
+
+df <- read_csv(file = 'https://uoepsy.github.io/data/anx_perf.csv')
+kable(head(df), align = 'c', digits = 2) %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1:2, width = '10em')
+```
+`r optend()`
+
+
+# Analysis
+
+In today's lab the analysis will be provided, the task will be for you to correctly report what has been done.
+
+Read the data:
+```{r}
+library(tidyverse)
+library(car)
+
+anxperf <- read_csv(file = 'https://uoepsy.github.io/data/anx_perf.csv')
+head(anxperf)
+```
+
+Investigate the marginal distributions of each variable and the relationship between the two variables.
+
+**Note:** The patchwork library is used to combine ggplots into a single figure made up of multiple panels. You can add them using `+` or `|`, and put plots underneath with the `/` operator.
+```{r fig.height=4, fig.width=10, out.width='100%'}
+library(patchwork)
+
+plt_anx <- ggplot(anxperf, aes(x = anxiety)) +
+  geom_density() +
+  geom_boxplot(width = 0.01)
+
+plt_perf <- ggplot(anxperf, aes(x = performance)) +
+  geom_density() +
+  geom_boxplot(width = 0.01)
+
+plt_joint <- ggplot(anxperf, aes(x = anxiety, y = performance)) +
+  geom_point() +
+  labs(x = 'Anxiety score', y = 'Performance score')
+
+plt_anx | plt_perf | plt_joint
+```
+
+```{r}
+anxperf %>%
+  summarise(M_anx = mean(anxiety), 
+            SD_anx = sd(anxiety),
+            MED_anx = median(anxiety), 
+            IQR_anx = IQR(anxiety),
+            M_perf = mean(performance), 
+            SD_perf = sd(performance),
+            MED_perf = median(performance), 
+            IQR_perf = IQR(performance))
+```
+
+
+Correlation between the variables:
+```{r}
+cor(anxperf)
+```
+
+Linear model:
+```{r}
+mdl1 <- lm(performance ~ 1 + anxiety, data = anxperf)
+summary(mdl1)
+```
+
+:::green
+**TIP**
+
+When you call `plot()` on a fitted model to show the diagnostic plots, you can display all four plots at once by telling R
+```{r eval=FALSE}
+par(mfrow = c(2,2))
+```
+
+This means that each figure should be made of 2 by 2 plots.
+
+To go back to one figure made by a single plot, just type"
+```{r eval=FALSE}
+par(mfrow = c(1,1))
+```
+
+**Note that this will not work with ggplot.**
+:::
+
+
+Diagnostics:
+```{r out.width='90%', fig.height=7, fig.width=7}
+par(mfrow = c(2,2))
+plot(mdl1)
+```
+
+```{r}
+im <- influence.measures(mdl1)
+summary(im)
+```
+
+Focus on Cook's distance for now:
+```{r}
+anxperf <- anxperf %>%
+    slice(-41)
+```
+
+Re-fit the model and check assumptions:
+```{r}
+mdl2 <- lm(performance ~ 1 + anxiety, data = anxperf)
+summary(mdl2)
+```
+
+```{r out.width='90%', fig.height=7, fig.width=7}
+par(mfrow = c(2,2))
+plot(mdl2)
+```
+
+```{r}
+ncvTest(mdl2)
+```
+
+
+Try transforming the response:
+```{r}
+anxperf <- anxperf %>%
+    mutate(log_performance = log(performance))
+
+mdl3 <- lm(log_performance ~ 1 + anxiety, data = anxperf)
+summary(mdl3)
+```
+
+```{r out.width='90%', fig.height=7, fig.width=7}
+par(mfrow = c(2,2))
+plot(mdl3)
+
+shapiro.test(mdl3$residuals)
+```
+
+Try removing outlier:
+```{r}
+anxperf <- anxperf %>%
+    slice(-62)
+```
+
+```{r out.width='90%', fig.height=7, fig.width=7}
+mdl4 <- lm(log_performance ~ 1 + anxiety, data = anxperf)
+summary(mdl4)
+
+par(mfrow = c(2,2))
+plot(mdl4)
+
+shapiro.test(mdl4$residuals)
+
+ncvTest(mdl4)
+```
+
+Go back to figures with only one plot:
+```{r}
+par(mfrow = c(1,1))
+```
+
+
+Table for reporting:
+```{r}
+library(sjPlot)
+tab_model(mdl4)
+```
+
+
+Plot of the final model:
+```{r}
+betas <- coef(mdl4)
+
+ggplot(anxperf, aes(x = anxiety, y = log_performance)) +
+  geom_point() +
+  geom_abline(intercept = betas[1], slope = betas[2], color = 'blue') +
+  labs(x = 'Anxiety score', y = 'Performance score (in log-scale)')
+```
+
+
+
+# Reporting
+
+A good data analysis report should follow three steps: *Think, Show, and Tell.*
+
+For a detailed explanation of each step, check this [document.](https://uoepsy.github.io/files/writeup_guide.pdf){target="_blank"}
+
+
+## Think
+
+:::yellow
+What do you know? What do you hope to learn? What did you learn during the exploratory analysis?
+:::
+
+`r qbegin('1: Describe design', FALSE)`
+Describe the study design, the data collection strategy, etc.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The data consist of measurements of anxiety and academic performance scores for a random sample of 100 children from Green Tree primary school.
+`r solend()`
+
+
+
+`r qbegin('2: Describe the data', FALSE)`
+- How many observational units? (If not mentioned above.)
+- Are there any observations that have been excluded based on pre-defined criteria? How/why, and how many?
+- Describe and visualise the variables of interest. How are they scored? have they been transformed at all?
+- Describe and visualise relationships between variables. Report covariances/correlations.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r marg-distrib, echo=FALSE, fig.height=4, fig.width=10, out.width='100%', fig.cap = 'Marginal and joint distributions.'}
+library(patchwork)
+library(ggExtra)
+
+plt_anx <- ggplot(anxperf, aes(x = anxiety)) +
+  geom_density() +
+  geom_boxplot(width = 0.01) +
+  labs(title = 'a')
+
+plt_perf <- ggplot(anxperf, aes(x = performance)) +
+  geom_density() +
+  geom_boxplot(width = 0.01) +
+  labs(title = 'b')
+
+plt_joint <- ggplot(anxperf, aes(x = anxiety, y = performance)) +
+  geom_point() +
+  labs(x = 'Anxiety score', y = 'Performance score', title = 'c')
+
+plt_anx | plt_perf | plt_joint
+```
+
+The distribution of anxiety scores appears to be roughly symmetric around the mean anxiety score of 20.4, with standard deviation 5.49.
+The boxplot in Figure \@ref(fig:marg-distrib)(a) does not highlight any evident outliers.
+
+The distribution of performance scores appears to be right skewed, with median performance score 28.5, and interquartile range 24.
+A boxplot of the distribution, Figure \@ref(fig:marg-distrib)(b), flags two potential outliers which are worth keeping an eye on, but have not been removed from the dataset.
+
+Finally, the scatterplot in Figure \@ref(fig:marg-distrib)(c) displays the relationship between anxiety and performance score. There appears to be a strong ($r_{Anxiety, Performance} = 0.81$), positive linear relationship between the two variables.
+The scatterplot also highlights a couple of points which do not fit with the rest of the data. One has a high anxiety score but an unusually low performance score, and another point having an anxiety score of approximately 15 and a performance score of approximately 50, which is 25 scores above the rest of the points.
+`r solend()`
+
+
+`r qbegin('3: Describe the analytical approach', FALSE)`
+- What type of statistical analysis do you use to answer the research question? (e.g., t-test, simple linear regression,
+multiple linear regression)
+- Describe the model/analysis structure
+- What is your outcome variable? What is its type?
+- What are your predictors? What are their types?
+- Any other specifics?
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+We want to investigate whether children' performance is affected by anxiety and what is the intensity of that relationship.
+
+To do so, we will use a simple linear regression model involving two numeric variables: anxiety (the predictor) and performance (the response).
+`r solend()`
+
+
+
+`r qbegin('4: Planned analysis vs actual analysis', FALSE)`
+- Was there anything you had to do differently than planned during the analysis? Did the modelling highlight issues in your data?
+- Did you have to do anything (e.g., transform any variables, exclude any observations) in order to meet assumptions?
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+Such model, however, highlighted one influential observation (namely, case 41) having a Cook's distance of 1.11.
+Careful inspection of case 41 showed a high anxiety score (33), far from the average anxiety score (20.4) --- hence, the point has high leverage. Furthermore, the point was an outlier as the actual performance score was 8, which was roughly 57 points lower than the model-predicted value.
+
+After removing such observation from the dataframe and re-fitting the linear model, the diagnostic plots raised concerns about the normality and equal variance assumptions not being satisfied.
+
+The Normal quantile plot showed that the distribution of the residuals was skewed to the right, and the Scale-Location plot displayed a thickening pattern (that is, a fan-shape) rather than a roughly constant vertical spread.
+
+To mitigate the violation of the equal variance assumption, we log transformed the response variable.
+
+After refitting the model, the diagnostic plots only raised concern about a single point (case 62) not fitting the linear pattern in the Normal quantile plot, and also being particularly unusual in the Residuals vs Fitted values plot.
+
+The Shapiro-Wilk test for normality of the errors showed a significant p-value, indicating violation of the normality assumption.
+
+After careful inspection, and because the point was not unusual in x-value, we decided to remove case 62 from the dataset and re-fit the linear model.
+`r solend()`
+
+
+
+
+## Show
+
+:::yellow
+Show the mechanics and visualisations which will support your conclusions
+:::
+
+
+`r qbegin('5: Present and describe the final model', FALSE)`
+Present and describe the model or test which you deemed best to answer your question.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The final model which was chosen to answer the research question of interest was:
+$$
+\widehat{\log (Performance)} = 1.41 + 0.0949 \ Anxiety
+$$
+
+and was fitted excluding cases 41 and 62. The former was found to be an influential point, while the latter an outlier affecting normality.
+`r solend()`
+
+
+
+`r qbegin('6: Are the assumptions and conditions of your final test or model satisfied?', FALSE)`
+Are the assumptions and conditions of your final test or model satisfied?
+_For the final model (the one you report results from), were all assumptions met? (Hopefully yes, or there is more work to do…). Include evidence (tests or plots)._
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r echo=FALSE, out.width='90%', fig.height=7, fig.width=7}
+par(mfrow = c(2,2))
+plot(mdl4)
+```
+
+The final model was found to not violate the regression assumptions. A plot of the residuals vs fitted values shows randomly scattered points with no pattern and a horizontal direction.
+
+The Normal quantile plot (qq-plot) shows a roughly linear trend in the standardized residuals vs the normal quantiles.
+We performed a Shapiro-Wilk test, at the 5\% significance level, against the null hypothesis that the residuals came from a normal distribution ($W = 0.98$, $p = 0.14$).
+The large $W$-statistic leads to a p-value (0.14) larger than the 0.05 threshold.
+Hence, the sample results do not provide sufficient evidence to reject the null hypothesis that the errors follow a normal distribution.
+
+The Residuals vs Fitted plot and the Scale-Location plot show that the vertical spread of the residuals is roughly the same everywhere. 
+
+Hence, we see no violation of the constant variance assumption.
+At the 5\% significance level, we also performed a Breusch-Pagan test against the null hypothesis of homoscedasticity ($\chi^2(1) = 0.196, p = 0.658$). The large p-value indicates that the sample results do not provide sufficient evidence to reject the null hypothesis of equal variance.
+
+Finally, a plot of residuals vs leverage does not highlight any influential observations.
+`r solend()`
+
+
+
+`r qbegin('7: Report your test or model results', FALSE)`
+- Provide a table of results if applicable (for regression tables, try `tab_model()` from the **sjPlot** package).
+- Provide plots if applicable.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The table below displays the estimated regression coefficients along with the corresponding test of significance:
+<center>
+```{r echo=FALSE}
+sjPlot::tab_model(mdl4)
+```
+</center>
+
+<br>
+The fitted model is displayed below:
+```{r echo=FALSE}
+betas <- coef(mdl4)
+
+ggplot(anxperf, aes(x = anxiety, y = log_performance)) +
+  geom_point() +
+  geom_abline(intercept = betas[1], slope = betas[2], color = 'blue') +
+  labs(x = 'Anxiety score', y = 'Performance score (in log-scale)')
+```
+
+`r solend()`
+
+
+## Tell
+
+:::yellow
+Communicate your findings
+:::
+
+
+`r qbegin('8: Interpret your results in the context of your research question.', FALSE)`
+- What do your results suggest about your research question?
+- Make direct links from hypotheses to models (which bit is testing hypothesis)
+- Be specific - which statistic did you use/what did the statistical test say? Comment on effect sizes.
+- Make sure to include measurement units where applicable.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The fitted model predicts log performance for a given anxiety score.
+Both intercept ($t(96) = 19.26, p < .001$, two-sided) and slope ($t(96) = 27.14, p < .001$, two-sided) are significantly different from zero.
+
+As an anxiety score of zero is meaningless and far from the allowed range of scores, the estimated intercept $\hat \beta_0 = 1.41$ has no meaning if not a practical one of where the line meets the y-axis.
+
+The estimated slope, $\hat \beta_1 = 0.0949$, indicates that, each unit increase in anxiety score is associated, on average, to a 0.0949 units increase in log performance.
+
+That is, there is a positive/increasing linear relationship between anxiety and log performance. However, the magnitude of the rate of increase, even if significant, is small and in the order of 0.1.
+
+The F-test for model utility is also significant ($F(1,96) = 736.7, p < .001$). At the 5\% significance level, anxiety is a significant predictor of log performance.^[
+This information, however, is equivalent to the t-test for the significance of the slope as the F-statistic is the square t-statistic.
+]
+
+Approximately 88.5\% of the variability in log performance scores is explained by the linear association with anxiety scores.
+`r solend()`
+
+
+
+
+# Put everything together
+
+If you followed the steps above, it is just a matter of taking all answers to the above questions and combining them, in order to have a reasonable draft of a statistical report.
+
