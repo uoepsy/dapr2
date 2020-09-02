@@ -27,26 +27,31 @@ set.seed(1)
 :::
 
 
-# Data and research question
+# Research question
 
-A school is interested in investigating how children' performance is affected by anxiety.
+A group of researchers is interested in the relationship between the reaction time taken by people to identify whether two 3D images display the same object or not, and the rotation angle at which one of the two objects is presented.
 
-Consider the following data on anxiety and academic performance for a sample of 100 children.
+Consider the following data containing the reaction times (in milliseconds) it took a sample of 100 people to identify whether two 3D objects were the same or not, for different rotation angles between 0 and 200 degrees.
 
-
-`r optbegin('Data: anx_perf.csv', FALSE, TRUE, toggle = params$TOGGLE)`
+`r optbegin('Data: mental_rotation.csv', FALSE, TRUE, toggle = params$TOGGLE)`
 **Download link**
 
-[Download the data here](https://uoepsy.github.io/data/anx_perf.csv)
+[Download the data here](https://uoepsy.github.io/data/mental_rotation.csv)
 
 **Description**
 
-Level of anxiety and academic performance were measured for one hundred children randomly selected from Green Tree primary school, a hypothetical school.
+Each person in the sample was asked to look at two 3D images presented next to each other. The second image was simply a rotated version of the first, and the participants were asked to identify if the two images showed the same object or not. The reaction time (in milliseconds) was recorded for each participant.
 
 The measured variables were:
 
-- `anxiety`: pupils' anxiety score
-- `performance`: pupils' academic performance score
+- `angle_degrees`: The rotation angle, between 0 and 200 degrees, of the second image.
+- `rt_ms`: Reaction time (in milliseconds).
+
+
+```{r, echo=FALSE, fig.cap='Example of target object (left) and rotated version of it (right). Source: https://plato.stanford.edu/entries/mental-imagery/mental-rotation.html'}
+knitr::include_graphics('images/mental_rotation.gif')
+```
+
 
 **Preview**
 
@@ -56,7 +61,7 @@ The first six rows of the data are:
 library(tidyverse)
 library(kableExtra)
 
-df <- read_csv(file = 'https://uoepsy.github.io/data/anx_perf.csv')
+df <- read_csv(file = 'https://uoepsy.github.io/data/mental_rotation.csv')
 kable(head(df), align = 'c', digits = 2) %>%
   kable_styling(full_width = FALSE) %>%
   column_spec(1:2, width = '10em')
@@ -66,78 +71,101 @@ kable(head(df), align = 'c', digits = 2) %>%
 
 # Analysis
 
-In today's lab the analysis will be provided, the task will be for you to correctly report what has been done.
+:::yellow
+**IMPORTANT**
 
-Read the data:
+In today's lab the analysis is provided, and the task for you will be to correctly report what has been done and why.
+:::
+
+Read the data into R:
 ```{r}
 library(tidyverse)
 library(car)
 
-anxperf <- read_csv(file = 'https://uoepsy.github.io/data/anx_perf.csv')
-head(anxperf)
+mr <- read_csv(file = 'https://uoepsy.github.io/data/mental_rotation.csv')
+head(mr)
 ```
 
-Investigate the marginal distributions of each variable and the relationship between the two variables.
+Rename variables:
+```{r}
+mr <- mr %>%
+  rename(
+    angle = angle_degrees,
+    rt = rt_ms
+  )
+head(mr)
+```
 
-**Note:** The patchwork library is used to combine ggplots into a single figure made up of multiple panels. You can add them using `+` or `|`, and put plots underneath with the `/` operator.
+:::green
+**TIP**
+
+The `patchwork` library is used to combine ggplots into a single figure made up of multiple panels. You can add individual ggplots using `+` or `|`, and put plots underneath with the `/` operator.
+:::
+
+Investigate the marginal distribution of each variable and the relationship between the two variables.
+
 ```{r fig.height=4, fig.width=10, out.width='100%'}
 library(patchwork)
 
-plt_anx <- ggplot(anxperf, aes(x = anxiety)) +
+plt_angle <- ggplot(mr, aes(x = angle)) +
   geom_density() +
-  geom_boxplot(width = 0.01)
+  geom_boxplot(width = 0.001) +
+  labs(x = 'Angle (degrees)')
 
-plt_perf <- ggplot(anxperf, aes(x = performance)) +
+plt_rt <- ggplot(mr, aes(x = rt)) +
   geom_density() +
-  geom_boxplot(width = 0.01)
+  geom_boxplot(width = 0.0001) +
+  labs(x = 'RT (ms)')
 
-plt_joint <- ggplot(anxperf, aes(x = anxiety, y = performance)) +
+plt_joint <- ggplot(mr, aes(x = angle, y = rt)) +
   geom_point() +
-  labs(x = 'Anxiety score', y = 'Performance score')
+  labs(x = 'Angle (degrees)', y = 'RT (ms)')
 
-plt_anx | plt_perf | plt_joint
+plt_angle | plt_rt | plt_joint
 ```
 
 ```{r}
-anxperf %>%
-  summarise(M_anx = mean(anxiety), 
-            SD_anx = sd(anxiety),
-            MED_anx = median(anxiety), 
-            IQR_anx = IQR(anxiety),
-            M_perf = mean(performance), 
-            SD_perf = sd(performance),
-            MED_perf = median(performance), 
-            IQR_perf = IQR(performance))
+mr %>%
+  summarise(M_angle = mean(angle), 
+            SD_angle = sd(angle),
+            MED_angle = median(angle), 
+            IQR_angle = IQR(angle),
+            M_rt = mean(rt), 
+            SD_rt = sd(rt),
+            MED_rt = median(rt), 
+            IQR_rt = IQR(rt))
 ```
 
 
 Correlation between the variables:
 ```{r}
-cor(anxperf)
+cor(mr)
 ```
 
 Linear model:
 ```{r}
-mdl1 <- lm(performance ~ 1 + anxiety, data = anxperf)
+mdl1 <- lm(rt ~ 1 + angle, data = mr)
 summary(mdl1)
 ```
 
 :::green
 **TIP**
 
-When you call `plot()` on a fitted model to show the diagnostic plots, you can display all four plots at once by telling R
+When you call `plot()` on a fitted model to show the diagnostic plots, you can display all four plots at once by telling R:
 ```{r eval=FALSE}
 par(mfrow = c(2,2))
 ```
 
-This means that each figure should be made of 2 by 2 plots.
+This means that each figure should be made of 2 by 2 plots, filled row-wise. The first plot will appear in panel (1,1), the second plot in panel (1,2), the third in panel (2,1) and the last in panel (2,2).
 
-To go back to one figure made by a single plot, just type"
+To go back to one figure made of a single plot, you type:
 ```{r eval=FALSE}
 par(mfrow = c(1,1))
 ```
 
-**Note that this will not work with ggplot.**
+**IMPORTANT**
+
+`par(mfrow = ...)` will not work with ggplot.
 :::
 
 
@@ -152,15 +180,14 @@ im <- influence.measures(mdl1)
 summary(im)
 ```
 
-Focus on Cook's distance for now:
+For now, we will focus on Cook's distance only:
 ```{r}
-anxperf <- anxperf %>%
-    slice(-41)
+mr <- mr[-41, ]
 ```
 
-Re-fit the model and check assumptions:
+Re-fit the model using the new dataset and check the assumptions:
 ```{r}
-mdl2 <- lm(performance ~ 1 + anxiety, data = anxperf)
+mdl2 <- lm(rt ~ 1 + angle, data = mr)
 summary(mdl2)
 ```
 
@@ -176,10 +203,13 @@ ncvTest(mdl2)
 
 Try transforming the response:
 ```{r}
-anxperf <- anxperf %>%
-    mutate(log_performance = log(performance))
+mr <- mr %>%
+    mutate(log_rt = log(rt))
+```
 
-mdl3 <- lm(log_performance ~ 1 + anxiety, data = anxperf)
+Fit a linear model using the transformed response:
+```{r}
+mdl3 <- lm(log_rt ~ 1 + angle, data = mr)
 summary(mdl3)
 ```
 
@@ -190,14 +220,14 @@ plot(mdl3)
 shapiro.test(mdl3$residuals)
 ```
 
-Try removing outlier:
+Try removing the outlier from the dataset:
 ```{r}
-anxperf <- anxperf %>%
-    slice(-62)
+mr <- mr[-62, ]
 ```
 
+Re-fit the model and check assumptions:
 ```{r out.width='90%', fig.height=7, fig.width=7}
-mdl4 <- lm(log_performance ~ 1 + anxiety, data = anxperf)
+mdl4 <- lm(log_rt ~ 1 + angle, data = mr)
 summary(mdl4)
 
 par(mfrow = c(2,2))
@@ -214,21 +244,21 @@ par(mfrow = c(1,1))
 ```
 
 
-Table for reporting:
+Create a table for reporting the results:
 ```{r}
 library(sjPlot)
 tab_model(mdl4)
 ```
 
-
-Plot of the final model:
+<br>
+Plot the final model:
 ```{r}
 betas <- coef(mdl4)
 
-ggplot(anxperf, aes(x = anxiety, y = log_performance)) +
+ggplot(mr, aes(x = angle, y = log_rt)) +
   geom_point() +
   geom_abline(intercept = betas[1], slope = betas[2], color = 'blue') +
-  labs(x = 'Anxiety score', y = 'Performance score (in log-scale)')
+  labs(x = 'Angle (degrees)', y = 'Log RT (ms)')
 ```
 
 
@@ -251,7 +281,9 @@ Describe the study design, the data collection strategy, etc.
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-The data consist of measurements of anxiety and academic performance scores for a random sample of 100 children from Green Tree primary school.
+A random sample of 100 participants was invited to take part into a mental rotation task. Each participant was shown two images and was asked to identify whether or not the objects displayed in the two images were the same.
+The second image was displayed with a rotation of a certain angle.
+For each participant, reaction time (in milliseconds) and rotation angle (in degrees) were recorded.
 `r solend()`
 
 
@@ -265,34 +297,19 @@ The data consist of measurements of anxiety and academic performance scores for 
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 ```{r marg-distrib, echo=FALSE, fig.height=4, fig.width=10, out.width='100%', fig.cap = 'Marginal and joint distributions.'}
-library(patchwork)
-library(ggExtra)
-
-plt_anx <- ggplot(anxperf, aes(x = anxiety)) +
-  geom_density() +
-  geom_boxplot(width = 0.01) +
-  labs(title = 'a')
-
-plt_perf <- ggplot(anxperf, aes(x = performance)) +
-  geom_density() +
-  geom_boxplot(width = 0.01) +
-  labs(title = 'b')
-
-plt_joint <- ggplot(anxperf, aes(x = anxiety, y = performance)) +
-  geom_point() +
-  labs(x = 'Anxiety score', y = 'Performance score', title = 'c')
-
-plt_anx | plt_perf | plt_joint
+(plt_angle + ggtitle('(a)')) | 
+  (plt_rt + ggtitle('(b)')) | 
+  (plt_joint + ggtitle('(c)'))
 ```
 
-The distribution of anxiety scores appears to be roughly symmetric around the mean anxiety score of 20.4, with standard deviation 5.49.
+The distribution of rotation angles appears to be roughly symmetric around the mean angle of 103 degrees, with standard deviation 54.3 degrees.
 The boxplot in Figure \@ref(fig:marg-distrib)(a) does not highlight any evident outliers.
 
-The distribution of performance scores appears to be right skewed, with median performance score 28.5, and interquartile range 24.
+The distribution of reaction times appears to be right skewed, with a median reaction time of 1157 ms, and interquartile range of 695 ms.
 A boxplot of the distribution, Figure \@ref(fig:marg-distrib)(b), flags two potential outliers which are worth keeping an eye on, but have not been removed from the dataset.
 
-Finally, the scatterplot in Figure \@ref(fig:marg-distrib)(c) displays the relationship between anxiety and performance score. There appears to be a strong ($r_{Anxiety, Performance} = 0.81$), positive linear relationship between the two variables.
-The scatterplot also highlights a couple of points which do not fit with the rest of the data. One has a high anxiety score but an unusually low performance score, and another point having an anxiety score of approximately 15 and a performance score of approximately 50, which is 25 scores above the rest of the points.
+Finally, the scatterplot in Figure \@ref(fig:marg-distrib)(c) displays the relationship between rotation angle and reaction time. There appears to be a strong ($r_{Angle, RT} = 0.81$), positive linear relationship between the two variables.
+The scatterplot also highlights a couple of points which do not fit with the rest of the data. One has a high rotation angle but an unusually low reaction time, and another point having an angle of approximately 50 degrees and a reaction time of 1500 ms approximately, which is roughly 700 ms above the rest of the points.
 `r solend()`
 
 
@@ -306,9 +323,10 @@ multiple linear regression)
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-We want to investigate whether children' performance is affected by anxiety and what is the intensity of that relationship.
+We want to investigate whether reaction time is affected by the object's rotation angle and what is the intensity of that relationship.
 
-To do so, we will use a simple linear regression model involving two numeric variables: anxiety (the predictor) and performance (the response).
+To do so, we will use a simple linear regression model involving two numeric variables: angle (the predictor) and reaction time (the response).
+In the dataset, angle is measured in degrees and reaction time in milliseconds.
 `r solend()`
 
 
@@ -319,20 +337,20 @@ To do so, we will use a simple linear regression model involving two numeric var
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-Such model, however, highlighted one influential observation (namely, case 41) having a Cook's distance of 1.11.
-Careful inspection of case 41 showed a high anxiety score (33), far from the average anxiety score (20.4) --- hence, the point has high leverage. Furthermore, the point was an outlier as the actual performance score was 8, which was roughly 57 points lower than the model-predicted value.
+The linear model $\widehat{RT} = \hat \beta_0 + \hat \beta_1 Angle$, however, highlighted one influential observation (namely, case 41) having a Cook's distance of 1.11.
+Careful inspection of case 41 showed a large rotation angle (200 degrees), far from the average angle (103 degrees) --- hence, the point has high leverage. Furthermore, the point was an outlier as the actual reaction time was 508 ms, which was roughly 1503 ms lower than the model-predicted value.
 
 After removing such observation from the dataframe and re-fitting the linear model, the diagnostic plots raised concerns about the normality and equal variance assumptions not being satisfied.
 
-The Normal quantile plot showed that the distribution of the residuals was skewed to the right, and the Scale-Location plot displayed a thickening pattern (that is, a fan-shape) rather than a roughly constant vertical spread.
+The Normal quantile plot showed that the distribution of the residuals was skewed to the right, and the Scale-Location plot displayed a thickening pattern (that is, a fan-shape) rather than a roughly constant vertical spread. Similarly, the Residuals vs Fitted values plot also showed a thickening pattern with a fan-like shape, suggesting a violation of the constant variance assumption.
 
 To mitigate the violation of the equal variance assumption, we log transformed the response variable.
 
 After refitting the model, the diagnostic plots only raised concern about a single point (case 62) not fitting the linear pattern in the Normal quantile plot, and also being particularly unusual in the Residuals vs Fitted values plot.
 
-The Shapiro-Wilk test for normality of the errors showed a significant p-value, indicating violation of the normality assumption.
+At the 5\% significance level, a Shapiro-Wilk test for normality of the errors showed a significant p-value, indicating violation of the normality assumption.
 
-After careful inspection, and because the point was not unusual in x-value, we decided to remove case 62 from the dataset and re-fit the linear model.
+After careful inspection, we decided to remove case 62 from the dataset and re-fit the linear model.
 `r solend()`
 
 
@@ -352,10 +370,11 @@ Present and describe the model or test which you deemed best to answer your ques
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 The final model which was chosen to answer the research question of interest was:
 $$
-\widehat{\log (Performance)} = 1.41 + 0.0949 \ Anxiety
+\widehat{\log (RT)} = 6.31 + 0.00717 \ Angle
 $$
 
-and was fitted excluding cases 41 and 62. The former was found to be an influential point, while the latter an outlier affecting normality.
+and was fitted excluding case 41, and then case 62.^[Footnote: in the original dataset, these would be cases 41 and 63.] 
+The former was found to be an influential point, while the latter an outlier affecting normality.
 `r solend()`
 
 
@@ -374,14 +393,13 @@ plot(mdl4)
 The final model was found to not violate the regression assumptions. A plot of the residuals vs fitted values shows randomly scattered points with no pattern and a horizontal direction.
 
 The Normal quantile plot (qq-plot) shows a roughly linear trend in the standardized residuals vs the normal quantiles.
-We performed a Shapiro-Wilk test, at the 5\% significance level, against the null hypothesis that the residuals came from a normal distribution ($W = 0.98$, $p = 0.14$).
-The large $W$-statistic leads to a p-value (0.14) larger than the 0.05 threshold.
+We performed a Shapiro-Wilk test, at the 5\% significance level, against the null hypothesis that the residuals came from a normal distribution ($W = 0.98$, $p = 0.138$).
+The large $W$-statistic leads to a p-value (0.138) larger than the 0.05 threshold.
 Hence, the sample results do not provide sufficient evidence to reject the null hypothesis that the errors follow a normal distribution.
 
 The Residuals vs Fitted plot and the Scale-Location plot show that the vertical spread of the residuals is roughly the same everywhere. 
-
 Hence, we see no violation of the constant variance assumption.
-At the 5\% significance level, we also performed a Breusch-Pagan test against the null hypothesis of homoscedasticity ($\chi^2(1) = 0.196, p = 0.658$). The large p-value indicates that the sample results do not provide sufficient evidence to reject the null hypothesis of equal variance.
+At the 5\% significance level, we also performed a Breusch-Pagan test against the null hypothesis of homoscedasticity ($\chi^2(1) = 0.226, p = 0.634$). The large p-value indicates that the sample results do not provide sufficient evidence to reject the null hypothesis of equal variance.
 
 Finally, a plot of residuals vs leverage does not highlight any influential observations.
 `r solend()`
@@ -406,10 +424,10 @@ The fitted model is displayed below:
 ```{r echo=FALSE}
 betas <- coef(mdl4)
 
-ggplot(anxperf, aes(x = anxiety, y = log_performance)) +
+ggplot(mr, aes(x = angle, y = log_rt)) +
   geom_point() +
   geom_abline(intercept = betas[1], slope = betas[2], color = 'blue') +
-  labs(x = 'Anxiety score', y = 'Performance score (in log-scale)')
+  labs(x = 'Angle (degrees)', y = 'Log RT (ms)')
 ```
 
 `r solend()`
@@ -430,20 +448,21 @@ Communicate your findings
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-The fitted model predicts log performance for a given anxiety score.
-Both intercept ($t(96) = 19.26, p < .001$, two-sided) and slope ($t(96) = 27.14, p < .001$, two-sided) are significantly different from zero.
+The fitted model predicts log reaction time for a given rotation angle.
+Both intercept ($t(96) = 6.31, p < .001$, two-sided) and slope ($t(96) = 0.00717, p < .001$, two-sided) are significantly different from zero.
 
-As an anxiety score of zero is meaningless and far from the allowed range of scores, the estimated intercept $\hat \beta_0 = 1.41$ has no meaning if not a practical one of where the line meets the y-axis.
+The estimated intercept $\hat \beta_0 = 6.31$ represents the predicted log reaction time (in milliseconds) when the object is not rotated (zero degrees angle).
 
-The estimated slope, $\hat \beta_1 = 0.0949$, indicates that, each unit increase in anxiety score is associated, on average, to a 0.0949 units increase in log performance.
+The estimated slope, $\hat \beta_1 = 0.00717$, indicates that, each one-degree increase in the object rotation angle is associated, on average, to a 0.00717 ms increase in log reaction time.
 
-That is, there is a positive/increasing linear relationship between anxiety and log performance. However, the magnitude of the rate of increase, even if significant, is small and in the order of 0.1.
+That is, there is a positive/increasing linear relationship between rotation angle and log reaction time.
+However, the magnitude of the rate of increase, even if significant, is small and in the order of 0.01.
 
-The F-test for model utility is also significant ($F(1,96) = 736.7, p < .001$). At the 5\% significance level, anxiety is a significant predictor of log performance.^[
-This information, however, is equivalent to the t-test for the significance of the slope as the F-statistic is the square t-statistic.
+The F-test for model utility is also significant ($F(1,96) = 747.8, p < .001$). At the 5\% significance level, rotation angle is a significant predictor of log reaction time.^[
+In simple linear regression, this information is equivalent to the t-test for the significance of the slope as the F-statistic is the square t-statistic.
 ]
 
-Approximately 88.5\% of the variability in log performance scores is explained by the linear association with anxiety scores.
+Approximately 88.6\% of the variability in log reaction times is explained by the linear association with the objects' rotation angle.
 `r solend()`
 
 
