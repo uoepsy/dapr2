@@ -36,6 +36,12 @@ style_mono_accent(
 )
 ```
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+data <- read_csv("./aggression.csv")
+```
+
+
 # Weeks Learning Objectives
 1. Understand how to extend a simple regression to multiple predictors. 
 
@@ -78,11 +84,11 @@ style_mono_accent(
 
 + Our model for a single predictor:
 
-$$y_i = \beta_0 + \beta_1 x_{1i} + \epsilon_i$$
+$$y_i = \beta_0 + \beta_1 x_{1i} + \epsilon_i$$ 
 
 + is extended to include additional $x$'s:
 
-$$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_3 x_{3i} + \epsilon_i$$
+$$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_3 x_{3i} + \epsilon_i$$  
 
 + For each $x$, we have an additional $b$
   + $\beta_1$ is the coefficient for the 1st predictor
@@ -108,20 +114,29 @@ $$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_j x_{ji} + \epsilon_i$
 + With multiple predictors `lm` isolates the effects and estimates the unique contributions of predictors. 
 
 ---
-#  Least squares in lm 
+#  Visualizing models
 
 .pull-left[
 
-```{r}
-#plot line
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+df <- read_csv("./salary2.csv")
+m1 <- lm(salary ~ perf, data = df)
+m2 <- lm(salary ~ perf + serv, data = df)
+
+ggplot(df, aes(x=perf, y=salary)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  xlab("") +
+  ylab("")
+
 ```
 
 ]
 
 .pull-right[
 
-```{r}
-#plot surface
+```{r, echo=FALSE}
+knitr::include_graphics("./lm_surface.png")
 ```
 
 ]
@@ -139,44 +154,70 @@ $$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_j x_{ji} + \epsilon_i$
 ---
 #  Example: lm with 2 predictors 
 
-+ Imagine we were interested in examining the effects of cognitive ability and self-control on academic performance in school children
++ Imagine we were interested in examining predictors of school performance.  
 
-+ We collect data on a sample of n=200 5th graders and fit a lm
++ we get a teacher rating of child's performance, a self-report measure of self control, and also measure teacher rated class interaction. 
 
-+ We'll fit the model to $z$-scores for all variables
-  + Thus we will be interpreting standardized coefficients
++ We collect data on a sample of n=650 12 year old and fit a linear model.
+
++ We'll fit the model to $z$-scores for all variables. 
+  + Remember $z$-scores have a mean of 0, and a SD of 1
+  + So "1 unit" of a $z$-score is 1 SD
 
 
 ---
 #  `lm` code
 
+.pull-left[
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+data <- data %>%
+  transmute(
+    z_perf = scale(aggression),
+    z_SC = scale(self_control),
+    z_interaction = scale(resting_HR)
+    )
+write_csv(data, "./school.csv")
+```
+]
+
 ```{r}
-# model code highlighted
+perf <- lm(z_perf ~ z_SC + z_interaction, #<<
+          data = data)
 ```
 
 
 + Multiple predictors are separated by `+`
 
----
-#  Multiple regression coefficients 
-
-```{r}
-# print output
-```
-
-
-+ **Controlling for self-control, for every SD unit increase in cognitive ability, there is a 0.57 SD unit increase in academic performance**
-
 
 
 ---
 #  Multiple regression coefficients 
 
 ```{r}
-# print output
+summary(perf)
 ```
 
-+ **Controlling for cognitive ability, for every SD unit increase in self-control, there is a 0.38 SD unit increase in academic performance**
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(perf)
+res$coefficients
+```
+
++ **Controlling for class interaction, for every SD unit increase in self-control, there is a `r round(res$coefficients[[2,1]],2)` SD unit increase in academic performance**
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(perf)
+res$coefficients
+```
+
++ **Controlling for self-control, for every SD unit increase in rating of class interaction, there is a `r round(res$coefficients[[3,1]],2)` SD unit increase in academic performance**
 
 
 ---
@@ -250,26 +291,29 @@ $$R^2 = \frac{SS_{model}}{SS_{total}}$$
 
 $$\hat R^2 = 1 - (1 - R^2)\frac{N-1}{N-k-1}$$
 
-+ Adjusted $R^2$ adjusts for both sample size ($N$) and number of predictors ($k$)
++ Adjusted $R^2$ adjusts for both sample size ( $N$ ) and number of predictors ( $k$ )
 
 
 ---
 #  In our academic performance example 
 
 ```{r}
-# print output
+res
 ```
 
-+ **Based on adjusted R-squared, our cognitive ability and self-control together explain 59% of the variance in academic performance**
+---
+#  In our academic performance example 
 
-+ As the sample size is large and the number of predictors small, adjusted and unadjusted R-squared are similar
++ **Based on adjusted R-squared, self-control and class interaction together explain `r round(res$adj.r.squared,3)*100`% of the variance in academic performance**
+
++ As the sample size is large and the number of predictors small, adjusted ( `r round(res$r.squared,3)` ) and unadjusted R-squared ( `r round(res$adj.r.squared,3)` ) are similar.
 
 
 ---
 #  $F$-ratio 
-+ Like in simple regression, the $F$-ratio is used to test the null hypothesis that **all** regression slopes are zero.
++ Like in simple regression, the $F$-ratio is used to test the null hypothesis that **all** model slopes are zero.
 
-+ It is calculated in exactly the same way as in simple regression:
++ It is calculated in exactly the same way as in simple linear model:
 
 $$F = \frac{MS_{Model}}{MS_{Residual}} = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}}$$
 
@@ -283,19 +327,22 @@ $$F = \frac{MS_{Model}}{MS_{Residual}} = \frac{\frac{SS_{model}}{df_{model}}}{\f
 #  In our academic performance example? 
 
 ```{r}
-# model output
+res
 ```
 
-+ *F(2,197)=142.7, p<.001*
+---
+#  In our academic performance example? 
+
++ Our overall model was significant (*F(2,647)=99.32, p<.001*). 
 
 
 ---
 class: center, middle
 # Time for a break
 
-**Quiz time!**
+**No specific task this time**
 
-Spot the difference!
+But use this as a chance to post some questions on the discussion board.
 
 
 ---
@@ -363,35 +410,43 @@ $$t = \frac{\hat \beta_1}{SE(\hat \beta_1)}$$
 + The $t$-value is compared to a $t$-distribution with N-k-1 degrees of freedom to assess statistical significance at a given $\alpha$.
 
 ---
-#  Returning to our academic performance example? 
+#  Our academic performance example
 
 ```{r}
-# model output
+res$coefficients
 ```
 
 
-+ **Both cognitive ability [t(197)=14.35, p<.001] and self-control [t(197)=9.87, p<.001] were statistically significant predictors of academic performance.**
+**Self-control (t(647)=14.05, p<.001) was a significant predictor of academic performance ( $\alpha = 0.05$ ), and so we reject the null hypothesis of no effect. However, we failed to reject the null for class interaction (t(647)=-0.34, p>.05).**
 
 
 ---
 #  Confidence intervals 
 
-.pull-left[
 + Like in simple regression, we can also compute confidence intervals for slopes in multiple regression.
 
 + The 100(1-alpha) confidence interval for the slope is:
 
 $$\hat \beta_1 \pm t^* \times SE(\hat \beta_1)$$
 
-]
-
-.pull-right[
-
 ```{r}
-#rcode
+tibble(
+  lower = res$coefficients[2,1] - round(qt(0.975, 647), 3) *  res$coefficients[2,2],
+  upper = res$coefficients[2,1] + round(qt(0.975, 647), 3) *  res$coefficients[2,2]
+)
+
 ```
 
-]
+
+---
+#  Confidence intervals 
+
++ Or the much easier version...
+
+```{r}
+confint(perf)
+```
+
 
 
 ---
