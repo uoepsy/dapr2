@@ -4,7 +4,7 @@ bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
-    SHOW_SOLS: TRUE
+    SHOW_SOLS: FALSE
     TOGGLE: TRUE
 ---
 
@@ -340,12 +340,15 @@ Furthermore, the average restaurant spending seems to be higher for those who ha
 
 # Model specification
 
-### Data table
-
 Each music type is considered as a different population with its own mean spending.
 However, the three populations (there is one for each music type) are assumed to have the same variance.
 
-If we order the groups by alphabetical ordering, we can represent the data as follows:
+R by default orders the levels of a categorical variable in alphabetical order:
+```{r}
+levels(rest_spend$type)
+```
+
+If we follow the same approach and order the groups by alphabetical ordering, we can represent the data as follows:
 
 | Population Name | Population ID | Sample observations  | Population mean |
 |:---------------:|:-------------:|:--------------------:|:---------------:|
@@ -366,7 +369,7 @@ There are 120 observations for each group, i.e. $n = 120$.
 
 
 
-### Cell means model
+## Cell means model
 
 The data are assumed to follow the model:
 $$
@@ -380,8 +383,8 @@ where the $\epsilon_{i,j}$s are assumed to be independent and follow a $N(0, \si
 
 In the model above,
 
-- $i = 1, 2, 3$ counts the type of music played - i.e. the group
-- $j = 1, 2, ..., 120$ counts the observation within a group
+- $i = 1, 2, 3$ indicates the type of music played - i.e. the group
+- $j = 1, 2, ..., 120$ indicates the observation within a group
 - $y_{i,j}$ is the observed spending of subject $j$ from group $i$
 - $\mu_{i}$ is the population mean spending of group $i$
 - $\epsilon_{i,j}$ is the deviation between the individual observation and the group mean
@@ -390,7 +393,7 @@ The model __parameters__ are $\mu_1, \mu_2, \mu_3$ and $\sigma$.
 
 
 
-### Effects model
+## Effects model
 
 There is another common rewriting of the above model which is widely used in practice.
 
@@ -405,12 +408,23 @@ That is, each group mean is:
 - $\mu_2 = \beta_0 + \beta_2$
 - $\mu_3 = \beta_0 + \beta_3$
 
+
 We have silently introduced one additional parameter ($\beta_0$), and now we have 4 parameters ($\beta_0, \beta_1, \beta_2, \beta_3$) to model only 3 group means ($\mu_1, \mu_2, \mu_3$).
 
-You can think of $\beta_0$ as a baseline value, and the $\beta_1, \beta_2, \beta_3$ as group effects.
+You can think of $\beta_0$ as the baseline value, and the $\beta_1, \beta_2, \beta_3$ as group effects.
 
 This might seem like we are overcomplicating the model but, instead, it will make interpretation much easier in the context of multiple factors (to be discussed in the next weeks).
 
+
+The __effects model__ is:
+$$
+y_{i,j} = \beta_0 + \beta_i + \epsilon_{i,j}\qquad \begin{cases}
+i = 1, 2, ..., g \\
+j = 1, 2, ..., n
+\end{cases}
+$$
+
+with the $\epsilon_{i,j}$s independently following a $N(0, \sigma)$ distribution as usual.
 
 
 :::red
@@ -425,30 +439,25 @@ For example, we can get the same group mean $\mu_i = 10$, say, either by setting
 :::
 
 
-
 To make the model identifiable again, we need to introduce a constraint on the parameters, effectively reducing the degrees of freedom to three, which is also the number of group means.
 
-Before continuing, however, let us define the overall group mean as $\mu = \frac{\mu_1 + \mu_2 + \mu_3}{3}$.
+Before continuing, however, let us define the overall mean as 
+$$
+\mu = \frac{\mu_1 + \mu_2 + \mu_3}{3}
+$$
+
+
+## Side-constraints
 
 Possible side-constraints on the parameters are:
 
 |       Name      |             Constraint            |             Meaning of $\beta_0$            |         R         |
 |:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
-|   Sum to zero   | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
+| Sum to zero | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
 | Reference group |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
 
 
-The __effects model__ is:
-$$
-y_{i,j} = \beta_0 + \beta_i + \epsilon_{i,j}\qquad \begin{cases}
-i = 1, 2, ..., g \\
-j = 1, 2, ..., n
-\end{cases}
-$$
 
-with the $\epsilon_{i,j}$s independently following a $N(0, \sigma)$ distribution as usual.
-
-Depending on the side-constraint, the interpretation of $\beta_0$ and $\beta_1$ will change.
 
 
 ### Sum to zero constraint
@@ -490,6 +499,36 @@ Each group mean is found as:
 - $\mu_3 = \beta_0 + \beta_3 = \beta_0 - (\beta_1 + \beta_2) = \beta_0 - \beta_1 - \beta_2$
 
 
+This is done in R by fitting the model
+
+$$
+y = \beta_0 + \beta_1 \ E_{1} + \beta_2 \ E_{2} + \epsilon \\
+$$
+
+where
+
+$$
+E_1 = \begin{cases}
+1 & \text{if observation is from category 1} \\
+0 & \text{if observation is from category 2} \\
+-1& \text{otherwise} \\
+\end{cases}
+\qquad
+E_2 = \begin{cases}
+1 & \text{if observation is from category 2} \\
+0 & \text{if observation is from category 3} \\
+-1& \text{otherwise} \\
+\end{cases}
+$$
+
+and
+
+- $\beta_0 = \mu$ is the overall mean
+- $\beta_1 = \mu_1 - \mu$ is the effect of level 1
+- $\beta_2 = \mu_2 - \mu$ is the effect of level 2
+- $\beta_3$ is not shown by the linear model as it is found by $ - \beta_1 - \beta_2 $
+
+
 ### Reference group constraint
 
 Under the constraint $\beta_1 = 0$, meaning that the first factor level is the reference group,
@@ -523,83 +562,52 @@ As $\beta_1 = 0$, each group mean is found as:
 - $\mu_3 = \beta_0 + \beta_3$
 
 
+
+This is done in R by fitting the model
+
+$$
+y = \beta_0 + \beta_2 \ D_{2} + \beta_3 \ D_{3} + \epsilon \\
+$$
+
+where
+
+$$
+D_2 = \begin{cases}
+1 & \text{if observation is from category 2} \\
+0 & \text{otherwise} \\
+\end{cases}
+\qquad
+D_3 = \begin{cases}
+1 & \text{if observation is from category 3} \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+and 
+
+- $\beta_0 = \mu_1$ is the mean of the base level (level 1)
+- $\beta_2 = \mu_2 - \mu_1$ is the effect of level 2
+- $\beta_3 = \mu_3 - \mu_1$ is the effect of level 3
+- $\beta_1$ is not shown by the linear model as it is set to 0 by the constraint
+
+
+$$
+\begin{matrix}
+Level  & D_2 & D_3 \\
+\hline
+1 & 0   & 0   \\
+2 & 1   & 0   \\
+3 & 0   & 1   \\
+\end{matrix}
+$$
+
+
 :::yellow
 **IMPORTANT**
 
 By default R uses the reference group constraint
 :::
 
-
-
-# ANOVA as a linear model
-
-
-The models presented before are just multiple linear regression models where the $x$s are binary 0/1 variables.
-
-The following model
-
-$$
-y_{i,j} = \beta_0 + \beta_i + \epsilon_{i,j} \qquad \begin{cases}
-i = 1, 2, ..., g \\
-j = 1, 2, ..., n
-\end{cases}
-$$
-
-is equivalent to the following linear models
-
-## Sum-to-zero case
-
-$$
-y_{i} = \beta_0 + \beta_2 \cdot d_{i,1} + \beta_3 \cdot d_{i,2} + \epsilon_{i}
-$$
-
-where:
-
-$$
-d_{i,1} = \begin{cases}
-1 & \text{if level 1}\\
-0 & \text{if level 2} \\
--1 & \text{if level 3}
-\end{cases}
-
-\qquad 
-
-d_{i,2} = \begin{cases}
-0 & \text{if level 1} \\
-1 & \text{if level 2}\\
--1 & \text{if level 3}
-\end{cases}
-
-\qquad
-
-\text{Intercept = Overall mean}
-$$
-
-## Reference-group case
-
-$$
-y_{i} = \beta_0 + \beta_2 \cdot d_{i,2} + \beta_3 \cdot d_{i,3} + \epsilon_{i}
-$$
-
-where:
-
-$$
-d_{i,2} = \begin{cases}
-1 & \text{if level 2}\\
-0 & \text{if not}
-\end{cases}
-
-\qquad 
-
-d_{i,3} = \begin{cases}
-1 & \text{if level 3}\\
-0 & \text{if not}
-\end{cases}
-
-\qquad
-
-\text{Reference group = Level 1}
-$$
 
 
 
