@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>LM &amp; One-way Designs </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Tom Booth &amp; Alex Doumas" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b>LM &amp; One-way Designs </b>
+## Data Analysis for Psychology in R 2<br><br>
+### Tom Booth &amp; Alex Doumas
+### Department of Psychology<br>The University of Edinburgh
+### AY 2020-2021
+
+---
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Recap on experimental designs and types of data structure. 
+
+2. Understand the distinction between simple, main and interaction effects for experimental designs.
+
+3.  Recognise ANOVA models as special cases of linear models with categorical predictors.
+
+4. Understand how to analyse and interpret one-way designs.
+
+---
+# Topics for today
++ Testing experimental effects in linear models
+
++ Introduce our example for the next two weeks
+
++ One-way design example
+
+---
+# Hypotheses we test in experimental studies
+
++ One-way designs:
+  + **Main effect (tests overall effect of a condition; `\(F\)`-tests )**
+  + Contrasts (tests differences between specific group means; `\(\beta\)` )
+
+--
+
++ Factorial designs:
+  + Simple contrasts/effects
+  + Interactions (categorical*categorical)
+  + Main effects
+
+??
+Idea is to talk through what each of these are
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# The data
+
+```r
+hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %&gt;%
+  slice(1:10)
+```
+
+```
+## # A tibble: 10 x 3
+##      SWB Treatment Hospital
+##    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
+##  1   6.2 TreatA    Hosp1   
+##  2  15.9 TreatA    Hosp1   
+##  3   7.2 TreatA    Hosp1   
+##  4  11.3 TreatA    Hosp1   
+##  5  11.2 TreatA    Hosp1   
+##  6   9   TreatA    Hosp1   
+##  7  14.5 TreatA    Hosp1   
+##  8   7.3 TreatA    Hosp1   
+##  9  13.7 TreatA    Hosp1   
+## 10  12.6 TreatA    Hosp1
+```
+
+---
+# For today
+
++ As we are discussing one-way designs, today we will just look at the effect of treatment on SWB.
+
++ What we will show is that:
+
+
+```r
+lm(SWB ~ Treatment, data = hosp_tbl)
+```
+
++ and
+
+
+```r
+aov(SWB ~ Treatment, data = hosp_tbl)
+```
+
++ are the same.
+
+---
+# Descriptive statistics by group
+
+
+```r
+hosp_tbl %&gt;%
+  select(1:2) %&gt;%
+  group_by(Treatment) %&gt;%
+  summarise(
+    mean = round(mean(SWB)),
+    sd = round(sd(SWB),1),
+    N = n()
+  )
+```
+
+```
+## `summarise()` ungrouping output (override with `.groups` argument)
+```
+
+```
+## # A tibble: 3 x 4
+##   Treatment  mean    sd     N
+##   &lt;fct&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt;
+## 1 TreatA        9   2.9    60
+## 2 TreatB       11   2.5    60
+## 3 TreatC        9   2      60
+```
+
+
+---
+# Sums of squares for ANOVA and LM
++ Recall that in ANOVA we break down sums of squares
+
+
+`$$SS_{total} = SS_{between} + SS_{within}$$`
+
++ And that `\(SS_{between}\)` refers to the conditions/groups.
+  + This group structure is the model. 
+
++ Hence we have a direct parallel to linear model
+
+`$$SS_{total} = SS_{model} + SS_{residual}$$`
+
+---
+# Total Variation &amp; SS
+
+.pull-left[
+
+![](dapR2_lec22_Oneway_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+
+
+]
+
+
+.pull-right[
+
+`$$SS_{total} = \sum(Y_{ij} - \bar{Y})^2$$`
+
++ The subscript `\(ij\)` here denotes individuals within groups.
+
++ Other than this, this is identical to the linear model.
+
++ It is the sum of the square deviations around the mean (dashed grey line)
+
+]
+
+
+---
+# Between/Model variation &amp; SS
+
+
+.pull-left[
+
+![](dapR2_lec22_Oneway_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+
+]
+
+
+.pull-right[
+
+`$$SS_{between} = \sum n(\bar{Y_j} - \bar{Y})^2$$`
+
++ Sum of the squared deviations of the group means from the mean of Y.
+  + The solid coloured lines to the dashed grey line
+
++ For linear model, we stated
+
+`$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$`
+
++ These are equivalent. Remember
+  + `\(\hat{y_i}\)` = model predicted value
+  + So this is equal to the deviation of the the model predicted value of `\(y\)` for a given value of `\(x\)`
+  + When we have categorical predictors, the predicted value of `\(y\)` for a given value of `\(x\)` = group mean
+
+]
+
+---
+# Within/residual variation &amp; SS
+
+
+.pull-left[
+
+![](dapR2_lec22_Oneway_files/figure-html/unnamed-chunk-8-1.png)&lt;!-- --&gt;
+
+]
+
+
+.pull-right[
+
+`$$SS_{within} = \sum(Y_{ij} - \bar{Y_j})^2$$`
++ Sum of the squared deviations of the individual values from the group mean.
+
++ For the linear model we stated
+
+`$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$`
++ And as in the previous slide, these are equivalent because predicted value for a given value of `\(x\)` is the group mean.
+
++ Or put another way, our model = group means.
+
+]
+
+---
+# F-test in LM and ANOVA
+
+**ANOVA**
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Between &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; g-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS between/df between &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MS between/ MS within &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(df between,df within) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Within &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; g(n-1) &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS within/df within &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; gn-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
++ g = number of levels or groups in condition (g=3)
++ n = number of participants per group (n=60)
+
++ So here:
+  + `\(df_{between}\)` = 3-1 = 2
+  + `\(df_{within}\)` = 3*(60-1) = 177
+  + `\(df_{total}\)` = (3*60)-1 = 179
+
+---
+# F-test in LM and ANOVA
+
+**Linear Model**
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; k &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS model/df model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MS model/ MS residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(df model,df residual) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; n-k-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS residual/df residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; n-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
++ k = number of predictors
++ n = sample size
+
++ So here:
+  + `\(df_{model}\)` = k = 2
+  + `\(df_{residual}\)` = 180-2-1 = 177
+  + `\(df_{total}\)` = 180-1 = 179
+
+
+
+---
+# In R
+
+
+```r
+summary(aov(SWB ~ Treatment, data = hosp_tbl))
+```
+
+```
+##              Df Sum Sq Mean Sq F value  Pr(&gt;F)    
+## Treatment     2    177   88.51   14.04 2.2e-06 ***
+## Residuals   177   1116    6.31                    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+
+---
+# In R
+
+
+```r
+summary(lm(SWB ~ Treatment, data = hosp_tbl))
+```
+
+```
+## 
+## Call:
+## lm(formula = SWB ~ Treatment, data = hosp_tbl)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -5.373 -1.987 -0.300  1.838  7.173 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)       9.3267     0.3242  28.770  &lt; 2e-16 ***
+## TreatmentTreatB   1.9467     0.4585   4.246 3.51e-05 ***
+## TreatmentTreatC  -0.2850     0.4585  -0.622    0.535    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.511 on 177 degrees of freedom
+## Multiple R-squared:  0.1369,	Adjusted R-squared:  0.1271 
+## F-statistic: 14.04 on 2 and 177 DF,  p-value: 2.196e-06
+```
+
+
+---
+# Summary of today
+
++ We introduced our example, and focussed on the effect of the treatments
+
++ And looked at the calculation of `\(F\)`-test
+
++ Key point:
+  + It is exactly the same test.
+  + Always keep in mind that the group structure = model
+
+---
+# Next tasks
++ This week:
+  + Complete your lab
+  + Come to office hours
+  + Weekly quiz - content from week 10
+      + Open Monday 09:00
+      + Closes Sunday 17:00
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
