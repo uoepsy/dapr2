@@ -295,14 +295,16 @@ head(rest_spend)
 
 
 `r qbegin(2)`
-Create a frequency table showing the number of people which were assigned to each type of background music.
+Create a table of summary statistics showing the number of people in each type of background music, along with their average spending and standard deviation.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 The question asks us to summarise the data by creating a frequency distribution of the different music types:
 ```{r}
 rest_spend %>%
   group_by(type) %>%
-  summarise(n = n())
+  summarise(n = n(),
+            M = mean(amount), 
+            SD = sd(amount))
 ```
 
 The same number of customers were assigned to each type of music: 120 had a silent background, 120 had classical music, and 120 pop music.
@@ -499,34 +501,60 @@ Each group mean is found as:
 - $\mu_3 = \beta_0 + \beta_3 = \beta_0 - (\beta_1 + \beta_2) = \beta_0 - \beta_1 - \beta_2$
 
 
-This is done in R by fitting the model
+
+<br>
+
+In practice, this is done by fitting the linear regression model
 
 $$
-y = \beta_0 + \beta_1 \ E_{1} + \beta_2 \ E_{2} + \epsilon \\
+y = \beta_0 + \beta_1 \ \text{EffectLevel1} + \beta_2 \ \text{EffectLevel2} + \epsilon \\
 $$
 
 where
 
 $$
-E_1 = \begin{cases}
+\text{EffectLevel1} = \begin{cases}
 1 & \text{if observation is from category 1} \\
 0 & \text{if observation is from category 2} \\
--1& \text{otherwise} \\
+-1& \text{otherwise}
 \end{cases}
-\qquad
-E_2 = \begin{cases}
+\\
+\text{EffectLevel2} = \begin{cases}
 1 & \text{if observation is from category 2} \\
 0 & \text{if observation is from category 3} \\
--1& \text{otherwise} \\
+-1& \text{otherwise}
 \end{cases}
 $$
 
-and
+Schematically,
 
-- $\beta_0 = \mu$ is the overall mean
-- $\beta_1 = \mu_1 - \mu$ is the effect of level 1
-- $\beta_2 = \mu_2 - \mu$ is the effect of level 2
-- $\beta_3$ is not shown by the linear model as it is found by $ - \beta_1 - \beta_2 $
+$$
+\begin{matrix}
+\textbf{Level}  & \textbf{EffectLevel1} & \textbf{EffectLevel2} \\
+\hline
+\text{Classical Music} & 1   & 0    \\
+\text{No Music}        & 0   & 1    \\
+\text{Pop Music}       & -1  & -1
+\end{matrix}
+$$
+
+In R this is simply done by saying:
+
+```
+rest_spend$type <- contr.sum
+mdl <- lm(amount ~ 1 + type, data = rest_spend)
+# or: mdl <- lm(amount ~ type, data = rest_spend)
+```
+
+where `type` is a factor. In such case R will automatically create the two variables `EffectLevel1` and `EffectLevel2` for you!
+
+The `summary(mdl)` will return 3 estimated coefficients:
+
+- $\beta_0$ is estimated overall mean
+- $\beta_1$ is the effect of Classical Music
+- $\beta_2$ is the effect of No Music
+- **NOTE**: The effect of Pop Music is not shown by `summary` as it is found via the side-constraint as `-(beta1 + beta2)`!
+
 
 
 ### Reference group constraint
@@ -563,51 +591,69 @@ As $\beta_1 = 0$, each group mean is found as:
 
 
 
-This is done in R by fitting the model
+<br>
+
+In practice, this is done by fitting the linear regression model
 
 $$
-y = \beta_0 + \beta_2 \ D_{2} + \beta_3 \ D_{3} + \epsilon \\
+y 
+= \beta_0 
++ \beta_1 \ \text{IsTypeNoMusic} 
++ \beta_2 \ \text{IsTypePopMusic} 
++\epsilon
 $$
 
 where
 
 $$
-D_2 = \begin{cases}
-1 & \text{if observation is from category 2} \\
-0 & \text{otherwise} \\
+\text{IsTypeNoMusic} = \begin{cases}
+1 & \text{if observation is from the No Music category} \\
+0 & \text{otherwise}
 \end{cases}
-\qquad
-D_3 = \begin{cases}
-1 & \text{if observation is from category 3} \\
+\\
+\text{IsTypePopMusic} = \begin{cases}
+1 & \text{if observation is from the Pop Music category} \\
 0 & \text{otherwise}
 \end{cases}
 $$
 
-and 
-
-- $\beta_0 = \mu_1$ is the mean of the base level (level 1)
-- $\beta_2 = \mu_2 - \mu_1$ is the effect of level 2
-- $\beta_3 = \mu_3 - \mu_1$ is the effect of level 3
-- $\beta_1$ is not shown by the linear model as it is set to 0 by the constraint
-
+Schematically,
 
 $$
 \begin{matrix}
-Level  & D_2 & D_3 \\
+\textbf{Level}  & \textbf{IsTypeNoMusic} & \textbf{IsTypePopMusic} \\
 \hline
-1 & 0   & 0   \\
-2 & 1   & 0   \\
-3 & 0   & 1   \\
+\text{Classical Music} & 0   & 0   \\
+\text{No Music}        & 1   & 0   \\
+\text{Pop Music}       & 0   & 1
 \end{matrix}
 $$
 
+In R this is simply done by saying:
+
+```
+mdl <- lm(amount ~ 1 + type, data = rest_spend)
+# or: mdl <- lm(amount ~ type, data = rest_spend)
+```
+
+where `type` is a factor. In such case R will automatically create the two dummy variables `IsTypeNoMusic` and `IsTypePopMusic` for you!
+
+The `summary(mdl)` will return 3 estimated coefficients:
+
+- $\beta_0$ is the mean of the base level (level 1)
+- $\beta_1$ is the effect of No Music
+- $\beta_2$ is the effect of Pop Music
+- **NOTE**: The effect of Classical Music is not shown as it is equal to zero by the constraint!
+
+
+
+<br>
 
 :::yellow
 **IMPORTANT**
 
 By default R uses the reference group constraint
 :::
-
 
 
 
