@@ -1,11 +1,9 @@
-# DAPR2 LECTURES 
-
 [BinaryExercise_answer.html](BinaryExercise_answer.html)  
 [dapR2_lec0_CourseIntro.html](dapR2_lec0_CourseIntro.html)  
 [dapR2_lec01_Prelims.html](dapR2_lec01_Prelims.html)  
 [dapR2_lec02_Functions.html](dapR2_lec02_Functions.html)  
-[dapR2_lec03_LMintro.html](dapR2_lec03_LMintro.html)  
 [dapR2_lec03_LMintro_example.html](dapR2_lec03_LMintro_example.html)  
+[dapR2_lec03_LMintro.html](dapR2_lec03_LMintro.html)  
 [dapR2_lec04_LMcoefs.html](dapR2_lec04_LMcoefs.html)  
 [dapR2_lec05_LMmodeleval.html](dapR2_lec05_LMmodeleval.html)  
 [dapR2_lec06_LMstandardized.html](dapR2_lec06_LMstandardized.html)  
@@ -32,4 +30,9 @@
 [dapR2_lec23_CodingPlannedContrasts.html](dapR2_lec23_CodingPlannedContrasts.html)  
 [dapR2_lec24_Activity1.html](dapR2_lec24_Activity1.html)  
 [dapR2_lec24_FactorialFtests.html](dapR2_lec24_FactorialFtests.html)  
+[dapR2_lec25_Activity1.html](dapR2_lec25_Activity1.html)  
+[dapR2_lec25_CatInteractions1.html](dapR2_lec25_CatInteractions1.html)  
+[dapR2_lec26_Activity1.html](dapR2_lec26_Activity1.html)  
+[dapR2_lec26_Activity2.html](dapR2_lec26_Activity2.html)  
+[dapR2_lec26_CatInteractions2.html](dapR2_lec26_CatInteractions2.html)  
 [qanda.html](qanda.html)  
