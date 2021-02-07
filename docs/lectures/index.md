@@ -41,4 +41,6 @@
 [dapR2_lec28_Activity1.html](dapR2_lec28_Activity1.html)  
 [dapR2_lec28_Activity2.html](dapR2_lec28_Activity2.html)  
 [dapR2_lec28_RevisitingAssumptions.html](dapR2_lec28_RevisitingAssumptions.html) 
+[dapR2_lec29_Activity1.html](dapR2_lec29_Activity1.html)  
+[dapR2_lec29_SumsSquares.html](dapR2_lec29_SumsSquares.html) 
 [qanda.html](qanda.html)  
