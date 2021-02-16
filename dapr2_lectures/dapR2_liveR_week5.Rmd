@@ -1,0 +1,150 @@
+---
+title: "dapR2 Lab Report 1 - Live R"
+author: "Tom Booth"
+date: "08/02/2021"
+output: 
+  bookdown::html_document2
+---
+
+## Analysis Strategy
+**Points to include, not necessarily in this order:**
+
+- Data checks: Missing data, out of range values, coding of categorical variables
+- Personality data: At some point, either here or in model discussion, need to standardized.
+
+- Assumptions:
+  - What assumptions need to be tested?
+  - What tests/plots are used?
+  - How are they evaluated?
+  - Could also comment here where the main results will be reported
+- Diagnostics:
+  - How will you check for influential cases, what are cut-off etc.
+
+- Alpha level
+  - Any other adjustments to alpha/ methods of inference
+
+### Models
+The key thing here is to describe the model, the variables within the model, and the information you will use to answer the question
+
+For all questions:
+
+- Models
+- What information is used to answer the questions?
+  - Significance of F, t, incremental model fit tests etc.
+  - Magnitude of the beta coefficients
+- This links to back to the question.
+- Rationales for decision
+
+**Q1 and Q2** answered with the same model, with reference level changed.
+
+- Outcome, self-rated health
+- Predictor location with countryside (or suburb) as reference level.
+- Q1 answer by F-test significance and comment on variance explained.
+- Q2 answered by the significance of the beta coefficient for the difference between countryside and suburb, with an interpretation of that effect.
+
+**Q3** answered with single lm with all data.
+
+- Outcome, self-rated health
+- Predictors, all personality variables. z-scored so as to mean the beta coefficients are standardized and to allow comparison. This is also efficient for the final model which needs an interaction.
+- Predictors location and age.
+- Question answered by comparison of the beta-coefficients.
+- Additional comments could be made on the overall model significance, significance of individual personality variables and variance explained. 
+
+**Q4** add the interaction and probe.
+
+- Outcome, self-rated health
+- Predictors, everything!
+- Focal test is the significance of the interaction term fro N and C
+- Support for healthy-N is a buffering interaction assessed via the direction of the coefficients (-N, +C, + N*C), and a simple slopes plot.
+
+## Results
+Report the above.
+
+### Descriptives
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(sjPlot)
+tib <- read_csv("C:/Work/Teaching/psychstats/assignments/dapr2/dapr2_report.csv", col_types = "fdfdddddd")
+```
+
+### Q1 and Q2
+```{r, boxplot, fig.cap = "<br> *Hello, is it a boxplot you are looking for*"}
+tib %>%
+  ggplot(., aes(x=location, y=srh)) + 
+  geom_boxplot()
+```
+
+As you can see in **Figure\@ref(fig:boxplot)** 
+
+
+
+```{r}
+tib %>%
+  group_by(location) %>%
+  summarise(
+    mean = mean(srh),
+    sd = sd(srh)
+  )
+```
+
+```{r}
+levels(tib$location)
+```
+
+```{r}
+contrasts(tib$location) <- contr.treatment(3, 2)
+m1 <- lm(srh ~ location, data = tib)
+summary(m1)
+```
+
+(*F*(2,747)=3.253, *p*<.05 )
+
+```{r}
+tab_model(m1, show.se = T, show.stat = T, string.se = "Bob",
+          pred.labels = c("Intercept", "Location (City)", "Location (Countryside)"))
+```
+
+
+### Q3
+
+```{r}
+m2 <- lm(srh ~ age + location + scale(N) + scale(E) + scale(O) + scale(A) + scale(C), data = tib)
+summary(m2)
+```
+
+
+### Q4
+
+```{r}
+m3 <- lm(srh ~ age + location + scale(N) + scale(E) + scale(O) + scale(A) + scale(C) + scale(N)*scale(C), data = tib)
+summary(m3)
+```
+
+```{r}
+anova(m2,m3)
+```
+
+```{r}
+library(interactions)
+interact_plot(m3, pred = N, modx = C, data = tib)
+```
+
+
+Include: 
+  - Tables
+  - Figures
+  - Interaction plot
+  - Simple slopes or regions of significance plot
+  - Comment on whether the interaction is buffering or not.
+  
+## Discussion
+Essentially 1 - 2 sentences per model/question.
+Key points:
+  - Don't repeat results verbatim
+  - Comment on all questions
+  - Be accurate with respect to the results shown
+  
+## General Writing
+
+## Assumption/Diagnostic Appendix
+Label!!!!
