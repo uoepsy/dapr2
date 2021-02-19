@@ -4,7 +4,7 @@ bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
-    SHOW_SOLS: TRUE
+    SHOW_SOLS: FALSE
     TOGGLE: TRUE
 ---
 
@@ -18,12 +18,44 @@ knitr::opts_chunk$set(cache = TRUE)
 set.seed(3)
 ```
 
-This week we examine another technique for drawing inferences to the population from a regression model. This method is, known as bootstrapping, is assumptions-free and does not rely on conditions such as normality of the residuals.
 
+When our research hypothesis involves a population slope, for example, we wish to test whether in a model such as
+$$
+y = \beta_0 + \beta_1 x + \epsilon
+$$
+the slope coefficient is significantly different from 0 or not.
+
+However, the population slope is an example of a _parameter_, a numerical summary of the population. Typically, we do not have data for the entire population, so we can only compute a numerical summary for a sample, called a _statistic_. We use the statistic $\widehat \beta_1$ (= estimated regression slope) to estimate the unknown population parameter $\beta_1$ (= true regression slope).
+
+In the past weeks we have used the results from the t-test and corresponding p-values returned by the `summary()` function. However, such test results are valid only when the regression assumptions are satisfied.
+
+For example, recall the Riverview data from Semester 1:
+```{r}
+library(tidyverse)
+
+riverview <- read_csv(file = "https://uoepsy.github.io/data/riverview.csv")
+
+mdl <- lm(income ~ 1 + education, data = riverview)
+summary(mdl)
+```
+
+Another key question we were able to answer by looking at the `summary()` output, was "How accurate can we expect the estimates to be?" This was given by the _standard error_ (SE in short), reported in the `Std. Error` column. The SE tells us the size of a typical "estimation error", i.e. a typical distance between an estimate for a given sample and the true but unknown population value.
+
+
+Clearly, now you might wonder, what should we do then if there is no way to satisfy the regression assumptions by transforming variables?
+
+Here's the answer: bootstrap!
+
+
+This week we examine bootstrapping, which is another technique for drawing inferences to the population from a regression model. This method is assumption-free and does not rely on conditions such as normality of the residuals.
+
+Before continuing, this table summarises the new terms that will be explained throughout the exercises.
 
 :::yellow
 **Bootstrap Terminology**
 
+- A _parameter_ is a numerical summary for the population, e.g. the population slope $\beta_1$
+- A _statistic_ is a numerical summary calculated from the sample data, e.g. the estimated slope in the sample $\widehat \beta_1$
 - A _bootstrap sample_ is chosen with replacement from an existing sample, using the same sample size.
 - A _bootstrap statistic_ is a statistic computed for each bootstrap sample.
 - A _bootstrap distribution_ collects bootstrap statistics for many bootstrap samples.
@@ -33,30 +65,45 @@ This week we examine another technique for drawing inferences to the population 
 
 # Age, Knowledge and Attitudes About Science
 
-This week's lab explores whether attitudes towards science and faith can be modelled as a linear function of a person’s age and knowledge about science, from the 2005 Eurobarometer 63.1 survey. The research question guiding this example is:
+This week's lab explores whether attitudes towards science and faith are related to knowledge about science and to age, using a subset of data from the 2005 Eurobarometer 63.1 survey. 
+
+The research question guiding this example is:
 
 > Is age and knowledge about science associated with attitudes towards science and faith?
 
-We can also state this in the form of two hypotheses:
+We can also state this in the form of two research hypotheses:
 
-- There is no linear relationship between people's age and their attitudes to science and faith after accounting for their scientific knowledge.
-- There is no linear relationship between people's scientific knowledge and their attitudes to science and faith after accounting for their age.
+- There is a significant linear relationship between people's age and their attitudes to science and faith after accounting for their scientific knowledge.
+- There is a significant  linear relationship between people's scientific knowledge and their attitudes to science and faith after accounting for their age.
 
 
 
 # The Data
+
+Download the data here: https://uoepsy.github.io/data/science-faith-attitude.csv
+
 This example uses three variables from the Eurobarometer 63.1 survey:
 
-- `kstot`: Score on a science “quiz” composed of 13 true/false items.
-- `toomuchscience`: Attitude to science and faith (question wording: "We rely too much on science and not enough on faith"; responses on a 5-point scale from strongly disagree to strongly agree).
-- `age`: Age measured in years.
+```{r echo = FALSE}
+library(kableExtra)
+
+tibble(
+    Variable = c('`kstot`', '`toomuchscience`', '`age`'),
+    Description = c('Score on a science “quiz” composed of 13 true/false items.',
+                    'Attitude to science and faith (question wording: "We rely too much on science and not enough on faith"; responses on a 5-point scale from strongly disagree to strongly agree).',
+                    'Age measured in years.')
+) %>%
+    kable() %>%
+    kable_styling(full_width = FALSE)
+```
+
 
 The science knowledge quiz has a range of 0 to 13. Its mean is about 8.7. The attitude to science and faith question has five categories, ranging from 0 to 4, with a mean of about 2.5. Age has a range of 15–93, with a mean of about 45. This is formally an ordinal variable but, in line with common practice in applied research, we regard it as continuous, as we do the other two variables as well.
 
 
 
 `r qbegin(1)`
-- Read the data into R, and call the data `ebsurvey`.
+- Read the data into R, and call the data `ebsurvey`. Remember, you can download the data here: https://uoepsy.github.io/data/science-faith-attitude.csv
 
 - How many observations and how many variables are there?
 
@@ -69,14 +116,16 @@ The science knowledge quiz has a range of 0 to 13. Its mean is about 8.7. The at
 library(tidyverse)
 
 # Read the data
-ebsurvey <- read_csv('dataset-eb631-2005-subset2.csv')
+ebsurvey <- read_csv('https://uoepsy.github.io/data/science-faith-attitude.csv')
 # Inspect top 6 rows
 head(ebsurvey)
 # Check data dimensions
 dim(ebsurvey)
 ```
 
-Today we will be only using the `kstot`, `age`, and `toomuchscience` columns. We can subset the data
+There are `r nrow(ebsurvey)` observations on `r ncol(ebsurvey)` variables.
+
+However, today we will be only using the `kstot`, `age`, and `toomuchscience` variables. We can subset the data:
 ```{r}
 ebsurvey <- ebsurvey %>%
     select(kstot, age, toomuchscience)
@@ -85,23 +134,17 @@ ebsurvey <- ebsurvey %>%
 Are there any NA values in the data?
 ```{r}
 anyNA(ebsurvey)
-# Omit them
+# Yes, so we omit them
 ebsurvey <- na.omit(ebsurvey)
 # Check new data dimensions
 dim(ebsurvey)
 ```
 `r solend()`
 
+`r qbegin(2)`
+Give the variables more meaningful names. Rename `kstot` to `science_knowledge` and rename `toomuchscience` to `attitude`.
 
-<br>
-
-Before producing multiple regression models, it is a good idea to look at each variable separately.
-
-
-`r qbegin()`
-Give the variables more meaningful names.
-
-Rename `kstot` to `science_knowledge` and rename `toomuchscience` to `attitude`.
+_Hint: have a look at the help page of the function `rename`._
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
@@ -113,7 +156,12 @@ head(ebsurvey)
 
 `r solend()`
 
-`r qbegin()`
+
+<br>
+
+Before producing multiple regression models, it is a good idea to look at each variable separately.
+
+`r qbegin(3)`
 Explore the distribution of age in years, `age`.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -145,8 +193,8 @@ The mean age in the sample is about 45 years with a standard deviation of just o
 `r solend()`
 
 
-`r qbegin()`
-Explore the distribution of science knowledge quiz scores.
+`r qbegin(4)`
+Explore the distribution of science knowledge quiz scores, `science_knowledge`.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 An histogram of science knowledge quiz scores is provided below:
@@ -175,13 +223,13 @@ The histogram shows that the majority of values on the science knowledge quiz sc
 `r solend()`
 
 
-`r qbegin()`
-Explore the distribution of science attitude scores.
+`r qbegin(5)`
+Explore the distribution of attitude to science and faith scores, `attitude`.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
 ggplot(ebsurvey, aes(x = attitude)) +
-    geom_bar() +
+    geom_histogram(color = 'white', binwidth = 1) +
     labs(x = 'We rely too much on science and not enough on faith', 
          y = 'Frequency')
 ```
@@ -200,13 +248,12 @@ ebsurvey %>%
     kable_styling(full_width = FALSE)
 ```
 
-The mean score on the science and faith attitude variable is just over 2. There are only 5 discrete values possible in the distribution, based on the response options available, but OLS regression is relatively robust to violations of the assumption of normality, and in fact the distribution looks approximately normal, with a slight negative skew.
-
+The mean score on the science and faith attitude variable is just over 2. There are only 5 discrete values possible in the distribution, based on the response options available, but the distribution looks approximately normal, with a slight negative skew.
 `r solend()`
 
 
 
-`r qbegin()`
+`r qbegin(6)`
 Visualise the pairwise relationships between your variables and explore the possible correlations.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -231,7 +278,7 @@ p3 <- ggplot(ebsurvey, aes(science_knowledge, attitude)) +
 p1 | p2 | p3
 ```
 
-It does not appear like there is a strong marginal linear dependence of science attitude age and science knowledge.
+From the pairwise scatterplots, it does not seem like there is a strong linear dependence of attitude to science and faith on a person's age and science knowledge.
 
 Correlation matrix:
 ```{r}
@@ -244,6 +291,8 @@ The correlation between `attitude` and `age` is 0.05, while with `science_knowle
 
 `r solend()`
 
+
+<br>
 
 Now that we have explored each variable by itself, we can estimate the multiple regression model. 
 
@@ -258,7 +307,7 @@ $$
 Regression results are often presented in a table that reports the coefficient estimates, their estimated standard errors, t-scores, and levels of statistical significance.
 
 
-`r qbegin()`
+`r qbegin(7)`
 - Fit the model specified above using R
 - Check for violations of the model assumptions.
 `r qend()`
@@ -267,31 +316,35 @@ Regression results are often presented in a table that reports the coefficient e
 mdl <- lm(attitude ~ science_knowledge + age, data = ebsurvey)
 ```
 
-```{r}
+```{r out.width = '95%'}
 par(mfrow = c(2,2))
 plot(mdl)
 ```
 `r solend()`
 
 
+<br>
+
 If you are doubting that the model assumptions are satisfied, don't throw your PC up in the air, but rather keep reading!
 
 # The Bootstrap
 
-The _bootstrap_ is a general approach to assessing whether the sample results are statistically significance or not, which does not rely on specific distributional assumptions such as normality of the errors.
-It is based on resampling repeatedly from the data at hand (with replacement, to avoid always getting the original sample exactly)and computing the regression coefficients from each resample.
+The _bootstrap_ is a general approach to assessing whether the sample results are statistically significant or not, which does not rely on specific distributional assumptions such as normality of the errors.
+It is based on sampling repeatedly with replacement (to avoid always getting the original sample exactly) from the data at hand, and then computing the regression coefficients from each resample. We will equivalently use the word bootstrap sample or resample (for SAMPLE with REplacement).
 
-
-The basic principle is:
 
 :::frame
+The basic principle is:
+
 <center>
-__The population is to the sample__
+__The population is to the original sample__
 
 __as__
 
-__the sample is to the bootstrap samples.__
+__the original sample is to the bootstrap samples.__
+
 </center>
+
 :::
 
 Because we only have one sample of size $n$, and we do not have access to the data for the entire population, we consider our original sample as our best approximation to the population. 
@@ -319,7 +372,15 @@ $$
 (y_1, x_1), (y_2, x_2), \dots, (y_n, x_n)
 $$
 
-To obtain one _bootstrap sample_ from the original sample, sample $n$ pairs with replacement from the original sample. Denote the new $n$ pairs with an asterisk. Noet that we can have repetitions of pairs from the original sample:
+For the original sample, we can obtain estimated intercept and slope:
+$$
+\begin{aligned}
+\widehat \beta_0 &= \text{estimated intercept for original sample } (y_1, x_1), (y_2, x_2), \dots, (y_n, x_n)\\ 
+\widehat \beta_1 &= \text{estimated slope for original sample } (y_1, x_1), (y_2, x_2), \dots, (y_n, x_n)
+\end{aligned}
+$$
+
+To obtain one _bootstrap sample_ from the original sample, sample $n$ pairs with replacement from the original sample. Denote the new $n$ pairs with an asterisk. Note that we can have repetitions of pairs from the original sample:
 $$
 (y_1, x_1)^*, (y_2, x_2)^*, \dots, (y_n, x_n)^*
 $$
@@ -327,10 +388,13 @@ $$
 Then, we can fit the linear model to the data in the bootstrap sample, and compute the regression coefficients in the bootstrap sample, $\widehat \beta_0^*$ and $\widehat \beta_1^*$. These two regression coefficients are examples of _bootstrap statistics_. We call _bootstrap statistic_ any numerical summary of the _bootstrap sample_, in the same way that a statistic is a numerical summary of a sample.
 
 $$
-\widehat \beta_0^* \\ \widehat \beta_1^*
+\begin{aligned}
+\widehat \beta_0^* &= \text{estimated intercept for resample } (y_1, x_1)^*, (y_2, x_2)^*, \dots, (y_n, x_n)^*\\ 
+\widehat \beta_1^* &= \text{estimated slope for resample } (y_1, x_1)^*, (y_2, x_2)^*, \dots, (y_n, x_n)^*
+\end{aligned}
 $$
 
-Now, imagine doing this many times. That is, taking many bootstrap samples (say $R = 1,000$), each of size $n = 4$ individuals, and computing the regression intercept and slope for each bootstrap sample.
+Now, imagine doing this many times. That is, taking many bootstrap samples (say $R = 1,000$), each of size $n$ individuals, and computing the regression intercept and slope for each bootstrap sample.
 You will obtain $R$ bootstrap intercepts and $R$ bootstrap slopes. Denote by $\widehat \beta_{0}^{(5)}$ the bootstrap intercept in the 5th bootstrap sample. Similarly, $\widehat \beta_{1}^{(5)}$ is the bootstrap slope in the 5th bootstrap sample.
 $$
 \widehat \beta_{0}^{(1)}, \ 
@@ -382,7 +446,7 @@ coef(lm(y ~ x))
 ```
 
 $$
-\widehat \beta_0 = 8.94 \qquad \widehat \beta_1 = -0.29
+\widehat \beta_0^* = 8.94 \qquad \widehat \beta_1^* = -0.29
 $$
 
 Now, imagine doing this many times. That is, taking many bootstrap samples (say $R = 1,000$), each of size $n = 4$ individuals, and computing the regression intercept and slope for each bootstrap sample.
@@ -400,95 +464,190 @@ hist(rnorm(1000, -0.1, 0.1), xlab = expr(beta[1]^'*'), main = '')
 
 <br>
 
-That was nice! But how do I actually do this in R?
+That sounds all nice in theory! But how do I actually do this in R? Is it difficult??? 
 
-It's super easy! Follow these steps:
+No, it's super easy! Follow these steps:
 
-Step 1. Load the `car` library
+__Step 1.__ Load the `car` library
 ```{r}
 library(car)
 ```
 
-Step 2. Use the `Boot()` function, which takes as arguments:
+__Step 2.__ Use the `Boot()` function (do not forget the uppercase B!) which takes as arguments:
 
 - the fitted model
 - `f`, saying which bootstrap statistics to compute on each bootstrap sample. By default `f = coef`, returning the regression coefficients.
 - `R`, saying how many bootstrap samples to compute. By default `R = 999`.
 - `ncores`, saying if to perform the calculations in parallel (and more efficiently). However, this will depend on your PC, and you need to find how many cores you have by running `parallel::detectCores()` on your PC. By default the function uses `ncores = 1`.
 
-Step 3. Run the code. However, please remember that the `Boot()` function does **not** want a model which was fitted using data with NAs. In our case we are fine because we already removed them with `na.omit`.
+__Step 3.__ Run the code. However, please remember that the `Boot()` function does **not** want a model which was fitted using data with NAs. In our case we are fine because we already removed them with `na.omit`.
 ```{r}
 boot_mdl <- Boot(mdl, R = 999)
 ```
 
-Step 4. Look at the summary of the bootstrap results:
+
+__Step 4.__ Look at the summary of the bootstrap results:
 ```{r}
 summary(boot_mdl)
 ```
 
 
-The above output shows, for each regression coefficient, the value in the original sample in the column `original`, and then we will focus on the `bootSE` column, which estimates the variability of the coefficient from bootstrap sample to bootstrap sample. The `bootSE` provides us the bootstrap standard error, or bootstrap SE in short.
+The above output shows, for each regression coefficient, the value in the original sample in the column `original`, and then we will focus on the `bootSE` column, which estimates the variability of the coefficient from bootstrap sample to bootstrap sample. The `bootSE` provides us the bootstrap standard error, or bootstrap SE in short. We use this to answer the key question of how accurate our estimate is.
 
-Step 5. Compute the confidence interval
+__Step 5.__ Compute confidence intervals. Use your preferred confidence level, by default this is 95%:
 
 ```{r}
-Confint(boot_mdl, type = "perc")
+Confint(boot_mdl, level = 0.95, type = "perc")
 ```
 
+The `type = "perc"` argument tells R  to return the values that comprise 95% of all values in between them, i.e. the value with 2.5% of observations below it and the value with 2.5% of observations above it and 97.5% of observations below it.
+
 If you want to make it into a nice table:
-```{r}
+```{r tbl-boot}
 Confint(boot_mdl, type = "perc") %>%
     kable(digits = 3, caption = 'Bootstrap 95% CIs') %>%
     kable_styling(full_width = FALSE)
 ```
 
-We are 95% confident that the population intercept is between 2.67 and 2.89.
+
+:::int
+We are 95% confident that the population intercept is between 2.68 and 2.9.
 We are 95% confident that the population slope for science knowledge is between -0.09 and -0.07.
 We are 95% confident that the population slope  for age is between 0.001 and 0.004.
+:::
 
-
-We can visualise the distributions  and confidence intervals with:
-```{r, out.width = '95%'}
-hist(boot_mdl, ci = "perc", legend = "separate")
-```
-
-
-The results in confidence intervals table above report an estimate of the intercept (or constant) as equal to approximately 2.8. 
-The constant of a multiple regression model can be interpreted as the average expected value of the dependent variable when all of the independent variables equal zero. In this case, the independent variable science knowledge has only a handful of respondents that score zero, and no one is aged zero, so the constant by itself does not tell us much. Researchers do not often have predictions based on the intercept, so it often receives little attention.
+The results in Table \@ref(tab:tbl-boot) report an estimate of the intercept (or constant) as equal to approximately 2.8. 
+The constant of a multiple regression model can be interpreted as the average expected value of the dependent variable when all of the independent variables equal zero. In this case, the independent variable science knowledge has only a handful of respondents that score zero, and no one is aged zero, so the constant by itself does not tell us much. Researchers do not often have predictions based on the intercept, so it often receives little attention. A better choice would be to mean centre age, and refit the model with a mean centred age variable!
 
 The estimated value for the slope coefficient linking knowledge to attitude is estimated to be approximately -0.08. This represents the average marginal effect of knowledge on attitude, and can be interpreted as the expected change in the dependent variable on average for a one-unit increase in the independent variable, controlling for age. In this example, every increase in quiz score by one point is associated with a decrease in attitude score of about –0.08, adjusted for age. 
 Bearing in mind the valence of the question wording, this means that those who are more knowledgeable tend to be more favourable towards science – i.e. disagreeing with the statement.
 
-The slope coefficient linking age to attitude is estimated to be approximately 0.002. This represents the average marginal effect of each additional year on attitude, and can be interpreted as the expected change in the dependent variable on average for a one-unit increase in the independent variable, controlling for science knowledge. For this example, that means that for every year older a person is, their attitude score is expected to increase by 0.002, controlling for science knowledge. This may seem like a very small effect, but remember that this is the effect of only one additional year. Bearing in mind the valence of the question wording, this means that older people tend to be less favourable towards science – i.e. agreeing with the statement. 
-The bootstrap confidence intervals table also reports that the 95% confidence intervals for both slope estimates do not include 0. This leads us to reject both null hypotheses at the 5% significance level, and conclude that there appear to be relationships for both age and science knowledge with attitudes. 
+
+The slope coefficient linking age to attitude is estimated to be approximately 0.002. This represents the average marginal effect of each additional year on attitude, and can be interpreted as the expected change in the dependent variable on average for a one-unit increase in the independent variable, controlling for science knowledge. For this example, that means that for every year older a person is, their attitude score is expected to increase by 0.002, controlling for science knowledge. This may seem like a very small effect, but remember that this is the effect of only one additional year. Bearing in mind the valence of the question wording, this means that older people tend to be less favourable towards science – i.e. agreeing with the statement.
 
 
+The bootstrap confidence intervals table also reports that the 95% confidence intervals for both slope estimates do not include 0. This leads us to reject both null hypotheses at the 5% significance level, and conclude that there appear to be relationships for both age and science knowledge with attitude to science and faith. 
+
+Remember the summary of them model:
 ```{r}
 summary(mdl)
 ```
 
 The R-squared for the model is 0.031, which means that approximately 3% of the variance in attitude is explained by science knowledge and age.
 
+<br>
+
+How can we visualise the bootstrap intercepts and slopes?  They are stored in the `boot_mdl` object.
+
+This will show you the $R = 999$ estimates, using head to show only the top 6.
+```{r}
+head(boot_mdl$t)
+```
+
+While this shows you the estimated intercept and slope in the original sample
+```{r}
+boot_mdl$t0
+```
+
+
+You can visualise the uncertainty in the estimates by plotting histograms either manually:
+```{r}
+plot_data <- as_tibble(boot_mdl$t)
+plot_data
+
+ggplot(plot_data, aes(science_knowledge)) +
+    geom_histogram(color = 'white')
+```
+
+Or using the built-in function from the `car` package, which simply takes the bootstrap results `boot_mdl`:
+```{r, out.width = '95%'}
+hist(boot_mdl, ci = "perc", legend = "separate")
+```
+
+
 
 
 # Presenting results
 
-The results of the multiple regression can be presented as follows:
+`r qbegin(8)`
+Write a short paragraph summarising the results of this lab. 
 
+Include:
+
+1. A brief description of which data were used to answer which questions.
+2. A plot of your variables and summary statistics.
+3. Describe your model and report results
+4. Interpret results in context.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 We used a subset of data from the 2005 Eurobarometer 63.1 survey to investigate whether:
 
-- There is no linear relationship between people’s age and their attitudes to science and faith after accounting for their scientific knowledge.
-- There is no linear relationship between people’s scientific knowledge and their attitudes to science and faith after accounting for their age.
+- There is a significant linear relationship between people’s age and their attitudes to science and faith after accounting for their scientific knowledge.
+- There is a significant linear relationship between people’s scientific knowledge and their attitudes to science and faith after accounting for their age.
 
-```{r echo=FALSE}
-Confint(boot_mdl, type = "perc") %>%
-    kable(digits = 3, caption = 'Table 1. Bootstrap 95% CIs') %>%
+The data, excluding any missing values, include 10503 individual respondents who were measured on 3 different attributes: (1) Score on a science “quiz” composed of 13 true/false items. (2) Attitude to science and faith (question wording: "We rely too much on science and not enough on faith"; responses on a 5-point scale from strongly disagree to strongly agree). (3) Age measured in years.
+Figure \@ref(fig:res-descr-plot) displays the scatterplots of the pairwise relationships between the 3 variables. From the plot and the correlation matrix, displyed in Table \@ref(tab:res-descr-cor), it appears that there is a weak negative linear association between attitude and science knowledge, and nearly no linear association between attitude and age.
+
+```{r res-descr-plot, echo=FALSE, out.width='95%', fig.height = 4, fig.width=12, fig.cap = "Pairwise scatterplots of the variables."}
+p1 | p2 | p3
+```
+
+```{r res-descr-cor, echo=FALSE}
+cor(ebsurvey) %>%
+    kable(digits = 3, caption = "Correlation matrix") %>%
     kable_styling(full_width = FALSE)
 ```
 
-The data include 10503 individual respondents. Results presented in Table 1 show that there is a negative and statistically significant relationship between knowledge and attitudes. Specifically, the results show that for every additional correct quiz answer people give, we would expect a decline in attitude score of about 0.08. For age, the effect is in the opposite direction. For every additional year older a person is, they are expected to score .002 more on the attitude scale. The R-squared for the model is 0.032, which means that approximately 3% of the variance in attitude is explained by science knowledge and age. This leaves the majority of variation in attitudes unexplained by our model. Thus we conclude that respondents with greater knowledge about science also tend to be more positive about it, regardless of their age, while older people are slightly less positive, irrespective of their level of knowledge. Further diagnostic tests should be explored to evaluate the robustness of this finding.
 
 
+
+To answer the research hypotheses, we fitted the following regression model:
+$$
+\text{attitude} = \beta_0 + \beta_1 \ \text{science_knowledge} + \beta_2 \ \text{age} + \epsilon
+$$
+
+```{r echo=FALSE}
+b0 <- signif(coef(mdl)[1],2)
+b1 <- signif(coef(mdl)[2],2)
+b2 <- signif(coef(mdl)[3],2)
+```
+
+Which resulted in the following estimated regression coefficients for the original sample:
+$$
+\widehat{\text{attitude}} = `r b0` `r b1` \ \text{science_knowledge} + `r b2` \ \text{age}
+$$
+
+The model does not satisfy the regression assumptions, see Figure \@ref(fig:res-diag-plots), and for this reason we will assess statistical significance using the boostrap approach with $R = 999$ resamples.
+```{r res-diag-plots, echo=FALSE, fig.cap = "Diagnostic plots", out.width = '95%'}
+par(mfrow = c(2,2))
+plot(mdl)
+```
+
+```{r res-boot-table, echo=FALSE}
+Confint(boot_mdl, type = "perc") %>%
+    kable(digits = 3, caption = 'Bootstrap 95% CIs') %>%
+    kable_styling(full_width = FALSE)
+```
+
+The 95% bootstrap confidence intervals are provided in Table \@ref(tab:res-boot-table). These results show that there is a negative and statistically significant relationship between knowledge and attitudes. Specifically, the results show that for every additional correct quiz answer people give, we would expect a decline in attitude score of about 0.08. For age, the effect is in the opposite direction. For every additional year older a person is, they are expected to score .002 more on the attitude scale. The R-squared for the model is 0.032, which means that approximately 3% of the variance in attitude is explained by science knowledge and age. This leaves the majority of variation in attitudes unexplained by our model. Thus we conclude that respondents with greater knowledge about science also tend to be more positive about it, regardless of their age, while older people are slightly less positive, irrespective of their level of knowledge. 
+Further diagnostic tests should be explored to evaluate the robustness of this finding.
+
+`r solend()`
+
+
+
+
+
+
+
+
+
+
+# References
+
+Adapted from:
+
+- Allum, N. (2015). Learn about multiple regression in SPSS with data from the eurobarometer (63.1, jan–feb 2005). In _SAGE Research Methods Datasets Part 1._ SAGE Publications, Ltd.
 
 <!-- Formatting -->
 
