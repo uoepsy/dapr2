@@ -1,47 +1,73 @@
 ---
-title: "Binary Logistic Models"
+title: "Logistic Regression"
 bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
-    SHOW_SOLS: TRUE
-    TOGGLE: FALSE
+    SHOW_SOLS: FALSE
+    TOGGLE: TRUE
 ---
 
 ```{r setup, include=FALSE}
 source('assets/setup.R')
 library(tidyverse)
 library(patchwork)
+library(kableExtra)
 ```
 
 
-# Some very quick recaps    
+
+# Flashcards
 
 `r optbegin("Simple linear regression", olabel=FALSE, show=TRUE, toggle=params$TOGGLE)`
-In the simple linear regression, we defined our model through a number of components:  
-
-- $\beta_0$ / $b_0$ / the "Intercept". This is the predicted value of $y$ where $x = 0$.
-    + In the plot below, it is the predicted value of wellbeing where outdoor_time is 0 (where the regression line cuts the y-axis) 
-- $\beta_1$ / $b_1$ / the "Coefficient of $x$". This is the predicted *increase* in $y$ for every unit increase of $x$.  
-    + In the plot below, this is the amount the regression line goes up for every one unit we move across.  
-- $\epsilon$ / $e$ / the "Residuals" or "Error term". These are the distances from each of our observed values to the model predicted values. The standard deviation of all these gets denoted $\sigma$. 
-    + In the plot below, these are the vertical distances from each red dot to the black line.  
-    
+Consider again the wellbeing data:
 ```{r echo=FALSE}
 mwdata = read_csv(file = "https://uoepsy.github.io/data/wellbeing.csv")
-with(mwdata, plot(outdoor_time, wellbeing, col="red",pch=16))
-abline(lm(wellbeing~outdoor_time, mwdata))
+
+kable(head(mwdata)) %>%
+  kable_styling(full_width = FALSE)
 ```
+
+Fitting the following regression model which predicts wellbeing from the time spent outdoors
+$$
+\text{wellbeing}_i 
+= \beta_0 
++ \beta_1 \ \text{outdoor_time}_i 
++ \epsilon_i
+$$
+results in the following fitted line:
+```{r echo=FALSE, out.width='85%'}
+with(mwdata, plot(outdoor_time, wellbeing, 
+                  col = "red", pch = 16, frame.plot = FALSE))
+abline(lm(wellbeing ~ outdoor_time, mwdata), lwd = 2)
+```
+
+In simple linear regression, we defined our model through a number of components:  
+
+- $\beta_0$ / $b_0$ / "the intercept". 
+  + This is the predicted wellbeing when an individual spends 0 hours outdoors 
+  + It is where the regression line cuts the y-axis when x = 0.
+  + It is the estimated expected value of $y$ when $x = 0$.
+
+- $\beta_1$ / $b_1$ / "the coefficient of $\text{wellbeing}$". 
+  + This is the predicted increase in the average wellbeing for every additional hour of outdoor time.  
+  + It is the estimated expected increase in $y$ for a one-unit increase in $x$.
+
+- $\epsilon$ / $e$ / "the residuals" or "error term". 
+  + Represents the deviations from the actual values to the model-predicted values. The standard deviation of all these gets denoted $\sigma$. 
+  + In the plot above, these are the vertical distances from each red dot to the black line. 
+
 `r optend()`
+
 
 `r optbegin("Multiple linear regression", olabel=FALSE, show=TRUE, toggle=params$TOGGLE)`
 When we extended this to multiple regression, we essentially just added more explanatory variables, meaning we fitted more coefficients.  
 
-The values of $y$ are now modelled as some relationship of more than just one $x$ variable.  
-   
-In the plot below with two predictors, we would have a coefficient for each one, showing the slope of the regression surface along each dimension. 
+The values of $y$ are now modelled as some relationship of more than just one $x$ variable. In the case of two predictors, denote these by $x_1$ and $x_2$ respectively.
 
-```{r echo=FALSE}
+In the plot below with two predictors, we would have a slope for each predictor. Each coefficient represents the gradient of the regression surface along each dimension.
+
+```{r echo=FALSE, fig.height=7, fig.width=7, out.width = '85%'}
 fit<-lm(wellbeing~outdoor_time+social_int, data=mwdata)
 steps=50
 outdoor_time <- with(mwdata, seq(min(outdoor_time),max(outdoor_time),length=steps))
@@ -50,29 +76,34 @@ newdat <- expand.grid(outdoor_time=outdoor_time, social_int=social_int)
 wellbeing <- matrix(predict(fit, newdat), steps, steps)
 
 
-p <- persp(outdoor_time,social_int,wellbeing, theta = 0,phi=0, col = NA)
+p <- persp(outdoor_time,social_int,wellbeing, theta = 30, phi = 10, 
+           col = NA, border = 'darkgray')
 obs <- with(mwdata, trans3d(outdoor_time,social_int, wellbeing, p))
 pred <- with(mwdata, trans3d(outdoor_time, social_int, fitted(fit), p))
-points(obs, col = "red", pch = 16)
 #points(pred, col = "blue", pch = 16)
-segments(obs$x, obs$y, pred$x, pred$y)
+segments(obs$x, obs$y, pred$x, pred$y, lwd = 2)
+points(obs, col = "red", pch = 16, cex = 1.2)
 ```
 `r optend()`
 
 `r optbegin("Interactions", olabel=FALSE, show=TRUE, toggle=params$TOGGLE)`
-We then saw how we can let the relationships between the outcome $y$ and an explanatory variable $x1$ vary *as a function of* some other explanatory variable $x2$.  
-  
-In the plot below, if someone asks you "what is the relationship between $x1$ and $x$, your reply should (hopefully) be "well, it depends on what the value of $x2$ is"  
+We then saw how we can let the relationships between the outcome $y$ and an explanatory variable $x_1$ vary *as a function of* some other explanatory variable $x_2$.  
+
+$$
+y_i = \beta_0 + \beta_1  \ x_{1i} + \beta_2 \ x_{2i} + \beta_3 \ (x_{1i} * x_{2i})+ \epsilon_i
+$$
+
+In the plot below, if someone asks you "what is the relationship between $x_1$ and $x$, your reply should (hopefully) be "well, it depends on what the value of $x_2$ is"  
   
 This is captured in the curvature of the regression surface below, and we estimate it with a combination of 3 coefficients:  
   
-1.  the effect of $x1$ on $y$ where $x2=0$  
+1. $\beta_1$: the effect of $x_1$ on $y$ where $x_2=0$  
 (this is the slope of the surface where it meets the **front** face of the cube)  
-2. the effect of $x2$ on $y$ where $x1=0$  
+2. $\beta_2$: the effect of $x_2$ on $y$ where $x_1=0$  
 (this is the slope of the surface where it meets the **left** of face of the cube)  
-3. the amount to which **1.** and **2.** are adjusted when there is an increase in the other variable. 
+3. $\beta_3$: the amount to which (1) and (2) are adjusted when there is an increase in the other variable. 
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.height=7, fig.width=7, out.width='85%'}
 scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 
 fit<-lm(dass ~ scs*zn, data = scs_study)
@@ -81,9 +112,9 @@ scs <- with(scs_study, seq(min(scs),max(scs),length=steps))
 zn <- with(scs_study, seq(min(zn),max(zn),length=steps))
 newdat <- expand.grid(scs=scs, zn=zn)
 dass <- matrix(predict(fit, newdat), steps, steps)
-p <- persp(scs,zn,dass, theta = 0,phi=10, col = NA,
-           xlab = "X1",zlab="Y (outcome)",ylab="X2")
-
+p <- persp(scs,zn,dass, theta = 5, phi = 10, 
+           col = NA, border = 'darkgray', 
+           xlab = "X1 (First predictor)", ylab="X2 (Second predictor)", zlab="Y (outcome)")
 ```
 `r optend()`  
 
@@ -96,21 +127,22 @@ They were entered in to the model as a set of "dummy variables" (zeroes and ones
 The default behaviour in R is that, depending on what we set as our **reference level**, the coefficients represent the difference from this group to each of the others.  
 In the plots below, if "City" is the reference, then the coefficient `locationRural` would represent the vertical distance from the red line to the green line, and the coefficient `locationSuburb` would be the vertical distance from the red line to the blue line.  
 
-```{r echo=FALSE}
-library(patchwork)
-    ggplot(mwdata, aes(x=location, y=wellbeing,col=location))+
-    geom_jitter(width = .1, height = 0)+
-    stat_summary(fun = mean, geom="errorbar", aes(ymax=..y..,ymin=..y..,col=location),lwd=2) + 
-        labs(title="wellbeing~location",subtitle="separated") + 
+```{r echo=FALSE, out.width = '95%'}
+# library(patchwork)
+#     ggplot(mwdata, aes(x=location, y=wellbeing,col=location))+
+#     geom_jitter(width = .1, height = 0)+
+#     stat_summary(fun = mean, geom="errorbar", aes(ymax=..y..,ymin=..y..,col=location),lwd=2) + 
+#         labs(title="wellbeing~location",subtitle="separated") + 
+# 
+#     ggplot(mwdata, aes(x=0, y=wellbeing,col=location))+
+#     geom_jitter(width = .1, height = 0)+
+#     stat_summary(fun = mean, geom="errorbar", aes(x=0,ymax=..y..,ymin=..y..,col=location),lwd=2) + 
+#     scale_x_continuous(NULL, breaks=NULL) +
+#         labs(title="wellbeing~location",subtitle="(collapsed)")+
+#         
+#     plot_layout(guides="collect")
 
-    ggplot(mwdata, aes(x=0, y=wellbeing,col=location))+
-    geom_jitter(width = .1, height = 0)+
-    stat_summary(fun = mean, geom="errorbar", aes(x=0,ymax=..y..,ymin=..y..,col=location),lwd=2) + 
-    scale_x_continuous(NULL, breaks=NULL) +
-        labs(title="wellbeing~location",subtitle="(collapsed)")+
-        
-    plot_layout(guides="collect")
-
+knitr::include_graphics('images/glm/categ-vars.png')
 ```
 
 *Note - because categorical predictors are coded as various dummy variables of zeroes and ones, the assumption of linearity is intrinsically there. The only possible way to get from the red line to the green line is via a straight line.*  
@@ -118,19 +150,43 @@ library(patchwork)
 
 `r optbegin("ANOVA & categorical interactions", olabel=FALSE, show=TRUE, toggle=params$TOGGLE)`
 
-TODO rewrite based on sem2 block 1
+A linear model summary tells you whether __each__ of the difference between the mean of the $i$th group from the reference group mean is significant or not, e.g. $\hat \beta_1 = \mu_2 - \mu_1$, $\hat \beta_2 = \mu_3 - \mu_1$, $\hat \beta_4 = \mu_3 - \mu_1$, and so on.
+So, if you have $k$ groups, you will have $k-1$ such differences.
+
+For the wellbeing example, we have 2 such differences (while the intercept is the mean for the reference group):
+```{r}
+wb_mdl <- lm(wellbeing ~ location, data = mwdata)
+summary(wb_mdl)
+```
+
+What if your question was not "Does the mean of group 3 differ from the mean of group 1?", which is answered by looking at the model `summary()`?
+
+Say your question was "Does location impact wellbeing?" or "Is there a difference in wellbeing across the diffrent locations?".
+This does not specify one specific location, but rather concerns checking whether there was a difference overall - that is, whether the mean wellbeing for city, rural and suburb are all equal or at least two differ.
+
+This is where ANOVA comes in, which is run via `anova(<fitted model>)` and we have an F-test and the corresponding p-value.
+
+```{r}
+anova(wb_mdl)
+```
+
+The first row tells us that the factor `outdoor_time` is not  statistically significant, meaning that there is not enough evidence to reject the null hypothesis that the mean wellbeing is the same among the three different locations.
+
+<br>
+
+We just said that `anova()` returns a row for each predictor, testing whether the estimated mean response (wellbeing) differs among the three groups -- that is, whether the mean response differs among the possible values of the predictor (location).
+
+What if the predictor does not represent groups, but a continuous variable?
+The idea is the same! Basically, we are testing whether at each $x$ value the estimated mean $y$ is the same. Imagine increasing the number of groups to really many... In other words, we are testing whether the line is flat, meaning that the predictor has no influence on the response. 
 
 `r optend()`  
 
-# Binary!
 
-So what do we do if we want to do a similar analysis but for an outcome variable that is not numeric?  
-We measure a lot of things as categories, and sometimes what our research is interested in is what variables influence the likelihood that an observation will fall into a given category.  
 
-In the lecture, we saw an example in which job applicants were either hired or they were not.  
-```{r echo=FALSE, out.width="50%"}
-knitr::include_graphics("images/glm/lecbin.png")
-```
+
+# Binary data
+
+So what do we do if we want to do a similar analysis but for a response variable which is not numeric?
 
 Consider the following questions: 
 
@@ -138,19 +194,79 @@ Consider the following questions:
 - What lifestyle and demographic variables influence the chances that a person does/does not smoke?  
 - Does preference for milk vs dark chocolate depend on personality traits?  
 
-The common thread in the questions above is that they all contain a dichotomy:  "hired/not hired", "true/false", "does/does not", "milk vs dark".  
+The common thread in the questions above is that they all contain a dichotomy:  "hired/not hired", "true/false", "does/does not", "milk vs dark".^[
+A note: This sort of binary thinking can be useful, but it is important to remember that it can in part be simply a result of measurement. To answer some research questions, we need to consider an event as "success" = 1 and all other possibilities as "failure" = 0. 
+For instance, we might initially consider "has blond hair" to be binary "Yes/No", but that doesn't mean that in the real world people *either* have blond hair *or* they don't. We could instead choose to measure hair colour via colorimetric measures of the energy at each spectral wavelength, meaning "blondness" could become a continuum. While binary thinking can be useful, it is not difficult to think of ways in which it can be harmful.
+]
 
-A note: This sort of binary thinking can be useful, but it is important to remember that it can in part be simply a result of measurement. For instance, we might initially consider "has blond hair" to be binary "Yes/No", but that doesn't mean that in the real world people *either* have blond hair *or* they don't. We could instead choose to measure hair colour via colorimetric measures of the energy at each spectral wavelength, meaning "blondness" could become a continuum. While binary thinking can be useful, it is not difficult to think of ways in which it can be harmful.  
+In practical research, many times we end up recording which category each unit belongs to, or whether an event or characteristic is either present (success) or not (failure).
+We wish to examine factors associated with the event. Since we can rarely predict exactly whether an event will happen or not, what we in fact look for are factors associated with the _probability_ of that event happening.
+
+This is consistent with linear regression. In linear regression we model the mean of $y$ as a function of $x$. Remember, for each value of $x$ we can have many possible values of $y$ see [Week 1](01_models.html).
+
+However, the mean of a yes/no success/failure variable which can be recoded as a binary 1/0 variable is the probability of success (1). Consider 10 observations comprising 7 successes and 3 failures: 0,0,0,1,1,1,1,1,1,1
+$$
+\text{average of }y = \frac{3*0 + 7*1}{10} = \frac{7}{10} = \frac{\text{num. successes}}{\text{num. trials}} = \text{prob. success}
+$$
+
+So, when the response is binary, we are modelling the probability of success as a function of $x$.
+
+Consider this example showing whether or not a random sample of individuals have a given condition (0 = no, 1 = yes) at a given age. 
+The x-axis displays age in years after mean-centering, and the y-axis whether or not the subject has the condition.
+```{r echo = FALSE, fig.width=8, fig.height=5, out.width = '85%'}
+set.seed(0)
+dat <- tibble(x=runif(200, -5, 10),
+                  p=exp(-2+1*x)/(1+exp(-2+1*x)),
+                  y=rbinom(200, 1, p),
+                  y2=.3408+.0901*x,
+                  logit=log(p/(1-p)))
+dat2 <- tibble(x = c(dat$x),
+               y = c(dat$p),
+               `Regression model` = rep("logistic", 200))
+ggplot() + 
+  geom_point(data = dat, aes(x, y), size = 2, pch = 1) +
+  geom_smooth(data = dat, aes(x, y, color = 'Linear regression'), 
+              method = lm, se = FALSE,
+              linetype = 1) + 
+  geom_smooth(data = dat2, aes(x, y, color = 'Logistic regression'), 
+              method = glm, 
+              method.args = list(family = "binomial"), 
+              se = FALSE, linetype = 1) +
+  scale_color_manual(name = "Model",
+                     breaks = c("Linear regression", "Logistic regression"),
+                     values = c("Linear regression" = "red", "Logistic regression" = "blue")) +
+  labs(x = 'Age (years, mean-centred)', y = 'Has the condition?\n(0 = no, 1 = yes)')
+```
+
+
+We notice a few things from the plot.
+
+1. The linear regression model (red line) clearly extends beyond the possible range of values for a probability, which must be between 0 and 1. We can notice negative predictions for the probability associated to low ages, and even predicted probabilities greater than 1 for larger ages. This doesn't make any sense!
+
+1. It seems that higher ages are associated with more occurrences of the condition. Similarly, with lower ages we have less occurrences of the condition.
+
+1. There must be an area in the middle where the probability of having the condition increases sharply, and then the probability is pretty stable in the two ends.
+
+1. The logistic regression model (blue curve) captures this pattern. In the low ages, the probability of having the condition is very low. For high ages, the probability of having the condition is high (there are barely any people with the condition for mean-centred ages > 5).
+There clearly is a zone (ages 0-5) where people have or don't have the condition. This is where the transition from low probability of success to high occurs.
+
+
+These exercises will show you how to fit a Logistic regression model, and explain how to interpret the parameters.
+
+
 
 # Introducing GLM  
 
 > **Research Questions**
+> 
 > Is susceptibility to change blindness influenced by level of alcohol intoxication and perceptual load?  
 
-Watch the following video 
+Watch the following video:
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/FWSxSQsspiQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<p align="center">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FWSxSQsspiQ" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe><br>
 [Simons, D. J., & Levin, D. T. (1997). Change blindness. Trends in cognitive sciences, 1(7), 261-267.](https://www.cse.iitk.ac.in/users/se367/11/papers/simons-ambinder-05_change-blindness.pdf)
+</p>
 
 You may well have already heard of these series of experiments, or have seen similar things on [TV](https://www.netflix.com/gb/title/80190510).  
 `r qbegin("A1")`
@@ -212,16 +328,22 @@ description = c("Unique ID number","Blood Alcohol Content (BAC), A BAC of 0.0 is
 
 `r qbegin("A2")`
 Read in the data, and plot the relationship between the `age` variable and the `notice` variable.   
-Use `geom_point()`, and add to the plot `geom_smooth(method="lm")`. This will plot the regression line for a simple model of `lm(notice ~ age)`.  
+
+In `ggplot`, make sure you use `geom_point()`. Then, add to the plot the following code, `geom_smooth(method = "lm", se = FALSE)`. This will plot a simple linear regression fit `lm(notice ~ age)`.  
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
+Read in the data:
 ```{r}
 drunkdoor <- read_csv("https://uoepsy.github.io/data/drunkdoor.csv")
+head(drunkdoor)
+```
 
-ggplot(drunkdoor, aes(x=age, y=notice))+
-  geom_point()+
-  geom_smooth(method="lm")
+Plot whether or not the swap was noticed vs the age. Also add a simple linear model fit, and we use the `fullrange = TRUE` argument so that the line spans the entire plot (rather than just the range of the data):
+```{r}
+ggplot(drunkdoor, aes(x=age, y=notice)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, fullrange = TRUE) +
+  xlim(30, 80)
 ```
 `r solend()`
 
@@ -237,28 +359,44 @@ This plot will make it easier to see that the model predicted value for someone 
 ggplot(drunkdoor, aes(x=age, y=notice))+
   geom_point()+
   geom_smooth(method="lm",se=F,fullrange=T)+
-  geom_smooth(method="lm")+
   xlim(30,80)+
   scale_y_continuous(breaks=seq(-.2,1.3,0.1))
 ```
 
 But what does **1.15** really mean here? Does it mean that the 30 year old participant will notice 1.15 experimenter-swaps? That doesn't make sense, there is only one swap. Does it mean that they have a 115% probability of noticing the swap? That is closer, but again it doesn't make much sense - how can we have a 115% probability?  
+
 `r solend()`
 
 
-What we are interested in evaluating here is really the *probability* of noticing the experimenter-swap.  
+<br>
+
+What we are really interested in here is looking at how specific factors influence the **probability** of noticing the experimenter-swap. 
+
+We also recall that:
+
+- a probability must be greater than or equal 0
+- a probability cannot be larger than 1
+
+Recall that in linear regression we have a term of the following form on the right-hand side of the equal sign
+$$
+\beta_0 + \beta_1 x_{i1} + \dots + \beta_k x_{ik}
+$$
+Such term is called a _linear predictor_ because is a linear combination of the predictors.
+The possible values of the linear predictor $LP_i = \beta_0 + \beta_1 x_{i1} + \dots + \beta_k x_{ik}$ range from $-\infty$ to $\infty$.
+On the contrary, a probability ranges from 0 to 1. Clearly, we cannot directly model the probability of success as the linear predictor. We need to first transform the probability to have a range from $-\infty$ to $\infty$ and then it is this transformation of the probability that is related to $LP_i$.
 
 This is where the **Generalised Linear Model (GLM)** comes in. With a little bit of trickery, we can translate probability (restricted to between 0 and 1, and not represented by a straight line), into "log-odds", which is both linear *and* unbounded (see Figure \@ref(fig:plodd)).  
+
 
 :::yellow
 **Probability, odds, log-odds**  
 
 If we let $p$ denote the probability of a given event, then:  
 
-- $\frac{p}{(1-p)}$ are the odds of the event happening. For example, the odds of rolling a 6 with a normal die is 1/5 (sometimes this is expressed '1:5', and in gambling the order is sometimes flipped and you'll see '5/1' or 'odds of five to one').  
-- $ln(\frac{p}{(1-p)})$ are the log-odds of the event.  
+- $\frac{p}{1-p}$ are the odds of the event happening. For example, the odds of rolling a 6 with a normal die is 1/5 (sometimes this is expressed '1:5', and in gambling the order is sometimes flipped and you'll see '5/1' or 'odds of five to one').  
+- $\log \left(\frac{p}{1-p}\right)$ are the log-odds of the event.  
 
-```{r plodd, echo=FALSE, fig.cap="Probability, Odds and Log-odds"}
+```{r plodd, echo=FALSE, out.width = '95%', fig.cap="Probability, Odds and Log-odds"}
 knitr::include_graphics("images/glm/plo.png")
 ```
 
@@ -272,32 +410,61 @@ knitr::include_graphics("images/glm/plo.png")
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-1. A 50% chance of landing on heads is equivalent to the odds of $\frac{0.5}{(1-0.5)} = \frac{0.5}{0.5} = \frac{1}{1}$ (odds of 1 to 1, i.e., "equal odds").   
+1. A 50% chance of landing on heads is equivalent to the odds of $\frac{0.5}{1-0.5} = \frac{0.5}{0.5} = \frac{1}{1}$ (odds of 1 to 1, i.e., "equal odds").   
 The log-odds can be calculated using `log(1)` in R, which returns `r log(1)`.  
 2. If Pogacar is predicted to win 4 for every 11 he loses, then this is means he is predicted to win 4 in every 15 races, so the implied probability of him winning is $\frac{4}{15}$ = `r round(4/15,3)`.  
 
 `r solend()`
 
 How is this useful? 
-Recall the linear model formula we have seen a lot of over DAPR2 so far: 
+
+Recall the linear model formula we have seen a lot of over DAPR2 so far. 
+For simplicity, focus on a single predictor $x_{i1}$ but this can be easily generalised to the case of $k$ predictors $x_{i1}, ..., x_{ik}$.
+
 $$
-\color{red}{Y} = \color{blue}{\beta_0 \cdot{} 1 + \beta_1 \cdot{} X_1 + ... + \beta_k \cdot{} X_k} + \epsilon
-$$
-Because we are defining a *linear* relationship here, we can't directly model the probabilities (because they are bounded by 0 and 1, and they are not linear). But we *can* model the log-odds of the event happening.  
-Our model formula thus becomes:
-$$
-\color{red}{ln\left(\frac{p}{1-p} \right)} = \color{blue}{\beta_0 \cdot{} 1 + \beta_1 \cdot{} X_1 + ... + \beta_k \cdot{} X_k} \\
-\quad \\
-\text{Where} Y_i \sim Binomial(n, p_i) \text{ for a given }x_i \\
-\text{and } n = 1 \text{for binary responses}
+\color{red}{Y_i} = \color{blue}{\beta_0 + \beta_1 \ x_{i1}} + \epsilon_i
 $$
 
+Because we are defining a *linear* relationship here, we can't directly model the probabilities (because they are bounded by 0 and 1, and they are not linear). But we *can* model the log-odds of the event happening. 
 
-`r optbegin("A bit of a tangent - How does the model get estimated?", show=TRUE, toggle=params$TOGGLE)`
+The logistic regression model requires two components:
+
+- One linking the transformed probability (log-odds) to the linear predictor:
+$$
+\color{red}{\log \left(\frac{p_i}{1-p_i} \right)} 
+= \color{blue}{\beta_0 + \beta_1 \ x_{i1} }
+$$
+
+- The second liking the response variable with the probability:
+$$
+Y_i \sim \text{Binomial}(n, p_i)
+$$
+
+For binary responses, $n = 1$.
+
+
+The following plot displays the effect of varying the intercept and slope (specified respectively as $(a,b)$) on the predicted probability of success.
+
+```{r echo=FALSE, out.width = '85%'}
+x = seq(-3, 3, 0.01)
+p = function(x,a,b) exp(a + b * x) / (1 + exp(a + b * x))
+
+plot(x, p(x, 0, 1), xlab = '', ylab = '', type = 'l', , lwd = 2, 
+     frame.plot = FALSE, ylim = c(0, 1))
+lines(x, p(x, 2, 3), xlab = '', ylab = '', lty = 2, lwd = 2)
+lines(x, p(x, 1, -2), xlab = '', ylab = '', lty = 3, lwd = 2)
+legend(1.8, 0.6, legend = c('(0,  1)', '(2,  3)', '(1, -2)'), lty = c(1,2,3))
+points(
+  seq(-3, 3, len = 50), 
+  rbinom(50, size = 1, p(seq(-3, 3, len = 50), 0, 1)),
+  col = 'darkgray')
+```
+
+`r optbegin("A bit of a tangent - How does the model get estimated?", FALSE, show=TRUE, toggle=params$TOGGLE)`
 **Maximum Likelihood Estimation**  
 
 For a linear regression, we heard about how the regression line can be found by "minimising the residual sums of squares" (i.e., we rotate the line to find the point at which $\sum{(y - \hat{y})^2}$ is smallest. This gave us the "best fitting line" (Figure \@ref(fig:resslineplot)).  
-```{r resslineplot, echo=FALSE, out.width="60%", fig.cap="https://uoepsy.github.io/dapr2/lectures/dapR2_lec03_LMintro.html#24 (graph added here)"}
+```{r resslineplot, echo=FALSE, out.width="85%", fig.align='center',  fig.cap="https://uoepsy.github.io/dapr2/lectures/dapR2_lec03_LMintro.html#24"}
 knitr::include_graphics("images/glm/ssdapr2.png")
 ```
 
@@ -414,7 +581,7 @@ p2+ geom_label(aes(x=78, y=0.1),label="0.04") +
   geom_label(aes(x=38, y=0.83),label="0.89")
 ```
 
-The cool thing is that computers do all this for us. *Maximum likelihood estimation* is just a method to find out which parameters maximise the likelihood of the data. In our context, it tells us what values of coefficients in $\color{red}{ln\left(\frac{p}{1-p} \right)} = \color{blue}{\beta_0 \cdot{} 1 + \beta_1 \cdot{} X_1 }$ maximise the likelihood of reproducing the data we observed.   
+The cool thing is that computers do all this for us. *Maximum likelihood estimation* is just a method to find out which parameters maximise the likelihood of the data. In our context, it tells us what values of coefficients in $\color{red}{\log \left(\frac{p_i}{1-p_i} \right)} = \color{blue}{\beta_0  + \beta_1 x_{i1} }$ maximise the likelihood of reproducing the data we observed.   
 `r optend()`
 
 
@@ -471,7 +638,7 @@ exp(coef(model1))
 ```
 :::int 
 The odds of noticing a mid-conversation person-switch for someone age 0 is 1282:1.  
-For every year older someone is, the odds of noticing decrease by 0.88. 
+For every year older someone is, the odds of noticing reduces by a factor of 0.88. 
 :::
 `r solend()`
 
@@ -487,7 +654,7 @@ Can you translate the odds back to probabilities?
 exp(coef(model1))
 ```
 >The odds of noticing a mid-conversation person-switch for someone age 0 is 1282:1.  
-For every year older someone is, the odds of noticing decrease by 0.88. 
+For every year older someone is, the odds of noticing reduces by a factor of 0.88. 
 
 This means that for a one year old, the odds of noticing are $1282*0.88$, or 1129:1.  
 The odds for a 40 year old are $1282*0.88^{40}$, or 7.71:1  
@@ -496,7 +663,7 @@ And we can always then turn these back into probabilities.
 
 From probabilities to log-odds (or logit):  
 $$
-logit_i=log(\frac{p_i}{1-p_i}))
+logit_i=\log \left(\frac{p_i}{1-p_i}\right)
 $$
 From log-odds to probability:  
 $$
@@ -572,7 +739,7 @@ We can convert these to odds by using `exp()`:
 ```{r}
 exp(coef(model1))
 ```
-In order to say something along the lines of "For every year older someone is, the odds of noticing the mid-conversation swap (the outcome event happening) decreases by 0.88."   
+In order to say something along the lines of "For every year older someone is, the odds of noticing the mid-conversation swap (the outcome event happening) reduces by a factor of 0.88."   
   
 Why can we **not** translate this into a straightforward statement about the change in *probability* of the outcome for every year older someone is?  
 `r qend()`
@@ -842,9 +1009,7 @@ tibble(
 We model this using `family = "poisson"`:  
 `glm(n_fish_caught ~ age, data = data, family = "poisson")`  
   
-<br>
-<br>
-If you want a really nice resource to help you in your future studies, then https://bookdown.org/roback/bookdown-BeyondMLR/ is an excellent read. 
+
 
 <div style="margin-bottom:100px"></div>
 
@@ -855,7 +1020,12 @@ If you want a really nice resource to help you in your future studies, then http
 - [Murphy, G., & Murphy, L. (2018). Perceptual load affects change blindness in a real‐world interaction. Applied cognitive psychology, 32(5), 655-660.](https://onlinelibrary.wiley.com/doi/pdf/10.1002/acp.3441?casa_token=J8vaKjaBsmcAAAAA:3_zvcg0TB_6xbed49dGzgJAXYUr2vs_SxkfWsCRF1ebyJwvcyEvLzXOt3jxcOVCMiFc7ie55hFieyWw)  
 
 
+# References
 
+If you want a really nice resource to help you in your future studies, then https://bookdown.org/roback/bookdown-BeyondMLR/ is an excellent read. 
+
+
+<!-- Formatting -->
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
 
