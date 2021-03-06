@@ -4,8 +4,8 @@ bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
-    SHOW_SOLS: FALSE
-    TOGGLE: TRUE
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -138,7 +138,7 @@ For every unit increase in WAIS score, the odds of senility symptoms reduces by 
 
 `r optbegin("Distinct covariate values (grouped data)")`
 
-If you explore the full data, you will see that even though there are $n = `nrow(sen)`$ individuals, there are only 17 distinct values of the covariate $x$ (representing the WAIS scores), as some people have the same WAIS scores but different $y$ values.
+If you explore the full data, you will see that even though there are $n = `r nrow(sen)`$ individuals, there are only 17 distinct values of the covariate $x$ (representing the WAIS scores), as some people have the same WAIS scores but different $y$ values.
 
 Let's summarise the original data by computing for each covariate, the total number of people who showed senility symptoms ($y$) and the total number of people with that distinct covariate value $n$. This is the "grouped data":
 
@@ -245,7 +245,7 @@ Yes, there appear to be 3 residuals with a value slightly larger than 2 in absol
 
 <br>
 
-Plotting the (Studentized) Pearson residuals against the fitted values or the predictor is not very informative in logistic regression as you can see below:
+Plotting the (Studentized) Pearson residuals against the fitted values^[This is what you get with `plot(model, which = 1)`] or the predictor is not very informative in logistic regression as you can see below:
 ```{r}
 plot(fitted(mdl1), StuPres, 
      xlab = 'Prob. of Success', ylab = 'Studentized Pearson Residuals')
@@ -356,7 +356,7 @@ In logistic regression there are two measures of goodness of fit. These are an e
 We test whether
 $$
 \begin{aligned}
-H_0 &: \beta_1 = ... = 0 \\
+H_0 &: \beta_1 = ... = \beta_k = 0 \\
 H_1 &: \text{at least one }\beta \neq 0
 \end{aligned}
 $$
@@ -366,7 +366,7 @@ using either:
 - Pearson chi-squared statistic
 - Hosmer–Lemeshow statistic
 
-We are super lucky, as we already saved both Pearson residuals and the Deviance residuals, __not the standardized__ and __not the studentized__ ones, we just need  to do respectively:
+We are super lucky, as we already saved both Pearson residuals and the Deviance residuals (__not the standardized__ and __not the studentized__ ones), so we just need to do respectively:
 
 $$
 X^2 = \sum Pres_i^2
@@ -392,7 +392,7 @@ The test-statistic follows a chi-squared distribution with $m - p$ degrees of fr
 
 
 
-We are so lucky, because we already did compute the required residuals.
+We already computed the required residuals and stored them as `Pres`:
 ```{r}
 m <- length(unique(sen$wais))
 m
@@ -524,7 +524,10 @@ Perform a preliminary exploratory analysis of the data by computing summary stat
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
 qa <- read_csv('https://uoepsy.github.io/data/QuitAttempts.csv')
-qa
+
+# UMBERTO! check. add a new ppt in group I = 4, to make sure there is something easier to estimate here. 
+qa[62,]<-cbind(S=62,Q=0,I=4)
+
 ```
 
 ```{r}
@@ -546,7 +549,7 @@ ggplot(qa, aes(I, fill = factor(Q))) +
 `r qbegin(2)`
 Fit a logistic regression of Q on I using ordinary logistic regression. 
 
-Be sure to treat the independent variable I as categorical rather than as continuous in these analyses (hint: you will need to make sure R will create for you dummy variables for each level of I).
+Be sure to treat the independent variable I as categorical rather than as continuous in these analyses (hint: you will need to make sure R will create for you dummy variables for each level of I, rather than treating it as numeric).
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 First, we must make sure `I` is a factor otherwise R won't create the dummy variables for us:
@@ -564,9 +567,28 @@ summary(qa_fit1)
 `r qbegin(3)`
 What do you observe from the results?
 
-Interpret the coefficients in the context of the study.
+Interpret the coefficients in the context of the study. You might want to provide confidence intervals for the estimates!   
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+First let's remind ourselves of the levels of our independent variable `I`.  
+Intentions to Quit (1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days). 
+
+
+:::int
+The odds that participant who reported that they "never intend to quit" did subsequently quit smoking was `r round(exp(coef(qa_fit1))[1],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[1,],collapse="--")`]). Relative to this group, reporting an intention to quit but not in the next 6 months increased the odds of quitting by `r round(exp(coef(qa_fit1))[2],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[2,],collapse="--")`]), reporting an intention to quit in the next 6 months increased the odds of quitting by `r round(exp(coef(qa_fit1))[3],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[3,],collapse="--")`]), and intending to quit in the next 30 days was associated with an increased odds of `r round(exp(coef(qa_fit1))[4],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[4,],collapse="--")`])
+
+:::
+
+```{r}
+exp(confint(qa_fit1))
+summary(qa_fit1)$coefficients
+```
+
+Intentions to Quit (1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days)
+
+
+
 
 `r solend()`
 
