@@ -1,0 +1,75 @@
+---
+title: "dapR2 Live R week 8"
+author: "Tom Booth"
+date: "01/03/2021"
+output: html_document
+---
+Open the key packages: 
+
+```{r}
+library(tidyverse)
+library(car)
+library(psych)
+```
+
+Generate some data as last week:
+
+```{r, echo=FALSE}
+set.seed(7284)
+dat <- sim.anova(es1 = 0.5, es2 = 0.2, es3 = .3, es12 = 0.3, 
+                 n = 320,
+                 n1 = 4, n2 = 2, n3 = 0, 
+                 factors = FALSE)
+
+dat <- tibble(dat)
+
+dat <- dat %>%
+  mutate(
+    IV1 = factor(IV1, labels = c("g1", "g2", "g3", "g4")),
+    IV2 = factor(IV2, labels = c("control", "treatment")),
+    IV3 = round(IV3, 2),
+    DV = round(DV, 2)
+  ) %>%
+  rename(
+    cov = IV3,
+    score = DV,
+    cond1 = IV1,
+    cond2 = IV2
+  )
+
+dat
+```
+
+Run our factorial model:
+
+```{r}
+m1 <- lm(score ~ cond1*cond2, data = dat)
+summary(m1)
+```
+
+Run the boot function to calculate the R-square for each resample
+
+```{r}
+rsq_boot <- Boot(m1, 
+                 f= function(m1) 1-(sum(m1$residuals^2))/sum((dat$score - mean(dat$score))^2),
+                 R = 1000)
+```
+
+Summarise the results:
+
+```{r}
+summary(rsq_boot)
+```
+
+Calculate the confidence interval:
+
+```{r}
+Confint(rsq_boot, level = 0.95, type = "perc")
+```
+
+Plot it:
+
+```{r}
+hist(rsq_boot, ci = "perc", legend = "separate")
+```
+

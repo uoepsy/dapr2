@@ -46,5 +46,7 @@
 [dapR2_lec31_BootstrapTheory.html](dapR2_lec31_BootstrapTheory.html)  
 [dapR2_lec32_BootstrapLM.html](dapR2_lec32_BootstrapLM.html)
 [dapR2_lec33_BinaryLogistic1.html](dapR2_lec33_BinaryLogistic1.html)  
-[dapR2_lec34_BinaryLogistic2.html](dapR2_lec34_BinaryLogistic2.html)    
+[dapR2_lec34_BinaryLogistic2.html](dapR2_lec34_BinaryLogistic2.html) 
+[dapR2_lec35_IntroGLM.html](dapR2_lec35_IntroGLM.html) 
+[dapR2_lec36_MissingData.html](dapR2_lec36_MissingData.html)    
 [qanda.html](qanda.html)  
