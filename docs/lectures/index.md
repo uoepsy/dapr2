@@ -49,4 +49,5 @@
 [dapR2_lec34_BinaryLogistic2.html](dapR2_lec34_BinaryLogistic2.html) 
 [dapR2_lec35_IntroGLM.html](dapR2_lec35_IntroGLM.html) 
 [dapR2_lec36_MissingData.html](dapR2_lec36_MissingData.html)    
+[dapR2_lec37_IntroPower.html](dapR2_lec37_IntroPower.html)  
 [qanda.html](qanda.html)  
