@@ -1,0 +1,654 @@
+
+---
+
+
+
+
+```{r echo=FALSE}
+sim_1 = function(sample_size = 500) {
+  x = runif(n = sample_size) * 5
+  y = 3 + 5 * x ^ 2 + rnorm(n = sample_size, mean = 0, sd = 5)
+  data.frame(x, y)
+}
+
+sim_2 = function(sample_size = 500) {
+  x = runif(n = sample_size) * 5
+  y = 3 + 5 * x + rnorm(n = sample_size, mean = 0, sd = x)
+  data.frame(x, y)
+}
+
+write_csv(sim_1(), path = 'data/assumptions_data_1.csv')
+write_csv(sim_2(), path = 'data/assumptions_data_2.csv')
+```
+
+
+## Assess
+
+In this lab we will continue the analysis of the [riverview.csv](#dc-riverview) data to examine whether education level is related to income. 
+
+We will consider the fitted model from the previous lab:
+$$
+\widehat{Income} = 11.32 + 2.65 \cdot Education
+$$
+while focusing on the ASSESS phase. This is a fundamental step in the statistical analysis as the following key concept explains.
+
+:::frame
+**KEY CONCEPT**
+
+Every statistical model has basic underlying assumptions that need to be checked before any valid conclusions can be drawn.
+
+Throughout this lab, we will evaluate residual plots to determine whether the model assumptions are met. 
+
+When model assumptions are not met, the test statistics do not follow the corresponding t-distribution or F-distribution. 
+Thus, the p-values may not be correct. No conclusions should be drawn from any statistical model without checking the appropriate assumptions.
+:::
+
+
+### Assumptions of the simple linear regression model {-}
+
+Like all models, linear regression models are only appropriate if the underlying assumptions are true. 
+However, in real-life we can't confirm assumptions, but we often can check related conditions.
+
+We can summarise the assumptions of the simple linear regression model with the **LINE** acronym. Each letter will be analysed in turn in the next sections.
+
+Before proceeding, a sanity check is to make sure that both response and explanatory variables are quantitative.
+
+Also, we need to be careful about the order in which we check conditions. If the initial assumptions are not true, it makes no sense to check the later ones. So, even if it messes up the acronym, we number the assumptions to keep them in order.
+
+
+```{r}
+library(tidyverse)
+
+riverview <- read_csv(file = 'https://uoepsy.github.io/data/riverview.csv')
+head(riverview)
+
+mdl <- lm(income ~ 1 + education, data = riverview)
+mdl
+```
+
+
+#### L - Linearity {-}
+
+:::frame
+The relationship between $y$ and $x$ is linear.
+:::
+
+We create a scatterplot of the response variable versus the explanatory variable. The shape of the cloud of points must be linear or we can't use linear regression at all.
+
+Equivalently, you can remove the linear trend from the data and look at the residuals against $x$ or against the predicted values $\hat{y}$.
+Once the trend has been removed, there should be no pattern left at all. That plot should have a horizontal direction and should show no pattern if the condition is satisfied.
+
+
+`r qbegin()`
+Is the linearity assumption satisfied?
+
+_**Hint:** Use `plot(<FITTED MODEL>, which = 1)`_
+`r qend()`
+
+`r solbegin()`
+The scatterplot of the response variable versus the explanatory variable appears to be straight enough:
+```{r}
+ggplot(riverview, aes(x = education, y = income)) +
+  geom_point(colour = 'black') + 
+  labs(x = "Education (in years)", y = "Income (in thousands of U.S. dollars)")
+```
+
+If we remove the linear trend we obtain the residuals. 
+```{r}
+plot(mdl, which = 1)
+```
+
+The plot shows the residuals against the fitted values, along with a red line showing the generic trend of the residuals.
+Ideally, we want the red line to be as close as possible to the grey dashed $y = 0$ horizontal line.
+
+:::int
+The plot of the residuals against the fitted values shows no evident pattern. The residuals appear to be scattered randomly around $y = 0$.
+There is no evidence of a violation of the linearity assumption.
+:::
+`r solend()`
+
+If the scatterplot is straight enough, we move on to the next assumption. If not, stop, or consider transforming the variables to obtain a nearly linear scatterplot (to be discussed in the next lab).
+
+
+#### I - Independence {-}
+
+:::frame
+The error terms should be independent from one another.
+:::
+
+There is typically no plot to evaluate the independence assumption; evidence for lack of independence comes from knowing about the study design and methods of data collection. 
+Units should be a random sample from the population we want our results to generalise to.
+
+It is nevertheless useful to check the scatterplot of the residuals against the fitted values for no evidence of clumping, trend, or pattern. Any of these would suggest a failure of independence. 
+Roughly, the residuals should look like a random scatter of points.
+
+The most common violation of this assumption happens when we have data collected over time.
+In this case a plot of the residuals against time should show no pattern, otherwise we would be in the presence of correlated errors.
+Another check is to plot the residuals against those same residuals but offset by one time position.
+
+Depending on the data, violation of this assumption might need more advanced tools that not covered in this course. Possible tools are generalised least squares or time series models.
+
+
+`r qbegin()`
+Is the independence assumption satisfied in the riverview example?
+`r qend()`
+
+`r solbegin()`
+
+
+`r solend()`
+
+
+
+
+#### N - Normality {-}
+
+:::frame
+The errors $\epsilon$ are normally distributed
+:::
+
+
+
+
+#### E - Equal variance {-}
+
+:::frame
+The scale of the variability of the errors  $\epsilon$ is constant at all values of $x$.
+:::
+
+
+
+
+
+
+---
+
+
+Recall from the previous lab that, based on the data exploration, we specified the following model between $x$ = education level and $y$ = income:
+$$
+y = \beta_0 + \beta_1 x + \epsilon \quad \text{where} \quad \epsilon \sim N(0, \sigma) \ \text{independently}
+$$
+In the model specified above,
+
+- $\mu_{y}(x) = \beta_0 + \beta_1 x$ represents the systematic part of the model giving the mean of $y$ at each value of $x$;
+- $\epsilon$ represents the error (deviation) from that mean, and the errors are independent from one another.
+
+
+We can summarise the assumptions of the simple linear regression model with the **LINE** acronym:
+
+- **Linearity** 
+- **Independence**
+- **Normality**
+- **Equal variances**
+
+We will analyse each assumption in turn by understanding (a) its meaning in more depth, (b) exploring how to verify it using R, and (c) understand how to address situations in which the assumption doesn't hold.
+
+`r optbegin('Optional: Visual representation of the assumptions', FALSE)`
+The following picture provides a visual summary of what the assumptions look like.
+
+```{r, echo=FALSE, out.width='90%', fig.cap='The ideal normal, simple linear regression model. *Source:* Display 7.5 in @Ramsey2012.'}
+knitr::include_graphics('images/sleuth_display_7-5.png')
+```
+`r optend()`
+
+
+<br />
+
+`r qbegin()`
+Consider again the [riverview](#dc-riverview) data from the previous lab.
+Use R again to fit the simple linear model
+$$
+\widehat{Income} = \hat \beta_0 + \hat \beta_1 \cdot Education
+$$
+`r qend()`
+
+`r solbegin()`
+```{r}
+library(tidyverse)
+
+riverview <- read_csv(file = 'https://uoepsy.github.io/data/riverview.csv')
+head(riverview)
+
+mdl <- lm(income ~ 1 + education, data = riverview)
+mdl
+```
+
+$$
+\widehat{Income} =  11.32 + 2.65 \cdot Education 
+$$
+`r solend()`
+
+<br />
+Diagnostic plots to check if the model assumptions are satisfied make use of the fitted values $\hat y_i$ and the residuals:
+$$
+\hat \epsilon_i = y_i - \hat y_i
+$$
+
+If `mdl` if the fitted model in R, you can obtain the residuals using any of these commands:
+
+- `mdl$residuals`
+- `resid(mdl)`
+- `residuals(mdl)`.
+
+`r qbegin()`
+Add two columns to the riverview data. One should be named `fitted` and contain the fitted values, while the other should be named `resid` and contain the residuals.
+`r qend()`
+
+`r solbegin()`
+```{r}
+riverview <- riverview %>%
+  mutate(
+    fitted = predict(mdl),
+    resid = residuals(mdl)
+  )
+
+head(riverview)
+```
+`r solend()`
+
+
+
+---
+
+### Linearity {-}
+
+#### What it means {-}
+
+The relationship between $x$ and $y$ is linear (it makes sense to draw a line through the scatterplot)
+
+#### How to check {-}
+We check linearity using a scatterplot displaying the relationship between the residuals and the fitted values.
+
+Residuals should be randomly scattered around the horizontal line $y = 0$. If not, there is a pattern in the data that is currently unaccounted for.
+The motivation is that, if the data follow a linear trend which is captured by the systematic part of the linear model, once we remove this trend there should not be any evident systematic pattern left in the residuals.
+
+In R, we produce a scatterplot using ggplot with `geom_point()`.
+
+`r qbegin()`
+Check that the relationship between education level and income is linear.
+
+Comment on whether you deem this assumption to be violated or not.
+`r qend()`
+
+`r solbegin()`
+```{r}
+ggplot(riverview, aes(x = fitted, y = resid)) +
+  geom_point(alpha = 0.5, color = 'black') + 
+  geom_hline(yintercept = 0, color = 'red') +
+  labs(x = "Fitted values", y = "Residuals")
+```
+
+:::int
+The residuals are randomly scattered around $y = 0$ without any evident unexplained pattern.
+Based on the scatterplot, the linearity assumption seems tenable for these data. 
+:::
+`r solend()`
+
+
+#### What to do if it doesn't hold {-}
+
+If the residuals vs fitted values plot shows a leftover pattern, perhaps you have not accounted for a non-linear systematic trend, such as a quadratic relationship, or you might need to account for more predictors (covered later in the course).
+
+
+```{r, echo=FALSE, eval=FALSE}
+library(patchwork)
+
+data <- tibble(
+  x = runif(100),
+  y = 3 + 2.2 * x + rnorm(100, sd = 0.1)
+)
+mdl <- lm(y ~ x, data = data)
+data <- mdl %>% broom::augment()
+
+p1 <- ggplot(data)+
+  geom_point(aes(x, y), color = 'black') +
+  geom_line(aes(x, .fitted), color = 'blue', size = 1) +
+  labs(x = 'x', y = 'y')
+
+p2 <- ggplot(data, aes(.fitted, .resid))+
+  geom_point(color = 'black') +
+  geom_smooth(method = lm, color = 'blue', size = 1, se = FALSE) +
+  labs(x = 'Fitted', y = 'Residual')
+
+p1 | p2
+```
+
+
+```{r, echo=FALSE, eval=FALSE}
+library(patchwork)
+
+data <- tibble(
+  x = runif(100, 0, 2),
+  y = 3 + 2.2 * x^2 + rnorm(100, sd = 0.2)
+)
+mdl <- lm(y ~ x, data = data)
+data <- mdl %>% broom::augment()
+
+p1 <- ggplot(data)+
+  geom_point(aes(x, y), color = 'black') +
+  geom_line(aes(x, .fitted), color = 'blue', size = 1) +
+  labs(x = 'x', y = 'y')
+
+p2 <- ggplot(data, aes(.fitted, .resid))+
+  geom_point(color = 'black') +
+  geom_smooth(method = lm, color = 'blue', size = 1, se = FALSE) +
+  labs(x = 'Fitted', y = 'Residual')
+
+(p1 | p2) + plot_annotation(tag_levels = 'A')
+```
+
+
+`r qbegin()`
+Consider the following code which generates toy data (you should not try to understand them). Run it in your R session:
+```{r}
+# Generate toy data
+toy_data <- tibble(
+  x = runif(100, 0, 2),
+  y = 3 + 2.2 * x^2 + rnorm(100, sd = 0.2)
+)
+```
+
+Fit the linear model $\hat y = \hat \beta_0 + \hat \beta_1 x$. Is the linearity assumption satisfied?
+`r qend()`
+
+`r solbegin()`
+```{r}
+mdl_toy_data <- lm(y ~ 1 + x, data = toy_data)
+
+toy_data %>%
+  mutate(
+    fitted = predict(mdl_toy_data),
+    resid = residuals(mdl_toy_data)
+  ) %>%
+  ggplot() +
+  geom_point(aes(fitted, resid), color = 'black') +
+  geom_hline(yintercept = 0, color = 'red')
+```
+
+:::int
+The plot of the residuals against the fitted values highlights a leftover and unexplained systematic pattern in the residuals. The shape of that pattern seems to be quadratic.
+:::
+`r solend()`
+
+`r qbegin()`
+Change the model to use $x^2$ instead of $x$ as explanatory variable. That is, fit the linear model $\hat y = \hat \beta_0 + \hat \beta_1 x^2$.
+
+**Note:** Instead of writing `y ~ 1 + x^2`, you must write `y ~ 1 + I(x^2)` otherwise R will try to find a column with name "x^2" in toy_data. A variable with that name does not exist. What we really want is to take the "x" variable and transform it. The `I()` function simply tells R to not look for that variable, but to **interpret** the name provided as an arithmetic expression.
+`r qend()`
+
+`r solbegin()`
+```{r}
+mdl_toy_data <- lm(y ~ 1 + I(x^2), data = toy_data)
+
+toy_data %>%
+  mutate(
+    fitted = predict(mdl_toy_data),
+    resid = residuals(mdl_toy_data)
+  ) %>%
+  ggplot() +
+  geom_point(aes(fitted, resid), color = 'black') +
+  geom_hline(yintercept = 0, color = 'red')
+```
+
+:::int
+After accounting for a quadratic trend in the linear model, the plot of the residuals against the fitted values does not highlights any leftover systematic pattern. 
+Now we have no reason to doubt the linearity assumption.
+:::
+`r solend()`
+
+
+
+---
+
+### Independence {-}
+
+#### What it means {-}
+The error terms should be independent from one another.
+That is, is no relationship between one observation and the next. For example, knowing that the 8th unit had a higher income than average does not provide any information about whether the 7th or 9th unit will be above or below the average.
+
+
+#### How to check {-}
+
+There is typically no plot to evaluate the Independence assumption; evidence for lack of independence comes from knowing about the study design and methods of data collection. 
+
+`r optbegin('Optional: Diagnostic plot for data collected over time or space', FALSE)`
+However, if the data are collected sequentially over time (or space), correlation between the values may occur. A plot of the residuals versus the time order of the data (or index of the data) may be examined for patterns.
+
+The function `seq_along(example)` returns the index of each entry in `example`, and is useful to plot the values of `example` against their index. See the following example:
+```{r}
+example = c(3, 6, 9, 12)
+seq_along(example)
+```
+
+In the case of data collected over time, you can create the following plot:
+```{r}
+ggplot(riverview, aes(x = seq_along(resid), y = resid)) +
+  geom_point() +
+  geom_line() +
+  labs(x = 'Index', y = 'Residuals')
+```
+
+:::int
+There does not seem to be any time trend, but the residuals seem to vary in an erratic manner.
+We have no reason to doubt the independence assumption.
+:::
+
+<br />
+However, the following plot should raise concerns as there seems to be a time trend:
+```{r echo=FALSE}
+indep_data <- tibble(
+  x = -10:10,
+  y = 0.3 * x + rnorm(21, sd = 1.2)
+)
+ggplot(indep_data, aes(x = seq_along(y), y = y)) +
+  geom_point() +
+  geom_line() +
+  labs(x = 'Index', y = 'Residuals')
+```
+`r optend()`
+
+
+#### What to do if it doesn't hold {-}
+
+Most common violation of this: data over time.
+
+Depending on the data, violation of this assumption might need more advanced tools that not covered in this course. Possible tools are generalised least squares or time series models.
+
+
+
+---
+
+### Normality {-}
+
+#### What it means {-}
+
+The errors should all be normally distributed.
+
+
+#### How to check {-}
+
+We can assess normality visually and with formal statistical tests. 
+
+Visual tools are:
+
+- (if sample size is large enough) a histogram of the residuals, which should be approximately bell-shaped;
+- a normal quantile-quantile (Q-Q) plot can be used to check the normality assumption. Deviations from a straight line indicate that the distribution of residuals does not conform to a theoretical normal curve.
+
+A statistical test:
+
+- the Shapiro-Wilk test, implemented in the `shapiro.test()` function, is a formal statistical test against the null hypothesis that the sample came from a population which is normally distributed.
+
+
+Histograms are quite unreliable with small data sets, where the choice of bin sizes can have a significant effect on the appearance of the graph. Hence we typically assess normality using normal Q-Q plots and the Shapiro-Wilk test.
+
+`r qbegin()`
+Does the riverview model appear to violate the normality assumption?
+`r qend()`
+
+`r solbegin()`
+```{r, out.width='90%', fig.width=9}
+library(patchwork)
+
+p1 <- ggplot(riverview, aes(x = resid)) +
+  geom_histogram(color = 'white', bins = 8) +
+  labs(x = 'Residuals', title = 'Histogram')
+
+p2 <- ggplot(riverview, aes(sample = resid)) +
+  geom_qq() + 
+  geom_qq_line(color = 'tomato1') +
+  labs(title = 'Normal Q-Q plot')
+
+p1 | p2
+```
+:::int
+The histogram of the residuals appears to be roughly bell-shaped and centred around zero.
+However, it is hard to judge normality from a histogram with so few observations ($n = 32$). We typically resort to a normal Q-Q plot, displayed on the right panel above.
+As the points follow a linear pattern, the percentiles of the residuals match the percentiles of a normal distribution, hence we can deem satisfied the assumption that the residuals could have come from a population with a normal distribution.
+:::
+
+```{r}
+shapiro.test(residuals(mdl))
+```
+
+:::int
+We performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. 
+The test-statistic $W = 0.96$ leads to a p-value of 0.35. The large p-value means that we do not have sufficient evidence to reject the null hypothesis that the residuals came from a normal population.
+:::
+
+`r solend()`
+
+
+#### What to do if it doesn't hold {-}
+
+If normality is not satisfied several transformations can be attempted.
+
+The most commonly used one is the Box-Cox transformation. This is easily computed via the function `BoxCox()` from the `forecast` package. Remember to first install it via:
+
+```{r eval=FALSE}
+install.packages('forecast')
+```
+
+This is used by mutating the response variable in your data frame via `BoxCox(y, lambda = 'auto')`.
+
+Consider the following toy data (you should not try to understand them):
+```{r}
+toy_data <- tibble(
+  x = runif(100),
+  y = 2 + 3 * x + rchisq(100, 5)
+)
+```
+
+`r qbegin()`
+Is the normality assumption satisfied for the above toy data?
+`r qend()`
+
+`r solbegin()`
+```{r}
+toy_mdl <- lm(y ~ 1 + x, data = toy_data)
+
+toy_data <- toy_data %>%
+  mutate(fitted = predict(toy_mdl),
+         resid = residuals(toy_mdl))
+
+ggplot(toy_data, aes(sample = resid)) +
+  geom_qq() +
+  geom_qq_line(color = 'red')
+
+shapiro.test(resid(toy_mdl))
+```
+
+:::int
+The assumption that the errors are normally distributed appears to be violated. The normal Q-Q plot of the residuals shows a systematic departure from normality. The Shapiro-Wilk test against the null hypothesis that the sample came from a normal distribution leads to a p-value $< .001$, meaning that we have very strong evidence that the residuals are not a random sample from a normal distribution.
+:::
+`r solend()`
+
+
+`r qbegin()`
+Create a new response variable in the `toy_data` dataset and call it `y_bc`.
+This should be obtained by transforming `y` using the `BoxCox(y, lambda = 'auto')` function.
+
+Is the normality assumption satisfied?
+`r qend()`
+
+`r solbegin()`
+```{r}
+library(forecast)
+
+toy_data <- toy_data %>%
+  mutate(
+    y_bc = BoxCox(y, lambda = 'auto')
+  )
+
+toy_mdl <- lm(y_bc ~ 1 + x, data = toy_data)
+
+toy_data <- toy_data %>%
+  mutate(fitted = predict(toy_mdl),
+         resid = residuals(toy_mdl))
+
+ggplot(toy_data, aes(sample = resid)) +
+  geom_qq() +
+  geom_qq_line(color = 'red')
+
+shapiro.test(resid(toy_mdl))
+```
+
+According to both the normal Q-Q plot of the residuals and the Shapiro-Wilk test for normality, now the normality assumption does not seem to be violated.
+`r solend()`
+
+
+---
+
+### Equal variances {-}
+
+#### What it means {-}
+
+The spread of the errors is the same at all levels of the explanatory variable.
+
+#### How to check {-}
+
+We assess constant variance by looking again at the residuals. A plot of the residuals versus the fitted values should show that the residuals spread in roughly equal width bands on either side of the least $y = 0$ line.
+
+*Visual methods:*
+
+A transformation of the residuals leads to the scale-location plot, which can also be used to check the equal variance assumption.
+Positive or negative trends across the fitted values indicate variability that is not constant.
+The transformation in question flips the lower part of the residuals upwards, i.e. we mirror the residuals below 0 to be positive. This increases the resolution of points in the above part of the plot and makes it easier to judge if the spread is constant. Furthermore, to reduce the y-axis range the square root is taken.
+Hence, a scale-location plot displays $\sqrt{| \text{residual} |} = \sqrt{| \hat \epsilon_i |}$ versus the fitted values $\hat y_i$.
+
+
+*Formal test:*
+
+The Breusch-Pagan test is a statistical test for the hypotheses
+
+- $H_0$: Homoscedasticity. The errors have constant variance about the true model.
+- $H_1$: Heteroscedasticity. The errors have non-constant variance about the true model.
+
+
+
+`r qbegin()`
+Is the assumption of constant variance satisfied for the riverview linear regression model?
+`r qend()`
+
+`r solbegin()`
+```{r}
+ggplot(riverview, aes(x = fitted, y = resid)) +
+  geom_point(color = 'black') +
+  geom_hline(yintercept = 0, color = 'red') + 
+  labs(x = 'Fitted values', y = 'Residuals')
+```
+To make it easier to see the variability, it is common to reflect the lower part of the plot above, so that we have more point to judge the spread.
+This is done by taking the absolute value of the residuals, and then also squaring them to residue the y-axis size.
+
+```{r}
+riverview %>%
+  mutate(
+    sqrt_abs_resid = sqrt(abs(resid))
+  ) %>%
+ggplot(aes(x = fitted, y = sqrt_abs_resid)) +
+  geom_point(color = 'black') +
+  labs(x = 'Fitted values', y = 'sqrt(abs(Residuals))')
+```
+
+
+`r solend()`
+#### What to do if it doesn't hold {-}

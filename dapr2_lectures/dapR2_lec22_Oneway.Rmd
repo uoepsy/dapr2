@@ -1,0 +1,362 @@
+---
+title: "<b>LM & One-way Designs </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "Tom Booth & Alex Doumas"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: "AY 2020-2021"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+```
+
+# Weeks Learning Objectives
+1. Recap on experimental designs and types of data structure. 
+
+2. Understand the distinction between simple, main and interaction effects for experimental designs.
+
+<<<<<<< HEAD
+3. Understand the distinction between simple, main, and interaction effects. 
+=======
+3.  Recognise ANOVA models as special cases of linear models with categorical predictors.
+
+4. Understand how to analyse and interpret one-way designs.
+>>>>>>> master
+
+---
+# Topics for today
++ Testing experimental effects in linear models
+
++ Introduce our example for the next two weeks
+
++ One-way design example
+
+---
+# Hypotheses we test in experimental studies
+
++ One-way designs:
+  + **Main effect (tests overall effect of a condition; $F$-tests )**
+  + Contrasts (tests differences between specific group means; $\beta$ )
+
+--
+
++ Factorial designs:
+  + Simple contrasts/effects
+  + Interactions (categorical*categorical)
+  + Main effects
+
+??
+Idea is to talk through what each of these are
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# The data
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %>%
+  slice(1:10)
+```
+
+---
+# For today
+
++ As we are discussing one-way designs, today we will just look at the effect of treatment on SWB.
+
++ What we will show is that:
+
+```{r, eval=FALSE}
+lm(SWB ~ Treatment, data = hosp_tbl)
+```
+
++ and
+
+```{r, eval=FALSE}
+aov(SWB ~ Treatment, data = hosp_tbl)
+```
+
++ are the same.
+
+---
+# Descriptive statistics by group
+
+```{r}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB)),
+    sd = round(sd(SWB),1),
+    N = n()
+  )
+```
+
+
+---
+# Sums of squares for ANOVA and LM
++ Recall that in ANOVA we break down sums of squares
+
+
+$$SS_{total} = SS_{between} + SS_{within}$$
+
++ And that $SS_{between}$ refers to the conditions/groups.
+  + This group structure is the model. 
+
++ Hence we have a direct parallel to linear model
+
+$$SS_{total} = SS_{model} + SS_{residual}$$
+
+---
+# Total Variation & SS
+
+.pull-left[
+
+```{r, echo=FALSE}
+set.seed(1)
+hosp_tbl %>%
+  ggplot(., aes(x=Treatment, y=SWB, colour = Treatment, shape = Treatment)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = mean(hosp_tbl$SWB), lty = 2, colour = "darkgrey") +
+  theme_classic() 
+```
+
+
+]
+
+
+.pull-right[
+
+$$SS_{total} = \sum(Y_{ij} - \bar{Y})^2$$
+
++ The subscript $ij$ here denotes individuals within groups.
+
++ Other than this, this is identical to the linear model.
+
++ It is the sum of the square deviations around the mean (dashed grey line)
+
+]
+
+
+---
+# Between/Model variation & SS
+
+
+.pull-left[
+
+```{r, echo=FALSE, message=FALSE}
+set.seed(1)
+gpM <- hosp_tbl %>%
+  group_by(Treatment) %>%
+  summarise(
+    SWB = round(mean(SWB))
+  ) %>%
+  mutate(
+    GM = c(rep(mean(SWB),3))
+  )
+
+hosp_tbl %>%
+  ggplot(., aes(x=Treatment, y=SWB, colour = Treatment, shape = Treatment)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = mean(hosp_tbl$SWB), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
+```
+
+]
+
+
+.pull-right[
+
+$$SS_{between} = \sum n(\bar{Y_j} - \bar{Y})^2$$
+
++ Sum of the squared deviations of the group means from the mean of Y.
+  + The solid coloured lines to the dashed grey line
+
++ For linear model, we stated
+
+$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
+
++ These are equivalent. Remember
+  + $\hat{y_i}$ = model predicted value
+  + So this is equal to the deviation of the the model predicted value of $y$ for a given value of $x$
+  + When we have categorical predictors, the predicted value of $y$ for a given value of $x$ = group mean
+
+]
+
+---
+# Within/residual variation & SS
+
+
+.pull-left[
+
+```{r, echo=FALSE, message=FALSE}
+set.seed(1)
+gpM <- hosp_tbl %>%
+  group_by(Treatment) %>%
+  summarise(
+    SWB = round(mean(SWB))
+  ) %>%
+  mutate(
+    GM = c(rep(mean(SWB),3))
+  )
+
+hosp_tbl %>%
+  ggplot(., aes(x=Treatment, y=SWB, colour = Treatment, shape = Treatment)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = mean(hosp_tbl$SWB), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
+```
+
+]
+
+
+.pull-right[
+
+$$SS_{within} = \sum(Y_{ij} - \bar{Y_j})^2$$
++ Sum of the squared deviations of the individual values from the group mean.
+
++ For the linear model we stated
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
++ And as in the previous slide, these are equivalent because predicted value for a given value of $x$ is the group mean.
+
++ Or put another way, our model = group means.
+
+]
+
+---
+# F-test in LM and ANOVA
+
+**ANOVA**
+```{r, echo=FALSE}
+ftest <- tibble(
+  SS = c("Between", "Within", "Total"),
+  df = c("g-1", "g(n-1)", "gn-1"),
+  MS = c("SS between/df between", "SS within/df within", " "),
+  Fratio = c("MS between/ MS within", " ", " "),
+  pvalue = c("F(df between,df within)", "", "")
+)
+
+kable(ftest)%>%
+  kable_styling(., full_width = F)
+```
+
++ g = number of levels or groups in condition (g=3)
++ n = number of participants per group (n=60)
+
++ So here:
+  + $df_{between}$ = 3-1 = 2
+  + $df_{within}$ = 3*(60-1) = 177
+  + $df_{total}$ = (3*60)-1 = 179
+
+---
+# F-test in LM and ANOVA
+
+**Linear Model**
+
+```{r, echo=FALSE}
+ftest <- tibble(
+  SS = c("Model", "Residual", "Total"),
+  df = c("k", "n-k-1", " n-1"),
+  MS = c("SS model/df model", "SS residual/df residual", " "),
+  Fratio = c("MS model/ MS residual", " ", " "),
+  pvalue = c("F(df model,df residual)", "", "")
+)
+
+kable(ftest)%>%
+  kable_styling(., full_width = F)
+```
+
++ k = number of predictors
++ n = sample size
+
++ So here:
+  + $df_{model}$ = k = 2
+  + $df_{residual}$ = 180-2-1 = 177
+  + $df_{total}$ = 180-1 = 179
+
+
+
+---
+# In R
+
+```{r}
+summary(aov(SWB ~ Treatment, data = hosp_tbl))
+
+```
+
+
+---
+# In R
+
+```{r}
+summary(lm(SWB ~ Treatment, data = hosp_tbl))
+```
+
+
+---
+# Summary of today
+
++ We introduced our example, and focussed on the effect of the treatments
+
++ And looked at the calculation of $F$-test
+
++ Key point:
+  + It is exactly the same test.
+  + Always keep in mind that the group structure = model
+
+---
+# Next tasks
++ This week:
+  + Complete your lab
+  + Come to office hours
+  + Weekly quiz - content from week 10
+      + Open Monday 09:00
+      + Closes Sunday 17:00

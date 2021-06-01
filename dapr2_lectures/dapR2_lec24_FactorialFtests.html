@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Analysing Factorial Designs </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Tom Booth and Alex Doumas" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b>Analysing Factorial Designs </b>
+## Data Analysis for Psychology in R 2<br><br>
+### Tom Booth and Alex Doumas
+### Department of Psychology<br>The University of Edinburgh
+### AY 2020-2021
+
+---
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Interpret the output from a model using dummy coding and sum-to-zero coding. 
+
+2. Create specific contrast matrices to test specific effects.
+
+3. Recognise other forms of contrasts.
+
+4. Construct models to test factorial designs. 
+
+
+
+---
+# Topics for today
++ Tabulating data from factorial design. 
+
++ Recap factorial designs effects of interest.
+  + Main effects
+  + Simple effects/contrasts
+  + Interactions
+
++ Show the tests of main effects via model comparison using `\(F\)`-tests. 
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC.
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# The data
+
+```r
+hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %&gt;%
+  slice(1:10)
+```
+
+```
+## # A tibble: 10 x 3
+##      SWB Treatment Hospital
+##    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
+##  1   6.2 TreatA    Hosp1   
+##  2  15.9 TreatA    Hosp1   
+##  3   7.2 TreatA    Hosp1   
+##  4  11.3 TreatA    Hosp1   
+##  5  11.2 TreatA    Hosp1   
+##  6   9   TreatA    Hosp1   
+##  7  14.5 TreatA    Hosp1   
+##  8   7.3 TreatA    Hosp1   
+##  9  13.7 TreatA    Hosp1   
+## 10  12.6 TreatA    Hosp1
+```
+
+---
+# Table of means
+
+.pull-left[
+
+
+```r
+mean(hosp_tbl$SWB)
+```
+
+```
+## [1] 9.880556
+```
+
+
+
+
+```r
+aggregate(SWB ~ Treatment + Hospital, 
+  hosp_tbl, mean)
+```
+
+```
+##   Treatment Hospital       SWB
+## 1    TreatA    Hosp1 10.800000
+## 2    TreatB    Hosp1  9.430000
+## 3    TreatC    Hosp1 10.103333
+## 4    TreatA    Hosp2  7.853333
+## 5    TreatB    Hosp2 13.116667
+## 6    TreatC    Hosp2  7.980000
+```
+
+]
+
+.pull-right[
+
+```r
+aggregate(SWB ~ Hospital, 
+  hosp_tbl, mean)
+```
+
+```
+##   Hospital      SWB
+## 1    Hosp1 10.11111
+## 2    Hosp2  9.65000
+```
+
+
+```r
+aggregate(SWB ~ Treatment, 
+  hosp_tbl, mean)
+```
+
+```
+##   Treatment       SWB
+## 1    TreatA  9.326667
+## 2    TreatB 11.273333
+## 3    TreatC  9.041667
+```
+
+]
+
+---
+# Table of means
+
++ All of the above gives us a full table of means
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + In our example, is there an effect of `Treatment` ignoring `Hospital` (and vice versa)? 
+
++ Simple contrasts/effects
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+
++ Interactions (categorical*categorical)
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+
+
+---
+# Our model and coefficients
++ The linear model with two categorical variables:
+
+`$$y_{ijk} = b_0 + \alpha_i + \tau_j + \epsilon_{ijk}$$`
++ where;
+  + i = 1 .... g_A,  j = 1 ... g_B,   k = 1... n
+  + `\(y_{ijk}\)` is the kth observation of level i of the first factor and level j of the second factor, 
+  + `\(\alpha_i\)` is the effect of the level i of the first factor, 
+  + `\(\tau_j\)` is the effect of level j of the second factor. 
+
+
++ But remember whichever coding scheme we use, we have `\(g\)`-1 variables representing the condition.
+  + So for `Treatment` we have 2 predictors (D1 &amp; D2)
+  + And for `Hospital` we have 1 predictor (D3)
+  
++ We can write the linear model more explicitly as:
+
+`$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \epsilon_{i}$$`
+  
+---
+# Number of interaction terms
++ To include terms for the interaction, we need to cross each level of one condition with the levels of the other.
+
++ In general this requirement will mean we need ( `\(r\)`-1)( `\(c\)`-1) interaction terms
+  + where `\(c\)` and `\(r\)` represent the number of levels of each condition.
+  + In our case this is (3-1)(2-1) = 2
+
+`$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \underbrace{b_4D_{13} + b_5D_{23}}_{\text{Interactions}} + \epsilon_{i}$$`
+
++ We will talk get into more detail about this practice soon.
+
+---
+# Testing the overall effects
++ The goal of our `\(F\)`-tests for the overall effect of a condition or interaction, is to assess whether models which include all coefficients that code the condition improve the model.
+
++ Hopefully, this practice sounds familiar to you.
+  + It's just using incremental `\(F\)` tests. 
+  
++ To do incremental `\(F\)` tests, we need to define a set of models:
+
+
+```r
+m1 &lt;- lm(SWB ~ Treatment, data = hosp_tbl)
+m2 &lt;- lm(SWB ~ Hospital, data = hosp_tbl)
+m3 &lt;- lm(SWB ~ Treatment + Hospital, data = hosp_tbl)
+m4 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+
+---
+# Testing the overall effects
+
++ For the effect of `Treatment`:
+
+
+```r
+m2 &lt;- lm(SWB ~ Hospital, data = hosp_tbl)
+m3 &lt;- lm(SWB ~ Treatment + Hospital, data = hosp_tbl)
+anova(m2,m3)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Model 1: SWB ~ Hospital
+## Model 2: SWB ~ Treatment + Hospital
+##   Res.Df    RSS Df Sum of Sq      F   Pr(&gt;F)    
+## 1    178 1283.5                                 
+## 2    176 1106.5  2    177.02 14.078 2.13e-06 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
++ An effect of Treatment
+
+---
+# Testing the overall effects
+
++ For the effect of `Hospital`:
+
+
+```r
+m1 &lt;- lm(SWB ~ Treatment, data = hosp_tbl)
+m3 &lt;- lm(SWB ~ Treatment + Hospital, data = hosp_tbl)
+anova(m1,m3)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Model 1: SWB ~ Treatment
+## Model 2: SWB ~ Treatment + Hospital
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1    177 1116.1                           
+## 2    176 1106.5  1    9.5681 1.5219  0.219
+```
+
++ No effect of hospital
+
+---
+# Testing the overall effects
+
++ For the effect of interaction:
+
+
+```r
+m3 &lt;- lm(SWB ~ Treatment + Hospital, data = hosp_tbl)
+m4 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m3,m4)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Model 1: SWB ~ Treatment + Hospital
+## Model 2: SWB ~ Treatment + Hospital + Treatment * Hospital
+##   Res.Df     RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1    176 1106.51                                  
+## 2    174  714.34  2    392.18 47.764 &lt; 2.2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
++ An interaction
+
+---
+# Testing the overall effects
++ Using `anova()`:
+
+
+```r
+m4 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m4)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: SWB
+##                     Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## Treatment            2 177.02  88.511 21.5597 4.315e-09 ***
+## Hospital             1   9.57   9.568  2.3306    0.1287    
+## Treatment:Hospital   2 392.18 196.088 47.7635 &lt; 2.2e-16 ***
+## Residuals          174 714.34   4.105                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
++ The values are not identical (there are some devils in detail), but you can see the pattern of results is the same in both approaches.
+
+---
+# Summary of today
+
++ Look at constructing `\(F\)`-tests for the overall effect of conditions (categorical variables) from a factorial design.
+
++ Now we can move on to consider the interaction term in more detail.
+
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

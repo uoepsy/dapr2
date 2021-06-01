@@ -1,0 +1,746 @@
+# What is a statistical model? {#chap-stat-model}
+
+```{r echo=FALSE}
+# Solutions
+SHOW_SOLS = TRUE
+
+# Chunk options
+knitr::opts_chunk$set(
+    message = FALSE, 
+    warning = FALSE, 
+    fig.align = 'center',
+    out.width = '60%'
+)
+
+# ggplot settings
+library(ggplot2)
+theme_set(
+  theme_bw(base_size = 15) + 
+    theme(plot.title = element_text(hjust = 0.5))
+)
+
+# reproducibility
+set.seed(1)
+```
+
+
+:::red
+**PRE-LAB ACTIVITIES**
+
+Before attempting the lab, please read the following document: [A Review of Introductory Statistics](http://media.pearsoncmg.com/aw/aw_kuiper_online_resources/rev_intro_stats.pdf){target="_blank"}.
+:::
+
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Recall the main concepts from introductory statistics.
+2. Understand and discuss what is a statistical model using the appropriate terminology.
+3. Understand the link between t-tests and statistical models.
+4. Be able to employ a four-step process for statistical modelling.
+:::
+
+
+## Model basics
+
+<!-- This section recalls the main terminology from introductory statistics that will be used throughout the course. -->
+
+`r qbegin(1)`
+From the assigned reading, you might already be familiar with the following terminology. Provide a short definition for each of these terms:
+
+- *(Observational) unit*
+- *Variable*
+- *Categorical variable*
+- *Quantitative variable*
+- *Response variable*
+- *Explanatory variable*
+- *Treatment*
+- *Observational study*
+- *Experiment*
+`r qend()`
+
+`r solbegin(show = SHOW_SOLS)`
+| Term | Definition |
+|:-----|:-----------|
+|*(Observational) unit* | The individual entities on which data are collected. |
+|*Variable* | Any characteristic recorded on the observational units. |
+|*Categorical variable* | A categorical variable, also known as a factor, places units into one of several groups. Examples are "country of birth", "dominant hand", and "eye colour". |
+|*Quantitative variable* | A variable that records a numerical quantity for each case. For such variables standard arithmetic operations make sense. For example, average height or weight makes sense. |
+|*Response variable* | A response variable (also called a dependent variable) measures the outcome of interest in a study. |
+|*Explanatory variable* | Explanatory variables (also called independent variables or predictors) are used to explain changes in the response variable. |
+|*Treatment* | A treatment is any level of a factor or combination of levels from two or more factors. |
+|*Observational study* | An observational study is a study in which the researcher does not manipulate any of the variables involved in the study, but merely records/observes the values as they naturally exist. |
+|*Experiment* | An experiment is a study in which the researcher imposes the values of the explanatory variable on the units before measuring the response variable. |
+`r solend()`
+
+
+`r optbegin('Optional: What this course is about', FALSE)`
+This course slowly builds on basic concepts from a first introductory course in data analysis, to teach you a set of methods that let you answer a broader range of research questions and analyse richer datasets that include more variables.
+
+The goal of this course is to explain variation in a response variable using one or more explanatory variables. Such goal typically arises when your research objective involves:
+
+- *Prediction*: Predict the IQ score of a person or their chance of dropping out of school.
+- *Classification*: Tell the species of a bird based on their wingspan.
+- *Evaluating a treatment*: Can special exercises help a baby walk sooner? Can magnetic pulses relieve migraine pain?
+- *Testing a theory*: Theory says you take more ice cream if you have a bigger bowl or a bigger spoon. What does the evidence say?
+- *Summarizing a pattern*: How is income related to education level in different seniority groups? 
+- *Improving a process*: What variables have an effect on how quickly a student finishes their dissertation?
+- *Making a decision*: After developing two curricula, a school wants to decide if to use curriculum A or B.
+
+
+Before going into the details of statistical models, it is important to pause for a second and understand an important caution: *every model simplifies reality.*
+
+As @Cannon2018 clearly points out, no one would mistake a model aeroplane for the real thing. No one should make that same mistake with a statistical model. 
+Just because the model comes dressed up with fancy equations is no reason you have to trust it.
+Rather, you should insist that the model prove its value. A famous statistician (G. E. P. Box) said, "All models are wrong; some are useful." You should always remember Box and ask two questions:
+
+- "How far wrong is this model?"
+- "How useful is it?"
+`r optend()`
+
+
+<!-- ## Model basics -->
+
+`r optbegin('Optional: Deterministic vs statistical relationships', FALSE)`
+**Deterministic relationships vs statistical relationships**
+
+In this section you will understand the differences that exist between a deterministic relationship, captured by a mathematical model, and a statistical relationship, which is captured by a statistical model.
+
+Consider the relationships between the two groups of variables below:
+
+*Deterministic relationship*
+
+- Side of a square (cm)
+- Perimeter of a square (cm)
+
+*Statistical relationship*
+
+- Height (in.)
+- Handspan (cm)
+
+<br />
+
+**Deterministic relationships: side and perimeter data**
+
+Suppose you are interested in how the perimeter of a square is related to its side.
+To investigate this relationship, imagine collecting a random sample of 10 squares (or squared objects) and measuring in cm the side and perimeter of each square. The data are as follows:
+
+```{r square-data, echo=FALSE}
+library(tidyverse)
+library(kableExtra)
+
+points_side <- runif(n = 10, min = 0, max = 10) %>% round(2)
+points_side[c(2,6)] <- 3
+
+points_perimeter <- 4 * points_side
+
+squares <- tibble(side = points_side, 
+                  perimeter = points_perimeter)
+
+kable(squares, align = 'c',
+      caption = 'Data on the side and perimeter of various squares.')  %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1:2, width = '10em') %>% 
+  row_spec(c(2,6), background='lightyellow')
+```
+
+<!-- `r qbegin()` -->
+<!-- Identify the units, the explanatory (or independent) variable, and the response (or dependent) variable. -->
+
+<!-- Classify each variable either as a categorical or quantitative one. -->
+<!-- `r qend()` -->
+
+<!-- `r solbegin()` -->
+The observational units are the ten squares on which the measurements are taken.
+The response/dependent variable is perimeter, and it is quantitative.
+The explanatory/independent variable is side, which is also quantitative.
+<!-- `r solend()` -->
+
+
+We typically visualise relationships between two quantitative variables using a scatterplot. 
+In a scatterplot, each unit --- each square in this example --- is represented as a point on a graph. 
+A point $(x, y)$ is made up of two coordinates: an x-coordinate and a y-coordinate.
+
+In the following, we will use the side of each square as x-coordinate, and the perimeter as y-coordinate, hence $(x_1, y_1)$ = (`r squares[1, ]`) is the point corresponding to the first square.
+Figure \@ref(fig:square-points) displays the data points as black dots. We added some transparency to the colour, so that if two points are on top of each other, the colour appears darker.
+
+```{r square-points, echo=FALSE, fig.cap='Scatterplot displaying the deterministic relationship between side and perimeter of squares.'}
+ggplot(squares, aes(x = side, y = perimeter)) +
+  geom_point(size = 3, alpha = 0.5) +
+  labs(x = 'Side (cm)', y = 'Perimeter (cm)')
+```
+
+
+We notice a darker point corresponding to a side of 3cm and a perimeter of 12cm. By inspecting the data in Table \@ref(tab:square-data), we notice that two squares have the same side, and hence the same perimeter. 
+The rows corresponding to these two units have been highlighted in yellow in the data.
+
+As any squares with the same side length will have the same perimeter, we are in the presence of a deterministic/exact relationship, meaning that we are able to exactly determine the value of the perimeter.
+
+We capture deterministic relationships with mathematical models. You might recall from high school that the mathematical model relating side and perimeter of a square is
+$$
+\textrm{perimeter} = 4 \ \textrm{side}
+$$
+or, in short,
+$$
+y = 4 \ x
+$$
+where $x$ = side and $y$ = perimeter.
+
+This model is deterministic because *all* squares behave this way.
+
+More generally, a mathematical model has the form:
+$$
+\begin{aligned}
+\textrm{data} &= \textrm{deterministic model} \\
+y &= f(x)
+\end{aligned}
+$$
+
+We can plot the mathematical model on top of the data points to check for agreement between experimental data and theory. 
+The mathematical model is displayed as a blue line in Figure \@ref(fig:det-rel).
+
+```{r det-rel, echo=FALSE, fig.cap='The mathematical model of the deterministic relationship between side and perimeter of a square.'}
+squares <- squares %>%
+  mutate(
+    side_grid = seq(0, 10, length.out = 10),
+    perimeter_grid = 4 * side_grid
+  )
+
+ggplot(squares) +
+  geom_line(aes(x = side_grid, y = perimeter_grid), color = 'blue', size = 1) +
+  geom_point(aes(x = side, y = perimeter), size = 3, alpha = 0.5) +
+  labs(x = 'Side (cm)', y = 'Perimeter (cm)')
+```
+
+
+**Statistical relationships: height and handspan data**
+
+Consider now the relationship between height (in inches) and handspan (in cm). @Utts2015 provides data for a sample of 167 students which reported their sex, height and handspan. Table \@ref(tab:handheight-data) displays the first six rows of the data.
+
+```{r handheight-data, echo=FALSE}
+library(readxl)
+
+handheight <- read_excel('data/handheight.xlsx')
+names(handheight) <- snakecase::to_any_case(names(handheight))
+
+kable(head(handheight), align = 'c', 
+      caption = 'First six rows of the height and handspan data collected on 167 students.') %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(1:3, width = '10em')
+```
+
+Figure \@ref(fig:handheight-points) displays the relationship between the variables height and handspan using a scatterplot.
+From this plot we immediately notice a fundamental difference with that of Figure \@ref(fig:square-points). 
+People having the same height do not necessarily have the same handspan. Hence, this is a statistical relationship and not a deterministic one.
+
+```{r handheight-points, echo=FALSE, fig.cap='Scatterplot displaying the statistical relationship between height and handspan.'}
+ggplot(handheight, aes(x = height, y = handspan)) +
+  geom_point(size = 3, alpha = 0.5) +
+  labs(x = 'Height (in.)', y = 'Handspan (cm)')
+```
+
+We capture statistical relationships with statistical models.
+A statistical model is made up of two terms: a deterministic part and a random error term.
+The first term is shared with mathematical models and the second term is specific to statistical models and will be discussed later.
+The generic form of a statistical model for the relationship between a response variable $y$ and an explanatory variable $x$ is:
+
+$$
+\begin{aligned}
+\textrm{data} &= \textrm{deterministic model + random error} \\
+y &= f(x) + \epsilon
+\end{aligned}
+$$
+Statistical models include a random error term to account for
+
+- unobserved (or unobservable) components not included in the deterministic model;
+- measurement error;
+- individual-to-individual variation.
+
+Because for people with the same height (x-value) we observe different handspans (y-values), we can only model the *average* handspan as a function of height.
+That is, the statistical model will predict the average response variable for each value of the explanatory variable.
+The relationship between these two variables appears to be linear, as shown in Figure \@ref(fig:stat-rel).
+
+```{r stat-rel, echo=FALSE, fig.cap='The statistical model of the statistical relationship between height and handspan.'}
+ggplot(handheight, aes(x=height, y=handspan)) +
+  geom_smooth(method = 'lm', se = FALSE) +
+  geom_point(size = 3, alpha = 0.5) +
+  labs(x = 'Height (in.)', y = 'Handspan (cm)')
+```
+
+In a statistical relationship there is variation from the average pattern. This can not be ignored as it affects our ability to predict what happens for an individual.
+If most of the data are close to the line denoting the average pattern, we may be able to accurately predict what will happen for an individual. When there is substantial variation from that line, we will not be able to accurately predict what will happen for an individual. 
+
+`r optend()`
+
+## A four-step process to modelling
+
+In this course we will follow a four-step approach to statistical modelling [@Cannon2018]. These steps are:
+
+- *Choose* a form for the model.
+- *Fit* that model to the data.
+- *Assess* how well the model fits the data.
+- *Use* the model to address the question that motivated the data collection in the first place.
+
+We will investigate each step in turn using the [perfection.csv](#dc-perfection) data (see the data description in the [data codebook](#dc-perfection)).
+The goal of the study was to answer the following research question: *Do distracting colours influence reaction times?*
+
+
+## Choose
+
+> *Choose* a form for the model. 
+
+This step involves identifying the response and explanatory variables and their types (categorical or quantitative).
+Next, we plot the data and explore any patterns we might see. 
+The main goal in this step is to describe those patterns and select a model for the relationship between the response and explanatory variable.
+
+
+### Exploratory data analysis {-}
+
+`r qbegin(2)`
+Identify the units, the population for which conclusions can be drawn, the explanatory variable, and the response variable.
+
+Classify the explanatory and response variables either as categorical or quantitative.
+`r qend()`
+
+`r solbegin()`
+Units: each student.
+
+Population: set of all students at this university who would be willing to be part of the study.
+
+Explanatory variable: type of game (standard or with a colour distracter). Type: categorical.
+
+Response variable: the completion time (in seconds). Type: quantitative.
+`r solend()`
+
+`r qbegin(3)`
+Is this study an experiment or an observational study? Explain.
+`r qend()`
+
+`r solbegin()`
+This study is an experiment, since students were randomly allocated to one of the two types of games.
+`r solend()`
+
+`r qbegin(4)`
+The researchers hope to determine if distracting colours could impact university students' response times when playing a computerized version of the Perfection game. 
+
+Write out in words and symbols appropriate null and alternative hypotheses. 
+
+Let $\mu_1$ represent the true mean response time of the colour group and $\mu_2$ the true mean response time of the standard group. Use a two-sided alternative hypothesis for this question.
+`r qend()`
+
+`r solbegin()`
+Null hypothesis: $H_0: \mu_1 = \mu_2$ (the mean completion time for the colour distracter game is equal to the mean completion time for the standard game).
+
+Alternative hypothesis: $H_0: \mu_1 \neq \mu_2$ (the mean completion time for the colour distracter game is not equal to the mean completion time for the standard game).
+`r solend()`
+
+`r qbegin(5)`
+Graph the [perfection](#dc-perfection) data and describe the graph.
+For example, does it look like the groups have equal means or equal variances? 
+Are there any outliers in the data set? 
+
+Report the number of observations in each group, $n_1$ and $n_2$.
+Calculate the mean and standard deviation of the colour distracter responses, $\bar y_1$ and $s_1$, as well as the mean and standard deviation of the standard game responses, $\bar y_2$ and $s_2$.
+`r qend()`
+
+`r solbegin()`
+We will use the library `tidyverse` for reading in the data with the function `read_csv()` and to plot them with `ggplot()`. Furthermore, we will use the library `patchwork` to combine individual plots into a single figure. 
+For example if `p1` and `p2` denote two ggplots, the command `p1 | p2` creates a figure which shows the two plots next to each other, while `p1 / p2` displays them under each other.
+
+Load the data and inspect the first six rows using `head()`:
+```{r}
+library(tidyverse)
+library(patchwork)
+
+perfection <- read_csv('data/perfection.csv')
+head(perfection)
+```
+
+We see that the variable `type` is of type `<chr>` = character, when it should be of type `<fct>` = factor. Let's change it:
+
+```{r}
+perfection <- perfection %>%
+  mutate(type = factor(type))
+
+head(perfection)
+```
+
+We can create both a dotplot and a boxplot of the completion times in each group. 
+Instead of displaying each plot separately, we can give a name to each plot and assign it to an object, such as `p1` and `p2`:
+```{r}
+p1 <- ggplot(perfection, aes(x = type, y = time)) + 
+  geom_dotplot(binaxis = "y", dotsize = 0.75, binwidth = 0.5) +
+  labs(x = 'Type of game', y = 'Completion time', 
+       title = "(a) Dotplots")
+
+p2 <- ggplot(perfection, aes(x = type, y = time)) +
+  geom_boxplot() +
+  labs(x = 'Type of game', y = 'Completion time', 
+       title = "(b) Boxplots")
+```
+
+The following code displays the two plots next to each other:
+```{r perfection-dotplot-boxplot, out.width='100%', fig.width=10, fig.cap='Dotplot and boxplot of completion time by game type.'}
+p1 | p2
+```
+
+:::int
+The dotplots in panel (a) show that the distribution of completion times is fairly symmetric in both game types and reasonably bell-shaped. Furthermore, the spread (standard deviation) of the two distributions appears to be similar.
+
+From the boxplots in panel (b), we see that the colour distracter group appears to have a higher mean completion time than the standard group. The standard deviations also appear to be similar. There do not appear to be any outliers.
+:::
+
+Summary statistics:
+```{r}
+stats_time <- perfection %>%
+  group_by(type) %>%
+  summarise(sample_size = n(),
+            mean_time = mean(time), 
+            sd_time = sd(time))
+
+stats_time
+```
+
+You can obtain a nicely formatted table for HTML documents using the `kable` function from the `knitr` package:
+```{r}
+knitr::kable(stats_time, 
+             digits = 2,
+             caption='Descriptive statistics of completion time by game type.')
+```
+
+<br />
+
+The summary statistics of completion time by group are as follows:
+
+- Colour distracter group: $n_1 = 20$, $\bar y_1 = 38.10$, $s_1 = 3.65$
+- Standard group: $n_2 = 20$, $\bar y_2 = 35.55$, $s_2 = 3.39$
+`r solend()`
+
+
+
+### Model specification {-}
+
+As discussed above, the dotplots and boxplots in Figure \@ref(fig:perfection-dotplot-boxplot) show a pair of reasonably symmetric distributions with roughly the same variability of completion time for the two game groups. Furthermore, the mean completion time for the colour distracter group is higher than the mean for the standard group. 
+
+One model for these data would be for the completion times to come from a pair of normal distributions, with different means for the two groups, but the same standard deviation.
+
+Let the parameter $\mu_1$ denote the population mean completion time in the colour distracter group, and let $\mu_2$ denote the population mean completion time in the standard group.
+Recall that the sample standard deviations in the two game groups appeared to be reasonably similar from the dotplots and boxplots in Figure \@ref(fig:perfection-dotplot-boxplot).
+Hence, a possibility for the model is to assume a unique value for the standard deviation of completion time in the population, $\sigma$. That is, to assume that the population standard deviation for the colour distracter game ($\sigma_1$) and the population standard deviation for the standard game ($\sigma_2$) are equal: $\sigma = \sigma_1 = \sigma_2$.
+
+If we denote the variable completion time by $y$, we can summarise the suggested model as $y \sim N(\mu_i, \sigma)$, which simply means that the completion time response variable follows ("$\sim$") a normal distribution with mean $\mu_1$ in the first group (colour distracter game) and mean $\mu_2$ in the second group (standard game), and with standard deviation $\sigma$.
+
+Recalling that $\mu_i$ denotes the population mean response in the $i$th group, this can also be reformulated in the familiar $\text{data}$ = $\text{deterministic model}$ + $\text{random error}$ equation as follows:
+$$
+\begin{split}
+y = \mu_i + \epsilon \quad \text{where} \quad
+&i = 1, 2 \\
+&\epsilon \sim N(0, \sigma)
+\end{split}
+$$
+
+Because we have only two groups, the model simply says that:
+$$
+\begin{aligned}
+y &= (\mu_1 + \epsilon) \sim N(\mu_1, \sigma) \qquad \textrm{for individuals in the colour distractor group} \\
+y &= (\mu_2 + \epsilon) \sim N(\mu_2, \sigma) \qquad \textrm{for individuals in the standard group}
+\end{aligned}
+$$
+
+
+
+## Fit
+
+> *Fit* that model to the data. 
+
+This usually involves estimating the parameters of the specified model using the sample data. 
+As big data have become the new standard, we will almost always let the R statistical software do the calculations for us rather than doing them by hand.
+
+
+To fit this particular model to the data, we need to estimate its three parameters $\mu_1$, $\mu_2$ and $\sigma$, using the data collected from the experiment.
+
+The obvious estimates of the population group means are the corresponding sample means. So, we let $\bar y_1 =$ `r stats_time$mean_time[1]` estimate the population mean completion time for the colour distractor group, and $\bar y_2 =$ `r stats_time$mean_time[2]` estimate the population mean completion time for the standard group.
+
+We estimate the unique population standard deviation $\sigma$ by pooling the two sample standard deviations:
+
+$$
+s_p = \sqrt{\frac{(n_1 - 1) s_1^2 + (n_2 - 1) s_2^2}{n_1 + n_2 - 2}}
+$$
+
+`r qbegin(6)`
+Compute the pooled standard deviation of completion times in the sample.
+`r qend()`
+
+`r solbegin()`
+```{r}
+n1 <- stats_time$sample_size[1]
+n2 <- stats_time$sample_size[2]
+
+s1 <- stats_time$sd_time[1]
+s2 <- stats_time$sd_time[2]
+
+num <- (n1 - 1) * s1^2 + (n2 - 1) * s2^2
+den <- (n1 + n2 - 2)
+sp <- sqrt(num / den)
+sp
+```
+
+Hence, $s_p =$ `r sp %>% round(2)` is the estimate of the population standard deviation.
+`r solend()`
+
+<br />
+
+Now that we have estimated all of the model parameters, we can write the *fitted model*. 
+The fitted model returns the predicted average completion time in either group:
+$$
+\hat y = \bar y_i
+$$
+This means:
+$$
+\begin{aligned}
+\hat y &= 38.10 \qquad \textrm{for individuals in the colour distracter group} \\
+\hat y &= 35.55 \qquad \textrm{for individuals in the standard group}
+\end{aligned}
+$$
+You can consider the predicted values $\hat y$ from the model as a long column of numbers, one for each individual. See the last column in the table below:
+
+| subject_id | type       | time       | time_hat   |
+|:----------:|:----------:|:----------:|:----------:|
+|1           | Standard   | 38         | $\bar y_2$ |
+|2           | Colour     | 36         | $\bar y_1$ |
+|3           | Colour     | 42         | $\bar y_1$ |
+|4           | Standard   | 35         | $\bar y_2$ |
+| ...        | ...        | ...        | ...        |
+
+`r qbegin(7)`
+Add a column to the Perfection game data containing the predicted (fitted) values for each unit.
+`r qend()`
+
+`r solbegin()`
+There are many equivalent ways to obtain the column of fitted values.
+One option, which reuses the table of descriptive statistics `stats_time` calculated before, is the following:
+```{r}
+ybar1 <- stats_time$mean_time[1]
+ybar2 <- stats_time$mean_time[2]
+
+perfection <- perfection %>%
+  mutate(
+    time_hat = ifelse(type == 'Colour', ybar1, ybar2)
+  )
+
+head(perfection)
+```
+In general, it is good practice to reuse previously computed quantities rather than recomputing them all the time. This helps speed up your results when you have lots of data.
+
+<!-- Another completely equivalent (but perhaps harder to understand) way is the following: -->
+<!-- ```{r eval=FALSE} -->
+<!-- perfection <- perfection %>% -->
+<!--   group_by(type) %>% -->
+<!--   mutate( -->
+<!--     time_hat = mean(time) -->
+<!--   ) %>% -->
+<!--   ungroup() -->
+
+<!-- head(perfection) -->
+<!-- ``` -->
+`r solend()`
+
+
+## Assess
+
+> *Assess* how well the model fits the data and meets our needs.
+
+
+### Assessing model assumptions {-}
+
+The model we have presented expects that departures from the mean (the random error) should follow a normal distribution with a mean of zero. 
+Furthermore, the model assumed that the population standard deviation $\sigma$ is the same for both groups (colour distracter and standard games).
+To assess these, we examine the sample residuals (deviations between the actual data completion times and those predicted by the model):
+
+$$
+\begin{matrix}
+\textrm{residual} & = & \textrm{observed} & - & \textrm{predicted} \\
+\hat \epsilon & = & y & - & \hat y
+\end{matrix}
+$$
+
+`r qbegin(8)`
+Add a column to the Perfection game data which contains the residuals.
+`r qend()`
+
+`r solbegin()`
+```{r}
+perfection <- perfection %>%
+  mutate(
+    residual = time - time_hat
+  )
+
+head(perfection)
+```
+`r solend()`
+
+
+`r qbegin(9)`
+Inspect the distribution of the residuals. 
+Does it highlight violation of the normality assumption?
+`r qend()`
+
+`r solbegin()`
+
+```{r dot-box-resid, fig.cap='Dotplot and boxplot of residuals'}
+ggplot(perfection, aes(x = residual)) + 
+  geom_dotplot(binaxis = "x", dotsize = 0.75, binwidth = 0.5) +
+  geom_boxplot(aes(y = -0.2), width = 0.1)
+```
+
+Figure \@ref(fig:dot-box-resid) displays a dotplot of the residuals along with a boxplot at the bottom.
+Note that the distribution of the residuals has zero mean. We don't see any significant departures from normality in the dotplot and boxplot, but it’s difficult to judge normality from dotplots with so few observations. 
+
+Normal quantile plots (as shown in Figure \@ref(fig:perfection-qqplot)) are a more informative technique for assessing normality. Departures from a linear trend in such plots indicate a lack of normality. Figure \@ref(fig:perfection-qqplot) shows no substantial departure. Normal quantile plots will be examined in more detail in the next chapters.
+
+```{r perfection-qqplot, fig.cap='Normal quantile plots for the residuals of completion time.', fig.height=4, fig.width=4}
+ggplot(perfection, aes(sample=residual)) +
+  geom_qq() +
+  geom_qq_line(colour = 'tomato1')
+  
+```
+
+
+A more formal test for normality is the Shapiro-Wilks test against the null hypothesis that the sample comes from a normal population.
+```{r}
+shapiro.test(perfection$residual)
+```
+
+We could write up the results as follows, 
+
+:::int
+We performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. 
+The test-statistic $W = 0.99$ leads to a p-value of 0.97. The large p-value means that we do not have sufficient evidence to reject the null hypothesis that the residuals came from a normal population.
+:::
+
+`r solend()`
+
+
+`r qbegin(10)`
+Perform a formal F-test for equal population variances of the residuals across the two game types.
+
+_**Hint:** Recall that to test equality of two population variances we use the function `var.test()`_
+`r qend()`
+
+`r solbegin()`
+We verify equality of variances (equivalently, of standard deviations), using the F-test implemented via the `var.test` function:
+```{r}
+var.test(residual ~ type, data = perfection)
+```
+
+We might write up the result as follows, 
+
+:::int
+We performed an F-test against the null hypothesis that the ratio of the two population variances equals 1: $F(19, 19) = 1.16$, $p=0.75$.
+
+The small value of the F-statistic leads to a large p-value (0.75). If the population variances in the two game groups were equal, we would get a sample value of the F-statistic as large as 1.16 about 75 times out of one hundred. 
+Hence, we do not have sufficient evidence to reject the null hypothesis that the population variance of completion time in the colour distracter game is equal to the population variance of completion time in the standard game.
+:::
+
+`r solend()`
+
+The formal F-test of equal variances above was possible because we are in the case of two groups. In later chapters, when the explanatory variable will be more general, we will resort to a more visual comparison to assess equal variances.
+
+Consider the plot in Figure \@ref(fig:resid-vs-fitted), which displays the residuals against the fitted values.
+```{r resid-vs-fitted, fig.cap='Residuals vs fitted values.'}
+ggplot(perfection, aes(x=time_hat, y=residual)) +
+  geom_point(alpha=0.5) +
+  labs(x = 'Fitted values', y = 'Residuals')
+```
+As you can see, the plot shows the residuals in each group with some transparency to show overlapping residuals. They are roughly equally spread, so we do not have any concerns about the assumption of equal variances.
+
+
+### Comparison with a simpler model {-}
+
+As a second component of assessment, we consider whether a simpler model might fit the data essentially as well as our model with different means for each group. 
+This is analogous to testing the standard hypotheses for a two-sample t-test:
+
+$$
+H_0: \mu_1 = \mu_2 \\
+H_1: \mu_1 \neq \mu_2
+$$
+
+The null hypothesis corresponds to the simpler model
+$$
+y = \mu + \epsilon \qquad \text{where } \ \epsilon \sim N(0, \sigma)
+$$
+which uses the same mean for both colour distractor and standard groups. The alternative ($H_1$) reflects the model that allows each group to have a different mean.
+
+`r qbegin(11)`
+Would the simpler (common mean) model suffice for the Perfection game data, or do the two separate group means provide a better explanation for the data? 
+
+Perform a two-sample t-test to judge this.
+`r qend()`
+
+`r solbegin()`
+```{r}
+t.test(time ~ type, data = perfection, var.equal=TRUE)
+```
+
+We could write up the test results as follows,
+
+:::int
+The extreme value for this test statistic ($t = 2.29$) produces a small p-value ($0.028$). If type of game has no effect on completion time, we would get a value of $t$ as large as 2.29 (in magnitude) about 28 times out of one thousand. The evidence that the colour distractor game makes a difference (increasing mean completion time) is strong.
+:::
+
+We prefer the statistical model that allows for different group means, despite its additional complexity, over the model that uses the same mean for both groups.
+
+The 95\% confidence interval for the difference in population mean completion time is $[0.29,  4.81]$.
+
+`r solend()`
+
+Formal (probability-based) inference requires the added conditions of randomness and independence. 
+Two questions need to be asked about any study design in order to determine which conclusions can be drawn:
+
+- *Random sampling*: How was the sample collected? If the units in the sample were
+randomly selected from the population of interest, inferences can be drawn (generalised) to the entire population.
+- *Random allocation*: How were units assigned to treatments? If the units were randomly allocated into treatment groups, a statistically significant result shows that the treatment causes changes in the response variable.
+
+Random sampling and random allocation do not impact the type of statistical model or technique used, but dramatically impact the type of conclusions that can be drawn.
+
+`r qbegin(12)`
+How was the sample collected?
+
+How were units assigned to treatments?
+`r qend()`
+
+`r solbegin()`
+In the Perfection game study, students were "randomly" selected from a university. If the 40 students were truly a simple random sample of all students currently attending that university, the results of this study would hold for all students in that university.
+
+However, even if the researchers randomly selected 40 students, it would be unlikely that the first 40 subjects selected would agree to participate in the study. Thus, the population for the study would be all current university students that would agree to participate in the study. 
+
+In this study, the participants were randomly assigned to groups by flipping a fair coin.
+Therefore, since the sample data led us to reject the null hypothesis, we can be quite certain that type of game caused a difference in the average completion time.
+`r solend()`
+
+
+## Use
+
+> *Use* the model to address the question that motivated collecting the data in the first place. 
+
+This might be to make predictions, explain relationships, or assess differences while bearing in mind possible limitations on the scope of inferences that can be made. 
+For example, if the data were collected as a random sample from a population, then inference can be extended to that population. 
+If treatments were assigned at random to subjects, then a cause-and-effect relationship can be inferred. 
+But if the data arose in other ways, then we have little statistical basis for drawing such conclusions.
+
+`r qbegin(13)`
+Write down your conclusion from this study.
+`r qend()`
+
+`r solbegin()`
+:::int
+We performed a two-sided independent samples t-test against the null hypothesis of equal mean completion time of the colour distracter game and the standard game ($t(38) = 2.28$, $p = 0.028$, two-sided).
+The p-value of test is 0.028, meaning that a group difference at least as extreme as the one actually observed would occur only 2.8\% of the time.
+Because this was a controlled experiment with random assignment of the colour distracter and standard game conditions to the units, and because the data produced a very small p-value, we can infer that the type of game played did produce a difference in the average completion time.
+That is, the random allocation of conditions to subjects allows us to draw a cause-and-effect relationship.
+
+The 95\% confidence interval for the difference in population mean completion time is $[0.29, 4.81]$.
+This tells us we are 95\% confident that students agreeing to participate and playing the colour distracter game will take, on average, between 0.29 and 4.81 seconds more than those playing the standard game.
+:::
+`r solend()`
+

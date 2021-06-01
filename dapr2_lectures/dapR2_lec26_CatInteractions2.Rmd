@@ -1,0 +1,334 @@
+---
+title: "<b>Factorial Designs: Interactions and simple effects </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "Tom Booth and Alex Doumas"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: "AY 2020-2021"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(interactions)
+library(emmeans)
+```
+
+# Weeks Learning Objectives
+1. Estimate and interpret interactions in factorial designs.
+
+2. Visualize and probe interactions in factorial designs. 
+
+3. Understand how to calculate analogous estimates to those typically reported in ANOVA analyses. 
+
+---
+# Topics for today
++ Conceptualise categorical interactions using plots. 
+
++ Show the calculations for categorical interactions with effects codes. 
+  + These are differences in simple effects. 
+  + This interpretation is parallel to the idea of simple slopes in lm. 
+  
++ Practical example in R. 
+
++ Coding of categorical interactions with dummy vs effects codes.
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# The data
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %>%
+  slice(1:10)
+```
+
+---
+# Our results
+```{r}
+m4 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m4)
+```
+
+---
+# Our results
+```{r}
+m4sum <- summary(m4)
+round(m4sum$coefficients,2)
+```
+
+---
+# But where do we go next?
++ It is typically a bad idea to focus on main effects in the presence of an interaction.
+  + The interaction means the effect of the condition differs dependent on the interacting variable.
+
++ So we need to understand more about the interaction
+
++ We will use the `emmeans` package to explore this futher:
+  + We will start by looking at the visualizations
+  + And then consider the simple effects
+  
+  
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, out.width ="80%"}
+emmip(m4, Hospital ~ Treatment)
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, out.width ="80%"}
+emmip(m4, Treatment ~ Hospital)
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+
+---
+# Simple Effects
++ We noted earlier that simple contrasts/effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+
++ We also know an interaction is defined as the change in the effect of one variable given the value of another.
+  + So here, value = a specific level.
+  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m4_emm <- emmeans(m4, ~Treatment*Hospital)
+m4_simple1 <- pairs(m4_emm, simple = "Hospital")
+m4_simple1
+```
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m4_simple2 <- pairs(m4_emm, simple = "Treatment")
+m4_simple2
+```
+
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m4, Treatment ~ Hospital)
+```
+
+]
+
+.pull-right[
+```{r}
+m4_simple1
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r}
+m4_simple2
+```
+
+]
+
+.pull-right[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m4, Hospital ~ Treatment)
+```
+
+]
+
+
+---
+# Coding interactions
++ We noted last time that to fully code an interaction between categorical variables in a linear model, we need (r-1)(c-1) variables.
+
++ This point comes from our design matrix, or: 
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, 
+  "TreatA", "10.80",  "7.85",
+  "TreatB", "9.43",  "13.11",
+  "TreatC", "10.10",  "7.98",
+  ), col.names = c("", "Hosp1",  "Hosp2"))
+```
+
++ Recall this coding for dummy and effects codes... 
+
+---
+# For dummy coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \underbrace{b_4D_{13} + b_5D_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  D1 = c(0,0,1,1,0,0),
+  D2 = c(0,0,0,0,1,1),
+  D3 = c(0,1,0,1,0,1),
+  D13 = c(0,0,0,1,0,0),
+  D23 = c(0,0,0,0,0,1)
+)
+```
+
+---
+# Interpretation (nulls) with dummy coding
+```{r, echo=FALSE}
+round(m4sum$coefficients,2)
+```
+
++ $b_0$ = Mean of treatment A in hospital 1.
++ $b_1$ = Difference between Treatment B and Treatment A in Hospital 1.
++ $b_2$ = Difference between Treatment C and Treatment A in Hospital 1.
++ $b_3$ = Difference between Treatment A in Hospital 1 and Hospital 2.
++ $b_4$ = Difference between Treatment A and Treatment B between Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment A and Treatment C between Hospital 1 and Hospital 2
+
+
+---
+# For effects coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+
+
+
+
+
+---
+# Run model with effects coding
+```{r}
+contrasts(hosp_tbl$Treatment) <- contr.sum
+contrasts(hosp_tbl$Hospital) <- contr.sum
+m4a <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+---
+# Run model with effects coding
+```{r, echo=FALSE}
+summary(m4a)
+```
+
+---
+# Interpretation with effects coding
+```{r, echo=FALSE}
+m4asum <- summary(m4a)
+m4asum$coefficients
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Summary of today
+
++ Looked at...
+  + how to use `emmeans` to visualize interactions. 
+  + probed the simple effects. 
+  + considered the structure of the linear model with interactions between cateorical variables. 
+  + considered the interpretation of the individual coefficients in dummy and effect coding. 

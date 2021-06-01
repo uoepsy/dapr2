@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Factorial Designs: Interactions and simple effects </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Tom Booth and Alex Doumas" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b>Factorial Designs: Interactions and simple effects </b>
+## Data Analysis for Psychology in R 2<br><br>
+### Tom Booth and Alex Doumas
+### Department of Psychology<br>The University of Edinburgh
+### AY 2020-2021
+
+---
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Estimate and interpret interactions in factorial designs.
+
+2. Visualize and probe interactions in factorial designs. 
+
+3. Understand how to calculate analogous estimates to those typically reported in ANOVA analyses. 
+
+---
+# Topics for today
++ Conceptualise categorical interactions using plots. 
+
++ Show the calculations for categorical interactions with effects codes. 
+  + These are differences in simple effects. 
+  + This interpretation is parallel to the idea of simple slopes in lm. 
+  
++ Practical example in R. 
+
++ Coding of categorical interactions with dummy vs effects codes.
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC.
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# The data
+
+```r
+hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %&gt;%
+  slice(1:10)
+```
+
+```
+## # A tibble: 10 x 3
+##      SWB Treatment Hospital
+##    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
+##  1   6.2 TreatA    Hosp1   
+##  2  15.9 TreatA    Hosp1   
+##  3   7.2 TreatA    Hosp1   
+##  4  11.3 TreatA    Hosp1   
+##  5  11.2 TreatA    Hosp1   
+##  6   9   TreatA    Hosp1   
+##  7  14.5 TreatA    Hosp1   
+##  8   7.3 TreatA    Hosp1   
+##  9  13.7 TreatA    Hosp1   
+## 10  12.6 TreatA    Hosp1
+```
+
+---
+# Our results
+
+```r
+m4 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m4)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: SWB
+##                     Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## Treatment            2 177.02  88.511 21.5597 4.315e-09 ***
+## Hospital             1   9.57   9.568  2.3306    0.1287    
+## Treatment:Hospital   2 392.18 196.088 47.7635 &lt; 2.2e-16 ***
+## Residuals          174 714.34   4.105                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+# Our results
+
+```r
+m4sum &lt;- summary(m4)
+round(m4sum$coefficients,2)
+```
+
+```
+##                               Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)                      10.80       0.37   29.19     0.00
+## TreatmentTreatB                  -1.37       0.52   -2.62     0.01
+## TreatmentTreatC                  -0.70       0.52   -1.33     0.18
+## HospitalHosp2                    -2.95       0.52   -5.63     0.00
+## TreatmentTreatB:HospitalHosp2     6.63       0.74    8.97     0.00
+## TreatmentTreatC:HospitalHosp2     0.82       0.74    1.11     0.27
+```
+
+---
+# But where do we go next?
++ It is typically a bad idea to focus on main effects in the presence of an interaction.
+  + The interaction means the effect of the condition differs dependent on the interacting variable.
+
++ So we need to understand more about the interaction
+
++ We will use the `emmeans` package to explore this futher:
+  + We will start by looking at the visualizations
+  + And then consider the simple effects
+  
+  
+---
+# Visualizing the interaction
+
+.pull-left[
+
+```r
+emmip(m4, Hospital ~ Treatment)
+```
+
+&lt;img src="dapR2_lec26_CatInteractions2_files/figure-html/unnamed-chunk-5-1.png" width="80%" /&gt;
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Visualizing the interaction
+
+.pull-left[
+
+```r
+emmip(m4, Treatment ~ Hospital)
+```
+
+&lt;img src="dapR2_lec26_CatInteractions2_files/figure-html/unnamed-chunk-7-1.png" width="80%" /&gt;
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Simple Effects
++ We noted earlier that simple contrasts/effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+
++ We also know an interaction is defined as the change in the effect of one variable given the value of another.
+  + So here, value = a specific level.
+  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
+
+---
+# Simple Effects with `emmeans`
+
+
+```r
+m4_emm &lt;- emmeans(m4, ~Treatment*Hospital)
+m4_simple1 &lt;- pairs(m4_emm, simple = "Hospital")
+m4_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174  5.632  &lt;.0001 
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174 -7.047  &lt;.0001 
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174  4.059  0.0001
+```
+
+---
+# Simple Effects with `emmeans`
+
+
+```r
+m4_simple2 &lt;- pairs(m4_emm, simple = "Treatment")
+m4_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619 0.0259 
+##  TreatA - TreatC    0.697 0.523 174   1.332 0.3796 
+##  TreatB - TreatC   -0.673 0.523 174  -1.287 0.4044 
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061 &lt;.0001 
+##  TreatA - TreatC   -0.127 0.523 174  -0.242 0.9682 
+##  TreatB - TreatC    5.137 0.523 174   9.819 &lt;.0001 
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+
+---
+# Simple effects with plots
+
+.pull-left[
+&lt;img src="dapR2_lec26_CatInteractions2_files/figure-html/unnamed-chunk-11-1.png" width="90%" /&gt;
+
+]
+
+.pull-right[
+
+```r
+m4_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174  5.632  &lt;.0001 
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174 -7.047  &lt;.0001 
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174  4.059  0.0001
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+
+```r
+m4_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619 0.0259 
+##  TreatA - TreatC    0.697 0.523 174   1.332 0.3796 
+##  TreatB - TreatC   -0.673 0.523 174  -1.287 0.4044 
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061 &lt;.0001 
+##  TreatA - TreatC   -0.127 0.523 174  -0.242 0.9682 
+##  TreatB - TreatC    5.137 0.523 174   9.819 &lt;.0001 
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+]
+
+.pull-right[
+&lt;img src="dapR2_lec26_CatInteractions2_files/figure-html/unnamed-chunk-14-1.png" width="90%" /&gt;
+
+]
+
+
+---
+# Coding interactions
++ We noted last time that to fully code an interaction between categorical variables in a linear model, we need (r-1)(c-1) variables.
+
++ This point comes from our design matrix, or: 
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
++ Recall this coding for dummy and effects codes... 
+
+---
+# For dummy coding
+
+`$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \underbrace{b_4D_{13} + b_5D_{23}}_{\text{Interactions}} + \epsilon_{i}$$`
+
+
+
+```
+## # A tibble: 6 x 7
+##   Treatment Hospital    D1    D2    D3   D13   D23
+##   &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 A         Hosp1        0     0     0     0     0
+## 2 A         Hosp2        0     0     1     0     0
+## 3 B         Hosp1        1     0     0     0     0
+## 4 B         Hosp2        1     0     1     1     0
+## 5 C         Hosp1        0     1     0     0     0
+## 6 C         Hosp2        0     1     1     0     1
+```
+
+---
+# Interpretation (nulls) with dummy coding
+
+```
+##                               Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)                      10.80       0.37   29.19     0.00
+## TreatmentTreatB                  -1.37       0.52   -2.62     0.01
+## TreatmentTreatC                  -0.70       0.52   -1.33     0.18
+## HospitalHosp2                    -2.95       0.52   -5.63     0.00
+## TreatmentTreatB:HospitalHosp2     6.63       0.74    8.97     0.00
+## TreatmentTreatC:HospitalHosp2     0.82       0.74    1.11     0.27
+```
+
++ `\(b_0\)` = Mean of treatment A in hospital 1.
++ `\(b_1\)` = Difference between Treatment B and Treatment A in Hospital 1.
++ `\(b_2\)` = Difference between Treatment C and Treatment A in Hospital 1.
++ `\(b_3\)` = Difference between Treatment A in Hospital 1 and Hospital 2.
++ `\(b_4\)` = Difference between Treatment A and Treatment B between Hospital 1 and Hospital 2
++ `\(b_5\)` = Difference between Treatment A and Treatment C between Hospital 1 and Hospital 2
+
+
+---
+# For effects coding
+
+`$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$`
+
+
+
+```
+## # A tibble: 6 x 7
+##   Treatment Hospital    E1    E2    E3   E13   E23
+##   &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 A         Hosp1        1     0     1     1     0
+## 2 A         Hosp2        1     0    -1    -1     0
+## 3 B         Hosp1        0     1     1     0     1
+## 4 B         Hosp2        0     1    -1     0    -1
+## 5 C         Hosp1       -1    -1     1    -1    -1
+## 6 C         Hosp2       -1    -1    -1     1     1
+```
+
+
+
+
+
+
+---
+# Run model with effects coding
+
+```r
+contrasts(hosp_tbl$Treatment) &lt;- contr.sum
+contrasts(hosp_tbl$Hospital) &lt;- contr.sum
+m4a &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+---
+# Run model with effects coding
+
+```
+## 
+## Call:
+## lm(formula = SWB ~ Treatment + Hospital + Treatment * Hospital, 
+##     data = hosp_tbl)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -6.6000 -1.2533  0.1083  1.2650  5.7000 
+## 
+## Coefficients:
+##                      Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)            9.8806     0.1510  65.425  &lt; 2e-16 ***
+## Treatment1            -0.5539     0.2136  -2.593   0.0103 *  
+## Treatment2             1.3928     0.2136   6.521 7.30e-10 ***
+## Hospital1              0.2306     0.1510   1.527   0.1287    
+## Treatment1:Hospital1   1.2428     0.2136   5.819 2.79e-08 ***
+## Treatment2:Hospital1  -2.0739     0.2136  -9.710  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.026 on 174 degrees of freedom
+## Multiple R-squared:  0.4476,	Adjusted R-squared:  0.4317 
+## F-statistic:  28.2 on 5 and 174 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+# Interpretation with effects coding
+
+```
+##                        Estimate Std. Error   t value      Pr(&gt;|t|)
+## (Intercept)           9.8805556  0.1510222 65.424539 1.874861e-124
+## Treatment1           -0.5538889  0.2135776 -2.593385  1.031285e-02
+## Treatment2            1.3927778  0.2135776  6.521179  7.300375e-10
+## Hospital1             0.2305556  0.1510222  1.526634  1.286678e-01
+## Treatment1:Hospital1  1.2427778  0.2135776  5.818858  2.786690e-08
+## Treatment2:Hospital1 -2.0738889  0.2135776 -9.710236  4.395931e-18
+```
+
++ `\(b_0\)` = Grand mean.
++ `\(b_1\)` = Difference between row marginal for treatment A and the grand mean. 
++ `\(b_2\)` = Difference between row marginal for treatment B and the grand mean.
++ `\(b_3\)` = Difference between column marginal for Hospital 1 and the grand mean.
++ `\(b_4\)` = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ `\(b_5\)` = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Summary of today
+
++ Looked at...
+  + how to use `emmeans` to visualize interactions. 
+  + probed the simple effects. 
+  + considered the structure of the linear model with interactions between cateorical variables. 
+  + considered the interpretation of the individual coefficients in dummy and effect coding. 
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

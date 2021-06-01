@@ -1,0 +1,400 @@
+# Inference for coefficients
+
+Consider again the output of the `summary()` function, which takes as input the fitted regression object:
+```{r}
+summary(mdl)
+```
+
+We already saw that the "Estimate" column returns the estimated regression coefficients.
+
+To quantify the amount of uncertainty in each estimated coefficient that is due to sampling variability, we use the standard error (SE) of the coefficient. 
+_Recall that a standard error gives a numerical answer to the question of how variable a statistic will be because of random sampling._
+
+The standard errors are found in the column "Std. Error". That is, the SE of the intercept is 6.1232, and the SE of the slope corresponding to the education variable is 0.3696.
+
+In this example the slope, 2.651, has a standard error of 0.37. One way to envision this is as a distribution. Our best guess (mean) for the slope parameter is 2.651. The standard deviation of this distribution is 0.37, which indicates the precision (uncertainty) of our estimate.
+
+```{r echo=FALSE, fig.cap='Sampling distribution of the slope coefficient. The distribution is approximately bell-shaped with a mean of 2.651 and a standard error of 0.37.'}
+ggplot(tibble(x = c(-3 * 0.37 + 2.651, 3 * 0.37 + 2.651)), aes(x = x)) +
+    stat_function(fun = dnorm, args = list(mean = 2.651, sd = 0.37)) +
+  labs(x = "Estimate for employee incomes", y = '')
+```
+
+It shouldn't surprise you that the reference distribution in this case is a t-distribution with $n-2$ degrees of freedom, where $n$ is the sample size.
+Recall the main formulas for obtaining a confidence interval and a test-statistic:
+
+:::frame
+**Confidence interval**: A confidence interval for the population slope is
+$$
+\hat \beta_1 \pm t^* \cdot SE
+$$
+where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
+
+**Test statistic**: A test statistic for $H_0: \beta_1 = 0$ is
+$$
+t = \frac{\hat \beta_1 - 0}{SE}
+$$
+which follows a t-distribution with $n-2$ degrees of freedom.
+:::
+
+In the riverview example, for 95\% confidence we have $t^* = 2.04$. The confidence interval is:
+```{r}
+n <- nrow(riverview)
+tstar <- qt(0.975, df = n - 2)
+tstar
+
+beta1_ci <- tibble(
+  lower = 2.6513 - tstar * 0.3696,
+  upper = 2.6513 + tstar * 0.3696,
+)
+beta1_ci
+```
+
+In R it is easy to obtain the confidence intervals for the regression coefficients using the command `confint()`:
+```{r}
+confint(mdl, level = 0.95)
+```
+The result is exactly the same (up to rounding errors) as the previous one.
+
+We typically report our uncertainty in a statistic by providing $\text{estimate} \pm t^* \cdot \text{SE}$. Here we would say that because of sampling variation, we are 95\% confident that the slope is between 1.896 and 3.406. Interpreting this, we might say,
+
+:::int
+For all Riverview city employees, each one-year difference in formal education is associated with a difference in income between \$1,896 and \$3,406, on average.
+:::
+    
+Similarly, we could express the uncertainty in the intercept $\hat \beta_0$ as:
+
+:::int
+The average income for all Riverview city employees with zero years of education is between \$-1184 and \$23,827.
+:::
+
+
+`r qbegin(11)`
+Test the hypothesis that the population slope is zero.
+That is, that there is no linear association between income and education level in the population.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+We calculate the test statistic
+$$
+t = \frac{\hat \beta_1 - 0}{SE} = \frac{ 2.6513 - 0 }{0.3696} = 7.173
+$$
+and compare it with the 5% critical value from a t-distribution with $n-2$ degrees of freedom, which is:
+```{r}
+n <- nrow(riverview)
+tstar <- qt(0.975, df = n - 2)
+tstar
+```
+
+As $|t| >> t^*$, we reject then null hypothesis as have strong evidence against it.
+
+The p-value, shown below, also confirms the conclusion.
+```{r}
+2 * (1 - pt(7.173, n - 2))
+```
+
+Please note that the same information was already contained in the row corresponding to the variable "education" in the output of `summary(mdl)`, which reported the t-statistic under `t value` and the p-value under `Pr(>|t|)`:
+```{r}
+summary(mdl)
+```
+
+Before we interpret the results, recall that the p-value `5.56e-08` in the `Pr(>|t|)` column simply means $5.56 \times 10^{-8}$. This is a very small value, hence we will report it as <.001 following the APA guidelines.
+
+:::int
+We performed a t-test against the null hypothesis that education is not a significant predictor of income: $t(30) = 7.173,\ p < .001$, two-sided.
+The large t-statistic leads to a very small p-value, meaning that we have strong evidence against the null hypothesis.
+:::
+
+
+`r solend()`
+
+
+## ANOVA for regression {-}
+
+The term ANOVA is an acronym for **AN**alysis **O**f **VA**riance. In a nutshell it means that we are examining/partitioning the total variability of a response variable.
+
+To assess how well the model is capturing the variability of the response, we can split the total variability in the response $y$ as the sum of the variability explained by the model (the fitted regression line) plus the variability that is left unexplained in the residuals.
+
+$$
+\text{total variability in response = variability explained by model + unexplained variability in residuals}
+$$
+
+Each of these part is measured by a sum of squares:
+
+$$
+\begin{aligned}
+SS_{Total} &= SS_{Model} + SS_{Residual} \\
+\sum_i (y_i - \bar y)^2 &= \sum_i (\hat y_i - \bar y)^2 + \sum_i (y_i - \hat y_i)^2 
+\end{aligned}
+$$
+
+`r qbegin(12)`
+What is the proportion of the total variability in incomes explained by the linear relationship with education level?
+
+_**Hint:** The question asks what is the value of $R^2 = SS_{Model} / SS_{Total}$ for this model?_
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The proportion of the total variability in incomes explained by the linear relationship with education level is given by R-squared.
+
+
+**Option 1**
+
+```{r}
+summary(mdl)
+```
+
+The output of `summary()` displays the R-squared value in the following line:
+```
+Multiple R-squared:  0.6317
+```
+
+For the moment, ignore "Adjusted R-squared". We will come back to this later in the course.
+
+
+**Option 2**
+
+The R-squared can also be obtained as:
+$$
+R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
+$$
+
+We can compute it using R as follows:
+```{r}
+head(riverview_fitted)
+
+riverview_fitted %>%
+  summarise(
+    SSModel = sum( (income_hat - mean(income))^2 ),
+    SSTotal = sum( (income - mean(income))^2 )
+  ) %>%
+  summarise(
+    RSquared = SSModel / SSTotal
+  )
+```
+
+
+**Option 3**
+
+The `anova` function returns the sum of squares of interest:
+```{r}
+mdl_anova <- anova(mdl)
+mdl_anova
+```
+
+Consider the column `Sum Sq`. 
+The entry corresponding to `education` gives $SS_{Model}$ = 4147.3, as education is the explanatory variable. T
+he entry corresponding to `Residuals` gives $SS_{Residual}$ = 2418.2.
+
+```{r}
+SSModel <- mdl_anova$`Sum Sq`[1]
+SSResidual <- mdl_anova$`Sum Sq`[2]
+SSTotal <- SSModel + SSResidual
+
+RSquared <- SSModel / SSTotal
+RSquared
+```
+
+:::int
+Approximately 63\% of the total variability in employee incomes is explained by the linear association with education level.
+:::
+
+`r solend()`
+
+
+Recall that the $R^2$ is computed on the available sample, hence it is a sample statistic and it will vary from sample to sample. How do we check if the model explains a significant amount of the variability of the responses *in the population*, or if the explained variability is due to chance alone? 
+To assess if the sample results could have happened by random chance alone we resort to a formal F-test. In simple linear regression the hypotheses being tested are:
+
+$H_0: \text{the model is ineffective, } \beta_1 = 0$
+
+$H_1: \text{the model is effective, } \beta_1 \neq 0$
+
+The relevant test-statistic compares the amount of variation in the response explained by the model to the amount of variation which left unexplained in the residuals.
+
+The model utility test uses the F-statistic:
+
+$$
+\begin{split}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n-2)} = \frac{MS_{Model}}{MS_{Residual}}
+\end{split}
+$$
+
+The sample F-statistic is compared to an F-distribution with $df_{Model} = 1$ and $df_{Residual} = n - 2$ degrees of freedom.^[
+$SS_{Residual}$ has $n - 2$ degrees of freedom. There are $n$ residuals, but two degrees of freedom are lost in estimating the slope and intercept of the line used to obtain the $\hat y_i$s.
+$SS_{Model}$ has 1 degrees of freedom. Even though there are $n$ deviations $\hat y_i - \bar y$, they are all computed from the same fitted model, which has two degrees of freedoms associated to it: the intercept and the slope. One degree of freedom is lost as the deviations $\hat y_i - \bar y$ are subject to a constraint: they must sum to zero.
+]
+
+`r optbegin('Optional: Another formula for the F-test', FALSE)`
+Recall the following relationships:
+$$
+\begin{split}
+SS_{Total} &= SS_{Model} + SS_{Residual} \\
+\\
+R^2 &= \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
+\end{split}
+$$
+
+With some algebra we can also show that:
+$$
+F = \frac{R^2 / 1}{(1 - R^2) / (n - 2) }
+$$
+
+Proof:
+
+$$
+\begin{aligned}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
+= \frac{\frac{SS_{Model}}{SS_{Total}}}{\frac{SS_{Residual}}{SS_{Total}} \cdot \frac{1}{(n - 2)}} 
+= \frac{R^2 / 1}{(1 - R^2) / (n - 2)}
+\end{aligned}
+$$
+`r optend()`
+
+`r qbegin(13)`
+Look at the output of `summary(mdl)` and `anova(mdl)`.
+
+For each output, identify the relevant information to conduct an F-test against the null hypothesis that the model is ineffective at predicting income using education level.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r}
+summary(mdl)
+```
+
+The relevant row is the following:
+```
+F-statistic: 51.45 on 1 and 30 DF,  p-value: 5.562e-08
+```
+
+<br />
+
+Instead, the `anova()` output is:
+```{r}
+anova(mdl)
+```
+
+And the relevant entries are:
+
+- the `Df` column, which contains the degrees of freedom;
+- `F value = 51.452`, which is the F-statistic;
+- `Pr(>F) = 5.562e-08` = $5.562 \times 10^{-8}$, which is the p-value.
+
+
+<br />
+
+We might write up the test results as,
+
+:::int
+We performed an F-test for the overall significance of the regression, $F(1, 30) = 51.45, p < .001$.
+The large F-statistic leads to a very small p-value (<.001), meaning that we have very strong evidence against the null hypothesis that the model is ineffective.
+The data provide strong evidence that education is an effective predictor of income.
+:::
+`r solend()`
+
+
+Please note that in simple linear regression, the F-statistic for overall model significance is equal to the square of the t-statistic for $H_0: \beta_1 = 0$.
+
+Let's check that. Consider the `F value` output of `anova(mdl)` and the `t value` for education returned by `summary(mdl)`
+
+```
+F value = 51.452
+t value = 7.173
+```
+
+You can check that the squared t-statistic is equal, up to rounding error, to the F-statistic:
+$$
+t^2 = F \\
+7.173^2 = 51.452
+$$
+
+`r optbegin('Optional: Equivalence of t-test for the slope and model utility F-test in SLR', FALSE)`
+
+Here we will show the equivalence of the F-test for model effectiveness and t-test for the slope.
+
+Recall the formula of the sum of squares due to the model. We will rewrite it in an equivalent form below:
+$$
+\begin{aligned}
+SS_{Model} &= \sum_i (\hat y_i - \bar y)^2 \\
+&= \sum_i (\hat \beta_0 + \hat \beta_1 x_i - \bar y)^2 \\
+&= \sum_i (\bar y - \hat \beta_1 \bar x + \hat \beta_1 x_i - \bar y)^2 \\
+&= \sum_i (\hat \beta_1 (x_i - \bar x))^2 \\
+&= \hat \beta_1^2 \sum_i (x_i - \bar x)^2
+\end{aligned}
+$$
+
+The F-statistic is given by:
+$$
+\begin{aligned}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
+= \frac{\hat \beta_1^2 \sum_i (x_i - \bar x)^2}{\hat \sigma^2} 
+= \frac{\hat \beta_1^2 }{\hat \sigma^2 / \sum_i (x_i - \bar x)^2}
+\end{aligned}
+$$
+
+Now recall the formula of the t-statistic,
+$$
+t = \frac{\hat \beta_1}{SE} = \frac{\hat \beta_1}{\hat \sigma / \sqrt{\sum_i (x_i - \bar x)^2}}
+$$
+
+It is evident that the latter is obtained as the square root of the former.
+
+`r optend()`
+
+
+
+
+
+---
+
+`r qbegin(2)`
+For a fitted model $\hat y_i = \hat \beta_0 + \hat \beta_1 x_i$, the residual sum of squares is
+$$
+SS_{Residual}(\hat \beta_0, \hat \beta_1) = \sum_{i=1}^n (y_i - \hat y_i)^2 = \sum_{i=1}^n [y_i - (\hat \beta_0 - \hat \beta_1 x_i) ]^2
+$$
+
+What is the residual sum of squares for a model without predictor variable $x$ --- that is, for the model $\hat y_i = \hat \beta_0$? 
+Such model is called **null model** as it does not involve any predictor variables.
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The model $\hat y_i = \hat \beta_0$ is a simple linear regression model with $\hat \beta_1 = 0$.
+
+The formula for the intercept tells us that
+$$
+\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x} = \bar{y}
+$$
+and hence
+$$
+\hat y_i = \bar{y} \qquad \text{for all }i
+$$
+
+Its associated residual sum of squares will be:
+$$
+SS_{Residual}(\hat \beta_0) = \sum_{i=1}^n (y_i - \hat y_i)^2 = \sum_{i=1}^n (y_i - \bar y)^2 = SS_{Total}
+$$
+
+The $R^2$ can then be interpreted as the proportional reduction in residual sum of squares due to the inclusion of the predictor $x$:
+$$
+R^2 = \frac{SS_{Model}}{SS_{Total}} = 
+\frac{SS_{Total} - SS_{Residual}}{SS_{Total}} =
+\frac{SS_{Residual}(\hat \beta_0) - SS_{Residual}(\hat \beta_0, \hat \beta_1)}{SS_{Total}}
+$$
+`r solend()`
+
+---
+
+
+
+
+
+
+
+
+
+`r qbegin()`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+`r solend()`

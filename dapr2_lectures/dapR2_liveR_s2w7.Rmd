@@ -1,0 +1,197 @@
+---
+title: "dapR2 Live R week 7"
+author: "Tom Booth"
+date: "24/02/2021"
+output: html_document
+---
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(emmeans)
+library(patchwork)
+library(psych)
+```
+
+# Running through contrasts with a new example
+
+Generate some data
+
+```{r, echo=FALSE}
+set.seed(7284)
+dat <- sim.anova(es1 = 0.5, es2 = 0.2, es3 = .3, es12 = 0.3, 
+                 n = 320,
+                 n1 = 4, n2 = 2, n3 = 0, 
+                 factors = FALSE)
+
+dat <- tibble(dat)
+
+dat <- dat %>%
+  mutate(
+    IV1 = factor(IV1, labels = c("g1", "g2", "g3", "g4")),
+    IV2 = factor(IV2, labels = c("control", "treatment")),
+    IV3 = round(IV3, 2),
+    DV = round(DV, 2)
+  ) %>%
+  rename(
+    cov = IV3,
+    score = DV,
+    cond1 = IV1,
+    cond2 = IV2
+  )
+
+dat
+```
+
+
+## Descriptives
+
+Standard mean and sd table:
+
+```{r, warning=FALSE, message=FALSE}
+res <- dat %>%
+  group_by(cond1, cond2) %>%
+  summarise(
+    Mean = mean(score), 
+    SD = sd(score)
+  )
+res
+```
+
+A sidebar into cell means tables. While we were in the live R session, Josiah and Umberto were sending through solutions. Umberto provided the following (lovely and simple code) using addmargins:
+
+```{r}
+N <- addmargins(xtabs( ~ cond1 + cond2, data = dat))
+addmargins(xtabs(score ~ cond1 + cond2, data = dat)) / N
+```
+
+And Josiah followed up with a little function:
+
+```{r}
+daprxtab<-function(formula=~., data){
+  f = as.character(formula)
+  n = addmargins(xtabs(as.formula(paste0(f[1],f[3])), data))
+  out = addmargins(xtabs(formula, data)) / n
+  colnames(out) = gsub("Sum","Mean",colnames(out))
+  rownames(out) = gsub("Sum","Mean",rownames(out))
+  out
+}
+daprxtab(score ~ cond1 + cond2, data = dat)
+```
+
+Some plots:
+
+```{r}
+p1 <- ggplot(dat, aes(x = cond1, fill = cond2)) +
+    geom_bar()
+
+plotdat <- dat %>% 
+    group_by(cond1, cond2) %>%
+    summarise(
+        Avg_Score = mean(score), 
+        SE = sd(score) / sqrt(n())
+    )
+
+p2 <- ggplot(plotdat, aes(x = cond1, y = Avg_Score, color = cond2)) +
+    geom_point(size = 3) +
+    geom_linerange(aes(ymin = Avg_Score - 2 * SE, ymax = Avg_Score + 2 * SE)) +
+    geom_line(aes(x = as.numeric(cond1)))
+
+p1 + p2
+```
+
+
+
+## Linear model
+
+Run our model without the covariate:
+
+```{r}
+m1 <- lm(score ~ cond1*cond2, data = dat)
+summary(m1)
+```
+
+Then explore the relation to the cell means:
+
+```{r}
+res[1:4,]
+```
+
+But when we add a covariate....
+
+```{r}
+m2 <- lm(score ~ cond1*cond2 + cov, data = dat)
+summary(m2)
+```
+
+
+## What are emmeans?
+Estimated marginal means. These are marginal means as estimated via the model not the data. In the simplest of models these are the same. As our models get more complex (factorial designs, missing data or uneven observations by group), these will differ.
+
+So for our simple model m1, we get:
+
+```{r}
+emmeans(m1, ~ cond1*cond2)
+```
+
+```{r}
+arrange(res, cond2)
+```
+
+But for our model m2 (with covariate):
+
+```{r}
+emmeans(m2, ~ cond1*cond2)
+```
+
+## emmeans - within level
+
+```{r}
+m2_w <- emmeans(m2, ~ cond1 | cond2)
+m2_w
+```
+
+```{r}
+m2_wbon <- contrast(m2_w, method = "pairwise", adjust="bonferroni")
+m2_wbon
+```
+
+
+## emmeans - pairwise comparison
+```{r}
+m2_m <- emmeans(m2, ~ cond1*cond2)
+m2_m
+```
+
+
+```{r}
+m2_mbon <- contrast(m2_m, method = "pairwise", adjust="bonferroni")
+m2_mbon
+```
+
+## emmeans contrasts
+
+```{r}
+cond1_coef <- c("g1" = -.5, "g2"= -.5, "g3" = .5, "g4" = .5)
+cond2_coef <- c("condition" = -1, "treatment" = 1)
+
+contr_coef <- outer(cond1_coef, cond2_coef)
+contr_coef
+
+```
+
+```{r}
+spec_comp <- contrast(m2_m, 
+                      method = list("bob" = c(0.5, 0.5, -0.5, -0.5, -0.5, -0.5, 0.5, 0.5)))
+
+spec_comp
+```
+
+```{r}
+summary(m2)
+```
+
+```{r}
+anova(m2)
+
+anova(m1, m2)
+```
+

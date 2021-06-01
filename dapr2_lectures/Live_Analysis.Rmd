@@ -1,0 +1,262 @@
+---
+title: "dapR2 live analysis"
+author: "Tom Booth"
+date: "26/10/2020"
+output: html_document
+---
+
+# dapR2 live analyses
+There are two live analysis session in dapR2, one at the end of each 5 week block. 
+
+In the first session, we will look at data cleaning and checks (incl. visualisation), and run some simple linear models with assumption checks (q1 and q2 below). In the second session, we will expand the analyses to look at linear models with multiple predictors and interactions (q3 to q5 below). This markdown file will be made available after the session and you can edit and explore as much as you like.
+
+# Task
+
+A research team are interested improving driver safety. They are interested in how risky driving behaviour is influenced by characteristics of individuals and their interactions with environmental stimuli and substance use. One of the studies in the research project involves the relation between alcohol and marijuana use and risky behaviour.
+
+In this study, participants are randomly assigned to one of four conditions (control, low alcohol, high alcohol and marijuana; n=20). All participants were male, had been driving for between 3-5 years, drove on average for 10 hours per week (self-reported) and had never been convicted by the police for any driving offences. Participants were recruited evenly across two age groups (young 18-25) and old (50-60), with 10 young and 10 old participants in each of the experimental groups.
+
+Participants were asked to complete a 20 minute driving simulation in which various dangers and situations arise in which participants must make decisions on how to act quickly. The decisions participants make are scored based on the degree of risky behaviour they represent. 
+The research team have also measured a host of other variables, some demographic, some as focal covariates.
+
+The research team would like to answer the following questions:
+
+1. Does increased impulsivity lead to an increase in risky driving behaviours? (week 5)
+2. Are there differences between young and old participants in risky driving behaviour? (week 5)
+3. Are there differences in risky driving behaviour across experimental conditions? (week 10)
+4. Do the differences across experimental conditions remain the same after controlling for weight and impulsivity? (week 10)
+5. Does the effect of impulsivity on risking driving behaviour change as a function of age? (week 10)
+
+Using the data described in the table below and available (in **.csv** format) at [LINK](https://uoepsy.github.io/data/RMS2_data.csv), conduct, interpret and write up a set of analyses that answer the researcher’s research question. You can read the data into R direct from the following address "https://uoepsy.github.io/data/RMS2_data.csv" 
+
+```{r eval=TRUE, echo=FALSE, message=FALSE, warning=FALSE}
+library(kableExtra)
+library(tidyverse)
+dict <- tibble(
+  variable = c("ID","drive","weight","impulsivity","age","condition"),
+  description = c("Unique participant identifier",
+                  "Driving risk taking score. Range: 0 to 100. Higher scores = increased risk taking",
+                  "Weight in kg's",
+                  "Z-score from self-report survey. Higher scores = higher impulsivity",
+                  "Ordered category: Young vs Old",
+                  "Experimental Condition: 0= control; 1 = low alcohol; 2 = high alcohol; 3 = marijuana")
+)
+knitr::kable(dict, "html") %>%
+  kableExtra::kable_styling(bootstrap_options = "striped")
+```
+
+
+# Analysis
+
+## Read in the data
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+tib <- read_csv("https://uoepsy.github.io/data/RMS2_data.csv", col_types = "cdddff")
+```
+
+```{r}
+tib
+```
+
+## Data checks
+
+```{r}
+tib2 <- tib %>%
+  select(ID, drive, impulsivity, Age)
+tib2
+```
+
+```{r}
+tib2 %>%
+  summarise(
+    Mean = mean(impulsivity),
+    Sd = sd(impulsivity),
+    Min = min(impulsivity),
+    Max = max(impulsivity)
+  )
+```
+
+```{r}
+tib2 %>%
+  summarise(
+    Mean = mean(drive, na.rm=T),
+    Sd = sd(drive, na.rm=T),
+    Min = min(drive, na.rm=T),
+    Max = max(drive, na.rm=T)
+  )
+```
+
+```{r}
+table(tib2$Age)
+```
+
+## Visualization
+
+```{r}
+tib2 %>%
+  ggplot(., aes(x=drive)) +
+  geom_histogram()
+```
+
+```{r}
+tib2 %>%
+  ggplot(., aes(x=impulsivity)) +
+  geom_histogram()
+```
+
+
+## Question 1
+
+1. Does increased impulsivity lead to an increase in risky driving behaviours? (week 5)
+
+```{r}
+m1 <- lm(drive ~ impulsivity, data = tib2)
+summary(m1)
+```
+
+
+## Question 1 assumptions
+
+```{r}
+library(car)
+```
+
+```{r}
+durbinWatsonTest(m1)
+```
+
+```{r, warning=FALSE}
+tib2 %>%
+  ggplot(., aes(x=impulsivity, y=drive)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_smooth(method = "loess", col="red")
+```
+
+```{r}
+plot(m1, which = 2)
+```
+
+```{r}
+res <- tibble(
+  m1 = m1$residuals
+)
+
+res %>%
+  ggplot(., aes(x=m1)) +
+  geom_histogram(bins = 15)
+
+```
+
+```{r}
+shapiro.test(m1$residuals)
+```
+
+```{r}
+par(mfrow = c(2,2))
+plot(m1)
+```
+
+```{r}
+ncvTest(m1)
+```
+
+```{r}
+influence.measures(m1)
+```
+
+```{r}
+plot(m1, which = 4)
+```
+
+## Question 1 interpretation
+
+Let's print the results again so it is easier to see the values:
+
+```{r}
+summary(m1)
+```
+
+For a 1 standard deviation increase in Impulsivity, risky driving behaviour increases by 5.34 (p< .05). Overall, Impulsivity accounts for 27.6% (Adjust $R^2$ = 0.2766) of the variance in risky driving behaviour.
+
+## Question 2
+
+2. Are there differences between young and old participants in risky driving behaviour? (week 5)
+
+
+```{r}
+m2 <- lm(drive ~ Age, data = tib)
+summary(m2)
+```
+
+
+## Question 2 assumptions
+
+For space, we will not run through the assumptions in full. But we would follow the steps above.
+
+## Question 2 interpretation
+The difference in risky driving score between young and old participants is non-significant ( $\beta$ = 2.4, $p = 0.354$ ). As such we fail to reject the null. 
+
+
+# IN THE INTEREST OF TIME, WE WILL NOT DO EVERYTHING WITHIN EACH OF THESE QUESTIONS, BUT WILL FOCUS ON THE "NEW" BITS OF CODING REQUIRED 
+
+## Question 3
+**Are there differences in risky driving behaviour across experimental conditions?**
+
+```{r}
+tib2 <- na.omit(tib)
+```
+
+```{r}
+m3 <- lm(drive ~ Condition, data = tib)
+summary(m3)
+```
+
+```{r}
+tib2 %>%
+  ggplot(., aes(x=Condition, y=drive)) +
+  geom_boxplot()
+```
+
+```{r}
+anova(m3)
+```
+
+## Question 4
+**Do the differences across experimental conditions remain the same after controlling for weight and impulsivity?**
+
+```{r}
+m4 <- lm(drive ~ weight + impulsivity + Condition, data = tib)
+summary(m4)
+```
+
+```{r}
+anova(m4)
+```
+
+```{r}
+summary(m4)
+```
+
+```{r, echo=FALSE}
+weight_beta <- coef(m4)[[2]]
+```
+
+Weight was a significant predictor of risky driving ( $\hat{\beta}$ = `r round(coef(m4)[[2]],2)`, $p<.05$ )
+
+```{r}
+m4_res <- summary(m4)$coefficients
+```
+
+Weight was a significant predictor of risky driving ( $\hat{\beta}$ = `r round(m4_res[2,1],2)`, $p$ = `r round(m4_res[2,4],3)` )
+
+## Question 5
+**Does the effect of impulsivity on risking driving behaviour change as a function of age?**
+
+```{r}
+library(interactions)
+```

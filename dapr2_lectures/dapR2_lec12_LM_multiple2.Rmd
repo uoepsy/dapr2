@@ -1,0 +1,329 @@
+---
+title: "<b>Week 7: LM multiple predictors 2 </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "TOM BOOTH & ALEX DOUMAS"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: "AY 2020-2021"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# simulate data used in examples
+library(MASS)
+set.seed(1066)
+mu <- c(54, 2)
+Sigma <- matrix(c(7, 1.4,
+                  1.4, .5), byrow = T, ncol = 2)
+
+rawvars <- mvrnorm(n=10000, mu=mu, Sigma=Sigma)
+
+set.seed(7284)
+df <- rawvars[sample(nrow(rawvars), 100),]
+
+set.seed(7284)
+dum_dat <- tibble(
+  ID = c(paste("ID", 101:200, sep = "")),
+  exam = round(df[,1], 0),
+  method = round(df[,2], 0)
+) %>%
+  mutate(
+    method = factor(if_else(method <= 1, 1,
+                     if_else(method >= 3, 3, 2))),
+    dummy1 = if_else(method == 2, 1, 0), 
+    dummy2 = if_else(method == 3, 1, 0),
+  )
+
+write_csv(dum_dat, "./dummy_code_data.csv")
+
+detach("package:MASS", unload = TRUE)
+```
+
+# Weeks Learning Objectives
+
+1. Understand how to extend a simple regression to multiple predictors. 
+
+2. Understand and interpret the coefficients in multiple linear regression models
+
+3. Understand how to include and interpret models with categorical variables with 2+ levels. 
+
+---
+# Topics for today
++ Categorical predictors with more than 2 levels
+
+---
+#  Including categorical predictors with >2 levels in a regression 
++ When we have a categorical variable with 2+ levels, we will typically assign integers
+  + But recall, these are not meaningful numbers
+
++ For example: What city do you live in?
+  + 1 = Edinburgh; 2 = Glasgow, 3 = Birmingham etc.
+
++ So in analysing a categorical predictor with $k$ levels, we need to take an additional step.
+
++ This step involves applying a coding scheme, where by each regressor = a difference in means between levels, or sets of levels.
+
++ Two common coding schemes are:
+  + Dummy coding
+  + Effects coding
+
+---
+#  Dummy coding 
++ Dummy coding uses 0's and 1's to represent group membership
+	+ One level is chosen as a baseline
+	+ All other levels are compared against that baseline
+	
++ Notice, this is identical to binary variables already discussed.
+
++ Dummy coding is simply the process of producing a set of binary coded variables
+
++ For any categorical variable, we will create $k$-1 dummy variables
+  + $k$ = number of levels
+
+---
+# Steps in dummy coding
+1. Choose a baseline level
+
+2. Assign everyone in the baseline  group `0` for all $k$-1 dummy variables
+
+3. Assign everyone in the next group a `1` for the first dummy variable and a `0` for all the other dummy variables
+
+4. Assign everyone in the next again group a `1` for the second dummy variable and a `0` for all the other dummy variables
+
+5. Repeat step 5 until all $k$-1 dummy variables have had 0's and 1's assigned
+
+6. Enter the $k$-1 dummy variables into your regression
+
+
+---
+#  Choosing a baseline? 
++ Each level of your categorical predictor will be compared against the baseline.
+
++ Good baseline levels could be:
+	+ The control group in an experiment
+	+ The group expected to have the lowest score on the outcome
+	+ The largest group
+
++ It is best the baseline is not:
+	+ A poorly defined level, e.g. an `Other` group
+	+ Much smaller than the other groups
+
+---
+#  Dummy coding 
++ Imagine 100 students took an exam and were each assigned to use one of three `study methods`
+	+ 1 = Notes re-reading 
+	+ 2 = Notes summarising
+	+ 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
+
++ We could use dummy coding to convert our `study methods` variable into $k$-1 regressors:
+
+```{r tbl23, echo = FALSE}
+dummy <- tibble(
+  Level = c("Notes re-reading", "Notes summarising", "Self-testing"),
+  D1 = c(0,1,0),
+  D2 = c(0,0,1)
+) 
+
+kable(dummy)%>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+#  Dummy coding 
+
+.pull-left[
++ We start out with  a dataset that looks like:
+
+```{r, echo=FALSE}
+dum_dat %>%
+  select(ID:method) %>%
+  slice(1:10)
+```
+
+
+]
+
+
+.pull-right[
++ And end up with one that looks like:
+
+```{r, echo=FALSE}
+dum_dat %>%
+  slice(1:10)
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` 
+
++ `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
+
++ It selects the first group as the baseline group
+
++ We write:
+
+```{r, eval=FALSE}
+
+mod1 <- lm(exam ~ method, data = dum_dat)
+
+```
+
+
++ And `lm` does all the dummy coding work for us
+
+---
+#  Dummy coding with `lm`
+
+.pull-left[
++ The intercept is the mean of the baseline group (notes re-reading)
+
++ The coefficient for `method2` is the mean difference between the notes summarising group and the baseline group
+
++ The coefficient for `method3` is the mean difference between the self-test group and the baseline group
+
+]
+
+.pull-right[
+
+```{r}
+mod1 <- lm(exam ~ method, data = dum_dat)
+mod1
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` (full results)
+
+```{r}
+summary(mod1)
+```
+
+---
+#  Changing the baseline group  
+
++ The level that `lm` chooses as it's baseline may not always be the best choice
+	+ You can change it using:
+
+```{r, eval=FALSE}
+contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
+```
+
+
+	
++ `contrasts` updates the variable with the new coding scheme
+
++ `contr.treatment` Specifies that you want dummy coding
+
++ `3` is No. of levels of your predictor
+
++ `base=2` is the level number of your new baseline
+
+
+---
+#  Results using the new baseline 
+
+.pull-left[
++ The intercept is the now the mean of the second group (Notes summarising)
+
++ `method1` is now the difference between Notes re-reading and Notes summarising
+
++ `method3` is now the difference between Self-testing and Notes summarising
+
+]
+
+.pull-right[
+
+```{r}
+contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
+mod2 <- lm(exam ~ method, data = dum_dat)
+mod2
+```
+
+]
+
+---
+#  New baseline (full results)
+
+```{r}
+summary(mod2)
+```
+
+???
++ Note that the choice of baseline does not affect the R^2 or F-ratio
+
+---
+# Exercise in understanding
+
++ Once you are finished watching this recording, please do the following:
+
+  + Download the data used in this lecture from LEARN (`dummy_code_data.csv`)
+  + Read into R
+  + Run the code for `mod1`, creating level 2 as baseline, and `mod2`
+  + Calculate the group means
+  + Try to guess the value of both `method1` and `method2` if you made the third level the baseline
+  + Make it the baseline
+  + Create `mod3` and check your estimate
+  
++ The answer will appear on LEARN at the end of the week.
+
+---
+# Summary of today
+
++ Categorical variables with 2+ levels require a coding scheme.
+
++ Dummy coding is one of the most common
+
++ Dummy coding creates a set of $k$-1 0-1 binary variables
+
++ These compare each of the other levels to a baseline level.
+
++ Each dummy variable is interpreted as a group difference.
+
+---
+# Next tasks
++ This week:
+  + Complete your lab
+  + Come to office hours
+  + Weekly quiz - content from week 5
+      + Open Monday 09:00
+      + Closes Sunday 17:00
+
