@@ -1,0 +1,305 @@
+---
+title: "<b> Bootstrapping Linear Models </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmosaic)
+library(kableExtra)
+library(performance)
+```
+
+# Weeks Learning Objectives
+1. Recap the principles of bootstrapping.
+2. Recap the concept of the bootstrap distribution.
+3. Recap confidence intervals
+4. Apply the bootstrap confidence interval to inference in linear models
+
+---
+# Topics for this week
+
+1. Bootstrapping theory (recap)
+2. Confidence intervals (recap)
+3. Why this is useful for linear models?
+4. Applying bootstrap inference to linear models
+
+
+---
+# Inference with assumption violations
+- Note that for us to make inferences about our statistics, we need a known sampling distribution under the null.
+  - If we have this, we can use our normal tools of inference.
+
+--
+
+- But these sampling distributions are only accurate when model assumptions are met.
+
+--
+
+- If they are not, we are in a tricky position.
+  - We can not trust our estimates or inferences from these models.
+
+--
+
+- So what can we do?
+
+---
+# Bootstrapping as an alternative
+- We saw that we can compute a confidence interval using bootstrap methods.
+  - And we know we can use confidence intervals to make inferences
+  - Does the CI include 0?
+
+- The key difference with the bootstrapping procedure is it does not make distributional assumptions.
+  - The bootstrap distriubtion is drawn from our sample.
+  - And the sample can have any distribution it likes.
+
+- Bootstrapping is also useful with small sample sizes.
+  - Central limit theorem is a great thing, but when $n$ is small (<20), we may be best not to rely on it.
+
+---
+# Bootstrapping a linear model
+- Last time we looked at bootstrapping of the mean.
+
+- But we can compute a bootstrap distribution of any statistic.
+
+- As a result, it is a straightforward extension to linear models.
+
+- We can calculate $\beta$ coefficients, $R^2$, $F$-statistics etc.
+  - In each case we generate a resample
+  - Run the linear model
+  - Save the statistic of interest
+  - Repeat this $K$ times
+  - Generate the distribution of $K$ statistics of interest.
+
+---
+# Toy example
+
+- Remember the height and weight data from week 2 (probably not!)
+
+```{r}
+tib1 <- tibble(
+  name = as_factor(c("John", "Peter","Robert","David","George","Matthew", "Bradley")),
+  height = c(1.52,1.60,1.68,1.78,1.86,1.94,2.09),
+  weight = c(54,49,50,67,70,110,98)
+)
+slice(tib1, 1:3)
+```
+
+- Let's draw 3 resamples, and run the linear model on this data, predicting `weight` from `height`.
+  - Although a toy example, this is a small sample size, so bootstrapping is useful.
+  
+---
+# Resample 1
+.pull-left[
+```{r}
+set.seed(101)
+rep_1 <- tib1[sample(nrow(tib1), 7, replace = T),]
+rep_1
+```
+]
+
+.pull-right[
+
+```{r}
+res1 <- lm(weight ~ height, data = rep_1)
+res1$coefficients
+```
+
+]
+
+---
+# Resample 2
+.pull-left[
+```{r}
+set.seed(102)
+rep_2 <- tib1[sample(nrow(tib1), 7, replace = T),]
+rep_2
+```
+]
+
+.pull-right[
+
+```{r}
+res2 <- lm(weight ~ height, data = rep_2)
+res2$coefficients
+```
+
+]
+
+---
+# Resample 3
+.pull-left[
+```{r}
+set.seed(103)
+rep_3 <- tib1[sample(nrow(tib1), 7, replace = T),]
+rep_3
+```
+]
+
+.pull-right[
+
+```{r}
+res3 <- lm(weight ~ height, data = rep_3)
+res3$coefficients
+```
+
+]
+
+---
+# Our coefficients
+
+```{r, echo=FALSE}
+sum_boot <- tibble(
+  Resample = 1:3,
+  Intercept = c(res1$coefficients[[1]], res2$coefficients[[1]], res3$coefficients[[1]]),
+  Slope = c(res1$coefficients[[2]], res2$coefficients[[2]], res3$coefficients[[2]]),
+)
+kable(sum_boot) %>%
+  kable_styling(full_width = F)
+```
+
+- Now this would be quite tedious to do 1000 time. 
+
+- So thankfully R has some tools to help us out.
+
+---
+# `Boot` in `car`
+- The primary package in R for doing bootstrapping is called `boot`
+  - But it is moderately complicated to use.
+
+- Thankfully there is an easier to use wrapper in the `car` package called `Boot`
+  - Note the capital letters.
+  
+```{r, eval=FALSE}
+library(car)
+?Boot
+```
+
+
+---
+# `Boot` in `car`
+- `Boot` takes the following arguments:
+
+1. Your fitted model.
+
+2. `f`, saying which bootstrap statistics to compute on each bootstrap sample. 
+  - By default `f = coef`, returning the regression coefficients.
+
+3. `R`, saying how many bootstrap samples to compute. 
+  - By default `R = 999`.
+
+4. `ncores`, saying if to perform the calculations in parallel (and more efficiently).  
+  - By default the function uses `ncores = 1`.
+
+---
+# Applying bootstrap
+
+- Step 1. Run model
+
+```{r}
+m1 <- lm(weight ~ height, data = tib1)
+```
+
+- Step 2. Load `car`
+
+```{r, warning=FALSE, message=FALSE}
+library(car)
+```
+
+- Step 3. Run `Boot`
+
+```{r}
+boot_m1 <- Boot(m1, R = 1000)
+```
+
+---
+# Applying bootstrap
+
+- Step 4. See summary results
+
+```{r}
+summary(boot_m1)
+```
+
+---
+# Applying bootstrap
+
+- Step 5. Calculate confidence interval
+```{r}
+Confint(boot_m1, type = "perc")
+```
+
+---
+# Interpreting the results
+- Well currently, the intercept makes very little sense:
+  - The average expected value of weight when height is equal to zero is -116 kg. 
+- Neither does the slope.
+  - For every metre increase in height, weight increases by 105kg.
+- Let's re-scale `height` to be in centimetres, mean centre,  and re-run.
+
+```{r}
+tib1 <- tib1 %>%
+  mutate(
+    heightcm = height*100
+  )
+m2 <- lm(weight ~ scale(heightcm, scale=F), data = tib1)
+boot_m2 <- Boot(m2, R = 1000)
+Confint(boot_m2, type = "perc")
+```
+
+---
+# Interpreting the results
+
+```{r}
+resCI <- Confint(boot_m2, type = "perc")
+resCI
+```
+
+
+
+- The average expected weight of participants with average height (`r round(mean(tib1$heightcm))`cm) is 71.1kg.
+- For every centimetre increase in height, there is a 1.05kg increase in weight. The 95% CI [`r round(resCI[2,2],2)` , `r round(resCI[2,3],2)`] does not include 0, and as such we can reject the null at $\alpha = 0.05$
+
+---
+# Summary of today
+- Today we have look at the practical application of bootstrap inference to linear models.
+
+- We discussed when it is useful:
+  - Small samples
+  - Violated assumptions
+
+- And how to conduct the analyses using `Boot` from `car`.
+

@@ -1,0 +1,510 @@
+---
+title: "<b>Model evaluation</b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+
+knitr::opts_chunk$set(out.width = '90%')
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+
+res <- lm(score ~ hours, data = test)
+```
+
+# Weeks Learning Objectives
+1. Understand the calculation and interpretation of the coefficient of determination. 
+
+2. Understand the calculation and interpretation of the F-test of model utility.
+
+3. Understand how to standardize model coefficients and when this is appropriate to do.
+
+4. Understand the relationship between the correlation coefficient and the regression slope.
+
+5. Understand the meaning of model coefficients in the case of a binary predictor.
+
+---
+# Topics for today
++ Overall model evaluation
+
+  + Coefficient of determination ( $R^2$ )
+
+  + F-test for the model
+
+
+---
+#  Quality of the overall model 
++ When we measure an outcome ( $y$ ) in some data, the scores will vary (we hope).
+  + Variation in $y$ = total variation of interest.
+
+--
+
++ The aim of our linear model is to build a model which describes $y$ as a function of $x$.
+	+ That is we are trying to explain variation in $y$ using $x$.
+
+--
+
++ But it won't explain it all.
+  + What is left unexplained is called the residual variance.
+
+--
+
++ So we can breakdown variation in our data based on sums of squares as;
+
+$$SS_{Total} = SS_{Model} + SS_{Residual}$$
+
+---
+#  Coefficient of determination 
++ One way to consider how good our model is, would be to consider the proportion of total variance our model accounts for. 
+
+$$R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}$$
+
++ $R^2$ = coefficient of determination
+
+--
+
+  + Quantifies the amount of variability in the outcome accounted for by the predictors.
+  + More variance accounted for, the better.
+  + Represents the extent to which the prediction of $y$ is improved when predictions are based on the linear relation between $x$ and $y$.
+
+--
+
++ Let's see how it works.
+  + To do so, we need to calculate the different sums of squares.
+
+
+---
+# Total Sum of Squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+$$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$
+
++ Squared distance of each data point from the mean of $y$.
+
++ Mean is our baseline. 
+
++ Without any other information, our best guess at the value of $y$ for any person is the mean.
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+test %>%
+  ggplot(., aes(hours, score)) +
+  geom_point(color="red", size = 2) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0))) +
+  theme(axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0))) +
+  xlab("Hours of Study") +
+  ylab("Test Score") +
+  ggtitle(latex2exp::TeX('SS_{Total}')) +
+  geom_hline(aes(yintercept = mean(score)),color="blue", size=1) + 
+  geom_segment(aes(x = hours, y = score, xend = hours, yend = c(rep(mean(score),10))), color = "red", lty =2)
+```
+
+]
+
+---
+# Calculations
+
+.pull-left[
+```{r}
+ss_tab <- test %>%
+    mutate(
+        y_dev = score - mean(score), 
+        y_dev2 = y_dev^2
+    )
+```
+
+```{r}
+ss_tab %>%
+    summarize(
+        ss_tot = sum(y_dev2)
+    )
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+kable(ss_tab) %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+---
+# Residual sum of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
++ Which you may recognise.
+
++ Squared distance of each point from the predicted value.
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+test %>%
+  ggplot(., aes(hours, score)) +
+  geom_point(color="red", size = 2) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0))) +
+  theme(axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0))) +
+  xlab("Hours of Study") +
+  ylab("Test Score") +
+  ggtitle(latex2exp::TeX('SS_{Residual}')) +
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", size=1) + 
+  geom_segment(aes(x = hours, y = score, xend = hours, yend = c(res$fitted.values)), color = "red", lty =2)
+
+```
+
+]
+
+---
+# Calculations
+
+.pull-left[
+```{r}
+ss_tab <- ss_tab %>%
+  mutate(
+    y_pred = round(res$fitted.values,2),
+    pred_dev = round((score - y_pred),2),
+    pred_dev2 = round(pred_dev^2,2)
+  )
+```
+
+```{r}
+ss_tab %>%
+  summarize(
+    ss_tot = sum(y_dev2),
+    ss_resid = sum(pred_dev2) #<<
+  )
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+kable(ss_tab[-c(4,5)]) %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+
+---
+# Model sums of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
+
++ That is, it is the deviance of the predicted scores from the mean of $y$.
+
++ But it is easier to simply take:
+
+$$SS_{Model} = SS_{Total} - SS_{Residual}$$
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+test %>%
+  ggplot(., aes(hours, score)) +
+  geom_point(color="red", size = 2) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0))) +
+  theme(axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0))) +
+  xlab("Hours of Study") +
+  ylab("Test Score") +
+  ggtitle(latex2exp::TeX('SS_{Model}')) +
+  geom_hline(aes(yintercept = mean(score)),color="blue", size=1) + 
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", size=1) + 
+  geom_segment(aes(x = hours, c(res$fitted.values), xend = hours, yend = c(rep(mean(score),10))), color = "red", lty =2)
+```
+
+]
+
+
+---
+# Calculations
+
+.pull-left[
+
+$$SS_{Model} = SS_{Total} - SS_{Residual}$$
+
+```{r}
+ss_tab %>%
+  summarize(
+    ss_tot = sum(y_dev2),
+    ss_resid = sum(pred_dev2)
+  ) %>%
+  mutate( #<<
+    ss_mod = ss_tot - ss_resid #<<
+  )
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+test %>%
+  ggplot(., aes(hours, score)) +
+  geom_point(color="red", size = 2) +
+  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0))) +
+  theme(axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0))) +
+  xlab("Hours of Study") +
+  ylab("Test Score") +
+  ggtitle("SS Model") +
+  geom_hline(aes(yintercept = mean(score)),color="blue", size=1) + 
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", size=1) + 
+  geom_segment(aes(x = hours, c(res$fitted.values), xend = hours, yend = c(rep(mean(score),10))), color = "red", lty =2)
+```
+
+]
+
+
+---
+#  Coefficient of determination 
++ Now we can finally come back to $R^2$.
+
+$$R^2 = 1 - \frac{SS_{Residual}}{SS_{Total}}$$
+
++ Or
+
+$$R^2 = \frac{SS_{Model}}{SS_{Total}}$$
+
++ So in our example:
+
+$$R^2 = \frac{SS_{Model}}{SS_{Total}} = \frac{22.9}{44.1} = 0.519$$
+
++ ** $R^2$ = 0.519 means that 52% of the variation in test scores is accounted for by hours of revision.**
+
+---
+#  Our example 
+
+```{r}
+res <- lm(score ~ hours, data = test)
+summary(res)
+```
+
+???
+As at the end of last session, we can check this against the R-output:
+Be sure to flag small amounts of rounding difference from working through "by hand" and so presenting to less decimal places.
+
+
+---
+class: center, middle
+# Time for a break
+
+**Quiz time!**
+
+
+---
+class: center, middle
+# Welcome Back!
+
+**Where we left off... **
+
+We had just calculated $R^2$
+
+Now let's look at calculating significance tests for our model
+
+
+---
+#  Significance of the overall model 
++ The test of the individual predictors (IVs, or $x$'s) does not tell us if the overall model is significant or not.
+	+ Neither does R-square
+	+ But both are indicative
+
++ To test the significance of the model as a whole, we conduct an $F$-test.
+
+---
+#  F-ratio
++ $F$-ratio tests the null hypothesis that all the regression slopes in a model are all zero
+  + We are currently talking about a model with only one $x$, thus one slope.
+  + But the $F$-ratio test will generalise.
+
+--
+
++ $F$-ratio is a ratio of the explained to unexplained variance:
+
+$$F = \frac{MS_{Model}}{MS_{Residual}}$$
+
++ Where MS = mean squares
+
+--
+
++ **What are mean squares?**
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
+  + The degrees of freedom are defined by the number of "independent" values associated with the different calculations.
+
+---
+# F-table
+
+```{r, echo=FALSE}
+ftest <- tibble(
+  SS = c("Model", "Residual", "Total"),
+  df = c("k", "n-k-1", " "),
+  MS = c("SS model/df model", "SS residual/df residual", " "),
+  Fratio = c("MS model/ MS residual", " ", " "),
+  pvalue = c("F(df model,df residual)", "", "")
+)
+
+kable(ftest)%>%
+  kable_styling(., full_width = F)
+```
+
+---
+# Our example: F-table
+
+```{r, echo=FALSE}
+tibble(
+  Component = c("Model", "Residual", "Total"),
+  SS = c(22.9,21.2,44.1),
+  df = c(1, 8, " "),
+  MS = c(22.9, 2.65, " "),
+  Fratio = c(8.641509, " ", " "),
+  pvalue = c("F(1,8)", "", "")
+) %>%
+  kable(.)%>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+# F-ratio
++ Bigger $F$-ratios indicate better models.
+  + It means the model variance is big compared to the residual variance.
+
+--
+
++ The null hypothesis for the model says that the best guess of any individuals $y$ value is the mean of $y$ plus error.
+	+ Or, that the $x$ variables carry no information collectively about $y$.
+
+--
+
++ $F$-ratio will be close to 1 when the null hypothesis is true
+  + If there is equivalent residual to model variation, $F$=1
+	+ If there is more model than residual $F$ > 1
+
+--
+
++ $F$-ratio is then evaluated against an $F$-distribution with $df_{Model}$ and $df_{Residual}$ and a pre-defined $\alpha$
+
+--
+
++ Testing the $F$-ratio evaluates statistical significance of the overall model
+
+---
+# Visualize the test
+
+.pull-left[
+
+```{r, echo=FALSE}
+ggplot() +
+  xlim(-1,10) + 
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=1, df2=8)) +
+  stat_function(fun = df, 
+                geom = "area",
+                xlim = c(qf(0.95, 1,8), 10),
+                alpha=.25,
+                fill = "blue",
+                args = list(df1=1, df2=8)) +
+  geom_vline(xintercept = 8.641509, col="red") +
+  xlab("\n F") +
+  ylab("") +
+  ggtitle("F-distribution (1,8); f-ratio (8.64; red line)")
+```
+]
+
+.pull-right[
+
++ Critical value and $p$-value:
+```{r}
+tibble(
+  Crit = round(qf(0.95, 1, 8),3),
+  Exactp = 1-pf(8.64, 1, 8)
+)
+```
+
++ From this we would **reject the null**. 
+
+]
+
+---
+#  Our example 
+
+```{r}
+res <- lm(score ~ hours, data = test)
+summary(res)
+```
+
+???
+As at the end of last session, we can check this against the R-output:
+Comment on the minor differences for rounding.
+
+---
+# Summary of today
+
++ We have looked at evaluating the overall model.
+
++ $R^2$, or coefficient of determination, tells us how much total variance is explained by our model
+
++ $F$-ratio or $F$-test provide a significance test of the overall model
+
+---
+class: center, middle
+# Thanks for listening!
