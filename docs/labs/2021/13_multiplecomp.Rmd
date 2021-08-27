@@ -1,0 +1,502 @@
+---
+title: "Multiple Comparisons"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+```
+
+```{r echo=FALSE}
+set.seed(3)
+library(emmeans)
+library(tidyverse)
+cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
+# head(df)
+
+cog$Diagnosis <- factor(cog$Diagnosis, 
+                       labels = c("amnesic", "huntingtons", "control"),
+                       ordered = FALSE)
+
+cog$Task <- factor(cog$Task, 
+                  labels = c("grammar", "classification", "recognition"), 
+                  ordered = FALSE)
+cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
+cog <- cog %>%
+    rename(Score = Y)
+
+# ggplot(cog, aes(x = Task, y = Score, color = Task)) +
+#     geom_boxplot() 
+# ggplot(cog, aes(x = Diagnosis, y = Score, color = Diagnosis)) +
+#     geom_boxplot()
+```
+
+
+
+# Introduction
+
+This week's exercises are much lighter than last week, so it might be worth also using it to catch up on previous week's this term. 
+
+Next week : 
+
+This week, we're going to take a brief look at the idea of **multiple comparisons**. 
+
+## Refreshing last week: 
+
+Last week we learned how to conduct a 2-factor ANOVA. We examined the effects of two variables, Diagnosis (Amnesic, Huntingtons or a Control group) and Task (Grammar, Classification or Recognition).  
+
+We incrementally built the 2x2 anova model. 
+Recall, ANOVA is actually a special case of the linear model in which the predictors are categorical variables, so we can build our model using `lm()`, and presented slightly differently.  
+Our full model, including the interaction, looked like this:
+```{r}
+mdl_int <- lm(Score ~ 1 + Diagnosis + Task + Diagnosis:Task, data = cog)
+# Alternatively, we could have used the following shorter version:
+# mdl_int <- lm(Score ~ 1 + Diagnosis * Task, data = cog)
+```
+And to view the typically presented ANOVA table for this model: 
+```{r eval=FALSE}
+anova(mdl_int)
+```
+```{r echo=FALSE}
+anova(mdl_int) %>% pander::pander()
+```
+
+:::int
+The interaction between diagnosis and task is significant. At the 5\% level, the probability of obtaining an F-statistic as large as 7.92 or larger, if there was no interaction effect, is <.001. This provides very strong evidence against the null hypothesis that effect of task is constant across the different diagnoses.
+::: 
+(remember: in the presence of a significant interaction it **does not make sense** to interpret the main effects as their interpretation changes with the level of the other factor)
+
+## ANOVA is an "omnibus" test 
+
+The results from an ANOVA are often called an 'omnibus' test, because we are testing the null hypothesis that a set of group means are equal (or in the interaction case, that the differences between group means are equal across some other factor).  
+
+If you have found Semester 1 materials on linear models a bit more intuitive than ANOVA, another way to think of it is that we are testing the improvement of model fit between a full and a reduced model.  
+For instance, our significant interaction $F(4, 36) = 7.9225, p < .001$ can also be obtained by comparing the nested models (one with the interaction vs one without):
+
+```{r}
+mdl_add <- lm(Score ~ 1 + Diagnosis + Task, data = cog)
+mdl_int <- lm(Score ~ 1 + Diagnosis + Task + Diagnosis:Task, data = cog)
+anova(mdl_add, mdl_int)
+```
+But it is common to want to know more about the details of such an effect. What groups differ, and by how much?  
+
+The traditional approach is to conduct an ANOVA, and then *only* ask this sort of follow-up question *if* obtaining a significant omnibus test.  
+You might think of it as:  
+
+Question 1: Omnibus: "Are there any differences in group means?"  
+Question 2: Comparisons: "*What* are the differences and between which groups?"    
+
+If your answer to 1 is "No", then it doesn't make much sense to ask question 2.  
+
+## Multiple Comparisons  
+
+In last week's exercises we began to look at how we compare different groups, by using contrast analysis to conduct tests of specific comparisons between groups. We also saw how we might conduct "pairwise comparisons", where we test all possible pairs of group means within a given set.  
+
+For instance, we compares the means of the different diagnosis groups for each task: 
+```{r eval=FALSE}
+emm_task <- emmeans(mdl_int, ~ Diagnosis | Task)
+contr_task <- contrast(emm_task, method = 'pairwise', 
+                       adjust = "bonferroni")
+contr_task
+```
+or we might test all different combinations of task and diagnosis group (if that was something we were theoretically interested in, which is unlikely!) which would equate to conducting 36 comparisons!  
+
+```{r}
+emm_task <- emmeans(mdl_int, ~ Diagnosis * Task)
+contr_task <- contrast(emm_task, method = 'pairwise', 
+                       adjust = "bonferroni")
+contr_task
+```
+
+`r optbegin("36? how do we know there are 36?", olabel=FALSE, toggle=params$TOGGLE)`
+There are 3 diagnosis groups, and 3 tasks, meaning there are 9 different group means.  
+All possible pairwise comparisons would is all different possible combinations of 2 from a set of 9.  
+We can work this out using the rule: 
+
+$$
+_nC_r = \frac{n!}{r!(n-r)!} \\
+\begin{align} \\
+& \text{Where:} \\
+& n = \text{total number in the set} \\
+& r = \text{number chosen} \\
+& _nC_r = \text{number of combinations of r from n} \\
+\end{align}
+
+
+$$
+In R:
+```{r}
+factorial(9)/(factorial(2)*(factorial(9-2)))
+```
+Or, easier still:
+```{r}
+dim(combn(9, 2))
+```
+`r optend()`
+
+# Why does the number of tests matter?  
+
+As discussed briefly in last week's exercises, we will ideally ensure that our error rate is 0.05 (i.e., the chance that we reject a null hypothesis when it actually true, is 5\%).   
+
+`r optbegin("refresher on making errors in hypothesis tests", olabel=FALSE,toggle=params$TOGGLE)`  
+Think back to ["Type 1 errors" from DAPR1](https://uoe-psychology.github.io/uoe_psystats/dapr1/book/chap-typeerror.html) - when we conduct an hypothesis test, and we set $\alpha=0.05$, we will reject the null hypothesis $H_0$ when we find a $p < .05$. Now remember what a $p$-value represents - it is the chance of observing a statistic at least as extreme as the one we do have, assuming the null hypothesis to be true. This means that *if* $H_0$ **is** true, then we will still observe a $p < .05$ 5\% of the time. So our chance of making this error = the threshold ($\alpha$) at which below a p-value results in us rejecting $H_0$. 
+`r optend()` 
+
+But this error-rate applies to each statistical hypothesis we test. So if we conduct an experiment in which we plan on conducting lots of tests of different comparisons, the chance of an error being made increases substantially. Across the family of tests performed that chance will be much higher than 5\%.^[what defines a 'family' of tests is debateable.]
+
+Each test conducted at $\alpha = 0.05$ has a 0.05 (or 5%) probability of Type I error (wrongly rejecting the null hypothesis). If we do 9 tests, that experimentwise error rate is $\alpha_{ew} \leq 9 \times 0.05$, where 9 is the number of comparisons made as part of the experiment.
+Thus, if nine **independent** comparisons were made at the $\alpha = 0.05$ level, the experimentwise Type I error rate $\alpha_{ew}$ would be at most $9 \times 0.05 = 0.45$. That is, we could wrongly reject the null hypothesis on average 45 times out of 100. 
+To make this more confusing, many of the tests in a family are not **independent** (see the lecture slides for the calculation of error rate for dependent tests).  
+
+Here, we go through some of the different options available to us to control, or 'correct' for this problem. The first we look at was used in the solutions to last week's exercises, and is perhaps the most well-known.   
+
+# Bonferroni
+
+:::yellow
+**Bonferroni**  
+
+- Use Bonferroni’s method when you are interested in a small number of planned contrasts (or pairwise comparisons).
+- Bonferroni's method is to divide alpha by the number of tests/confidence intervals.
+- Assumes that all comparisons are independent of one another.  
+- It sacrifices slightly more power than Tukey’s method (discussed below), but it can be applied to any set of contrasts or linear combinations (i.e., it is useful in more situations than Tukey).
+- It is usually better than Tukey if we want to do a small number of planned comparisons.  
+
+:::
+
+
+`r qbegin(1)`
+Load the data from last week, and re-acquaint yourself with it. 
+Provide a plot of the Diagnosis*Task group mean scores.  
+The data is at https://uoepsy.github.io/data/cognitive_experiment.csv. 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r eval=FALSE}
+cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
+# head(df)
+
+cog$Diagnosis <- factor(cog$Diagnosis, 
+                       labels = c("amnesic", "huntingtons", "control"),
+                       ordered = FALSE)
+
+cog$Task <- factor(cog$Task, 
+                  labels = c("grammar", "classification", "recognition"), 
+                  ordered = FALSE)
+
+cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
+
+cog <- cog %>%
+    rename(Score = Y)
+```
+`r solend()`
+
+`r qbegin(2)`
+Fit the interaction model, using `lm()`. 
+Pass your model to the `anova()` function, to remind yourself that there is a significant interaction present.  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+mdl_int <- lm(Score ~ Task*Diagnosis, data = cog)
+anova(mdl_int)
+```
+`r solend()`
+
+`r qbegin(3)`
+There are various ways to make nice tables in RMarkdown.  
+Some of the most well known are:
+
+- The **knitr** package has `kable()`  
+- The **pander** package has `pander()`  
+
+Pick one (or find go googling and find a package you like the look of), install the package (if you don't already have it), then try to create a nice pretty ANOVA table rather than the one given by `anova(model)`.  
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+library(knitr)
+kable(anova(mdl_int))
+
+library(pander)
+pander(anova(mdl_int))
+```
+
+`r solend()`
+
+`r qbegin(4)`
+As in the previous week's exercises, let us suppose that we are specifically interested in comparisons of the mean score *across the different diagnosis groups for a given task*.  
+
+Edit the code below to obtain the pairwise comparisons of diagnosis groups for each task. Use the Bonferroni method to adjust for multiple comparisons, and then obtain confidence intervals.  
+
+```{r eval=FALSE}
+library(emmeans)
+emm_task <- emmeans(mdl_int, ? )
+contr_task <- contrast(emm_task, method = ?, adjust = ? )
+```
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+emm_task <- emmeans(mdl_int, ~ Diagnosis | Task)
+contr_task <- contrast(emm_task, method = "pairwise", adjust="bonferroni")
+contr_task
+confint(contr_task)
+```
+`r solend()`
+
+:::frame
+**adjusting $\alpha$, adjusting p**
+
+In the lecture we talked about adjusting the $\alpha$ level (i.e., instead of determining significance at $p < .05$, we might adjust and determine a result to be statistically significant if $p < .005$, depending on how many tests are in our family of tests).  
+
+Note what the functions in R do is adjust the $p$-value, rather than the $\alpha$. 
+The Bonferroni method simply multiplies the 'raw' p-value by the number of the tests. 
+
+:::
+
+
+`r qbegin(5)`
+In question 4, above, there are 9 tests being performed, but there are 3 in each 'family' (each `Task`). 
+
+Try changing your answer to question 4 to use `adjust = "none"`, rather than `"bonferroni"`, and confirm that the p-values are 1/3 of the size. 
+  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The first Bonferroni adjusted p-value is 0.0492. 
+```{r}
+0.0492/3
+```
+Let's check that this is the raw p-value:
+```{r}
+contrast(emm_task, method = "pairwise", adjust="none")
+```
+
+`r solend()`
+
+# Šídák
+
+:::yellow
+**Šídák**  
+
+- (A bit) more powerful than the Bonferroni method.
+- Assumes that all comparisons are independent of one another. 
+- Less common than Bonferroni method, largely because it is more difficult to calculate (not a problem now we have computers).  
+
+:::
+
+`r qbegin(6)`
+The Sidak approach is slightly less conservative than the Bonferroni adjustment.  
+Doing this with the **emmeans** package is easy, can you guess how?  
+
+**Hint:** you just have to change the `adjust` argument in `contrast()` function. 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+contrast(emm_task, method = "pairwise", adjust = "sidak")
+```
+
+`r solend()`
+
+
+# Tukey
+
+:::yellow
+**Tukey**
+
+- It specifies an exact family significance level for comparing all pairs of treatment means.  
+- Use Tukey’s method when you are interested in all (or most) pairwise comparisons of means.  
+
+:::
+
+
+As for Šídák, In R we can easily change to Tukey. For instance, if we wanted to conduct pairwise comparisons of the scores of different Diagnosis groups on different Task types (i.e., the interaction): 
+```{r}
+emm_task <- emmeans(mdl_int, ~ Diagnosis*Task)
+contr_task <- contrast(emm_task, method = "pairwise", adjust="tukey")
+contr_task
+```
+
+We can also use the following, which doesn't require the **emmeans** package. You might see this when you look online for resources. The `aov()` function is fitting an ANOVA model, and then `TukeyHSD()` compares between Diagnosis group; between Task type; and between Diagnosis*Task.  
+Run the code below yourself to see the ouput. 
+```{r eval=FALSE}
+TukeyHSD(aov(Score ~ Diagnosis * Task, data = cog))
+```
+
+# Scheffe  
+
+:::yellow
+**Scheffe**
+
+- It is the most conservative (least powerful) of all tests.
+- It controls the family alpha level for testing all possible contrasts.
+- It should be used if you have not planned contrasts in advance.
+- For testing pairs of treatment means it is too conservative (you should use Bonferroni or Šídák).
+
+:::
+
+```{r}
+emm_task <- emmeans(mdl_int, ~ Diagnosis * Task)
+contr_task <- contrast(emm_task, method = "pairwise", adjust="scheffe")
+contr_task
+```
+
+# When to use which
+
+For ease of scrolling, we have provided the bulletpoints for each correction below in one place: 
+
+:::yellow
+**Bonferroni**  
+
+- Use Bonferroni’s method when you are interested in a small number of planned contrasts (or pairwise comparisons).
+- Bonferroni's method is to divide alpha by the number of tests/confidence intervals.
+- Assumes that all comparisons are independent of one another.  
+- It sacrifices slightly more power than Tukey’s method (discussed below), but it can be applied to any set of contrasts or linear combinations (i.e., it is useful in more situations than Tukey).
+- It is usually better than Tukey if we want to do a small number of planned comparisons.  
+
+**Šídák**  
+
+- (A bit) more powerful than the Bonferroni method.
+- Assumes that all comparisons are independent of one another. 
+- Less common than Bonferroni method, largely because it is more difficult to calculate (not a problem now we have computers).  
+
+**Tukey**
+
+- It specifies an exact family significance level for comparing all pairs of treatment means.  
+- Use Tukey’s method when you are interested in all (or most) pairwise comparisons of means.  
+
+**Scheffe**
+
+- It is the most conservative (least powerful) of all tests.
+- It controls the family alpha level for testing all possible contrasts.
+- It should be used if you have not planned contrasts in advance.
+- For testing pairs of treatment means it is too conservative (you should use Bonferroni or Šídák).
+
+:::
+
+# Lie detecting experiment  
+
+`r optbegin("Lie detectors: Data Codebook", olabel=FALSE, toggle=params$TOGGLE)`
+
+120 participants took part in a study in which they were presented with 100 recordings, and were tasked with guessing whether the speaker in each recording was lying or whether they were telling the truth.  
+Participants scored points every time they correctly identified a truth or a lie, and lost points whenever they mistook a lie for a truth (or vice versa). The maximum possible points to be scored was 100. 
+
+Half of the participants (60) were shown recordings in audio and video, the other half were presented with only the audio track. 
+Prior to taking the experimen, participants were given material to read for 10 minutes. Half of the participants in each condition (30 in the audio-only condition, and 30 in the audiovideo condition) were given instructional material used by the Police Force to train detectives to pick up on dishonesty during interrogations via various verbal and non-verbal cues. The remaining 30 participants in each condition were given a series of [cartoon strips to read](https://external-preview.redd.it/OY7xRuBBRkx8JFrjYoh3PswM2VMBDHBv4oXbpIEcB3Q.jpg?auto=webp&s=1a12316259fdfd314d4060f44f30260735741da5).  
+
+The data is available at https://uoepsy.github.io/data/lietraining.csv  
+
+`r optend()`
+
+> Research Questions
+>
+> Do the Police training materials and the mode of communication (audio vs audiovideo) interact to influence the accuracy of veracity judgements?  
+
+
+`r qbegin(7)`
+Load the data.  
+Produce a descriptives table for the variables of interest. 
+Produce a plot showing the mean points for each condition.  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+liedat <- read_csv("https://uoepsy.github.io/data/lietraining.csv")
+
+liedat$audiovideo <- factor(liedat$audiovideo, labels=c("audio","audio+video"))
+liedat$trained <- factor(liedat$trained, labels = c("untrained","trained"))
+
+
+liestats <- 
+  liedat %>% group_by(audiovideo, trained) %>%
+  summarise(meanpoints = mean(points),
+            se = sd(points)/sqrt(n())
+  )
+
+ggplot(liestats, aes(x = audiovideo, y = meanpoints, color = trained)) + 
+  geom_point(size = 3) +
+  geom_linerange(aes(ymin = meanpoints - 2 * se, ymax = meanpoints + 2 * se)) +
+  geom_path(aes(x = as.numeric(audiovideo)))
+```
+
+`r solend()`
+
+`r qbegin(8)`
+Conduct a two-way ANOVA to investigate research question above.  
+Be sure to check the assumptions!  
+
+Write up your results in a paragraph.  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+lie_mdl <- lm(points ~ audiovideo * trained, data = liedat)
+```
+```{r eval=FALSE}
+plot(lie_mdl)
+```
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+plot(lie_mdl)
+par(mfrow=c(1,1))
+```
+```{r}
+shapiro.test(residuals(lie_mdl))
+car::ncvTest(lie_mdl)
+```
+```{r}
+anova(lie_mdl)
+```
+
+:::int
+
+Accuracy of veracity judgements (measured by points scored in lie-detecting game) were analysed with a 2 (audio vs audiovideo) $\times$ 2 (untrained vs trained) between-subjects ANOVA. Residuals did not show significant departure from normality (Shapiro-Wilk $W=0.99, p = .65$), nor unequal variances across groups (Breusch-Pagan $\chi^2(1)=2.14, p = .14$). There was a significant interaction between presentation mode and whether or not participants had received training for detecting lies $F(1, 116) = 17.37, p <. 001$.
+
+:::
+
+<small>
+Please note that these are short example write ups that may not be complete for every question you are asked. It is intended to give you a sense of the style.
+</small>
+`r solend()`
+
+`r qbegin(9)`
+  
+Perform a pairwise comparison of the mean accuracy (as measured by points accrued) across the 2×2 factorial design, making sure to adjust for multiple comparisons by the method of your choice.   
+
+Write up your results in a paragraph. Combined with your plot of group means, what do you feel about the Police training materials on using behavioural cues to detect lying? 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+emms_lie <- emmeans(lie_mdl, ~ audiovideo * trained)
+lie_con <- contrast(emms_lie, method = "pairwise", adjust="tukey")
+lie_con
+confint(lie_con)
+plot(lie_con)
+```
+
+:::int
+
+Tukey's Honestly Significant Difference comparisons indicated that, contrary to what one might expect, participants who were presented with audiovisual recordings scored on average 9.5 points lower when they had read the police training materials compared to when they had received no training (95\% CI [4.87 --- 14.14]). 
+The presentation mode (audio vs audiovideo) was not found to result in a significantly different average score for those who were untrained (95\% CI [-1.80 --- 7.47]), and nor did training appear to have any effect on detecting lies in the audio-only condition (95\% CI [-5.61 --- 3.66]).  
+
+The findings indicate that, on the whole, people are bad at determining whether they are being presented with a lie or the truth, as the overall mean score was `r mean(liedat$points) %>% round(1)` out of 100 (SD = `r sd(liedat$points) %>% round(2)`), where a series of completely random guesses expected to score 50/100. The police training materials did not appear to improve lie detection, in fact with trained participants performing worse (compared to untrained) in the audiovisual condition. This may indicate that the training materials focus too heavily on visual cues, which perhaps are not actually associated with dishonesty in the appropriate way. 
+
+:::
+
+<small>
+Please note that these are short example write ups that may not be complete for every question you are asked. It is intended to give you a sense of the style.
+</small>
+
+`r solend()`
+
+
+<!-- Formatting -->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
