@@ -41,6 +41,39 @@ library(patchwork)
 library(ggmosaic)
 library(kableExtra)
 library(performance)
+library(interactions)
+
+
+set.seed(19981)
+dept <- rbinom(100, 1, 0.4)
+location <- rbinom(100, 1, 0.35)
+serv <- rnorm(100, 0, 1.4)
+serv <- serv+3.5
+dl <- dept*location
+
+omit <- rbinom(100, 1, .3)
+
+b0 = 20
+b1 = 3.1
+b2 = -4.5
+b3 = -4.2
+b4 = -6.5
+b5 = 2
+
+eps <- rnorm(100, 0, 4)
+
+salary <- b0 + (b1*serv) + (b2*dept) + (b3*location) + (b4*dl) + (b5*omit) + eps
+salary <- salary+20
+
+salary3 <- tibble(
+  ID = paste("ID", 101:200, sep=""),
+  salary = salary,
+  department = factor(dept,labels = c("Accounts", "Manager")),
+  location = factor(location, labels = c("London", "Birmingham")),
+  serv = serv
+)
+
+test <- lm(salary ~ department*location, salary3)
 ```
 
 # Weeks Learning Objectives
@@ -359,10 +392,99 @@ $$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 xz_{i} + \epsilon_i$$
 ---
 #  Example: Categorical*categorical
 
+.pull-left[
+```{r, eval=FALSE, warning=FALSE}
+salary3 %>%
+  group_by(location, department) %>%
+  summarise(
+    Salary = round(mean(salary),2)
+  )
+```
+]
 
-[example with location and department]
+```{r, echo=FALSE}
+salary3 %>%
+  group_by(location, department) %>%
+  summarise(
+    Salary = round(mean(salary),2)
+  )
+```
+
+---
+#  Example: Categorical*categorical
+```{r}
+m1 <- lm(salary ~ location*department, salary3)
+```
+
+```{r, echo=FALSE}
+summary(m1)
+```
+
+---
+#  Example: Categorical*categorical
+
+.pull-left[
+```{r, eval=FALSE}
+cat_plot(m1,
+         pred = location,
+         modx = department)
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+cat_plot(m1,
+         pred = location,
+         modx = department)
+```
+
+]
 
 
+
+---
+#  Example: Categorical*categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
++ $\beta_0$ = Value of $y$ when $x$ and $z$ are 0
+
++ Expected salary for Accounts in London is £50,670.
+
+---
+#  Example: Categorical*categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
++ $\beta_1$ = Difference between levels of $x$ when $z$ = 0
+
++ The difference in salary between Accounts in London and Birmingham is £1,980. The salary is lower in Birmingham. 
+
+---
+#  Example: Categorical*categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
++ $\beta_2$ = Difference between levels of $z$ when $x$ = 0.
+
++ The difference in salary between Accounts and Store managers in London is £3,460. The salary is lower for Store Managers. 
+
+---
+#  Example: Categorical*categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
++  $\beta_3$ = Difference between levels of $x$ across levels of $z$
+
++ The difference between salary for Accounts and Store managers between London and Birmingham, differs by £8,420. The difference is greater in Birmingham than in London.
 
 ---
 class: center, middle
@@ -507,7 +629,11 @@ round(m4sum$coefficients,2)
 
 ---
 # Summary
++ We have considered how we fit and interpret linear models with categorical interactions.
 
++ We have focussed on dummy coded (0,1) variables.
+
++ Next semester, we will return to this topic and consider other ways of treating categorical data when we have specific hypotheses we want to test.
 
 ---
 class: center, middle
