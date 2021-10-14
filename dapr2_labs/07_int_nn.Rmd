@@ -1,11 +1,11 @@
 ---
-title: "Interactions"
+title: "Interactions: Numeric * Numeric"
 bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: TRUE
+    TOGGLE: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -30,6 +30,9 @@ Be sure to check the [**solutions to last week's exercises**](05_mlr_int.html).<
 
 :::
 
+
+## Exercises
+
 `r qbegin(1)`  
 Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this relationship.  
 
@@ -46,7 +49,7 @@ scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 > **Research question**   
 > Does the effect of social comparison on symptoms of depression, anxiety and stress vary depending on level of neuroticism?
 
-To investigate how the effect of social comparison on symptoms of depression, anxiety and stress may vary depending on level of neuroticism, we will need to fit a multiple regression model with an interaction term. Before we think about fitting our model, it is important that we understand the data available - how many participants? What type (or class) of data will we be working with? What was the measurement scale? How were scales scored? Look at the social comparison study data codebook below. 
+To investigate whether the effect of social comparison on symptoms of depression, anxiety and stress varies depending on level of neuroticism, we will need to fit a multiple regression model with an interaction term. Before we think about fitting our model, it is important that we understand the data available - how many participants? What type (or class) of data will we be working with? What was the measurement scale? How were scales scored? Look at the social comparison study data codebook below. 
 
 `r optbegin("Social Comparison Study data codebook. Click the plus to expand &#8594;", olabel=FALSE,toggle=params$TOGGLE)`  
 
@@ -95,7 +98,7 @@ Specify the model you plan to fit in order to answer the research question (e.g.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 $$
-\text{DASS-21 Score} = \beta_0 + \beta_1 \cdot \text{SCS Score} + \beta_2 \cdot \text{Neuroticism} + \beta_3 \cdot \text{SCS score} \cdot \text{Neuroticism} + \epsilon
+\text{DASS-21 Score} = \beta_0 + \beta_1 \cdot \text{SCS Score} + \beta_2 \cdot \text{Neuroticism} + \beta_3 \cdot (\text{SCS score} \cdot \text{Neuroticism}) + \epsilon
 $$
 `r solend()`
 
@@ -143,9 +146,9 @@ The marginal distribution of Neuroticism (Z-scored) is positively skewed, with t
 :::
 
 
-```{r}
+```{r, fig.width = 8, fig.height = 4, out.width = '90%'}
 library(patchwork) # for arranging plots side by side
-library(knitr) # for making tables look nice
+library(kableExtra) # for making tables look nice
 
 p1 <- ggplot(data = scs_study, aes(x=scs, y=dass)) + 
   geom_point()+
@@ -157,11 +160,12 @@ p2 <- ggplot(data = scs_study, aes(x=zn, y=dass)) +
 
 p1 | p2
 
-# the kable() function from the knitr package can make table outputs print nicely into html.
+# the kable() function from the kableExtra package can make table outputs print nicely into html.
 scs_study %>%
   select(dass, scs, zn) %>%
-  cor %>% 
-  kable
+  cor() %>% 
+  kable(digits = 2) %>%
+  kable_styling(full_width = FALSE)
 ```
 
 :::int
@@ -173,9 +177,9 @@ There is a weak, positive, linear relationship between the levels of Neuroticism
 
 `r qbegin(3)`
 Run the code below. It takes the dataset, and uses the `cut()` function to add a new variable called "zn_group", which is the "zn" variable split into 4 groups.  
-<div style="margin-left:15px">
-_Remember:_ we have re-assign this output as the name of the dataset (the `scs_study <- ` bit at the beginning) to make these changes occur in our __environment__ (the top-right window of Rstudio). If we didn't have the first line, then it would simply print the output.   
-</div>
+
+_Remember:_ we have re-assign this output as the name of the dataset (the `scs_study <- ` bit at the beginning) to make these changes occur in our __environment__ (the top-right window of Rstudio). If we didn't have the first line, then it would simply print the output.  
+
 
 ```{r}
 scs_study <-
@@ -198,7 +202,7 @@ How does the pattern change? Does it suggest an interaction?
 **Tip:** Rather than creating four separate plots, you might want to map some feature of the plot to the variable we created in the data, or make use of `facet_wrap()`/`facet_grid()`.  
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
+```{r, fig.width = 8, fig.height = 4, out.width = '90%'}
 ggplot(data = scs_study, aes(x = scs, y = dass, col = zn_group)) + 
   geom_point() + 
   facet_grid(~zn_group) +
@@ -248,7 +252,7 @@ p <- persp(scs,zn,dass, theta = -25,phi=5, col = NA)
 ```
 
 
-```{r 3dint, echo=FALSE, fig.cap="3D plot of regression surface with interaction. You can explore the plot in the figure below from different angles by moving it around with your mouse."}
+```{r 3dint, echo=FALSE, fig.cap="3D plot of regression surface with interaction. You can explore the plot in the figure below from different angles by moving it around with your mouse.", fig.align = 'center', out.width = '90%'}
 library(plotly)
 plot_ly(x=scs,y=zn,z=dass, type="surface") %>% layout(
     scene = list(
@@ -269,12 +273,23 @@ Fit your model using `lm()`.
 dass_mdl <- lm(dass ~ 1 + scs*zn, data = scs_study)
 summary(dass_mdl)
 ```
+
+Alternatively, as `scs*zn` expands to `scs + zn + scs:zn`, you could equivalently fit the same model as above using the following code. The two are completely equivalent and you only need to run one.
+
+```{r eval=FALSE}
+dass_mdl <- lm(dass ~ 1 + scs + zn + scs:zn, data = scs_study)
+summary(dass_mdl)
+```
+
 `r solend()`
 
 `r qbegin(5)`
-```{r echo=FALSE}
-summary(dass_mdl)$coefficients %>% kable %>%
-  kableExtra::row_spec(1:3, bold = T)
+```{r echo=FALSE, render='asis'}
+library(pander)
+
+tbl <- summary(dass_mdl)$coefficients %>% 
+  signif(digits = 3)
+pander(tbl, emphasize.strong.rows = 1:3)
 ```
 
 Recall that the coefficients `zn` and `scs` from our model now reflect the estimated change in the outcome associated with an increase of 1 in the explanatory variables, _when the other variable is zero._  
