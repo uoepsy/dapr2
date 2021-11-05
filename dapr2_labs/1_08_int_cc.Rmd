@@ -1,11 +1,11 @@
 ---
-title: "Interactions: Numeric * Numeric"
+title: "Interactions: Categorical * Categorical"
 bibliography: references.bib
 biblio-style: apalike
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: FALSE
+    TOGGLE: TRUE
 ---
 
 ```{r setup, include=FALSE}
@@ -34,42 +34,43 @@ You can still ask any questions about previous weeks' materials if things aren't
 :::
 
 
-## Data Codebook
-
-__Description__  
+## Research question
 
 A group of researchers wants to test an hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls.  
 On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
 
-The researchers designed a study yielding a 3 by 3 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
+## Data
+
+#### Description
+The researchers designed a study yielding a 3 by 2 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
 
 - 1 denotes amnesic patients;
 - 2 denotes Huntingtons patients; and
 - 3 denotes a control group of individuals with no known neurological disorder.
 
-The second factor, "Task", tells us to which of three tasks each study participant was randomly assigned to:
+The second factor, "Task", tells us to which of two tasks each study participant was randomly assigned to:
 
-- 1 = grammar task, which consists of classifying letter sequences as either following or not following grammatical rules;
-- 2 = classification task, which consists of classifying hypothetical patients as either having or not having a certain disease based on symptoms probabilistically related to the disease; and
-- 3 = recognition task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
+- 1 = grammar task, which consists of classifying letter sequences as either following or not following grammatical rules; and
+- 2 = recognition task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
 
-Keep in mind that each person has been randomly assigned to one of the three tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on all three tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
+Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on both tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
 
-The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first two tasks (grammar and classification) are known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect to see relatively higher scores on the first two tasks for the amnesiac group but relatively higher scores on the third task for the Huntington group.
-
-__Download link__  
-
-https://uoepsy.github.io/data/cognitive_experiment.csv
+The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect to see relatively higher scores on the first task for the amnesiac group but relatively higher scores on the second task for the Huntington group.
 
 
-__Preview__  
+#### Download link
+
+https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv
+
+
+#### Preview
 
 The first ten rows of the data are:
 
 ```{r echo=FALSE}
 library(tidyverse)
 
-data <- read_csv("https://uoepsy.github.io/data/cognitive_experiment.csv")
+data <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
 
 DT::datatable(head(data, 10), options = list(lengthChange = FALSE))
 ```
@@ -90,11 +91,11 @@ Read the data into R, and perform all the appropriate data management steps:
 ```{r}
 library(tidyverse)
 
-cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment.csv")
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
 head(cog)
 ```
 
-The columns Diagnosis and Task should be coded into factors with better labels.
+The columns Diagnosis and Task should be coded into factors with better labels. The function `factor()` can be used by specifying the current levels and what labels each level should map to.
 
 ```{r}
 cog <- cog %>%
@@ -103,8 +104,8 @@ cog <- cog %>%
                            levels = c(1, 2, 3),
                            labels = c('Amnesic', 'Huntingtons', 'Control')),
         Task = factor(Task, 
-                      levels = c(1, 2, 3),
-                      labels = c('Grammar', 'Classification', 'Recognition'))
+                      levels = c(1, 2),
+                      labels = c('Grammar', 'Recognition'))
     ) %>%
     rename(
         Score = Y
@@ -117,7 +118,7 @@ head(cog)
 
 
 `r qbegin(2)`
-Choose appropriate reference levels for one or both factors.
+Choose appropriate reference levels for the factors.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 The Diagnosis factor has a group coded "Control" which lends itself naturally to be the reference category.
@@ -131,7 +132,6 @@ levels(cog$Diagnosis)
 There is no natural reference category for the Task factor, so we will leave it unaltered. However, if you are of a different opinion, please note that there is no absolute correct answer. As long as you will interpret the model correctly, you will reach to the same conclusions as someone that has chosen a different baseline category.
 
 `r solend()`
-
 
 
 `r qbegin(3)`
@@ -154,14 +154,9 @@ D_\text{Huntingtons} = \begin{cases}
 \end{cases}
 $$
 
-Define the dummy variables for Task:
+Define the dummy variable for Task:
 
 $$
-T_\text{Classification} = \begin{cases}
-1 & \text{if Task = Classification} \\
-0 & \text{otherwise}
-\end{cases}
-\quad
 T_\text{Recognition} = \begin{cases}
 1 & \text{if Task = Recognition} \\
 0 & \text{otherwise}
@@ -175,9 +170,9 @@ $$
 \begin{aligned}
 Score &= b_0 \\
       &+  b_1 D_\text{Amnesic} + b_2 D_\text{Huntingtons}  \\
-      &+  b_3 T_\text{Classification} + b_4 T_\text{Recognition}  \\
-      &+  b_5 (D_\text{Amnesic} * T_\text{Classification}) + b_6 (D_\text{Huntingtons} * T_\text{Classification})  \\
-      &+  b_7 (D_\text{Amnesic} * T_\text{Recognition}) + b_8 (D_\text{Huntingtons} * T_\text{Recognition}) + \epsilon
+      &+  b_3 T_\text{Recognition}  \\
+      &+  b_4 (D_\text{Amnesic} * T_\text{Recognition}) + b_5 (D_\text{Huntingtons} * T_\text{Recognition})  \\
+      &+ \epsilon
 \end{aligned}
 $$
 
@@ -214,31 +209,17 @@ means
 - $b_2$ = -40  
   = Mean(Huntingtons, Grammar) - Mean(Control, Grammar)  
   = 40 - 80
-
-- $b_3$ = approx. 0  
-  = Mean(Control, Classification) - Mean(Control, Grammar)  
-  = 80 - 80
   
-- $b_4$ = 15  
+- $b_3$ = 15  
   = Mean(Control, Recognition) - Mean(Control, Grammar)  
   = 95 - 80
-  
-- $b_5$ = 10  
-  = [Mean(Amnesic, Classification) - Mean(Amnesic, Grammar)] -  
-    [Mean(Control, Classification) - Mean(Control, Grammar)]  
-  = [70 - 60] - [80 - 80] = 10 - 0 = 10
 
-- $b_6$ = 5  
-  = [Mean(Huntingtons, Classification) - Mean(Huntingtons, Grammar)] -  
-  [Mean(Control, Classification) - Mean(Control, Grammar)]  
-  = [45 - 40] - [80 - 80] = 5 - 0 = 5
-
-- $b_7$ = -10  
+- $b_4$ = -10  
   = [Mean(Amnesic, Recognition) - Mean(Amnesic, Grammar)] -  
   [Mean(Control, Recognition) - Mean(Control, Grammar)]  
   = [65 - 60] - [95 - 80] = 5 - 15 = -10
 
-- $b_8$ = 40  
+- $b_5$ = 40  
   = [Mean(Huntingtons, Recognition) - Mean(Huntingtons, Grammar)] -  
   [Mean(Control, Recognition) - Mean(Control, Grammar)]  
   = [95 - 40] - [95 - 80] = 55 - 15 = 40
@@ -264,12 +245,12 @@ plot_model(mdl_int, type = "int")
 ```
 
 
-The red dots will be the baseline for Task. While control is the baseline for Diagnosis.
+The red dots ("Grammar") represent the baseline for Task, while "Control" is the baseline for Diagnosis.
 
-If you imagine connecting the dots of the same color with a line, you can see how the three virtual lines are not parallel, suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.
+If you imagine connecting the dots of the same color with a line, you can see that the two virtual lines are not parallel, suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.
 
 
-An alternative package, is `emmeans`. Install it first by typing `install.packages("emmeans")`. You need to use the function `emmip` which stands for EMMeans Interaction Plot. You must proovide as first argument the fitted model, then a special formula saying what to plot on the x axis and what to use to differentiate the colors: `colors ~ x`, and then `CIs = TRUE` tells the function to display uncertainty intervals.
+An alternative package is `emmeans`. Install it first by typing `install.packages("emmeans")`. You need to use the function `emmip` which stands for EMMeans Interaction Plot. You must provide as first argument the fitted model, then a special formula saying what to plot on the x axis and what to use to differentiate the colors: `colors ~ x`, and then `CIs = TRUE` tells the function to display uncertainty intervals.
 
 
 ```{r}
@@ -302,15 +283,17 @@ Let's recall the researchers' hypothesis:
 > A group of researchers wants to test an hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls.  
 > On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
 
-```{r}
+```{r message = FALSE, warning = FALSE, info = FALSE}
 tab_model(mdl_int)
 ```
 
 
 :::int
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntigton patients in comparison to controls was significant and indicated a difference of $b_8 = 40$ points in explicit vs implicit memory performance: $t(36) = 3.56, p = 0.001$.
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntigton patients in comparison to controls was significant and indicated a difference of $b_5 = 40$ points in explicit vs implicit memory performance: $t(36) = 3.41, p = 0.002$.
 
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was not significantly different from 0: $t(36) = -10.00, p = 0.38$.
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be $b_5 = -10$ points but it is not found to be significantly different from 0: $t(36) = -0.85, p = 0.40$.
+
+This indicates that the researchers' hypothesis that the difference in performance between explicit and implicit memory tasks does not differ significantly between amnesic and control patients, while it does differ significantly between Huntington and control patients.
 :::
 
 
