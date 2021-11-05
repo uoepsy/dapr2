@@ -5,7 +5,7 @@ biblio-style: apalike
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: TRUE
+    TOGGLE: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -38,7 +38,8 @@ You can still ask any questions about previous weeks' materials if things aren't
 
 __Description__  
 
-A group of researchers wants to test an hypothesised theory according to which patients with amnesia will have a deficit in explicit memory but not on implicit memory. Huntingtons patients, on the other hand, will be just the opposite: they will have no deficit in explicit memory, but will have a deficit in implicit memory.
+A group of researchers wants to test an hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls.  
+On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
 
 The researchers designed a study yielding a 3 by 3 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
 
@@ -48,9 +49,9 @@ The researchers designed a study yielding a 3 by 3 factorial design to test this
 
 The second factor, "Task", tells us to which of three tasks each study participant was randomly assigned to:
 
-- 1 = artificial grammar task, which consists of classifying letter sequences as either following or not following grammatical rules;
-- 2 = classification learning task, which consists of classifying hypothetical patients as either having or not having a certain disease based on symptoms probabilistically related to the disease; and
-- 3 = recognition memory task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
+- 1 = grammar task, which consists of classifying letter sequences as either following or not following grammatical rules;
+- 2 = classification task, which consists of classifying hypothetical patients as either having or not having a certain disease based on symptoms probabilistically related to the disease; and
+- 3 = recognition task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
 
 Keep in mind that each person has been randomly assigned to one of the three tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on all three tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
 
@@ -78,13 +79,243 @@ DT::datatable(head(data, 10), options = list(lengthChange = FALSE))
 ## Exercises
 
 `r qbegin(1)`
-Read the data into R, and perform all the appropriate
+Read the data into R, and perform all the appropriate data management steps:
+
+- Convert categorical variables to factors
+- Label appropriately factors to aid with your model interpretations
+- If needed, provide better variable names
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+library(tidyverse)
+
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment.csv")
+head(cog)
+```
+
+The columns Diagnosis and Task should be coded into factors with better labels.
+
+```{r}
+cog <- cog %>%
+    mutate(
+        Diagnosis = factor(Diagnosis, 
+                           levels = c(1, 2, 3),
+                           labels = c('Amnesic', 'Huntingtons', 'Control')),
+        Task = factor(Task, 
+                      levels = c(1, 2, 3),
+                      labels = c('Grammar', 'Classification', 'Recognition'))
+    ) %>%
+    rename(
+        Score = Y
+    )
+
+head(cog)
+```
 
 `r solend()`
 
+
+`r qbegin(2)`
+Choose appropriate reference levels for one or both factors.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+The Diagnosis factor has a group coded "Control" which lends itself naturally to be the reference category.
+
+```{r}
+cog$Diagnosis <- relevel(cog$Diagnosis, 'Control')
+
+levels(cog$Diagnosis)
+```
+
+There is no natural reference category for the Task factor, so we will leave it unaltered. However, if you are of a different opinion, please note that there is no absolute correct answer. As long as you will interpret the model correctly, you will reach to the same conclusions as someone that has chosen a different baseline category.
+
+`r solend()`
+
+
+
+`r qbegin(3)`
+Specify a multiple regression model to test the research hypothesis. 
+Store the model in an object named `mdl_int`.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Define the dummy variables for Diagnosis:
+
+$$
+D_\text{Amnesic} = \begin{cases}
+1 & \text{if Diagnosis = Amnesic} \\
+0 & \text{otherwise}
+\end{cases}
+\quad
+D_\text{Huntingtons} = \begin{cases}
+1 & \text{if Diagnosis = Huntingtons} \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+Define the dummy variables for Task:
+
+$$
+T_\text{Classification} = \begin{cases}
+1 & \text{if Task = Classification} \\
+0 & \text{otherwise}
+\end{cases}
+\quad
+T_\text{Recognition} = \begin{cases}
+1 & \text{if Task = Recognition} \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+
+The model becomes
+
+$$
+\begin{aligned}
+Score &= b_0 \\
+      &+  b_1 D_\text{Amnesic} + b_2 D_\text{Huntingtons}  \\
+      &+  b_3 T_\text{Classification} + b_4 T_\text{Recognition}  \\
+      &+  b_5 (D_\text{Amnesic} * T_\text{Classification}) + b_6 (D_\text{Huntingtons} * T_\text{Classification})  \\
+      &+  b_7 (D_\text{Amnesic} * T_\text{Recognition}) + b_8 (D_\text{Huntingtons} * T_\text{Recognition}) + \epsilon
+\end{aligned}
+$$
+
+
+Fortunately, R computes the dummy variables for us! Each row in the summary of the model will correspond to one of the $b$'s in the equation above.
+
+```{r}
+mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
+summary(mdl_int)
+```
+
+`r solend()`
+
+
+
+`r qbegin(4)`
+Create a table of group means, and map each coefficient to the group means.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+means <- cog %>%
+    group_by(Diagnosis, Task) %>% 
+    summarise(M = mean(Score))
+means
+```
+
+- $b_0$ = 80  
+  = Mean(Control, Grammar)
+
+- $b_1$ = -20  
+  = Mean(Amnesic, Grammar) - Mean(Control, Grammar)  
+  = 60 - 80
+
+- $b_2$ = -40  
+  = Mean(Huntingtons, Grammar) - Mean(Control, Grammar)  
+  = 40 - 80
+
+- $b_3$ = approx. 0  
+  = Mean(Control, Classification) - Mean(Control, Grammar)  
+  = 80 - 80
+  
+- $b_4$ = 15  
+  = Mean(Control, Recognition) - Mean(Control, Grammar)  
+  = 95 - 80
+  
+- $b_5$ = 10  
+  = [Mean(Amnesic, Classification) - Mean(Amnesic, Grammar)] -  
+    [Mean(Control, Classification) - Mean(Control, Grammar)]  
+  = [70 - 60] - [80 - 80] = 10 - 0 = 10
+
+- $b_6$ = 5  
+  = [Mean(Huntingtons, Classification) - Mean(Huntingtons, Grammar)] -  
+  [Mean(Control, Classification) - Mean(Control, Grammar)]  
+  = [45 - 40] - [80 - 80] = 5 - 0 = 5
+
+- $b_7$ = -10  
+  = [Mean(Amnesic, Recognition) - Mean(Amnesic, Grammar)] -  
+  [Mean(Control, Recognition) - Mean(Control, Grammar)]  
+  = [65 - 60] - [95 - 80] = 5 - 15 = -10
+
+- $b_8$ = 40  
+  = [Mean(Huntingtons, Recognition) - Mean(Huntingtons, Grammar)] -  
+  [Mean(Control, Recognition) - Mean(Control, Grammar)]  
+  = [95 - 40] - [95 - 80] = 55 - 15 = 40
+
+`r solend()`
+
+
+
+`r qbegin(5)`
+Load the sjPlot package and try using the function plot_model() to investigate the interactions.
+
+**Hint**
+
+Remember from last week that the default behaviour of plot_model() is to plot the parameter estimates and their confidence intervals. This is where type = "est" will come handy.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+library(sjPlot)
+
+plot_model(mdl_int, type = "int")
+```
+
+
+The red dots will be the baseline for Task. While control is the baseline for Diagnosis.
+
+If you imagine connecting the dots of the same color with a line, you can see how the three virtual lines are not parallel, suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.
+
+
+An alternative package, is `emmeans`. Install it first by typing `install.packages("emmeans")`. You need to use the function `emmip` which stands for EMMeans Interaction Plot. You must proovide as first argument the fitted model, then a special formula saying what to plot on the x axis and what to use to differentiate the colors: `colors ~ x`, and then `CIs = TRUE` tells the function to display uncertainty intervals.
+
+
+```{r}
+library(emmeans)
+
+emmip(mdl_int, Task ~ Diagnosis, CIs = TRUE)
+```
+
+
+`r solend()`
+
+
+
+
+`r qbegin(6)`
+Interpretation the model output in the context of the research hypothesis.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+plot_model(mdl_int, type = "int")
+```
+
+Compared to controls, amnesiac patients will have a deficit in explicit memory (recognition task), but not on implicit memory (grammar and classification tasks).
+
+Compared to controls, Huntingtons patients will have a deficit in implicit memory  (grammar and classification tasks) but not in explicit memory memory (recognition task).
+
+
+Let's recall the researchers' hypothesis:
+
+> A group of researchers wants to test an hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls.  
+> On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
+
+```{r}
+tab_model(mdl_int)
+```
+
+
+:::int
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntigton patients in comparison to controls was significant and indicated a difference of $b_8 = 40$ points in explicit vs implicit memory performance: $t(36) = 3.56, p = 0.001$.
+
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was not significantly different from 0: $t(36) = -10.00, p = 0.38$.
+:::
+
+
+
+`r solend()`
 
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
