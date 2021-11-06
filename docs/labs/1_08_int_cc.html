@@ -660,8 +660,8 @@ Question 2
 Question 3
 </div>
 <div class="question-body">
-<p>Specify a multiple regression model to test the research hypothesis.
-Store the model in an object named <code>mdl_int</code>.</p>
+<p>Specify a multiple regression model to test the research hypothesis.<br />
+Fit the specified model using R and store the model in an object named <code>mdl_int</code>.</p>
 </div>
 <p class="question-end">
 </p>
@@ -672,33 +672,37 @@ Store the model in an object named <code>mdl_int</code>.</p>
 <p>Define the dummy variables for Diagnosis:</p>
 <p><span class="math display">\[
 D_\text{Amnesic} = \begin{cases}
-1 &amp; \text{if Diagnosis = Amnesic} \\
+1 &amp; \text{if Diagnosis is Amnesic} \\
 0 &amp; \text{otherwise}
 \end{cases}
 \quad
 D_\text{Huntingtons} = \begin{cases}
-1 &amp; \text{if Diagnosis = Huntingtons} \\
+1 &amp; \text{if Diagnosis is Huntingtons} \\
 0 &amp; \text{otherwise}
 \end{cases}
+\quad 
+(\text{Control is base level})
 \]</span></p>
 <p>Define the dummy variable for Task:</p>
 <p><span class="math display">\[
 T_\text{Recognition} = \begin{cases}
-1 &amp; \text{if Task = Recognition} \\
+1 &amp; \text{if Task is Recognition} \\
 0 &amp; \text{otherwise}
 \end{cases}
+\quad
+(\text{Grammar is base level})
 \]</span></p>
 <p>The model becomes</p>
 <p><span class="math display">\[
 \begin{aligned}
-Score &amp;= b_0 \\
-      &amp;+  b_1 D_\text{Amnesic} + b_2 D_\text{Huntingtons}  \\
-      &amp;+  b_3 T_\text{Recognition}  \\
-      &amp;+  b_4 (D_\text{Amnesic} * T_\text{Recognition}) + b_5 (D_\text{Huntingtons} * T_\text{Recognition})  \\
+Score &amp;= \beta_0 \\
+      &amp;+ \beta_1 D_\text{Amnesic} + \beta_2 D_\text{Huntingtons}  \\
+      &amp;+ \beta_3 T_\text{Recognition}  \\
+      &amp;+ \beta_4 (D_\text{Amnesic} * T_\text{Recognition}) + \beta_5 (D_\text{Huntingtons} * T_\text{Recognition})  \\
       &amp;+ \epsilon
 \end{aligned}
 \]</span></p>
-<p>Fortunately, R computes the dummy variables for us! Each row in the summary of the model will correspond to one of the <span class="math inline">\(b\)</span>’s in the equation above.</p>
+<p>Fortunately, R computes the dummy variables for us! Each row in the summary of the model will correspond to one of the estimated <span class="math inline">\(\beta\)</span>’s in the equation above.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>mdl_int <span class="ot">&lt;-</span> <span class="fu">lm</span>(Score <span class="sc">~</span> Diagnosis <span class="sc">*</span> Task, <span class="at">data =</span> cog)</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(mdl_int)</span></code></pre></div>
 <pre><code>## 
@@ -752,23 +756,33 @@ Question 4
 ## 4 Amnesic     Recognition    65
 ## 5 Huntingtons Grammar        40
 ## 6 Huntingtons Recognition    95</code></pre>
+<p>We can also convert it to a 3 by 2 table of means. In the table below, the “Control” row represents the base level for the Diagnosis factor, while the column “Grammar” represents the base level for the Task factor.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>means <span class="sc">%&gt;%</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> Task, <span class="at">values_from =</span> M)</span></code></pre></div>
+<pre><code>## # A tibble: 3 × 3
+## # Groups:   Diagnosis [3]
+##   Diagnosis   Grammar Recognition
+##   &lt;fct&gt;         &lt;dbl&gt;       &lt;dbl&gt;
+## 1 Control          80          95
+## 2 Amnesic          60          65
+## 3 Huntingtons      40          95</code></pre>
 <ul>
-<li><p><span class="math inline">\(b_0\)</span> = 80<br />
+<li><p><span class="math inline">\(\hat{\beta}_0\)</span> = 80<br />
 = Mean(Control, Grammar)</p></li>
-<li><p><span class="math inline">\(b_1\)</span> = -20<br />
+<li><p><span class="math inline">\(\hat{\beta}_1\)</span> = -20<br />
 = Mean(Amnesic, Grammar) - Mean(Control, Grammar)<br />
 = 60 - 80</p></li>
-<li><p><span class="math inline">\(b_2\)</span> = -40<br />
+<li><p><span class="math inline">\(\hat{\beta}_2\)</span> = -40<br />
 = Mean(Huntingtons, Grammar) - Mean(Control, Grammar)<br />
 = 40 - 80</p></li>
-<li><p><span class="math inline">\(b_3\)</span> = 15<br />
+<li><p><span class="math inline">\(\hat{\beta}_3\)</span> = 15<br />
 = Mean(Control, Recognition) - Mean(Control, Grammar)<br />
 = 95 - 80</p></li>
-<li><p><span class="math inline">\(b_4\)</span> = -10<br />
+<li><p><span class="math inline">\(\hat{\beta}_4\)</span> = -10<br />
 = [Mean(Amnesic, Recognition) - Mean(Amnesic, Grammar)] -<br />
 [Mean(Control, Recognition) - Mean(Control, Grammar)]<br />
 = [65 - 60] - [95 - 80] = 5 - 15 = -10</p></li>
-<li><p><span class="math inline">\(b_5\)</span> = 40<br />
+<li><p><span class="math inline">\(\hat{\beta}_5\)</span> = 40<br />
 = [Mean(Huntingtons, Recognition) - Mean(Huntingtons, Grammar)] -<br />
 [Mean(Control, Recognition) - Mean(Control, Grammar)]<br />
 = [95 - 40] - [95 - 80] = 55 - 15 = 40</p></li>
@@ -790,17 +804,17 @@ Question 5
 <span id="sol-start-83" class="fa fa-chevron-circle-right solution-icon clickable" onclick="toggle_visibility(&#39;sol-body-83&#39;, &#39;sol-start-83&#39;)"> Solution </span>
 </div>
 <div id="sol-body-83" class="solution-body" style="display: none;">
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sjPlot)</span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_model</span>(mdl_int, <span class="at">type =</span> <span class="st">&quot;int&quot;</span>)</span></code></pre></div>
-<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-7-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sjPlot)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_model</span>(mdl_int, <span class="at">type =</span> <span class="st">&quot;int&quot;</span>)</span></code></pre></div>
+<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /></p>
 <p>The red dots (“Grammar”) represent the baseline for Task, while “Control” is the baseline for Diagnosis.</p>
 <p>If you imagine connecting the dots of the same color with a line, you can see that the two virtual lines are not parallel, suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.</p>
 <p>An alternative package is <code>emmeans</code>. Install it first by typing <code>install.packages("emmeans")</code>. You need to use the function <code>emmip</code> which stands for EMMeans Interaction Plot. You must provide as first argument the fitted model, then a special formula saying what to plot on the x axis and what to use to differentiate the colors: <code>colors ~ x</code>, and then <code>CIs = TRUE</code> tells the function to display uncertainty intervals.</p>
-<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(emmeans)</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">emmip</span>(mdl_int, Task <span class="sc">~</span> Diagnosis, <span class="at">CIs =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
-<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-8-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(emmeans)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">emmip</span>(mdl_int, Task <span class="sc">~</span> Diagnosis, <span class="at">CIs =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-9-1.png" width="60%" style="display: block; margin: auto;" /></p>
 </div>
 <p class="solution-end">
 </p>
@@ -823,7 +837,7 @@ On the other hand, the difference in performance between explicit and implicit m
 </blockquote>
 <p>We can get a nice printout of the model summary as follows:</p>
 <center>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tab_model</span>(mdl_int, <span class="at">show.stat =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">tab_model</span>(mdl_int, <span class="at">show.stat =</span> <span class="cn">TRUE</span>)</span></code></pre></div>
 <table style="border-collapse:collapse; border:none;">
 <tr>
 <th style="border-top: double; text-align:center; font-style:normal; font-weight:bold; padding:0.2cm;  text-align:left; ">
@@ -978,8 +992,8 @@ R<sup>2</sup> / R<sup>2</sup> adjusted
 <p>This indicates that the researchers’ hypothesis that the difference in performance between explicit and implicit memory tasks does not differ significantly between amnesic and control patients, while it does differ significantly between Huntington and control patients.</p>
 </div>
 <p>We can also provide an interpretation of the interaction plot:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_model</span>(mdl_int, <span class="at">type =</span> <span class="st">&quot;int&quot;</span>)</span></code></pre></div>
-<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-10-1.png" width="60%" style="display: block; margin: auto;" /></p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot_model</span>(mdl_int, <span class="at">type =</span> <span class="st">&quot;int&quot;</span>)</span></code></pre></div>
+<p><img src="1_08_int_cc_files/figure-html/unnamed-chunk-11-1.png" width="60%" style="display: block; margin: auto;" /></p>
 <p>Compared to controls, amnesiac patients will have a significant deficit in explicit memory (as measured by the recognition task), but not on implicit memory (as measured by the grammar task).</p>
 <p>Compared to controls, Huntingtons patients will have a significant deficit in implicit memory (as measured by the grammar task) but not in explicit memory (as measured by the recognition task).</p>
 </div>
