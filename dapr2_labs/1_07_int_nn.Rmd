@@ -1,0 +1,361 @@
+---
+title: "Interactions: Numeric * Numeric"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(tidyverse)
+```
+
+:::green
+Be sure to check the [**solutions to last week's exercises**](1_05_int_nc.html).  
+You can still ask any questions about previous weeks' materials if things aren't clear!
+:::
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Understand the concept of an interaction.
+2. Interpret the meaning of an numeric $\times$ numeric interaction.  
+3. Understand the principle of marginality and why this impacts modelling choices with interactions.
+4. Visualize and probe interactions.
+
+:::
+
+
+## Exercises
+
+`r qbegin(1)`  
+Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this relationship.  
+
+Create a new RMarkdown, load the **tidyverse** package, read the social comparison study data into R and assign it the name "scs_study". The data is available at https://uoepsy.github.io/data/scs_study.csv  
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+library(tidyverse)
+scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+```
+`r solend()`
+
+> **Research question**   
+> Does the effect of social comparison on symptoms of depression, anxiety and stress vary depending on level of neuroticism?
+
+To investigate whether the effect of social comparison on symptoms of depression, anxiety and stress varies depending on level of neuroticism, we will need to fit a multiple regression model with an interaction term. Before we think about fitting our model, it is important that we understand the data available - how many participants? What type (or class) of data will we be working with? What was the measurement scale? How were scales scored? Look at the social comparison study data codebook below. 
+
+`r optbegin("Social Comparison Study data codebook", olabel=FALSE,toggle=params$TOGGLE)`  
+
+__Download link__
+The data is available to download at https://uoepsy.github.io/data/scs_study.csv
+
+__Description__
+
+Data from 656 participants containing information on scores on each trait of a Big 5 personality measure, their perception of their own social rank, and their scores on a measure of depression.  
+
+The data in `scs_study.csv` contain seven attributes collected from a random sample of $n=656$ participants: 
+
+- `zo`: Openness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `zc`: Conscientiousness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `ze`: Extraversion (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `za`: Agreeableness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `zn`: Neuroticism (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `scs`: Social Comparison Scale - An 11-item scale that measures an individual’s perception of their social rank, attractiveness and belonging relative to others. The scale is scored as a sum of the 11 items (each measured on a 5-point scale), with higher scores indicating more favourable perceptions of social rank.
+- `dass`: Depression Anxiety and Stress Scale - The DASS-21 includes 21 items, each measured on a 4-point scale. The score is derived from the sum of all 21 items, with higher scores indicating higher a severity of symptoms.  
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE}
+read_csv('https://uoepsy.github.io/data/scs_study.csv') %>% 
+    head() %>% 
+    gt::gt()
+```
+  
+`r optend()`
+:::frame
+__Refresher: Z-scores__
+
+When we __standardise__ a variable, we re-express each value as the distance from the mean _in units of standard deviations._ These transformed values are called __z-scores.__  
+
+To transform a given value $x_i$ into a __z-score__ $z_i$, we simply calculate the distance from $x_i$ to the mean, $\bar{x}$, and divide this by the standard deviation, $s$:    
+$$
+z_i = \frac{x_i - \bar{x}}{s}
+$$
+
+A Z-score of a value is the number of standard deviations below/above the mean that the value falls.  
+
+:::
+
+`r qbegin(1)`
+Specify the model you plan to fit in order to answer the research question (e.g., $\text{??} = \beta_0 + \beta_1 \cdot \text{??} + .... + \epsilon$)
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+$$
+\text{DASS-21 Score} = \beta_0 + \beta_1 \cdot \text{SCS Score} + \beta_2 \cdot \text{Neuroticism} + \beta_3 \cdot (\text{SCS score} \cdot \text{Neuroticism}) + \epsilon
+$$
+`r solend()`
+
+`r qbegin(2)`
+ Produce plots of the relevant distributions and relationships involved in the analysis. 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+ggplot(data = scs_study, aes(x=dass)) + 
+  geom_density() + 
+  geom_boxplot(width = 1/50) +
+  labs(title="Marginal distribution of DASS-21 Scores", 
+       x = "Depression Anxiety and Stress Scale", y = "Probability density")
+```
+
+:::int 
+The marginal distribution of scores on the Depression, Anxiety and Stress Scale (DASS-21) is unimodal with a mean of approximately `r round(mean(scs_study$dass))` and a standard deviation of `r round(sd(scs_study$dass))`. 
+:::
+
+
+```{r}
+ggplot(data = scs_study, aes(x=scs)) + 
+  geom_density() + 
+  geom_boxplot(width = 1/50) +
+  labs(title="Marginal distribution of Social Comparison Scale (SCS) scores", 
+       x = "Social Comparison Scale Score", y = "Probability density")
+```
+
+:::int 
+The marginal distribution of score on the Social Comparison Scale (SCS) is unimodal with a mean of approximately `r round(mean(scs_study$scs))` and a standard deviation of `r round(sd(scs_study$scs))`. There look to be a number of outliers at the upper end of the scale. 
+:::
+
+
+```{r}
+ggplot(data = scs_study, aes(x=zn)) + 
+  geom_density() + 
+  geom_boxplot(width = 1/50) +
+  labs(title="Marginal distribution of Neuroticism (Z-Scored)", 
+       x = "Neuroticism (Z-Scored)", y = "Probability density")
+```
+
+:::int 
+The marginal distribution of Neuroticism (Z-scored) is positively skewed, with the 25\% of scores falling below `r round(quantile(scs_study$zn, .25),2)`, 75\% of scores falling below `r round(quantile(scs_study$zn, .75),2)`.
+:::
+
+
+```{r, fig.width = 8, fig.height = 4, out.width = '90%'}
+library(patchwork) # for arranging plots side by side
+library(kableExtra) # for making tables look nice
+
+p1 <- ggplot(data = scs_study, aes(x=scs, y=dass)) + 
+  geom_point()+
+  labs(x = "SCS", y = "DASS-21")
+
+p2 <- ggplot(data = scs_study, aes(x=zn, y=dass)) + 
+  geom_point()+
+  labs(x = "Neuroticism", y = "DASS-21")
+
+p1 | p2
+
+# the kable() function from the kableExtra package can make table outputs print nicely into html.
+scs_study %>%
+  select(dass, scs, zn) %>%
+  cor() %>% 
+  kable(digits = 2) %>%
+  kable_styling(full_width = FALSE)
+```
+
+:::int
+There is a weak, negative, linear relationship between scores on the Social Comparison Scale and scores on the Depression Anxiety and Stress Scale for the participants in the sample. Severity of symptoms measured on the DASS-21 tend to decrease, on average, the more favourably participants view their social rank.  
+There is a weak, positive, linear relationship between the levels of Neuroticism and scores on the DASS-21. Participants who are more neurotic tend to, on average, display a higher severity of symptoms of depression, anxiety and stress.  
+:::
+
+`r solend()`
+
+`r qbegin(3)`
+Run the code below. It takes the dataset, and uses the `cut()` function to add a new variable called "zn_group", which is the "zn" variable split into 4 groups.  
+
+_Remember:_ we have re-assign this output as the name of the dataset (the `scs_study <- ` bit at the beginning) to make these changes occur in our __environment__ (the top-right window of Rstudio). If we didn't have the first line, then it would simply print the output.  
+
+
+```{r}
+scs_study <-
+  scs_study %>%
+  mutate(
+    zn_group = cut(zn, 4)
+  )
+```
+
+We can see how it has split the "zn" variable by plotting the two against one another:  
+(Note that the levels of the new variable are named according to the cut-points).
+```{r}
+ggplot(data = scs_study, aes(x = zn_group, y = zn)) + 
+  geom_point()
+```
+
+Plot the relationship between scores on the SCS and scores on the DASS-21, _for each group of the variable we just created._  
+How does the pattern change? Does it suggest an interaction?  
+
+**Tip:** Rather than creating four separate plots, you might want to map some feature of the plot to the variable we created in the data, or make use of `facet_wrap()`/`facet_grid()`.  
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r, fig.width = 8, fig.height = 4, out.width = '90%'}
+ggplot(data = scs_study, aes(x = scs, y = dass, col = zn_group)) + 
+  geom_point() + 
+  facet_grid(~zn_group) +
+  theme(legend.position = "none") # remove the legend
+```
+
+The relationship between SCS scores and DASS-21 scores appears to be different between these groups. For those with a relatively high neuroticism score, the relationship seems stronger, while for those with a low neuroticism score there is almost no discernable relationship. 
+This suggests an interaction - the relationship of DASS-21 ~ SCS differs across the values of neuroticism! 
+`r solend()`
+
+:::frame
+
+Cutting one of the explanatory variables up into groups essentially turns a numeric variable into a categorical one. We did this just to make it easier to visualise how a relationship changes across the values of another variable, because we can imagine a separate line for the relationship between SCS and DASS-21 scores for each of the groups of neuroticism. However, in grouping a numeric variable like this we lose information. Neuroticism is measured on a continuous scale, and we want to capture how the relationship between SCS and DASS-21 changes across that continuum (rather than cutting it into chunks).   
+We could imagine cutting it into more and more chunks (see Figure \@ref(fig:reglinescut)), until what we end up with is a an infinite number of lines - i.e., a three-dimensional plane/surface (recall that in for a multiple regression model with 2 explanatory variables, we can think of the model as having three-dimensions). The inclusion of the interaction term simply results in this surface no longer being necessarily flat. You can see this in Figure \@ref(fig:3dint). 
+ 
+```{r reglinescut, echo=FALSE, fig.cap="Separate regression lines DASS ~ SCS for neuroticism when cut into 4 (left) or 6 (center) or 12 (right) groups", out.width="80%"}
+p1 <- ggplot(data = scs_study, aes(x = scs, y = dass, col = zn_group)) + 
+  geom_point(alpha=.1) + 
+  stat_smooth(method="lm",se=FALSE)+theme(legend.position = "none")
+
+scs_study %>%
+  mutate(
+    zn_group = cut(zn, 6)
+  ) %>% ggplot(data = ., aes(x = scs, y = dass, col = zn_group)) + 
+  geom_point(alpha=.1) + 
+  stat_smooth(method="lm",se=FALSE)+theme(legend.position = "none") -> p2
+
+scs_study %>%
+  mutate(
+    zn_group = cut(zn, 12)
+  ) %>% ggplot(data = ., aes(x = scs, y = dass, col = zn_group)) + 
+  geom_point(alpha=.1) + 
+  stat_smooth(method="lm",se=FALSE)+theme(legend.position = "none") -> p3
+
+p1 | p2 | p3
+```
+
+
+```{r include=FALSE, echo=FALSE}
+fit<-lm(dass ~ scs*zn, data = scs_study)
+steps=50
+scs <- with(scs_study, seq(min(scs),max(scs),length=steps))
+zn <- with(scs_study, seq(min(zn),max(zn),length=steps))
+newdat <- expand.grid(scs=scs, zn=zn)
+dass <- matrix(predict(fit, newdat), steps, steps)
+p <- persp(scs,zn,dass, theta = -25,phi=5, col = NA)
+```
+
+
+```{r 3dint, echo=FALSE, fig.cap="3D plot of regression surface with interaction. You can explore the plot in the figure below from different angles by moving it around with your mouse.", fig.align = 'center', out.width = '90%'}
+library(plotly)
+plot_ly(x=scs,y=zn,z=dass, type="surface") %>% layout(
+    scene = list(
+      xaxis = list(title = "SCS"),
+      yaxis = list(title = "Neuroticism"),
+      zaxis = list(title = "DASS-21")
+    ))
+```
+
+:::
+
+
+`r qbegin(4)`
+Fit your model using `lm()`. 
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+dass_mdl <- lm(dass ~ 1 + scs*zn, data = scs_study)
+summary(dass_mdl)
+```
+
+Alternatively, as `scs*zn` expands to `scs + zn + scs:zn`, you could equivalently fit the same model as above using the following code. The two are completely equivalent and you only need to run one.
+
+```{r eval=FALSE}
+dass_mdl <- lm(dass ~ 1 + scs + zn + scs:zn, data = scs_study)
+summary(dass_mdl)
+```
+
+`r solend()`
+
+`r qbegin(5)`
+```{r echo=FALSE, render='asis'}
+library(pander)
+
+tbl <- summary(dass_mdl)$coefficients %>% 
+  signif(digits = 3)
+pander(tbl, emphasize.strong.rows = 1:3)
+```
+
+Recall that the coefficients `zn` and `scs` from our model now reflect the estimated change in the outcome associated with an increase of 1 in the explanatory variables, _when the other variable is zero._  
+
+**Think** - what is 0 in each variable? what is an increase of 1? Are these meaningful? Would you suggest recentering either variable?
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+The neuroticism variable `zn` is Z-scored, which means that 0 is the mean (it is mean-centered), and 1 is a standard deviation.   
+  
+The Social Comparison Scale variable `scs` is the raw-score. Looking back at the description of the variables, we can work out that the minimum possible score is 11 (if people respond 1 for each of the 11 questions) and the maximum is 55 (if they respond 5 for all questions). Is it meaningful/useful to talk about estimated effects for people who score 0? Not really.  
+
+But we can make it so that zero represents something else, such as the minimum score, or the mean score. For instance, `scs_study$scs - 11` will subtract 11 from the scores, making zero the minimum possible score on the scale.  
+
+`r solend()`
+
+`r qbegin(6)`
+Recenter one or both of your explanatory variables to ensure that 0 is a meaningful value
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+We're going to mean-center the scores on the SCS. Think about what someone who now scores zero on the `zn` variable *and* zero on the mean-centered SCS?  
+```{r}
+scs_study <-
+  scs_study %>%
+  mutate(
+    scs_mc = scs - mean(scs)
+  )
+```
+`r solend()`
+
+`r qbegin(7)`
+We re-fit the model using mean-centered SCS scores instead of the original variable. Here are the parameter estimates: 
+```{r}
+dass_mdl2 <- lm(dass ~ 1 + scs_mc * zn, data = scs_study)
+
+# pull out the coefficients from the summary():
+summary(dass_mdl2)$coefficients
+```
+
+Fill in the blanks in the statements below. 
+
+:::int 
+  
++ For those of average neuroticism and who score average on the SCS, the estimated DASS-21 Score is **???**  
++ For those who who score **???** on the SCS, an increase of **???** in neuroticism is associated with a change of `r round(coef(dass_mdl2)[3],2)` in DASS-21 Scores
++ For those of average neuroticism, an increase of **???** on the SCS is associated with a change of `r round(coef(dass_mdl2)[2],2)` in DASS-21 Scores  
++ For every increase of **???** in neuroticism, the change in DASS-21 associated with an increase of **???** on the SCS is asjusted by **???**
++ For every increase of **???** in SCS, the change in DASS-21 associated with an increase of **???** in neuroticism is asjusted by **???**
+  
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+:::int 
+  
++ For those of average neuroticism and who score average on the SCS, the estimated DASS-21 Score is **`r round(coef(dass_mdl2)[1],2)`**  
++ For those who who score **average (mean)** on the SCS, an increase of **1 standard deviation** in neuroticism is associated with a change of `r round(coef(dass_mdl2)[3],2)` in DASS-21 Scores
++ For those of average neuroticism, an increase of **1** on the SCS is associated with a change of `r round(coef(dass_mdl2)[2],2)` in DASS-21 Scores  
++ For every increase of **1 standard deviation** in neuroticism, the change in DASS-21 associated with an increase of **1** on the SCS is asjusted by **`r round(coef(dass_mdl2)[4],2)`**
++ For every increase of **1** in SCS, the change in DASS-21 associated with an increase of **1 standard deviation** in neuroticism is asjusted by **`r round(coef(dass_mdl2)[4],2)`**
+  
+:::
+
+`r solend()`
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
