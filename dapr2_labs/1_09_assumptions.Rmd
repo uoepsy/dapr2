@@ -28,8 +28,6 @@ Be sure to check the [**solutions to last week's exercises**]().<br>You can stil
 3. Assess if a fitted model satisfies the assumptions of your model.
 4. Test and assess the effect of influential cases on linear model coefficients and overall model evaluations.
 
-1. DO WE WANT TO INCLUDE THIS? Understand how to use transformations when the model violates assumptions.
-
 :::
 
 # Linear Model Assumptions 
@@ -71,7 +69,7 @@ Because these same assumptions hold for a regression model with multiple predict
 :::
 
 :::green
-In this lab, we will (1) check the assumptions of two models - one simple linear model, and one with multiple predictors; assess whether these models meet the assumptions outlined above; XXXXXX; and XXXXXXXX. We will be working with two different datasets that you have used in previous labs: `riverview` and `wellbeing`.
+In this lab, we will check the assumptions of two models - one simple linear model, and one with multiple predictors, and assess whether these models meet the assumptions outlined above. We will be working with two different datasets that you have used in previous labs: `riverview` and `wellbeing`.
 :::
 
 
@@ -93,12 +91,12 @@ library(tidyverse)
 rvdata <- read_csv(file = "https://uoepsy.github.io/data/riverview.csv")
 
 # read in the wellbeing data
-mwdata <-  read_csv(file = "https://uoepsy.github.io/data/wellbeing.csv")
+wbdata <-  read_csv(file = "https://uoepsy.github.io/data/wellbeing.csv")
 
 # fit the linear models: 
 rv_mdl1 <- lm(income ~ 1 + education, data = rvdata) #riverview model
 
-wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) #wellbeing model
+wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = wbdata) #wellbeing model
 ```
 
 **Note:** We have have forgone writing the `1` in `lm(y ~ 1 + x...`. The 1 just tells R that we want to estimate the Intercept, and it will do this by default even if we leave it out. 
@@ -110,7 +108,7 @@ wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) #wellbeing m
 :::frame
 
 ### Simple Linear Regression
-In simple linear regression (SLR) with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. That is, there is no pattern left in the residuals as the systematic trend has entirely been captured by the linear model. If this assumption was met, the residuals would appear to be randomly scattered around zero, hence showingno sign of violation of the zero-mean assumption.
+In simple linear regression (SLR) with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. If this assumption was met, the residuals would appear to be randomly scattered around zero.
 
 ### Multiple Regression
 In multiple regression, however, it becomes more necessary to rely on diagnostic plots of the model residuals. This is because we need to know whether the relations are linear between the outcome and each predictor _after accounting for the other predictors in the model._  
@@ -132,6 +130,12 @@ Check if the fitted model satisfies the linearity assumption for `rv_mdl1`. Writ
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 As usual, there are multiple equivalent ways to check this. Below are a couple of possibilities.
 
+
+Residuals vs fitted values:
+```{r}
+plot(rv_mdl1, 1) #here what we need to see is that the red line is approximately horizontal at zero
+```
+
 Some useful quantities:
 ```{r}
 riverview_check <- rvdata %>%
@@ -142,10 +146,6 @@ riverview_check <- rvdata %>%
 ```
 
 
-Residuals vs fitted values:
-```{r}
-plot(rv_mdl1, 1) #here what we need to see is that the red line is approximately horizontal at zero
-```
 Residuals vs explanatory variable:
 ```{r}
 ggplot(riverview_check, aes(x = income_hat, y = resid)) +
@@ -226,21 +226,22 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
 `ncvTest(model)` (also from the **car** package) performs a test against the alternative hypothesis that the error variance changes with the level of the fitted value (also known as the "Breusch-Pagan test"). $p >.05$ indicates that we do _not_ have evidence that the assumption has been violated.
 :::
 
-`r qbegin(3.1)`
-Check if the fitted model `rv_mdl1` satisfies the equal variance assumption. Use `plot` to  `residualPlots()` to plot residuals against the predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
+`r qbegin(3)`
+Check if the fitted models `rv_mdl1` and `wb_mdl1` satisfy the equal variance assumption. Use `residualPlots()` to plot residuals against the predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
 
-Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
+Write a sentence summarising whether or not you consider the assumption to have been met for each model. Justify your answer with reference to plots and/or formal tests where available.
 
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-The vertical spread of the residuals should roughly be the same everywhere.
+Let's start with our `rv_mdl1` model. The vertical spread of the residuals should roughly be the same everywhere.
 
 We can visually assess it by plotting the Pearson residuals against the fitted values:
 ```{r}
 residualPlots(rv_mdl1)
 ```
-As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
+  
+**Quick Tip:** As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
 
 We can make all residuals positive by discarding the sign (take the absolute value), and then take the square root to make them closer to each other.
 
@@ -248,9 +249,10 @@ A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values is 
 ```{r}
 plot(rv_mdl1, which = 3)
 ```
+
 The plot above has the points closer to each other, and all above 0. The line seems to be relatively flat (as it should be if the spread was constant).
 
-We can also resort to the more formal Breusch-Pagan test:
+We can also apply the more formal Breusch-Pagan test:
 ```{r}
 #test against the alternative hypothesis that error variance changes with level of fitted value
 ncvTest(rv_mdl1)
@@ -263,17 +265,12 @@ We performed a Breusch-Pagan test against the null hypothesis of constant varian
 At the 5\% significance level, the large p-value (.93) indicates that the sample results do not provide sufficient evidence to reject the null hypothesis that the errors have constant variance.
 :::
 
-`r solend()`
-
-`r qbegin(3.2)`
-Check if the fitted model `wb_mdl1` satisfies the equal variance assumption using `residualPlots` and `ncvTest`. As above,remember to summarise whether or not you consider the assumption to have been met by making  reference to plots and/or formal tests where available.
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+Now for our `wb_mdl1` model:
 ```{r}
+#first plot
 residualPlots(wb_mdl1)
 
-
+#then test
 ncvTest(wb_mdl1)
 ```
 :::int
@@ -284,35 +281,11 @@ Visual inspection of suggested little sign of non-constant variance, with the Br
 
 `r solend()`
 
-`r qbegin(4)`
-Create the "residuals vs. fitted plot" - a scatterplot with the residuals $\hat \epsilon$ on the y-axis and the fitted values $\hat y$ on the x-axis.  
-<br>
-You can either do this quickly by giving the `plot()` function your model. Be sure to specify which plot you want to return - e.g., `plot(wb_mdl1, which = ???)`
-
-You can use this plot to visually assess:  
-
-+ **L**inearity: Does the average of the residuals $\hat \epsilon$ remain close to 0 across the plot?  
-+ **E**qual Variance: does the spread of the residuals $\hat \epsilon$ remain constant across the predicted values $\hat y$?  
-
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-The long way:
-```{r}
-# same as we did for rv_mdl1:
-plot(wb_mdl1, which=1)
-```
-
-:::int
-The horizontal red line shows that the average of the residual remains close to zero across the fitted values.  
-The spread of the residuals remains reasonably constant across the fitted values. 
-:::
-
-`r solend()`
-
 ## Independence
 :::frame
-The "independence of errors" assumption is the condition that the errors do not have some underlying relationship which is causing them to influence one another. 
+The 'independence of errors' assumption is the condition that the errors do not have some underlying relationship which is causing them to influence one another. 
 <br>
+
 There are many sources of possible dependence, and often these are issues of study design. For example, we may have groups of observations in our data which we would expect to be related (e.g., multiple trials from the same participant). Our modelling strategy would need to take this into account.
 <br>
 One form of dependence is **autocorrelation** - this is when observations influence those adjacent to them. It is common in data for which *time* is a variable of interest (e.g, the humidity today is dependent upon the rainfall yesterday).  
@@ -321,17 +294,29 @@ One form of dependence is **autocorrelation** - this is when observations influe
 
 :::
 
-`r qbegin(5)`
-Perform a test against the alternative hypothesis that there is autocorrelation in the error terms.  
+`r qbegin(4)`
+For both `rv_mdl1` and `wb_mdl1`, perform a test against the alternative hypothesis that there is autocorrelation in the error terms.  
   
-Write a sentence summarising whether or not you consider the assumption of independence to have been met (you may have to assume certain aspects of the study design).  
+Write a sentence summarising whether or not you consider the assumption of independence to have been met for each (you may have to assume certain aspects of the study design).  
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Lets test our `rv_mdl1` first:
+```{r}
+dwt(rv_mdl1)
+```
+
+:::int
+The Durbin-Watson test did not provide sufficient evidence to reject the null hypothesis of no autocorrelation ($DW = 2.5$, $p = .198$).
+:::
+
+And now our `wb_mdl1`:
 ```{r}
 dwt(wb_mdl1)
 ```
 
-:::int
+::: int
 A Durbin-Watson test of autocorrelation failed to reject the null hypothesis that there was no serial dependence in the error ($DW = 2.6$, $p = .138$). We will also assume that observations to be randomly sampled during study recruitment. 
 :::
 
@@ -343,21 +328,33 @@ The normality assumption is the condition that the errors $\epsilon$ are normall
 
 We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.    
 We can also perform a Shapiro-Wilk test against the alternative hypothesis that the residuals were not sampled from a normally distributed population. The `shapiro.test()` function in R. 
-
 :::
 
 `r qbegin(6)`
-Assess the normality assumption by producing a qqplot of the residuals (either manually or using `plot(model, which = ???)`), and conducting a Shapiro-Wilk test.  
+Assess the normality assumption by producing a qqplot of the residuals (either manually or using `plot(model, which = ???)`), and conducting a Shapiro-Wilk test for both `rv_mdl1` and `wb_mdl1`.  
   
 Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-We can get the QQplot from one of the `plot(model)` plots: 
+We can get the QQplot from one of the `plot(model)` plot. Remember (1) departures from a linear trend in QQ plots indicate a lack of normality, (2) the  Shapiro-Wilk tests against the null hypothesis that the sample comes from a normal distribution.
+
+First, lets check our `rv_mdl1`:
 ```{r}
-plot(wb_mdl1, which = 2)
+plot(rv_mdl1, which = 2)
+shapiro.test(residuals(rv_mdl1))
 ```
 
+
+:::int
+The normal quantile plot follows a linear pattern and does not highlight any substantial skew or departure from normality.
+
+Furthermore, we performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. The test-statistic $W = 0.96$ leads to a p-value of 0.35, and thus we do not have sufficient evidence to reject the null hypothesis.
+:::
+
+Now onto `wb_mdl1`:
 ```{r}
+plot(wb_mdl1, which = 2)
 shapiro.test(residuals(wb_mdl1))
 ```
 
@@ -369,24 +366,17 @@ The QQplot indicates that the residuals follow close to a normal distribution, a
 
 ## Multicollinearity  
 :::frame
-For the linear model with multiple explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
-Recall our interpretation of multiple regression coefficients as  
-<center>"the effect of $x_1$ on $y$ when _holding the values of $x_2$, $x_3$, ... $x_k$ constant_"</center>  
-This interpretation falls down if predictors are highly correlated because if, e.g., predictors $x_1$ and $x_2$ are highly correlated, then changing the value of $x_1$ necessarily entails a change the value of $x_2$ meaning that it no longer makes sense to talk about _holding $x_2$ constant._  
+For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
 <br>
 We can assess multicollinearity using the **variance inflation factor (VIF)**, which for a given predictor $x_j$ is calculated as:  
 $$
 VIF_j = \frac{1}{1-R_j^2} \\
 $$
-Where $R_j^2$ is the coefficient of determination (the R-squared) resulting from a regression of $x_j$ on to all the other predictors in the model ($x_j = x_1 + ... x_k + \epsilon$).  
-The more highly correlated $x_j$ is with other predictors, the bigger $R_j^2$ becomes, and thus the bigger $VIF_j$ becomes.  
-<br>
-The square root of VIF indicates how much the SE of the coefficient has been inflated due to multicollinearity. For example, if the VIF of a predictor variable were 4.6 ($\sqrt{4.6} = 2.1$), then the standard error of the coefficient of that predictor is 2.1 times larger than if the predictor had zero correlation with the other predictor variables. Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it.   
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it.   
 <br>
 **In R**, the `vif()` function from the **car** package will provide VIF values for each predictor in your model. 
 
 :::
-
 
 `r qbegin(7)`
 Calculate the variance inflation factor (VIF) for the predictors in the model.  
@@ -404,10 +394,10 @@ VIF values <5 indicate that multicollinearity is not adversely affecting model e
 
 `r solend()`
 
-## Individual cases  
+## Individual Case Diagnostics 
 
 :::frame
-We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:  
+We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:
 
 + **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
     + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
@@ -416,7 +406,21 @@ We have seen in the case of the simple linear regression that individual cases i
     + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
 + **High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
     + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence. In R, the `cooks.distance()` function will provide these. 
+Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
++ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
++ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  
++ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
++ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors.
 
+You can get a whole bucket-load of these measures with the `influence.measures()` function:
+
+
++ `influence.measures(my_model)` will give you out a dataframe of the various measures.
++ `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
+:::
+
+:::green
+For questions 8-12, we will be working with our `wb_mdl1` only. Feel free to apply the below to your `rv_mdl1` too as as extra practice.
 :::
 
 `r qbegin(8)`
@@ -494,6 +498,7 @@ Note that `r sum(mdl_diagnost$hats > (2*0.094))` observations have high leverage
 Looking at the Cook's Distance values, are there any highly influential points?  
 You can also display these graphically using `plot(model, which = 4)` and `plot(model, which = 5)`. 
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 Recall from the lectures that we have a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
 For our model:
@@ -508,21 +513,6 @@ mdl_diagnost %>%
 ```
 
 `r solend()`
-
-
-## Other influence.measures()
-
-:::frame
-
-Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
-
-+ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
-+ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  
-+ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
-+ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors.
-
-:::
-
 
 `r qbegin(12)`
 
@@ -586,10 +576,11 @@ scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
     - after fitting a new model which you hope addresses violations, you need to check **all** of your assumptions again. It can be an iterative process, and the most important thing is that your _final_ model (the one you plan to **use**) meets all the assumptions.  
 
 --- 
-**Tips:** 
-+ When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
-+ Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
-+ You can fit a model and exclude specific observations. For instance, to remove the 3rd and 5th rows of the dataset: `lm(y ~ x1 + x2, data = dataset[-c(3,5),])`. Be careful to remember that these values remain in the dataset, they have simply been excluded from the model fit.  
+**Tips:**
+
++  When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
++  Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
++  You can fit a model and exclude specific observations. For instance, to remove the 3rd and 5th rows of the dataset: `lm(y ~ x1 + x2, data = dataset[-c(3,5),])`. Be careful to remember that these values remain in the dataset, they have simply been excluded from the model fit.  
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
