@@ -5,7 +5,7 @@ biblio-style: apalike
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: TRUE
+    TOGGLE: FALSE
 ---
 
 ```{r setup, include=FALSE}
@@ -13,11 +13,6 @@ source('assets/setup.R')
 
 set.seed(953)
 ```
-
-
-:::green
-Be sure to check the [**solutions to last week's exercises**]().<br>You can still ask any questions about previous weeks' materials if things aren't clear!
-:::
 
 
 :::lo
@@ -32,7 +27,7 @@ Be sure to check the [**solutions to last week's exercises**]().<br>You can stil
 
 # Linear Model Assumptions 
 
-:::frame  
+
 In the previous labs, we have fitted a number of regression models, including some with multiple predictors. In each case, we first specified the model, then visually explored the marginal distributions and relationships of variables which would be used in the analysis. Finally, we fit the model, and began to examine the fit by studying what the various parameter estimates represented, and the spread of the residuals (the parts of the output inside the red boxes in Figure \@ref(fig:mlroutput)) 
 
 ```{r mlroutput, echo=FALSE, fig.cap="Multiple regression output in R, summary.lm(). Residuals and Coefficients highlighted"}
@@ -60,29 +55,35 @@ Recall the assumptions of the linear model:
 
 + **L**inearity: The relationship between $y$ and $x$ is linear.
 + **I**ndependence of errors: The error terms should be independent from one another.
-+ **N**ormality: The errors $\epsilon$ are normally distributed
-+ **E**qual variances ("Homoscedasticity"): The scale of the variability of the errors  $\epsilon$ is constant at all values of $x$.  
++ **N**ormality: The errors $\epsilon$ are normally distributed in the population.
++ **E**qual variances ("Homoscedasticity"): The variability of the errors  $\epsilon$ is constant across $x$.  
 
-When we fit a model, we evaluate many of these assumptions by looking at the residuals (the deviations from the observed values $y_i$ and the model estimated value $\hat y_i$). The residuals, $\hat \epsilon$ are our estimates of the actual unknown true error term $\epsilon$.  
-Because these same assumptions hold for a regression model with multiple predictors, we can assess them in a similar way. However, there are a number of important considerations. 
+Because we don't have the data about the entire population, we check the assumptions on the errors by looking at their sample counterpart: the residuals from the fitted model = observed values - fitted values = $y_i - \hat y_i$.  
+The residuals $\hat \epsilon_i$ are the sample realisation of the actual, but unknown, true errors $\epsilon_i$ for the entire population. Because these same assumptions hold for a regression model with multiple predictors, we can assess them in a similar way. However, there are a number of important considerations. 
 
-:::
+
 
 :::green
 In this lab, we will check the assumptions of two models - one simple linear model, and one with multiple predictors, and assess whether these models meet the assumptions outlined above. We will be working with two different datasets that you have used in previous labs: `riverview` and `wellbeing`.
 :::
 
 
-`r qbegin(1)`
-Open a new RMarkdown document. Copy the code below to load in the tidyverse packages, read in the riverview.csv and wellbeing.csv datasets and fit the following two models:  
+
+# Guided exercises  
+
+
+
+:::red
+Open a new RMarkdown document. 
+Copy the code below to load in the tidyverse packages, read in the riverview.csv and wellbeing.csv datasets and fit the following two models:  
 
 $$ 
-Model 1:\text{Income} = \beta_0 + \beta_1 \cdot \text{Education} + \epsilon
+\begin{aligned}
+M1&: \quad \text{Income} = \beta_0 + \beta_1 \cdot \text{Education} + \epsilon \\
+M2&: \quad \text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Outdoor Time} + \beta_2 \cdot \text{Social Interactions} + \epsilon
+\end{aligned}
 $$
 
-$$
-Model 2:\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Outdoor Time} + \beta_2 \cdot \text{Social Interactions} + \epsilon
-$$
 
 ```{r}
 library(tidyverse) 
@@ -100,15 +101,15 @@ wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = wbdata) #wellbeing m
 ```
 
 **Note:** We have have forgone writing the `1` in `lm(y ~ 1 + x...`. The 1 just tells R that we want to estimate the Intercept, and it will do this by default even if we leave it out. 
-`r qend()`
+:::
 
-# Guided exercises  
 
 ## Linearity  
 :::frame
 
 ### Simple Linear Regression
-In simple linear regression (SLR) with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. If this assumption was met, the residuals would appear to be randomly scattered around zero.
+In simple linear regression (SLR) with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. If this assumption was met, the residuals would appear to be randomly scattered around zero.  
+The rationale for this is that, once you remove from the data the linear trend, what's left over in the residuals should not have any trend, i.e. have a mean of zero.
 
 ### Multiple Regression
 In multiple regression, however, it becomes more necessary to rely on diagnostic plots of the model residuals. This is because we need to know whether the relations are linear between the outcome and each predictor _after accounting for the other predictors in the model._  
@@ -133,7 +134,7 @@ As usual, there are multiple equivalent ways to check this. Below are a couple o
 
 Residuals vs fitted values:
 ```{r}
-plot(rv_mdl1, 1) #here what we need to see is that the red line is approximately horizontal at zero
+plot(rv_mdl1, which = 1) #here what we need to see is that the red line is approximately horizontal at zero
 ```
 
 Some useful quantities:
@@ -155,7 +156,7 @@ ggplot(riverview_check, aes(x = income_hat, y = resid)) +
 Either of the above plots can be used to say:
 
 :::int
-The residuals appear to be randomly scattered around zero in both groups, without showing any pattern with respect to the fitted values. Hence, there is no sign of violation of the zero-mean assumption.
+The residuals appear to be randomly scattered around zero, without showing any pattern with respect to the fitted values. Hence, there is no sign of violation of the zero-mean assumption.
 :::
 `r solend()`
 
@@ -167,7 +168,7 @@ Remember to load the **car** package first. If it does not load correctly, it mi
 Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots.
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
+```{r, fig.width = 10, out.width = '85%'}
 library(car)
 crPlots(wb_mdl1)
 ```
@@ -180,9 +181,9 @@ The smoother (the pink line) follows quite closely to a linear relationship (the
 
 ## Equal variances (Homoscedasticity)  
 :::frame
-The equal variances assumption is that the error variance $\sigma^2$ is constant across values of the predictor(s) $x_1$, ... $x_k$, and across values of the fitted values $\hat y$. This sometimes gets termed "Constant" vs "Non-constant" variance. Figures \@ref(fig:ncv1) & \@ref(fig:ncv2) shows what these look like visually. 
+The equal variances assumption is that the error variance $\sigma^2$ is constant across values of the predictor(s) $x_1, \dots,  x_k$, and across values of the fitted values $\hat y$. This sometimes gets termed "Constant" vs "Non-constant" variance. Figures \@ref(fig:ncv1) & \@ref(fig:ncv2) shows what these look like visually. 
 
-```{r ncv1, echo=FALSE, fig.cap="Non-constant variance for numeric and categorical x"}
+```{r ncv1, echo=FALSE, fig.cap="Non-constant variance for numeric and categorical x", fig.width = 8, out.width = '90%'}
 library(patchwork)
 n=1000
 x <- runif(n, min = 0, max = 100)
@@ -195,12 +196,12 @@ lm.bad <-lm(y.increasing~x)
 
 p1<-ggplot(NULL, aes(x=fitted(lm.bad), y=resid(lm.bad)))+
   geom_point(shape=1)+
-  labs(title="Non-constant variance",subtitle="ncvTest p<.05",x="fitted",y="residuals")+
+  labs(x="fitted",y="residuals")+
   theme(axis.text = element_blank())
 
 p2<-ggplot(NULL, aes(x=fitted(lm.good), y=resid(lm.good)))+
   geom_point(shape=1)+
-  labs(title="constant variance",subtitle="ncvTest p>.05",x="fitted",y="residuals")+
+  labs(x="fitted",y="residuals")+
   theme(axis.text = element_blank())
 
 p3<-ggplot(NULL, aes(x=fitted(lm.bad)<mean(fitted(lm.bad)), y=resid(lm.bad)))+
@@ -214,11 +215,11 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
   theme(axis.text = element_blank())
 
 
-(p1 | p3 )
+(p1 | p3 ) + plot_annotation(title = "Non-constant variance (ncvTest p<.05)")
 ```
 
-```{r ncv2, echo=FALSE, fig.cap="Constant variance for numeric and categorical x"}
-(p2 | p4)
+```{r ncv2, echo=FALSE, fig.cap="Constant variance for numeric and categorical x", fig.width = 8, out.width = '90%'}
+(p2 | p4) + plot_annotation(title = "Constant variance (ncvTest p>.05)")
 ```
 
 **In R** we can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the **car** package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test").  
@@ -226,18 +227,18 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
 `ncvTest(model)` (also from the **car** package) performs a test against the alternative hypothesis that the error variance changes with the level of the fitted value (also known as the "Breusch-Pagan test"). $p >.05$ indicates that we do _not_ have evidence that the assumption has been violated.
 :::
 
+
 `r qbegin(3)`
 Check if the fitted models `rv_mdl1` and `wb_mdl1` satisfy the equal variance assumption. Use `residualPlots()` to plot residuals against the predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
 
 Write a sentence summarising whether or not you consider the assumption to have been met for each model. Justify your answer with reference to plots and/or formal tests where available.
 
 `r qend()`
-
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 Let's start with our `rv_mdl1` model. The vertical spread of the residuals should roughly be the same everywhere.
 
 We can visually assess it by plotting the Pearson residuals against the fitted values:
-```{r}
+```{r, fig.width = 8, out.width = '90%'}
 residualPlots(rv_mdl1)
 ```
   
@@ -266,7 +267,7 @@ At the 5\% significance level, the large p-value (.93) indicates that the sample
 :::
 
 Now for our `wb_mdl1` model:
-```{r}
+```{r, fig.width = 8, out.width = '90%'}
 #first plot
 residualPlots(wb_mdl1)
 
@@ -280,6 +281,7 @@ Visual inspection of suggested little sign of non-constant variance, with the Br
 :::
 
 `r solend()`
+
 
 ## Independence
 :::frame
@@ -324,7 +326,7 @@ A Durbin-Watson test of autocorrelation failed to reject the null hypothesis tha
 
 ## Normality of errors  
 :::frame
-The normality assumption is the condition that the errors $\epsilon$ are normally distributed. 
+The normality assumption is the condition that the errors $\epsilon$ are normally distributed in the population.  
 
 We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.    
 We can also perform a Shapiro-Wilk test against the alternative hypothesis that the residuals were not sampled from a normally distributed population. The `shapiro.test()` function in R. 
@@ -349,8 +351,12 @@ shapiro.test(residuals(rv_mdl1))
 :::int
 The normal quantile plot follows a linear pattern and does not highlight any substantial skew or departure from normality.
 
-Furthermore, we performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. The test-statistic $W = 0.96$ leads to a p-value of 0.35, and thus we do not have sufficient evidence to reject the null hypothesis.
+Furthermore, we performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. The test-statistic $W = 0.96$ leads to a p-value of .35, and thus we do not have sufficient evidence to reject the null hypothesis at the 5% significance level.
 :::
+
+
+---
+
 
 Now onto `wb_mdl1`:
 ```{r}
@@ -364,7 +370,10 @@ The QQplot indicates that the residuals follow close to a normal distribution, a
 
 `r solend()`
 
+
+
 ## Multicollinearity  
+
 :::frame
 For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
 <br>
@@ -372,11 +381,12 @@ We can assess multicollinearity using the **variance inflation factor (VIF)**, w
 $$
 VIF_j = \frac{1}{1-R_j^2} \\
 $$
-Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it.   
-<br>
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values larger than 5 as moderate multicollinearity and values larger than 10 as severe multicollinearity.    
+
 **In R**, the `vif()` function from the **car** package will provide VIF values for each predictor in your model. 
 
 :::
+
 
 `r qbegin(7)`
 Calculate the variance inflation factor (VIF) for the predictors in the model.  
@@ -389,10 +399,12 @@ vif(wb_mdl1)
 ```
 
 :::int
-VIF values <5 indicate that multicollinearity is not adversely affecting model estimates. 
+The VIF values for all predictors are <5, indicating that multicollinearity is not adversely affecting model estimates. 
 :::
 
 `r solend()`
+
+
 
 ## Individual Case Diagnostics 
 
@@ -428,7 +440,7 @@ Create a new tibble which contains:
 
 1. The original variables from the model (Hint, what does `wb_mdl1$model` give you?)
 2. The fitted values from the model $\hat y$  
-3. The residuals $\hat epsilon$
+3. The residuals $\hat \epsilon$
 4. The studentised residuals
 5. The hat values
 6. The Cook's Distance values. 
@@ -455,7 +467,9 @@ mdl_diagnost <-
 Looking at the studentised residuals, are there any outliers?  
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-Recall from the lectures, studentised residuals of $>2$ or $< -2$ indicate potential outlyingness.  
+In a standard normal distribution, 95% of the values are roughly between -2 and 2.  
+
+Because of this, studentised residuals of $>2$ or $< -2$ indicate potential outlyingness. 
 
 We can ask R whether the *absolute* values are $>2$:
 ```{r}
@@ -522,6 +536,9 @@ Try plotting the distributions of some of these measures.
 
 **Tip:** the function `influence.measures()` returns an `infl`-type object. To plot this, we need to find a way to extract the actual numbers from it.  
 What do you think `names(influence.measures(wb_mdl1))` shows you? How can we use `influence.measures(wb_mdl1)$<insert name here>` to extract the matrix of numbers?  
+
+
+<!-- Cooks > qf(0.5, k + 1, n - k - 1) -->
 
 
 `r qend()`
@@ -601,7 +618,10 @@ dass_mdl2 <- lm(dass ~ 1 + scs_mc * zn, data = scs_study)
 ```{r eval=FALSE}
 plot(dass_mdl2)
 ```
-```{r echo=FALSE}
+
+To get a single figure made up of 2 by 2 panels, you can use the command `par(mfrow = c(2,2))`. Then create the plot. Then you need to go back to a single figure made up by a single panel with the command `par(mfrow = c(1,1))`.
+
+```{r echo=FALSE, fig.width = 8, out.width = '95%'}
 par(mfrow=c(2,2))
 plot(dass_mdl2)
 par(mfrow=c(1,1))
@@ -610,7 +630,7 @@ par(mfrow=c(1,1))
 From quick visual inspection, it looks like there is at least one very influential point, which has been labelled for us as case number 35. 
 
 ```{r}
-scs_study[35,]
+scs_study[35, ]
 ```
 
 The code below fits a new model and assigns it the name `dass_mdl3`. How is it different from the previous model?  
