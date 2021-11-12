@@ -25,7 +25,7 @@ In this lab, you will be provided with a comprehensive overview of linear regres
 1. Be able to state the assumptions underlying a linear model.
 2. Specify the assumptions underlying a linear model with multiple predictors.
 3. Assess if a fitted model satisfies the assumptions of your model.
-4. Test and assess the effect of influential cases on linear model coefficients and overall model evaluations.
+4. Assess the effect of influential cases on linear model coefficients and overall model evaluations.
 
 :::
 
@@ -219,23 +219,22 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
   theme(axis.text = element_blank())
 
 
-(p1 | p3 ) + plot_annotation(title = "Non-constant variance (ncvTest p<.05)")
+(p1 | p3 ) + plot_annotation(title = "Non-constant variance")
 ```
 
 ```{r ncv2, echo=FALSE, fig.cap="Constant variance for numeric and categorical x", fig.width = 8, out.width = '90%'}
-(p2 | p4) + plot_annotation(title = "Constant variance (ncvTest p>.05)")
+(p2 | p4) + plot_annotation(title = "Constant variance")
 ```
 
 **In R** we can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the **car** package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test").  
 
-`ncvTest(model)` (also from the **car** package) performs a test against the alternative hypothesis that the error variance changes with the level of the fitted value (also known as the "Breusch-Pagan test"). $p >.05$ indicates that we do _not_ have evidence that the assumption has been violated.
 :::
 
 
 `r qbegin(3)`
-Check if the fitted models `rv_mdl1` and `wb_mdl1` satisfy the equal variance assumption. Use `residualPlots()` to plot residuals against the predictor, and use `ncvTest()` to perform a test against the alternative hypothesis that the error variance changes with the level of the fitted value.  
+Check if the fitted models `rv_mdl1` and `wb_mdl1` satisfy the equal variance assumption. Use `residualPlots()` to plot residuals against the predictor. 
 
-Write a sentence summarising whether or not you consider the assumption to have been met for each model. Justify your answer with reference to plots and/or formal tests where available.
+Write a sentence summarising whether or not you consider the assumption to have been met for each model. Justify your answer with reference to plots.
 
 `r qend()`
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
@@ -257,31 +256,19 @@ plot(rv_mdl1, which = 3)
 
 The plot above has the points closer to each other, and all above 0. The line seems to be relatively flat (as it should be if the spread was constant).
 
-We can also apply the more formal Breusch-Pagan test:
-```{r}
-#test against the alternative hypothesis that error variance changes with level of fitted value
-ncvTest(rv_mdl1)
-```
-
 :::int
 The spread of the standardized residuals appears to be constant as the fitted values vary.
-
-We performed a Breusch-Pagan test against the null hypothesis of constant variance ($\chi^2(1) = 0.01, p = .93$).
-At the 5\% significance level, the large p-value (.93) indicates that the sample results do not provide sufficient evidence to reject the null hypothesis that the errors have constant variance.
 :::
 
 Now for our `wb_mdl1` model:
 ```{r, fig.width = 8, out.width = '90%'}
-#first plot
+#plot
 residualPlots(wb_mdl1)
-
-#then test
-ncvTest(wb_mdl1)
 ```
 :::int
 Partial residual plots show no clear non-linear trends between residuals and predictors.
 
-Visual inspection of suggested little sign of non-constant variance, with the Breusch-Pagan test failing to reject the null that error varance does not change across the fitted values ($\chi^2(1)=0.002$, $p = .97$).
+Visual inspection of suggested little sign of non-constant variance.
 :::
 
 `r solend()`
@@ -295,35 +282,42 @@ The 'independence of errors' assumption is the condition that the errors do not 
 There are many sources of possible dependence, and often these are issues of study design. For example, we may have groups of observations in our data which we would expect to be related (e.g., multiple trials from the same participant). Our modelling strategy would need to take this into account.
 <br>
 One form of dependence is **autocorrelation** - this is when observations influence those adjacent to them. It is common in data for which *time* is a variable of interest (e.g, the humidity today is dependent upon the rainfall yesterday).  
-<br>
-**In R** we can test against the alternative hypothesis that there is autocorrelation in our errors using the `durbinWatsonTest()` (an abbreviated function `dwt()` is also available) in the **car** package.  
+
 
 :::
 
 `r qbegin(4)`
-For both `rv_mdl1` and `wb_mdl1`, perform a test against the alternative hypothesis that there is autocorrelation in the error terms.  
+For both `rv_mdl1` and `wb_mdl1`, visually assess whether there is autocorrelation in the error terms.  
   
 Write a sentence summarising whether or not you consider the assumption of independence to have been met for each (you may have to assume certain aspects of the study design).  
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Lets test our `rv_mdl1` first:
+Lets assess our `rv_mdl1` first. 
+
+To get a single figure made up of 2 by 1 panels, you can use the command `par(mfrow = c(1,2))`. Then create the plot. Then you need to go back to a single figure made up by a single panel with the command `par(mfrow = c(1,1))`.
 ```{r}
-dwt(rv_mdl1)
+par(mfrow = c(1,2))
+plot(resid(rv_mdl1))
+plot(fitted(rv_mdl1), resid(rv_mdl1))
+par(mfrow = c(1,1))
 ```
 
 :::int
-The Durbin-Watson test did not provide sufficient evidence to reject the null hypothesis of no autocorrelation ($DW = 2.5$, $p = .198$).
+The plot of the residuals vs their index shows no clear dependence (if they were collected over time, for example, and there was an increasing trend this would highlight a violation). The residuals vs fitted plot shows that there is no association between the errors and the model predictions.
 :::
 
 And now our `wb_mdl1`:
 ```{r}
-dwt(wb_mdl1)
+par(mfrow = c(1,2))
+plot(resid(wb_mdl1))
+plot(fitted(wb_mdl1), resid(wb_mdl1))
+par(mfrow = c(1,1))
 ```
 
 ::: int
-A Durbin-Watson test of autocorrelation failed to reject the null hypothesis that there was no serial dependence in the error ($DW = 2.6$, $p = .138$). We will also assume that observations to be randomly sampled during study recruitment. 
+Similarly to above, the plot of the residuals vs their index shows no clear dependence, and the residuals vs fitted plot shows that there is no association between the errors and the model predictions.
 :::
 
 `r solend()`
@@ -333,29 +327,25 @@ A Durbin-Watson test of autocorrelation failed to reject the null hypothesis tha
 The normality assumption is the condition that the errors $\epsilon$ are normally distributed in the population.  
 
 We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.    
-We can also perform a Shapiro-Wilk test against the alternative hypothesis that the residuals were not sampled from a normally distributed population. The `shapiro.test()` function in R. 
 :::
 
 `r qbegin(6)`
-Assess the normality assumption by producing a qqplot of the residuals (either manually or using `plot(model, which = ???)`), and conducting a Shapiro-Wilk test for both `rv_mdl1` and `wb_mdl1`.  
+Assess the normality assumption by producing a qqplot of the residuals (either manually or using `plot(model, which = ???)`) for both `rv_mdl1` and `wb_mdl1`.  
   
-Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to plots and/or formal tests where available.
+Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots.
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-We can get the QQplot from one of the `plot(model)` plot. Remember (1) departures from a linear trend in QQ plots indicate a lack of normality, (2) the  Shapiro-Wilk tests against the null hypothesis that the sample comes from a normal distribution.
+We can get the QQplot from one of the `plot(model)` plot. Remember that departures from a linear trend in QQ plots indicate a lack of normality.
 
 First, lets check our `rv_mdl1`:
 ```{r}
 plot(rv_mdl1, which = 2)
-shapiro.test(residuals(rv_mdl1))
 ```
 
 
 :::int
 The normal quantile plot follows a linear pattern and does not highlight any substantial skew or departure from normality.
-
-Furthermore, we performed a Shapiro-Wilks test against the null hypothesis that the residuals come from a normal population. The test-statistic $W = 0.96$ leads to a p-value of .35, and thus we do not have sufficient evidence to reject the null hypothesis at the 5% significance level.
 :::
 
 
@@ -365,11 +355,10 @@ Furthermore, we performed a Shapiro-Wilks test against the null hypothesis that 
 Now onto `wb_mdl1`:
 ```{r}
 plot(wb_mdl1, which = 2)
-shapiro.test(residuals(wb_mdl1))
 ```
 
 :::int 
-The QQplot indicates that the residuals follow close to a normal distribution, although with evidence of heavier tails. A Shapiro-Wilk test failed to reject the null hypothesis that the residuals were drawn from a normally distributed population ($W = 0.95$, $p = .129$)
+The QQplot indicates that the residuals follow close to a normal distribution. Although there is some evidence of heavier tails, given the small sample size (n=32) it is not of concern and we can be more conservative in our visual assessment of the plot.
 :::
 
 `r solend()`
@@ -623,7 +612,6 @@ dass_mdl2 <- lm(dass ~ 1 + scs_mc * zn, data = scs_study)
 plot(dass_mdl2)
 ```
 
-To get a single figure made up of 2 by 2 panels, you can use the command `par(mfrow = c(2,2))`. Then create the plot. Then you need to go back to a single figure made up by a single panel with the command `par(mfrow = c(1,1))`.
 
 ```{r echo=FALSE, fig.width = 8, out.width = '95%'}
 par(mfrow=c(2,2))
@@ -654,19 +642,19 @@ plot(dass_mdl3, which = 1)
 __Equal variances (Homoscedasticity)__
 ```{r}
 residualPlots(dass_mdl3)
-ncvTest(dass_mdl3)
 ```
 
 __Independence of errors__
 ```{r}
-# we assume independence of observations was considered during study design (e.g., participants are not related, or influence one another in some way). We can test for autocorrelation:
-durbinWatsonTest(dass_mdl3)
+par(mfrow = c(1,2))
+plot(resid(dass_mdl3))
+plot(fitted(dass_mdl3), resid(dass_mdl3))
+par(mfrow = c(1,1))
 ```
 
 __Normality__
 ```{r}
-hist(residuals(dass_mdl3))
-shapiro.test(residuals(dass_mdl3))
+qqnorm(resid(dass_mdl3))
 ```
 
 
