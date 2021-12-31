@@ -1,0 +1,500 @@
+---
+title: "<b>Binary Logistic Model </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmosaic)
+library(kableExtra)
+library(performance)
+```
+
+
+# Weeks Learning Objectives
+1. Identify and provide examples of binary psychological outcomes.
+2. Understand why a standard LM is not appropriate for binary data.
+3. Fit and interpret a logistic model
+
+---
+# Topics for today
+
++ Logistic regression
+	+ Why do we need logistic regression?
+	+ The logistic regression model
+	+ Overall model evaluation
+	+ Logistic regression in R
+
+
+---
+#  Binary outcomes 
+
++ Thus far we have discussed:
+	+ linear regression with a continuous DV
+	+ linear regression with categorical (including binary) predictors
+
++ What if we have a binary outcome variable?
+	+ E.g.,:
+		+ Healthy vs diseased
+		+ Died vs survived
+		+ Hired vs not hired
+		+ Correct vs incorrect
+
++ When we have binary outcome variable, linear regression is no longer appropriate
+	+ Let's see what happens when we fit a linear regression model with a binary outcome variable?
+
+
+---
+#  Applying linear regression to binary outcomes 
+
++ We can code our outcome in terms of whether or not an event happened
+	+ $Y=1$ for a job offer (event occurred)
+	+ $Y=0$ for no job offer (event did not occur)
+		
++ If we then fit a linear regression model, our model predicts the probability of the event occurring $P(Y=1)$ or $P(y_i)$
+
+
+---
+#  Some example data 
++ Imagine we're interested in predicting hiring decisions. 
+
++ We collect data on n=242 job-seekers
+	+ Age
+	+ Effort put into job application
+
++ Our variables:
+	+ DV: `work` (0 = did not get job; 1 = did get job)
+	+ IV1: `age` (in years)
+	+ IV2: `msrch` (effort into job application, 0=low effort, 1 = high effort)
+
+
+---
+#  Visualize Our Data 
+
+.pull-left[
+
++ Here we can see:
+
+1. We have slightly more people being hired than not (light blue bar in left-hand plot)
+
+2. Those who were hired (blue) are younger than those who were not (red) (density plot, top right)
+
+3. There is a greater number of people who work hard (proportion of blue in bottom right plot) among those who were hired (right hand bar of this plot)
+
+]
+
+.pull-right[
+```{r, echo=FALSE}
+hire <- read_csv("hire.csv", col_types = 'fdff')
+
+p1 <- ggplot(hire, aes(x=work, fill = work)) +
+  geom_bar() +
+  xlab("Hire (1) or No Hire (0)") +
+  theme(legend.position = "none")
+
+p2 <- ggplot(hire, aes(x=age, fill=work)) +
+  geom_density(alpha=.5) +
+  xlab("Age") +
+  theme(legend.position = "none")
+
+p3 <- ggplot(hire) +
+  geom_mosaic(aes(x = product(msrch, work), fill = msrch)) +
+  xlab("Hire (1) or No Hire (0)")
+
+(p1 | p2 / p3)
+```
+]
+---
+# Proportion hired
+
+```{r}
+hire %>%
+  group_by(work) %>%
+  summarise(
+    n = n()) %>%
+  mutate(
+    Prop = round(n/sum(n),2)
+  ) 
+```
+
+
+---
+#  Linear probability model 
++ So let's just use `lm()` to predict our outcome (Hire vs no hire)
+  + **Note**: R will actually try and stop us doing this if `work` is a factor
+  + So we have to pretend to R that it is numeric. 
+
+```{r}
+hire <- hire %>%
+  mutate(
+    work = as.numeric(work) #<<
+  )
+m1 <- lm(work ~ age, data = hire)
+```
+
+
+---
+#  Linear probability model 
++ Nothing  looks too amiss here
+
+```{r, echo=FALSE}
+summary(m1)
+```
+
++ But let's look at our assumptions checks?
+
+
+
+---
+#  Violated assumptions 
+
+.pull-left[
+
++ The plots here were produced using the `check_model()` function in the `performance()` package.
+
++ These are not ideally formatted plots for reports, but it is a nice quick way to look at all assumption plots.
+
++ Can also be used for different diagnostics like `vif` etc.
+
+]
+
+.pull-right[
+```{r, echo=F, warning=FALSE, message=FALSE}
+check_model(m1)
+```
+]
+
+---
+#  Impossible probabilities
+
+.pull-left[
++ And there is a further issue?
+
++ By definition, probabilities must be between 0 and 1.
+
++ But our model predicts some $P(Y=1)$ values >1 within the plausible range of age values
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+hire <- hire %>%
+  mutate(
+    work = as.factor(work)
+  )
+hire %>%
+  ggplot(., aes(x=age, y=work)) +
+  geom_point()+
+  geom_abline(slope = m1$coefficients[2], intercept = m1$coefficients[1], col = "red") +
+  xlim(30, 65) +
+  scale_y_discrete(labels = c(0,1)) +
+  xlab("Age (years)") +
+  ylab("Hire (1), No Hire (0)")
+```
+
+]
+
+---
+#  The problem with linear regression 
+
++ In general, when we apply linear regression to binary outcomes:
+	+ The distribution of the residuals is bimodal (not normal)
+	+ The variance of the residuals is not constant
+	+ The relation between $x$ and $y$ is not linear
+	+ Probabilities are not constrained to be between 0 and 1
+	
++ The logistic regression model solves these issues with linear regression
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+**Let's get some details on the logistic model**
+
+---
+#  The logistic regression model 
++ In logistic regression, we predict the probability that $Y=1$, $P(y_i)$, from our X's, using:
+
+$$P(y_i) = \frac{1}{1+e^{-(\beta_0 + \beta_1x_1)}}$$
+
++ $e$ = exponential
++ $\beta_0 + \beta_1x_1$ is a linear combination with:
+	+ a constant $\beta_0$ (intercept), and
+	+ $\beta_1$ capturing the effect of $x_1$ on the outcome $y$
+
+
+---
+#  The logistic regression model 
+
+```{r, echo=FALSE, out.width= "70%", fig.align = "center"}
+knitr::include_graphics("logistic_model.png")
+```
+
+---
+#  Probability, odds and log-odds
++ An alternative way to think about this is in terms of probability, odds and log-odds.
+
++ Our presentation above includes the exponential of the coefficients so that (a) predictions are bounded within 0 and 1, and (b) we can have a linear representation.
+
++ The alternative way to view it is to change what we are predicting...
+
+
+---
+#  Probability, odds and log-odds
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+pt <- tibble(x=seq(-4.5,4.5,length=49),lo=x,o=exp(x),p=o/(1+o))
+
+p1 <- pt %>% ggplot(aes(x=x,y=p)) +
+  #theme_presentation(10) +
+  geom_path(size=2,colour="red") +
+  scale_x_continuous() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_vline(xintercept = 0,linetype="dashed") +
+  ylab("probability") +
+  ggtitle("probability") +
+  annotate("text",-1,.75,label="p=.5",size=3)
+
+p2 <- pt %>% ggplot(aes(x=x,y=o)) +
+  #theme_presentation(10) +
+  geom_path(size=2,colour="red") +
+  scale_x_continuous() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_vline(xintercept = 0,linetype="dashed") +
+  ylab("odds") +
+  ggtitle("odds") +
+  annotate("text",-1.2,15,label="odds=1",size=3)
+
+p3 <- pt %>% ggplot(aes(x=x,y=lo)) +
+  #theme_presentation(10) +
+  geom_path(size=2,colour="red") +
+  scale_x_continuous() +
+  geom_vline(xintercept = 0,linetype="dashed") +
+  ylab("log(odds)") +
+  ggtitle("log-odds (logits)")
+
+p4 <- p3 + annotate("text",-2.2,2,label="log(odds)=0",size=3) +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+MCplot <- (p1 + p2) / (p4 + plot_spacer() )
+ggsave("MC_logistic.png", MCplot)
+```
+
+.pull-left[
+
++ $Probability = P(Y_i)$
+
++ $odds = \frac{P(Y=1)}{1-P(Y=1)}$
+
++ $logodds = ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right)$
+
+]
+
+.pull-right[
+```{r, echo=FALSE, out.width= "80%", fig.align = "center"}
+knitr::include_graphics("MC_logistic.png")
+```
+]
+
+---
+#  Logistic models with different slopes 
++ Given that we can see our log-odds provide a linear relation, we can think about predicting these:
+
+$$ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right) = \beta_0 + \beta_1x_1$$
++ and we can easily extend to models with multiple predictors:
+
+$$P(y_i) = \frac{1}{1+e^{-(\beta_0 + \beta_1x_1 + \beta_2x_2 ... + \beta_kx_k)}}$$
+
++ Or
+
+$$ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right) = \beta_0 + \beta_1x_1 + \beta_2x_2 ... + \beta_kx_k$$
+
+
+---
+#  Estimating logistic regression coefficients 
++ Linear regression models can be estimated using least squares estimation
+
++ Logistic regression models are estimated using maximum likelihood estimation (MLE)
+
++ MLE  finds the logistic regression coefficients that *maximise the likelihood of the observed data having occurred*
+	+ While least squares estimation minimises the SSE to find the coefficients for the line of best, MLE minimises the log-likelihood
+	+ Larger log-likelihood values indicate poorer fitting models
+
+
+
+---
+#  Overall model evaluation 
++ To evaluate overall model fit in logistic regression we:
+	+ Compare our model to a baseline model with no predictors (null model)
+	+ Assess the improvement in fit
+	+ *Note we have already seen this idea when discussing the $F$-test and incremental $F$-test*
+	
++ The baseline model is where the predicted values for the DV are based on the most frequent value of the DV (0 or 1)
+	+ Our best guess of the DV value in the absence of informative predictors.
+	+ Analogous to using the mean DV value as the baseline in linear regression.
+
+---
+#  Overall model evaluation 
++ We compare our model with the baseline model using **deviance**:
+
+$$deviance = -2*loglikelihood$$
+
++ Deviance often denoted **-2LL**
+
+---
+#  Overall model evaluation 
++ We calculate the -2LL differences between our model and the baseline model.
+
++ We assess the statistical significance of the -2LL difference to see if our model significantly improves on the baseline model
+	+ We compare our -2LL difference to a $\chi^2$ distribution with df = k
+		+ k= number of predictors in model
+		
++ Significant $p$-value indicates that our model improves on the baseline model.
+
++ Assessing the -2LL differences in this way is called a likelihood ratio test or chi-square difference test
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+**Logistic regression in r** 
+
+
+
+---
+#  The `glm()` function 
++ In R, we conduct logistic regression using the `glm()` function
+
++ `glm` stands for **g**eneralised **l**inear **m**odel
+  + More on this next week
+  
++ Very similar in structure to the `lm()` function
+
+
+---
+#  Run our model: a little more code 
+
+```{r, eval=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, #<<
+    family = "binomial")
+```
+
++ `glm()`; R function for running generalised linear models.
+	+ Provide a formula in the same style as lm()
+	+ Provide the name of the dataset
+
+---
+#  Run our model: a little more code 
+
+```{r, eval=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, 
+    family = "binomial") #<<
+```
+
++ The new bit.
+	+ We need to start what family of probability distributions we want for our DV.
+	+ This relates to the type of variable our DV is.
+	+ We will take a little more about this next lecture.
+	+ For now, for a binary variable, we want `family = binomial`
+
+---
+# Quick aside: Why binomial?
++ Binomial distribution is a discrete probability distribution. (you do not need to remember the probability mass function below - don't worry.)
+
+$$f(k,n,p) = Pr(X = k) = \binom{n}{k}p^{k}q^{n-k}$$
+
++ $k$ = number of success
++ $n$ = total trials, 
++ $p$ = probability success
++ $q$ = $1-p$ or probability of failure
++ $\binom{n}{k}$ = $n$ choose $k$, or the number of ways to select $k$ unordered items from a set of $n$ items.
+
++ Practically, we can think of every instance of a `Hire` in out example as a success, and every `no hire` as a failure.
+
+---
+#  `glm()` output 
+```{r, eval=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, family = "binomial")
+summary(m2)
+```
+
+---
+#  `glm()` output 
+```{r, echo=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, family = "binomial")
+summary(m2)
+```
+
+---
+#  Overall Model Test 
+
+```{r}
+m2_null <- glm(work ~ 1, family = "binomial", data = hire)
+anova(m2_null, m2, test="Chisq")
+```
+
+
+
+---
+# Summary of today
++ For binary outcomes we use logistic rather than linear regression.
+
++ Logistic regression predicts the probability of $Y=1$ from our IVs
+
++ Logistic regression is estimated using maximum likelihood estimation
+
++ Implemented using `glm()` function in R
+
++ The model can be evaluated by comparison with a baseline model using a likelihood ratio  test
+
+
+
+
+
