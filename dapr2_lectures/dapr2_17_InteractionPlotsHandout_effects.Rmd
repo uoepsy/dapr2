@@ -1,0 +1,487 @@
+---
+title: "Understanding Interaction Plots"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+  html_notebook:
+    code_folding: show
+    theme: flatly
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+---
+
+# Preamble
+This document is a Rnotebook. If you want to see the code used to produce it, you can click in the top right-hand corner and download it. You can also choose to hide or view the code as you look at the document. I am using some packages you wont necessarily be familiar with, so do not worry if some of the code is odd.
+
+The focus of this document is to help you get some intuition for the patterns of results in categorical interaction plots. 
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(car)
+```
+
+# Introduction
+This is a little helper document for our factorial interaction interpretation, with a specific focus on understanding how to read interaction plots. In these plots we have two categorical variables, each of which has two levels. Here I am going to call them:
+
+- `cond1` with levels A and B 
+- `cond2` with levels C and D
+
+This is he simplest case for a factorial design, and so it is an obvious choice for getting used to looking at plots.
+
+## Cell means, marginal means, and tested effects
+When we are viewing the plots, we need to remember that each point represents a group mean. For the sake of these plots, we can assume that each group has the same number of participants.
+
+So what we are doing is plotting our 2x2 tables of means. 
+
+```{r}
+eg1 <- matrix(c(20,10,15,10,20,15,15,15,15),ncol=3,byrow=TRUE)
+colnames(eg1) <- c("C","D", "Mean")
+rownames(eg1) <- c("A","B","Mean")
+eg1 <- as.table(eg1)
+eg1
+```
+
+- **Cell mean**: Average score for the participants in that particular experimental condition. So the group of people in condition A-C have a mean of 20. etc.
+- **Marginal mean**: The average for a level of one condition *across level* of the other. So, the average score of people in condition A (so A-C and A-D) is 15.
+- **Simple effect**: Is a test across one condition at a single level of the other. So A test of the difference between A and B within level C.
+- **Main effect**: Average across all simple effects.
+- **Interaction**: Test of the difference in effect across levels of the other variable. So, is the effect of condition1 (difference in A-B), different for level C and D of condition 2.
+  - Put differently: Are simple effects changing across levels of the second variable.
+
+Remember also when looking at this document, we are not talking in terms of inference and statistical significance. We are simply trying to put across what indicative patterns in data would look like in a given plot. This should allow you to interpret plots, and cross-check these against results - either in your own work or published work.
+
+# Interaction plots
+## No main effects, but an interaction 
+So we will start with some data each time:
+
+```{r}
+dat1 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(20, 10, 10, 20)
+)
+```
+
+```{r, echo = FALSE}
+eg1 <- matrix(c(20,10,15,10,20,15,15,15,15),ncol=3,byrow=TRUE)
+colnames(eg1) <- c("C","D", "Mean")
+rownames(eg1) <- c("A","B","Mean")
+eg1 <- as.table(eg1)
+eg1
+```
+
+And now let's look at the plot:
+
+```{r}
+dat1 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30))
+```
+
+So let's consider the main effect of `cond1`.
+
+```{r}
+dat1 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 15, size = 2) +
+  annotate("point", x = 2, y = 15, size = 2) +
+  geom_hline(yintercept = 15, linetype = "dashed") +
+  ggtitle("No effect cond1")
+
+```
+
+
+The black dots in this plot represent the marginal means for level A and level B of `cond1`. The main effect here concerns whether these means are different. The magnitude of the difference can be judged by the distance between the dashed horizontal lines when they meet the y-axis. 
+
+In this case, the dashed horizontal line runs through both points, and clearly shows they are not different! There appears to be no main effect of `cond1`
+
+And the main effect of `cond2`:
+
+```{r}
+dat1 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 15, size = 2) +
+  annotate("point", x = 1.5, y = 15, size = 2) +
+  geom_hline(yintercept = 15, linetype = "dashed") +
+  ggtitle("No effect cond2")
+
+```
+
+Again, the black dot represent the marginal means for levels C and D of `cond2`. These are the same value, so the points overlay one another. Again, the dashed line runs through each point, but is overlayed. In short, there appears to be no difference in these means, so no main effect.
+
+And finally the interaction. When thinking about the interactions, we are thinking about the differences between conditions C and D within conditions A and B. So we will annotate the plots with the value of C-D within A and within B.
+
+```{r}
+dat1 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=10, yend=20), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=10, yend=20), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 15, label = "10") +
+  annotate("text", x = 2.2 , y = 15, label = "-10") +
+  ggtitle("Interaction")
+
+```
+
+What we can clearly see is that these values are different (10 and -10). This indicates to us that there is an interation. In this case, the interaction is **disordinal** in other words, the lines cross. The name disordinal points to the fact that the ranking of C and D change order in A and B.
+
+## Main effect cond2, with an interaction 
+So we will start with some data each time:
+
+```{r}
+dat2 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(12, 14, 20, 5)
+)
+```
+
+```{r, echo = FALSE}
+eg2 <- matrix(c(12,14,13,20,5,12.5,16,9.5,12.75),ncol=3,byrow=TRUE)
+colnames(eg2) <- c("C","D", "Mean")
+rownames(eg2) <- c("A","B","Mean")
+eg2 <- as.table(eg2)
+eg2
+```
+
+And now let's look at the plot:
+
+```{r}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30))
+```
+
+So let's consider the main effect of `cond1`.
+
+```{r}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 13, size = 2) +
+  annotate("point", x = 2, y = 12.5, size = 2) +
+  geom_hline(yintercept = 13, linetype = "dashed") +
+  geom_hline(yintercept = 12.5, linetype = "dashed") +
+  ggtitle("No effect cond1")
+
+```
+
+Again, the dots are at the means of each level across levels of `cond2`, and the dashed lines run through each dot. As we can see, they are very close together.
+
+And the main effect of `cond2`:
+
+```{r}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 16, size = 2) +
+  annotate("point", x = 1.5, y = 9.5, size = 2) +
+  geom_hline(yintercept = 16, linetype = "dashed") +
+  geom_hline(yintercept = 9.5, linetype = "dashed") +
+  ggtitle("Effect cond2")
+
+```
+
+For `cond2` you can see that there is a difference in the outcome variable across these conditions that is more substantial. This would indicate a potential effect.
+
+And finally the interaction (NB: annotated the plots with the value of C-D within A and within B).
+
+```{r}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=12, yend=14), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=20, yend=5), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 13, label = "-2") +
+  annotate("text", x = 2.2 , y = 12.5, label = "15") +
+  ggtitle("Interaction")
+
+```
+
+
+## Main effect of cond1, with an interaction 
+So we will start with some data each time:
+
+```{r}
+dat3 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(20, 25, 10, 5)
+)
+```
+
+```{r, echo = FALSE}
+eg3 <- matrix(c(20,25,22.5,10,5,7.5,15,15,15),ncol=3,byrow=TRUE)
+colnames(eg3) <- c("C","D", "Mean")
+rownames(eg3) <- c("A","B","Mean")
+eg3 <- as.table(eg3)
+eg3
+```
+
+And now let's look at the plot:
+
+```{r}
+dat3 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30))
+```
+
+So let's consider the main effect of `cond1`.
+
+```{r }
+dat3 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 22.5, size = 2) +
+  annotate("point", x = 2, y = 7.5, size = 2) +
+  geom_hline(yintercept = 22.5, linetype = "dashed") +
+  geom_hline(yintercept = 7.5, linetype = "dashed") +
+  ggtitle("Main effect cond1")
+
+```
+
+In this plot we can see a large difference (distance between the lines) in score for level A and level B of `cond1`. Indicating there is a main effect present.
+
+And the main effect of `cond2`:
+
+```{r }
+dat3 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 15, size = 2) +
+  annotate("point", x = 1.5, y = 15, size = 2) +
+  geom_hline(yintercept = 15, linetype = "dashed") +
+  ggtitle("No effect cond2")
+
+```
+
+Again, the dashed line runs through each point, but is overlayed. In short, there appears to be no difference in these means, so no main effect of `cond2`.
+
+And finally the interaction (NB: annotated the plots with the value of C-D within A and within B).
+
+```{r}
+dat3 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=20, yend=25), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=10, yend=5), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 22.5, label = "-5") +
+  annotate("text", x = 2.2 , y = 7.5, label = "5") +
+  ggtitle("Interaction")
+
+```
+
+Again we see some indication of the interaction. Think through the idea that within level A, people in condition D score better than C, and in level B, this is reversed. So we are seeing a change in the effect.
+
+## Main effect of cond1 and cond2, with an interaction 
+Let's do this one quickly as hopefully you are getting the hang of this now.
+
+```{r}
+dat4 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(25, 27, 18, 2)
+)
+```
+
+```{r, echo = FALSE}
+eg4 <- matrix(c(25,27,26,18,2,10,21.5,14.5,18),ncol=3,byrow=TRUE)
+colnames(eg4) <- c("C","D", "Mean")
+rownames(eg4) <- c("A","B","Mean")
+eg4 <- as.table(eg4)
+eg4
+```
+
+And now let's look at the plot:
+
+```{r}
+dat4 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30))
+```
+
+So let's consider the main effect of `cond1`.
+
+```{r}
+dat4 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 26, size = 2) +
+  annotate("point", x = 2, y = 10, size = 2) +
+  geom_hline(yintercept = 26, linetype = "dashed") +
+  geom_hline(yintercept = 10, linetype = "dashed") +
+  ggtitle("Main effect cond1")
+
+```
+
+Dashed lines differ!
+
+And the main effect of `cond2`:
+
+```{r, }
+dat4 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 21.5, size = 2) +
+  annotate("point", x = 1.5, y = 14.5, size = 2) +
+  geom_hline(yintercept = 21.5, linetype = "dashed") +
+  geom_hline(yintercept = 14.5, linetype = "dashed") +
+  ggtitle("Main effect cond2")
+
+```
+
+Dashed lines differ!
+
+And finally the interaction. When thinking about the interactions, we are thinking about the differences between conditions C and D with conditions A and B. So we will annotate the plots with the value of C-D within A and within B.
+
+```{r, }
+dat4 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=25, yend=27), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=18, yend=2), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 26, label = "-2") +
+  annotate("text", x = 2.2 , y = 10, label = "16") +
+  ggtitle("Interaction")
+
+```
+
+## Main effect cond1, no main effect cond2 or interaction 
+So we will start with some data each time:
+
+```{r}
+dat5 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(20, 19, 10, 9)
+)
+```
+
+```{r, echo = FALSE}
+eg5 <- matrix(c(20,19,19.5,10,9,9.5,15,14,14.5),ncol=3,byrow=TRUE)
+colnames(eg5) <- c("C","D", "Mean")
+rownames(eg5) <- c("A","B","Mean")
+eg5 <- as.table(eg5)
+eg5
+```
+
+And now let's look at the plot:
+
+```{r}
+dat5 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30))
+```
+
+So let's consider the main effect of `cond1`.
+
+```{r, }
+dat5 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 19.5, size = 2) +
+  annotate("point", x = 2, y = 9.5, size = 2) +
+  geom_hline(yintercept = 19.5, linetype = "dashed") +
+  geom_hline(yintercept = 9.5, linetype = "dashed") +
+  ggtitle("Main effect cond1")
+
+```
+
+There appears to be no main effect of `cond1`
+
+And the main effect of `cond2`:
+
+```{r, }
+dat5 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 15, size = 2) +
+  annotate("point", x = 1.5, y = 14.5, size = 2) +
+  geom_hline(yintercept = 15, linetype = "dashed") +
+  geom_hline(yintercept = 14.5, linetype = "dashed") +
+  ggtitle("No effect cond2")
+
+```
+
+Lines are very close, likely no effect of `cond2`.
+
+And the interaction...
+
+```{r }
+dat5 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=19, yend=20), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=9, yend=10), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 19.5, label = "1") +
+  annotate("text", x = 2.2 , y = 9.5, label = "1") +
+  ggtitle("No Interaction")
+
+```
+
+So this is our only no interaction example. Note the value of the differences is the same, and the lines are parallel.
