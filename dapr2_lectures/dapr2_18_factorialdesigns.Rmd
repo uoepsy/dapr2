@@ -1,5 +1,5 @@
 ---
-title: "<b> Case Diagnostics 2 </b>"
+title: "<b> Factorial Designs </b>"
 subtitle: "Data Analysis for Psychology in R 2<br><br> "
 author: "dapR2 Team"
 institute: "Department of Psychology<br>The University of Edinburgh"
@@ -38,18 +38,151 @@ style_mono_accent(
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
-library(car)
-library(patchwork)
+library(emmeans)
 library(kableExtra)
-
-salary2 <- read_csv("./salary2.csv")
 ```
 
 # Week's Learning Objectives
++ Understand how to interpret simple effects for experimental designs
++ Understadn how to interpret exploratory pairwise analyses for factorial designs
++ Know how to do both analyses using `emmeans()`
+
+---
+# Just a little bit more of the hospital example
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m1)
+```
+
+---
+# Our results
+```{r}
+m1sum <- summary(m1)
+round(m1sum$coefficients,2)
+```
+
+---
+# But where do we go next?
++ It is typically a bad idea to focus on main effects in the presence of an interaction.
+  + The interaction means the effect of the condition differs dependent on the interacting variable.
+
++ So we need to understand more about the interaction
+
++ We will use the `emmeans` package to explore this futher:
+  + We will start by looking at the visualizations
+  + And then consider the simple effects
+  
+  
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, out.width ="80%"}
+emmip(m1, Hospital ~ Treatment)
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, out.width ="80%"}
+emmip(m1, Treatment ~ Hospital)
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+
+---
+# Simple Effects
++ We noted previously that simple contrasts/effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+
++ We also know an interaction is defined as the change in the effect of one variable given the value of another.
+  + So here, value = a specific level.
+  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m1_emm <- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 <- pairs(m1_emm, simple = "Hospital")
+m1_simple1
+```
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m1_simple2 <- pairs(m1_emm, simple = "Treatment")
+m1_simple2
+```
 
 
 ---
-# Topics for today
+# Simple effects with plots
+
+.pull-left[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m1, Treatment ~ Hospital)
+```
+
+]
+
+.pull-right[
+```{r}
+m1_simple1
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r}
+m1_simple2
+```
+
+]
+
+.pull-right[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m1, Hospital ~ Treatment)
+```
+
+]
+
+
 
 
 ---
@@ -59,7 +192,35 @@ class: center, middle
 ---
 class: center, middle
 # Welcome Back!
+**One more step in exploration**
 
+---
+# Pairwise comparisons
++ So far we have been discussing tests which move from the very general to the specific:
+  + Overall model F
+  + Incremental F/ F per condition
+  + Contrasts and codes
+  + Simple effects
+  
++ But we have one more layer that more closely aligns to looking at the $\beta$ coefficients, namely a fully exploratory pairwise analysis.
+
+---
+# Pairwise comparisons
++ As the name suggests, pairwise comparisons compare all levels of a given predictor variable with all levels of the other.
+
+```{r}
+pairs_res <- pairs(m1_emm)
+pairs_res
+```
+
+---
+# Visualize the comparison
+```{r}
+plot(m1_emm, comparisons = TRUE)
+```
+
+---
+# Summary
 
 ---
 class: center, middle
