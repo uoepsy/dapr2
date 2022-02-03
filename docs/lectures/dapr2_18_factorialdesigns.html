@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Factorial Designs: Simple effects and pairwise tests</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b> Factorial Designs: Simple effects and pairwise tests </b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+
+---
+
+
+
+
+
+
+
+
+
+# Week's Learning Objectives
++ Understand how to interpret simple effects for experimental designs
++ Understadn how to interpret exploratory pairwise analyses for factorial designs
++ Know how to do both analyses using `emmeans()`
+
+---
+# Just a little bit more of the hospital example
+
+```r
+hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
+m1 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m1)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: SWB
+##                     Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## Treatment            2 177.02  88.511 21.5597 4.315e-09 ***
+## Hospital             1   9.57   9.568  2.3306    0.1287    
+## Treatment:Hospital   2 392.18 196.088 47.7635 &lt; 2.2e-16 ***
+## Residuals          174 714.34   4.105                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+# Our results
+
+```r
+m1sum &lt;- summary(m1)
+round(m1sum$coefficients,2)
+```
+
+```
+##                               Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)                      10.80       0.37   29.19     0.00
+## TreatmentTreatB                  -1.37       0.52   -2.62     0.01
+## TreatmentTreatC                  -0.70       0.52   -1.33     0.18
+## HospitalHosp2                    -2.95       0.52   -5.63     0.00
+## TreatmentTreatB:HospitalHosp2     6.63       0.74    8.97     0.00
+## TreatmentTreatC:HospitalHosp2     0.82       0.74    1.11     0.27
+```
+
+---
+# But where do we go next?
++ It is typically a bad idea to focus on main effects in the presence of an interaction.
+  + The interaction means the effect of the condition differs dependent on the interacting variable.
+
++ So we need to understand more about the interaction
+
++ We will use the `emmeans` package to explore this futher:
+  + We will start by looking at the visualizations
+  + And then consider the simple effects
+  
+  
+---
+# Visualizing the interaction
+
+.pull-left[
+
+```r
+emmip(m1, Hospital ~ Treatment)
+```
+
+&lt;img src="dapr2_18_factorialdesigns_files/figure-html/unnamed-chunk-4-1.png" width="80%" /&gt;
+]
+
+.pull-right[
+
+```r
+emmip(m1, Treatment ~ Hospital)
+```
+
+&lt;img src="dapr2_18_factorialdesigns_files/figure-html/unnamed-chunk-5-1.png" width="80%" /&gt;
+
+]
+
+---
+# Simple Effects
++ We noted previously that simple contrasts/effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+
++ We also know an interaction is defined as the change in the effect of one variable given the value of another.
+  + So here, value = a specific level.
+  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
+
+---
+# Simple Effects with `emmeans`
+
+
+```r
+m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 &lt;- pairs(m1_emm, simple = "Hospital")
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+
+---
+# Simple Effects with `emmeans`
+
+
+```r
+m1_simple2 &lt;- pairs(m1_emm, simple = "Treatment")
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+
+---
+# Simple effects with plots
+
+.pull-left[
+&lt;img src="dapr2_18_factorialdesigns_files/figure-html/unnamed-chunk-8-1.png" width="90%" /&gt;
+
+]
+
+.pull-right[
+
+```r
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+
+```r
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+]
+
+.pull-right[
+&lt;img src="dapr2_18_factorialdesigns_files/figure-html/unnamed-chunk-11-1.png" width="90%" /&gt;
+
+]
+
+
+
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+**One more step in exploration**
+
+---
+# Pairwise comparisons
++ So far we have been discussing tests which move from the very general to the specific:
+  + Overall model F
+  + Incremental F/ F per condition
+  + Contrasts and codes
+  + Simple effects
+  
++ But we have one more layer that more closely aligns to looking at the `\(\beta\)` coefficients, namely a fully exploratory pairwise analysis.
+
+---
+# Pairwise comparisons
++ As the name suggests, pairwise comparisons compare all levels of a given predictor variable with all levels of the other.
+
+
+```r
+pairs_res &lt;- pairs(m1_emm)
+```
+
+---
+# Pairwise comparisons
+
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.0982
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.7670
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0002
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.7918
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0346
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0670
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0004
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0010
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  0.9999
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 6 estimates
+```
+
+
+
+---
+# Why do pairwise comparisons?
+
++ Sometimes we do not have a concrete hypothesis to test.
+
++ Sometimes we do, but the exploratory analysis is still useful information for the field.
+
++ Pairwise comparisons throws up a statistical issue, namely the problem of multiple comparisons.
+  + When we do lots and lots of tests, the chances of Type I error (false-positives) increase.
+
++ We will move on to how we can adjust our inferences to deal with this next week, along with a quick revisit of assumption checks.
+
+---
+# Summary
++ This week we have looked at:
+  + Probing and understanding interactions via simple effects.
+  + Estimation of pairwise tests
+  + Both of the above using `emmeans()`
+
++ This completes the new learning related to analysing experimental designs.
+
+---
+class: center, middle
+# Thanks for listening!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
