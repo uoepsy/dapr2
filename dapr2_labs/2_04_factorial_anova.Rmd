@@ -41,7 +41,6 @@ As a reminder, we are working with data from a study yielding a $3 \times 3$ fac
 
 ```{r echo=FALSE}
 library(tidyverse)
-library(emmeans)
 cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
 # head(df)
 
@@ -95,36 +94,37 @@ Applying the sum to zero constraint (for `Diagnosis` of 'Control' and `Task` of 
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Let's look at the `summary()` output first:
+Let's look at the `anova()` and `summary()` output:
 ```{r}
 contrasts(cog$Diagnosis) <- "contr.sum"
 contrasts(cog$Task) <- "contr.sum"
 mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
-summary(mdl_int)
-```
-
-:::int
-The F-test for model utility is again significant at the 5\% level: $F(8,36) = 12.28, p < .001$. An F-statistic this large or larger occurring by chance only is very small.
-:::
-
-
-In the presence of a significant interaction we **do not** interpret the main effects as their interpretation changes with the level of the other factor.
-
-```{r}
 anova(mdl_int)
 ```
 
 :::int
-The interaction between diagnosis and task is significant. At the 5\% level, the probability of obtaining an F-statistic as large as 7.92 or larger, if there was no interaction effect, is <.001. This provides evidence against the null hypothesis that effect of task is constant across the different diagnoses.
+Scores significantly differed by both Diagnosis ($F(2, 36)=16.63, p < .001$) and by Task ($F(2, 36)=16.63, p < .001$). The interaction between Diagnosis and Task was significant ($F(4, 36)=7.92, p < 0.001$). This provides evidence against the null hypothesis that effect of Task is constant across the different levels of Diagnosis.
+:::
+
+```{r}
+summary(mdl_int)
+```
+
+:::int
+The F-test for model utility is again significant at the 5\% level: $F(8,36) = 12.28, p < .001$. An F-statistic this large or larger occurring by chance only is very small. In the presence of a significant interaction we **do not** interpret the main effects as their interpretation changes with the level of the other factor.
 :::
 
 `r solend()`
 
 `r qbegin(2)`
-Based on previous plotting, it does seem that there is a clear interaction between diagnosis and task. However, we have not statistically compared our interaction model to an additive model (same model but without the interaction). Until we do so, we cannot confidently progress on the *assumption* that the interaction model is the most suitable for answering the research question. We also want to consider the best coding constraint to apply in order to best answer the research question  - are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the overall group mean? 
+Based on previous plotting, it does seem that there is a clear interaction between diagnosis and task (as well as from our output above). However, we have not statistically compared our interaction model to an additive model (same model but without the interaction). Until we do so, we cannot confidently progress on the *assumption* that the interaction model is the most suitable for answering the research question.
+
+We also want to consider the best coding constraint to apply in order to best answer the research question  - are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the overall group mean? 
 
 
-Since we are interested in comparing groups, we should reset to dummy coding, and thus should re-run our interaction model. Next, we need to perform a model comparison between the additive model and the interaction model using the `anova()` function.
+Since we are interested in comparing groups, we should reset to dummy coding, and thus should re-run our interaction model. Next, we need to perform a model comparison between the additive model and the interaction model using the `anova()` function. 
+
+After re-running your model with dummy coding, interpret the result of the model comparison.
 
 
 \begin{aligned}
@@ -144,7 +144,7 @@ Interaction Model: Score &= \beta_0 \\
 \end{aligned}
 
 
-Interpret the result of the model comparison.
+
 
 `r qend()`
 
@@ -163,7 +163,7 @@ mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
 ```
 
 
-The relevant function is `anova()` with the two models as inputs:
+The relevant function is `anova()` with the two models as inputs to conduct a model comparison:
 ```{r}
 anova(mdl_add, mdl_int)
 ```
@@ -231,17 +231,19 @@ $$
 which says that, in the population, the difference between the mean implicit memory and the explicit memory score is the same for amnesic patients and Huntingtons individuals. Note that the scores for the grammar and classification tasks have been averaged to obtain a single measure of 'implicit memory' score.
 
 
-Now that we have the coefficients, let's call the `emmeans` function:
+Now that we have the coefficients, let's call the `emmeans` function (this is helpful to look at the ordering of the groups):
 ```{r}
+library(emmeans)
 emm <- emmeans(mdl_int, ~ Diagnosis*Task)
 emm
 ```
 
-Next, insert the coefficients following the order specified by the rows of `emm` above. That is, the first one should be for `control` `grammar`, the second for `amnesic` `grammar`, and so on...
+Next, from `contr_coef`, insert the coefficients following the order specified by the rows of `emm` above. That is, the first one should be for `control` `recognition` and have a value of 0, the second for `amnesic` `recognition` with a value of -1, and so on...
+
 We also give a name to this contrast, such as 'Research Hyp'.
 
 ```{r}
-comp_res <- contrast(emm, method = list('Research Hyp' = c(0, 0.5, -0.5, 0, 0.5, -0.5, 0, -1, 1)))
+comp_res <- contrast(emm, method = list('Research Hyp' = c(0, -1, 1, 0, 0.5, -0.5, 0, 0.5, -0.5)))
 comp_res
 confint(comp_res)
 
@@ -253,7 +255,6 @@ or:
 summary(comp_res, infer = TRUE)
 ```
 
-
 `r qbegin(4)`
 
 Interpret the results of the contrast analysis.
@@ -262,21 +263,9 @@ Interpret the results of the contrast analysis.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-The contrast analysis yielded a t-value of 5.4 and a corresponding p value less than .001. Thus, there is strong evidence that the contrast is not zero in the population. In other words, amnesiacs and Huntingtons differ in the difference between implicit and explicit recognition memory tasks. 
+The contrast analysis yielded a $t$-value of 5.4 and a corresponding $p$-value < .001. Thus, there is evidence that the contrast is not zero in the population. In other words, Amnesics and Huntingtons patients differ in the difference between implicit and explicit recognition memory tasks. 
 
-Examining the cell means or, even better, the interaction plot showing the cell means (shown again below) shows that amnesiacs perform relatively better on implicit memory tasks, whereas Huntington individuals perform relatively better on explicit memory tasks, just as expected from our theory.
-
-```{r echo = FALSE}
-#ggplot(data = cog_stats, aes(x = Task, y = Avg_Score, color = Diagnosis)) +
-    #geom_point(size = 3) +
-    #geom_linerange(aes(ymin = Avg_Score - 2 * SE, ymax = Avg_Score + 2 * SE)) +
-    #geom_line(aes(x = as.numeric(Task)))
-```
-
-
-It may be useful to supplement this hypothesis test with some indication of effect size. The recommendation is to report a confidence interval and interpret it in the context of the study, playing attention to the sign of the interval.
-
-The contrast analysis shows that the 95\% confidence interval for our contrast stretches from 32.77 to 72.23. This interval does not contain zero. Thus, we can be 95\% confident that the task difference is not the same for amnesiacs as for Huntingtons, which is why we can reject the null hypothesis that the difference in differences is zero. 
+The contrast analysis shows that the 95\% confidence interval for our contrast stretches from 32.8 to 72.2. This interval does not contain zero. Thus, we can be 95\% confident that the task difference is not the same for amnesiacs as for Huntingtons, which is why we can reject the null hypothesis that the difference in differences is zero. 
 
 `r solend()`
 
@@ -286,7 +275,7 @@ By considering the simple effects, we can identify at which levels of the intera
 
 `r qbegin(5)`
 
-Using `emmip()`, visualise the interaction, reversing the order of Diagnosis and Task in each. 
+Using `emmip()`, visualise the interaction, reversing the order of Diagnosis and Task in each plot. 
 
 `r qend()`
 
@@ -304,6 +293,7 @@ grid.arrange(plt_1, plt_2)
 `r solend()`
 
 `r qbegin(6)`
+
 Since we have a significant interaction, we should also look at the simple main effects. Simple effects are the effect of one factor (e.g., Task) at each level of another factor (e.g., Diagnosis - Control, Huntingtons, and Amnesic).
 
 Examine the simple effects for Task at each level of Diagnosis; and then the simple effects for Diagnosis at each level of Task. 
@@ -320,6 +310,8 @@ mdl_int_simple1
 mdl_int_simple2 <- pairs(emm, simple = "Diagnosis")
 mdl_int_simple2
 ```
+
+From `mdl_int_simple1` we can see the differences between between tasks for each diagnosis group, and from  `mdl_int_simple2` the differences between diagnoses for each task group.
 
 `r solend()`
 
@@ -341,15 +333,11 @@ pairs_res
 plot(pairs_res)
 ```
 
-
+From the above, we can see comparisons for all different possible pairs of diagnosis-task combinations. As well as recapping assumption checks, next week we will also explore how we can adjust our pairwise comparisons (*think* about how many comparisons were conducted above - without adjusting our $\alpha$ (or $p$-value), why might any inferences drawn be problematic?)
 
 
 `r solend()`
 
-:::red
-### Missing / Next Steps
-You may have noted that we are yet to conduct our assumption checks on our model - and you'd be right to flag this! We will recap assumption checks next week using this dataset and interaction model, and we will also explore how we can adjust our pairwise comparisons (*think* about how many comparisons were conducted above - without adjusting our $\alpha$ (or $p$-value), why might any inferences drawn be problematic?)
-:::
 
 # References
 
