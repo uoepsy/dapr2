@@ -51,7 +51,11 @@ library(kableExtra)
 
 ---
 # Topics for today
++ What is the issue with multiple comparisons?
 
++ How do we adjust for it?
+
++ Recapping assumptions.
 
 ---
 # Types of errors
@@ -132,7 +136,9 @@ $$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$
 
 ---
 # Example
-+ The data comes from a study into patient care in a paediatric wards. 
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+```
 
 + A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
 
@@ -144,115 +150,74 @@ $$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$
   + Between person design. 
 
 + **Outcome**: Subjective well-being (SWB). 
-  + An average of multiple raters (the patient, a member of their family, and a friend). 
-  + SWB score ranged from 0 to 20.
 
----
-# The data
-```{r}
-hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
-hosp_tbl %>%
-  slice(1:10)
-```
++ Importantly, remember from last week, with this design, we have a lot of pairwise tests!
+
 
 ---
 # Our results
 ```{r}
-m4 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
-anova(m4)
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m1)
 ```
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
 
 ---
 # Bonferroni & Sidak
 + Both are considered "conservative" adjustments.
 
 + Each treats individual tests within the family as if they are independent.
-  + Consider an $\alpha = 0.05$ and $m=\text{number of tests}=10$
+  + Consider an $\alpha = 0.05$ and $m=\text{number of tests}=15$
 
 + **Bonferroni**: $\alpha_{Bonferroni} = \frac{\alpha}{m}$
 
 ```{r}
-0.05/10
+0.05/15
 ```
 
 
 + **Sidak**: $\alpha_{Sidak} = 1 - (1- \alpha)^{\frac{1}{m}}$
 
 ```{r}
-1-((1-0.05)^(1/10))
+1-((1-0.05)^(1/15))
 ```
 
 ---
-# Bonferroni in action
-- 
-```{r, eval=TRUE}
-tA1_A2 <- t.test(SWB ~ Hospital, data = filter(hosp_tbl, (Treatment == "TreatA")))
-tA1_B1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp1") | (Treatment == "TreatB" & Hospital == "Hosp1"))))
-tA1_C1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp1") | (Treatment == "TreatC" & Hospital == "Hosp1"))))
-tA1_B2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp1") | (Treatment == "TreatB" & Hospital == "Hosp2"))))
-tA1_C2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp1") | (Treatment == "TreatC" & Hospital == "Hosp2"))))
-tA2_B1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp2") | (Treatment == "TreatB" & Hospital == "Hosp1"))))
-tA2_C1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp2") | (Treatment == "TreatC" & Hospital == "Hosp1"))))
-tA2_B2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp2") | (Treatment == "TreatB" & Hospital == "Hosp2"))))
-tA2_C2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" & Hospital == "Hosp2") | (Treatment == "TreatC" & Hospital == "Hosp2"))))
-tB1_C1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" & Hospital == "Hosp1") | (Treatment == "TreatC" & Hospital == "Hosp1"))))
-tB1_B2 <- t.test(SWB ~ Hospital, data = filter(hosp_tbl, ((Treatment == "TreatB" & Hospital == "Hosp1") | (Treatment == "TreatB" & Hospital == "Hosp2"))))
-tB1_C2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" & Hospital == "Hosp1") | (Treatment == "TreatC" & Hospital == "Hosp2"))))
-tB2_C1 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" & Hospital == "Hosp2") | (Treatment == "TreatC" & Hospital == "Hosp1"))))
-tB2_C2 <- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" & Hospital == "Hosp2") | (Treatment == "TreatC" & Hospital == "Hosp2"))))
-tC1_C2 <- t.test(SWB ~ Hospital, data = filter(hosp_tbl, ((Treatment == "TreatC" & Hospital == "Hosp1") | (Treatment == "TreatC" & Hospital == "Hosp2"))))
+# No adjustments (as last week)
+
+```{r, warning = FALSE, eval=TRUE}
+m1_means <- emmeans(m1, ~Treatment*Hospital)
+pairs(m1_means, adjust="none")
 ```
 
 ---
-# Bonferroni in action
-- 15 tests, so our adjusted $\alpha = 0.05/15 = 0.003$
+# Bonferroni in action: `emmeans`
+
 ```{r, echo=TRUE}
-tA1_A2
-```
-  
----
-# Bonferroni in action
-- 15 tests, so our adjusted $\alpha = 0.05/15 = 0.003$
-```{r, echo=TRUE}
-tA1_B1
-```
-  
----
-# Bonferroni in action
-- 15 tests, so our adjusted $\alpha = 0.05/15 = 0.003$
-```{r, echo=TRUE}
-tA1_B2
-```
-  
----
-# Bonferroni in action
-- 15 tests, so our adjusted $\alpha = 0.05/15 = 0.003$
-```{r, echo=TRUE}
-tA1_C1
-```
-  
----
-# Bonferroni in action
-- 15 tests, so our adjusted $\alpha = 0.05/15 = 0.003$
-```{r, echo=TRUE}
-tA1_C2
+pairs(m1_means, adjust="bonferroni")
 ```
 
 ---
-# Bonferroni in action
-- A little easier, but less thorough...
-```{r, eval=TRUE}
-pairwise_ts <- hosp_tbl %>%
-  group_by(Hospital) %>% 
-  t_test(SWB ~ Treatment, p.adjust.method = "bonferroni")
+# Sidak with `emmeans`
+
+```{r}
+pairs(m1_means, adjust = "sidak")
 ```
 
 ---
-# Bonferroni in action
-- A little easier, but less thorough...
-```{r, echo=TRUE}
-pairwise_ts
+# What about if there were less tests?
+
+```{r}
+pairs(m1_means, simple="Treatment", adjust="bonferroni")
 ```
+
 
 ---
 # Tukey & Scheffe
@@ -271,15 +236,20 @@ pairwise_ts
   + This produces a $q$ statistic for each comparison. 
   + And is compared against a studentized range distribution. 
 
+
 ---
-# Tukey in R
-- TukeyHSD() function works on an aov object. 
-```{r, eval=FALSE}
-m5 <- aov(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
-TukeyHSD(m5)
+# With `emmeans`
+
+```{r}
+pairs(m1_means, adjust = "tukey")
 ```
-```{r, echo=FALSE, out.width="40%"}
-knitr::include_graphics("./figs/tukey.png")
+
+
+---
+# With `emmeans`
+
+```{r}
+pairs(m1_means, adjust = "scheffe")
 ```
 
 
@@ -291,6 +261,103 @@ class: center, middle
 ---
 class: center, middle
 # Welcome Back!
+
+---
+# Assumptions and Checks
++ You will be pleased to hear, that essentially nothing changes.
+
++ Key difference is we do not worry about assessing linearity.
+  + Without a continuous predictor, we do not really have slopes
+
++ Instead we look to see if the within group errors have a zero mean
+
+---
+# Within group errors
+.pull-left[
+```{r, eval=F}
+plot(m1, which = 1)
+```
+]
+
+.pull-right[
+
+```{r, echo=F}
+plot(m1, which = 1)
+```
+]
+
+---
+# Normality of residuals
+.pull-left[
+```{r, eval=F}
+plot(m1, which = 2)
+```
+]
+
+.pull-right[
+
+```{r, echo=F}
+plot(m1, which = 2)
+```
+]
+
+---
+# Normality of residuals
+
+.pull-left[
+```{r, eval=F}
+hist(m1$residuals)
+```
+]
+
+.pull-right[
+
+```{r, echo=F}
+hist(m1$residuals)
+```
+]
+
+
+---
+# Equal variances
+
+.pull-left[
+```{r, eval=F}
+plot(m1, which = 3)
+```
+]
+
+.pull-right[
+
+```{r, echo=F}
+plot(m1, which = 3)
+```
+]
+
+---
+# Equal variances
+
+.pull-left[
+```{r, eval=F}
+plot(m1, which = 5)
+```
+]
+
+.pull-right[
+
+```{r, echo=F}
+plot(m1, which = 5)
+```
+]
+
+---
+# Summary
+
++ We have discussed the issue of multiple comparisons
+
++ We have seen how to implement corrections using `emmeans`
+
++ We have recapped assumptions for linear models.
 
 
 ---
