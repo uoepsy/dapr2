@@ -1,0 +1,686 @@
+---
+title: "More About Logistic Regression"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+library(tidyverse)
+library(kableExtra)
+library(patchwork)
+```
+
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Understand how to fit and interpret a logistic model
+2. Understand the difference between Pearson residuals and Deviance residuals
+3. Understand how to evaluate model fit
+
+:::
+
+
+:::yellow
+__PREREQUISITES__
+
+Let $A$ and $B$ be two positive numbers:
+
+$$
+\begin{aligned}
+e^{A + B} &= e^A \times e^B \\
+e^{\log(A)} &= A \\
+\log \left( \frac{A}{B} \right) &= \log(A) - \log(B) \\
+\log (A \times B) &= \log(A) + \log(B)
+\end{aligned}
+$$
+
+:::
+
+
+
+# Senility and WAIS
+
+> **Research Question**
+>
+> Does the probability of having senility symptoms change as a function of the WAIS score?
+
+A sample of elderly people was given a psychiatric examination to determine symptoms of senility were present. Other measurements taken at the same time included the score on a subset of the Wechsler Adult Intelligent Scale (WAIS). The data represent symptoms of senility (`senility` = 1 if symptoms are present and `senility`= 0 otherwise) and WAIS scores (`wais`) for $n = 54$ people. 
+
+You can download the data at following link: https://uoepsy.github.io/data/SenilityWAIS.csv
+
+`r qbegin("A1")`
+
+Read in the 'SenilityWAIS' data, look at the `head()`, and plot (via `ggplot()`) the relationship between `wais` and `senility`.   
+
+**Hint**: In `ggplot()`, make sure you use `geom_jitter()` rather than `geom_point()` otherwise we will have multiple points on top of each other as there are multiple individuals with the same wais' values.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+library(tidyverse)
+
+sen <- read_csv(file = 'https://uoepsy.github.io/data/SenilityWAIS.csv')
+head(sen)
+
+ggplot(sen, aes(wais, senility)) +
+  geom_jitter(width = 0, height = 0.05) +
+  labs(x = "x, WAIS score", 
+       y = "y, Has senility symptoms?")
+```
+
+`r solend()`
+
+
+`r qbegin("A2")`
+
+Since we are interested in understanding how the probability of having senility symptoms changes as a function of the WAIS score, the response variable is $y$ = `senility` and the predictor (or explanatory variable) is $x$ = `wais`. 
+
+Fit the following logistic regression model:
+$$
+\log \left( \frac{p_x}{1-p_x} \right) = \beta_0 + \beta_1 \ x
+$$
+where $p_x = P(y = 1)$ is the probability that $y = 1$ for an individual with WAIS score equal to $x$.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+mdl1 = glm(senility ~ wais, family = binomial, data = sen)
+summary(mdl1)
+```
+`r solend()`
+
+
+# Interpretation of coefficients
+
+To interpret the fitted coefficients, we first exponentiate the model:
+$$
+\begin{aligned}
+\log \left( \frac{p_x}{1-p_x} \right) &= \beta_0 + \beta_1 x \\
+e^{ \log \left( \frac{p_x}{1-p_x} \right) } &= e^{\beta_0 + \beta_1 x } \\
+\frac{p_x}{1-p_x} &= e^{\beta_0} \ e^{\beta_1 x}
+\end{aligned}
+$$
+
+and recall that the probability of success divided by the probability of failure is the odds of success. In our example, this would be the odds of showing senility symptoms.
+$$
+\frac{p_x}{1-p_x} = \text{odds}
+$$
+
+__Intercept__
+
+$$
+\text{If }x = 0, \qquad \frac{p_0}{1-p_0} = e^{\beta_0} \ e^{\beta_1 x} = e^{\beta_0}
+$$
+
+That is, $e^{\beta_0}$ represents the odds of having symptoms of senility for individuals with a WAIS score of 0. 
+
+In other words, for those with a WAIS score of 0, the probability of having senility symptoms is $e^{\beta_0}$ times that of non having them.
+
+
+
+__Slope__
+
+$$
+\text{If }x = 1, \qquad \frac{p_1}{1-p_1} = e^{\beta_0} \ e^{\beta_1 x} = e^{\beta_0} \ e^{\beta_1}
+$$
+
+Now consider taking the ratio of the odds of senility symptoms when $x=1$ to the odds of senility symptoms when $x = 0$:
+$$
+\frac{\text{odds}_{x=1}}{\text{odds}_{x=0}} = \frac{p_1 / (1 - p_1)}{p_0 / (1 - p_0)} 
+= \frac{e^{\beta_0} \ e^{\beta_1}}{e^{\beta_0}}
+= e^{\beta_1}
+$$
+
+
+So, $e^{\beta_1}$  represents the odds ratio for a 1 unit increase in WAIS score.
+
+It is typically interpreted by saying that for a one-unit increase in WAIS score the odds of senility symptoms increase by a factor of $e^{\beta_1}$.
+
+Equivalently, we say that $e^{\beta_1}$ represents the multiplicative increase (or decrease) in the odds of success when $x$ is increased by 1 unit.
+
+`r qbegin("A3")`
+
+Interpret the coefficients from `mdl1`.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+exp(coef(mdl1))
+```
+
+The odds of senility symptoms for individuals scoring 0 on the WAIS test is 11:1. Or, the probability of having senility symptoms for those scoring 0 on the WAIS test is 11 times the probability of not having senility symptoms.
+
+For every unit increase in WAIS score, the odds of senility symptoms reduces by a factor of 0.72
+
+`r solend()`
+
+
+<br>
+
+`r optbegin("Distinct covariate values (grouped data)")`
+
+If you explore the full data, you will see that even though there are $n = `r nrow(sen)`$ individuals, there are only 17 distinct values of the covariate $x$ (representing the WAIS scores), as some people have the same WAIS scores but different $y$ values.
+
+Let's summarise the original 0/1 data by computing  the total number of individual having that value of the predictor (`total`), the number of individuals with that predictor value that also showed senility symptoms (`count_1s`), and finally the number of people who did not show senility symptoms (`count_0s`). This is the "grouped data":
+
+```{r}
+sen_grp <- sen %>%
+  group_by(wais) %>%
+  summarise(total = n(),
+            count_1s = sum(senility))
+
+sen_grp
+```
+
+You can fit a logistic regression model to grouped data as follows. This is __completely equivalent__ to the one we fitted above.
+
+1. Provide two columns, one giving the count of 1s and the other giving the count of 0s:
+
+```{r}
+mdl1a <- glm(cbind(count_1s, total - count_1s) ~ wais, data = sen_grp, family = binomial)
+summary(mdl1a)
+```
+
+2. Provide the proportion of successes and the total number of people with that distinct predictor value:
+```{r}
+sen_grp <- sen_grp %>%
+  mutate(prop_1s = count_1s / total)
+
+head(sen_grp)
+```
+
+```{r}
+mdl1b <- glm(prop_1s ~ wais, weights = total, data = sen_grp, family = binomial)
+summary(mdl1b)
+```
+
+`r optend()`
+
+
+# Diagnosing model fit: Residuals
+
+Unlike linear regression, logistic regression has 2 main types of residuals.
+
+1. __Pearson residuals__
+
+2. __Deviance residuals__
+
+We will now discuss each in turn.
+
+In addition, just like in linear regression, each of the above can be __standardized__ or __studentized__. We won't discuss how to standardize each of those as the formula is difficult, but the idea is to rescale the residuals to have unit variance, making them more useful to diagnose outlying observations.
+
+Remember the difference?
+
+- $i$th standardized residual = residual / SD(residual)
+
+- $i$th studentized residual = residual / SD(residual from model fitted without observation $i$)
+
+
+:::yellow
+__What to look for__
+
+We use the standardized/studentized residuals to identify outliers. If a case has a standardized/studentized residual larger than 2 in absolute value, it is deemed an outlier.
+
+Some authors prefer a more conservative threshold of 3, in absolute value. That is, outliers are cases with a residual smaller than -3 or larger than 3. This is because approximately 99% of the data should be between -3 and 3 for a standardized variable.
+:::
+
+
+## Pearson residuals
+
+Pearson residuals are similar to the Pearson residuals you might remember from the chi-squared test in DAPR1, which compared Observed and Expected values, but in this case Expected means Predicted from the model:
+$$
+Pres_i = \frac{Observed - Expected}{\sqrt{Expected}}
+$$
+
+In logistic regression, this is 
+$$
+Pres_i = \frac{y_i - \hat p_i}{\sqrt{\hat p_i (1 - \hat p_i)}}
+$$
+
+where 
+
+- $y_i$ is the observed response for unit $i$, either 0 (failure) or 1 (success)
+- $\hat p_i$ is the model-predicted probability of success
+
+There is one residual per each case (row) in the dataset:
+```{r}
+Pres <- residuals(mdl1, type = 'pearson')
+```
+
+To see this, we can add a column to the data:
+```{r}
+sen %>%
+  mutate(Pres = Pres)
+```
+
+
+
+The standardized Pearson residuals (having zero mean and unit standard deviation) are obtained as follows:
+```{r}
+SPres <- rstandard(mdl1, type = 'pearson')
+```
+
+
+The studentized Pearson residuals (also having zero mean and unit standard deviation) are obtained as follows:
+```{r}
+StuPres <- rstudent(mdl1, type = 'pearson')
+```
+
+
+__In the following, I will use the studentized residuals for the plots, but if you wish to, you can use the standardized ones.__
+
+
+First, we plot the studentized Pearson Residuals against their index, and we check whether there are any values larger than 2 in absolute value (that is larger than 2 or smaller than -2). Some people prefer to be strict and deem as outlier those greater than 3 in absolute value as most values should be within -3 and 3.
+
+```{r}
+plot(StuPres, ylab = "Studentized Pearson Residuals")
+```
+
+Yes, there appear to be 3 residuals with a value slightly larger than 2 in absolute value. We will keep these in mind and check later if they are also influential points.
+
+
+_*Warning:* Don't inspect this plot for patterns!!! In here you might think there is a curvilinear relationship, but there isn't._
+_The plot has this shape as the first 14 cases have a response = 1, while the remaining have a response = 0, hence the two different levels._
+
+
+<br>
+
+Plotting the (studentized) Pearson residuals against the fitted values^[This is what you get with `plot(model, which = 1)`] or the predictor is not very informative in logistic regression as you can see below:
+```{r}
+plot(fitted(mdl1), StuPres, 
+     xlab = 'Prob. of Success', ylab = 'Studentized Pearson Residuals')
+```
+
+```{r}
+plot(sen$wais, StuPres, 
+     xlab = 'Prob. of Success', ylab = 'Studentized Pearson Residuals')
+```
+
+We only inspect residuals plot to find cases with a residual which is smaller than -2 (-3) or larger than 2 (3).
+
+
+Sometimes a __binned plot__ [^gelman-hill] can be more informative, but not always! It works by combining together all responses for people having the same covariate $x_i$ value, and taking the average studentized Pearson residual for those.
+
+Before using this function, make sure you have installed the **arm** package!
+
+```{r}
+arm::binnedplot(fitted(mdl1), StuPres, 
+                xlab = 'Prob. of Success', ylab = 'Studentized Pearson Residuals')
+```
+
+There doesn't appear to be any extreme residuals.
+
+
+[^gelman-hill]: Gelman, A., & Hill, J. (2006). Data Analysis Using Regression and Multilevel/Hierarchical Models (Analytical Methods for Social Research). Cambridge: Cambridge University Press. doi:10.1017/CBO9780511790942
+
+
+## Deviance residuals
+
+What does _deviance_ mean? In logistic regression, deviance is a measure of deviation, discrepancy, mismatch between the data and the model. You can think of it as a generalisation of the terms making up the residual sum of squares in simple linear regression. Hence, the deviance measures misfit, _badness of fit_ and so (as it was for the residual sum of squares) the smaller the better!
+
+
+We get the deviance residuals (always one per case) as follows:
+```{r}
+Dres <- residuals(mdl1, type = 'deviance')
+```
+
+
+The standardized deviance residuals (zero mean and unit standard deviation) are obtained with
+```{r}
+SDres <- rstandard(mdl1, type = 'deviance')
+```
+
+And the studentized deviance residuals (zero mean and unit standard deviation) are found via:
+```{r}
+StuDres <- rstudent(mdl1, type = 'deviance')
+```
+
+Again, we check whether any residuals are larger than 2 or 3 in absolute value:
+```{r}
+plot(StuDres, ylab = 'Studentized Deviance Residuals')
+```
+
+All fine!
+
+
+Again, a plot against the fitted values or the predictors isn't that useful in logistic regression...
+```{r}
+plot(fitted(mdl1), StuDres, 
+     xlab = 'Prob. of Success', ylab = 'Studentized Deviance Residuals')
+```
+
+```{r}
+plot(sen$wais, StuDres, 
+     xlab = 'Prob. of Success', ylab = 'Studentized Deviance Residuals')
+```
+
+So we will check against a binned plot:
+```{r}
+arm::binnedplot(fitted(mdl1), StuDres, 
+                xlab = 'Prob. of Success', ylab = 'Studentized Deviance Residuals')
+```
+
+Again, it seems like everything is fine, no extremely high values.
+
+:::yellow
+## Which residuals should I use???
+
+Both! Compute both, and for visual exploration most of the time it's fine to use the __deviance__ residuals.
+
+<!-- You will get away with it -->
+
+If you use standardized or studentized ones it's easier to explore extreme values as we expect most residuals to be within -2, 2 or -3, 3.
+
+If you do not provide the `type = ...` argument to the function `residuals()`, then it will use the Deviance residuals by default, and so will the functions `rstandard()` and `rstudent()`!
+
+:::
+
+
+
+# Influential values
+
+In logistic regression we typically check for influential observations by checking if there are any of the `r nrow(sen)` cases in the dataset that have a Cook's distance greater than 0.5 (moderately influential) or 1 (highly influential):
+
+```{r}
+plot(cooks.distance(mdl1), ylab = "Cook's distance")
+```
+
+None of the units in the dataset appears to have a Cook's distance value greater than 0.5, hence there does not seem to be issues with influential points.
+
+
+# Diagnosing model fit
+
+
+## Drop-in-deviance test to compare nested models
+
+When moving from linear regression to more advanced and flexible models, testing of goodness of fit is more often done by comparing a model of interest to a simpler one.
+The only caveat is that the two models need to be __nested__, i.e. one model needs to be a simplification of the other, and all predictors of one model needs to be within the other.
+
+We want to compare the model we previously fitted against a model where all slopes are 0, i.e. a baseline model:
+$$
+\begin{aligned}
+M_1 : \qquad\log \left( \frac{p}{1 - p} \right) &= \beta_0 \\
+M_2 : \qquad \log \left( \frac{p}{1 - p} \right) &= \beta_0 + \beta_1 x
+\end{aligned}
+$$
+
+The null hypothesis will be that the simpler model is a good fit, while the alternative is that the more complex model is needed.
+
+In R we do the comparison as follows:
+```{r}
+mdl_red <- glm(senility ~ 1, family = binomial, data = sen)
+
+anova(mdl_red, mdl1, test = 'Chisq')
+```
+
+The above code shows the two fitted models
+```
+Model 1: senility ~ 1
+Model 2: senility ~ wais
+```
+
+And then reports the _Residual Deviance_ of each model, 61.806 and 51.017 respectively. Remember the deviance is the equivalent of residual sum of squares in linear regression.
+
+So, by adding the predictor $x$ = wais to the model, we reduce our deviance from 61.806 to 51.017, i.e. we reduce it by 10.789. 
+Is this reduction sufficient to be attributed solely to the contribution of the predictor, or could it just be due to random sampling variation? This is what the chi-squared test tells us! 
+
+
+:::int
+The reduced model ($M_1$) has the slope set to zero $\beta_1 = 0$. Its deviance is obtained by fitting a logistic regression model without any explanatory variables (but including a constant term). This deviance is found to be 61.806, with 53 degrees of freedom.
+The deviance statistic from a fit of the model with $x$ = wais included is 51.017, with 52  degrees of freedom. The deviance dropped by 10.789, with a drop of one degree of freedom. The associated p-value from a chi-squared distribution with 1df is $p = .001$.
+
+There is strong evidence of an association between senility symptoms and scores on the Wechsler Adult Intelligent Scale.
+:::
+
+
+
+<!-- Above was Drop-in-deviance GOF test -->
+<!-- # Deviance GOF test -->
+<!-- mdl_sat = glm(senility ~ factor(1:nrow(sen)), family = binomial, data = sen) -->
+<!-- anova(mdl1, mdl_sat, test = 'Chisq') -->
+
+
+`r optbegin("More on the deviance")`
+You can get the deviance of a specific model and its corresponding degrees of freedom can be found with the function
+```{r}
+deviance(mdl_red)
+df.residual(mdl_red)
+
+deviance(mdl1)
+df.residual(mdl1)
+```
+
+The deviance is computed as -2 * logLik(mdl)
+```{r}
+-2 * logLik(mdl_red)
+-2 * logLik(mdl1)
+```
+`r optend()`
+
+
+## Akaike and Bayesian Information Criteria
+
+Deviance measures lack of fit, and it can be reduced to zero by making the model more and more complex, effectively estimating the value at each single data point. 
+However, this involves adding more and more predictors, which makes the model more complex (and less interpretable). 
+
+Typically, simpler model are preferred when they still explain the data almost as well. This is why information criteria were devised, exactly to account for both the model misfit but also its complexity.
+
+$$
+\text{Information Criterion} = \text{Deviance} + \text{Penalty for model complexity}
+$$
+
+Depending on the chosen penalty, you get different criteria. Two common ones are the Akaike and Bayesian Information Criteria, AIC and BIC respectively:
+$$
+\begin{aligned}
+\text{AIC} &= \text{Deviance} + 2 p \\
+\text{BIC} &= \text{Deviance} + p \log(n)
+\end{aligned}
+$$
+
+where $n$ is the sample size and $p$ is the number of regression coefficients in the model. __Models that produce smaller values of these fitting criteria should be preferred.__ 
+
+AIC and BIC differ in their degrees of penalization for number of regression coefficients, with BIC usually favouring models with fewer terms. 
+
+`r qbegin("A4")`
+
+Check the AIC and BIC values for `mdl_red` and `mdl1` - which model should we prefer?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+AIC(mdl_red, mdl1)
+BIC(mdl_red, mdl1)
+```
+
+According to both AIC and BIC the model with wais as a predictor has a lower score, meaning it's preferable to the other.
+
+`r solend()`
+
+In any case, it is important to realise that no criterion can be superior in all situations. Rather, have a look at multiple ones and see if they agree overall.
+
+
+
+# Less Guided Exercises
+
+Kalkhoran et al. (2015) [^1] investigated predictors of dual use of cigarettes and smokeless tobacco products. Although their original sample size was large ($n$ = 1324), they were interested in running separate logistic regression analyses within subgroups. Most of the sample used only cigarettes. One of the smaller subgroups contained subjects who used both cigarettes and smokeless tobacco products ($n$=61). For this problem we focus on this smaller subgroup of dual cigarette and smokeless tobacco users. The dependent variable, Q, is whether the subject made an attempt to quit using tobacco products (0 = no attempt to quit; 1 = attempted to quit). There is one multi-category independent variable, intention to quit, I, with four levels: never intend to quit, may intend to quit but not in the next 6 months, intend to quit in the next 6 months, intend to quit in the next 30 days. 
+
+The data can be found at the following link: https://uoepsy.github.io/data/QuitAttempts.csv
+
+```{r echo=FALSE}
+library(tidyverse)
+library(kableExtra)
+
+cb <- tibble(
+  Variable = c('S', 'Q', 'I'),
+  Description = c(
+    'Subject',
+    'Quitting (0 = No attempt to quit; 1 = Attempted to quit)',
+    'Intentions to Quit (1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days)'
+  )
+)
+
+kable(cb, caption = 'Quit Attempts and Intentions Among Dual Users of Cigarettes and Smokeless Tobacco Products') %>%
+  kable_styling(full_width = FALSE)
+```
+
+
+`r qbegin("B1")`
+Read the data into R.
+
+Perform a preliminary exploratory analysis of the data by computing summary statistics and visualising the distribution of the variables.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+qa <- read_csv('https://uoepsy.github.io/data/QuitAttempts.csv')
+head(qa)
+```
+
+```{r}
+qa %>%
+  group_by(I) %>%
+  count(Q) %>%
+  pivot_wider(names_from = Q, values_from = n) %>%
+  mutate(Total = `0` + `1`)
+```
+
+
+```{r}
+ggplot(qa, aes(I, fill = factor(Q))) +
+  geom_bar() +
+  labs(fill = 'Attempted quitting?')
+```
+
+`r solend()`
+
+
+`r qbegin("B2")`
+Fit a logistic regression of Q on I using ordinary logistic regression. 
+
+Be sure to treat the independent variable I as categorical rather than as continuous in these analyses (hint: you will need to make sure R will create for you dummy variables for each level of I, rather than treating it as numeric).
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+First, we must make sure `I` is a factor otherwise R won't create the dummy variables for us:
+```{r}
+qa$I <- as.factor(qa$I)
+```
+
+```{r}
+qa_fit1 = glm(Q ~ I, data = qa, family = binomial)
+summary(qa_fit1)
+```
+`r solend()`
+
+
+`r qbegin("B3")`
+What do you observe from the results?
+
+Interpret the coefficients in the context of the study. You might want to provide confidence intervals for the estimates!   
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+summary(qa_fit1)$coefficients
+exp(confint(qa_fit1))
+```
+
+
+First let's remind ourselves of the levels of our independent variable `I`.  
+Intentions to Quit (1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days). 
+
+:::int
+For a participant who reported that they "never intend to quit", the odds of attempting to quit was `r round(exp(coef(qa_fit1))[1],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[1,],collapse="--")`]). That is, for those who reportedly "never intend to quit", the probability that they attempted quitting was `r round(exp(coef(qa_fit1))[1],2)` times the probability that they didn't.
+
+Relative to this group, reporting an intention to quit but not in the next 6 months meant that their the odds of quitting increased by a factor of `r round(exp(coef(qa_fit1))[2],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[2,],collapse="--")`]).
+
+Reporting an intention to quit in the next 6 months increased the odds of quitting by a factor of `r round(exp(coef(qa_fit1))[3],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[3,],collapse="--")`]).
+
+Finally, intending to quit in the next 30 days was associated with an increase in the odds of attempting to quit by a factor of `r round(exp(coef(qa_fit1))[4],2)` (95% CI [`r paste(round(exp(confint(qa_fit1)),2)[4,],collapse="--")`])
+:::
+
+`r solend()`
+
+
+`r qbegin("B4")`
+Investigate whether or not the studentized deviance residuals raise any concerns about outliers.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+plot(residuals(qa_fit1), ylab = "Studentized Deviance Residuals")
+plot(fitted(qa_fit1), residuals(qa_fit1),
+     xlab = "Fitted values", ylab = "Studentized Deviance Residuals")
+arm::binnedplot(fitted(qa_fit1), residuals(qa_fit1),
+                ylab = "Average Studentized Deviance Residuals")
+```
+
+The plots do not show residuals substantially larger than 2 in absolute value, hence we do not evidence of outliers.
+`r solend()`
+
+
+`r qbegin("B5")`
+Investigate whether or not there are influential observations.
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+plot(cooks.distance(qa_fit1), ylab = "Cook's Distance")
+```
+
+There are no points with a Cook's distance larger than 0.5.
+
+`r solend()`
+
+
+
+`r qbegin("B6")`
+Perform a Deviance goodness-of-fit test by compare the following nested models:
+
+$$
+\begin{aligned}
+M_1 &: \qquad \log \left( \frac{p}{1 - p}\right) = \beta_0 \\
+M_2 &: \qquad \log \left( \frac{p}{1 - p}\right) = \beta_0 + \beta_1 I2 + \beta_2 I3 + \beta_3 I4
+\end{aligned}
+$$
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+qa_null <- glm(Q ~ 1, data = qa, family = binomial)
+summary(qa_null)
+```
+
+```{r}
+anova(qa_null, qa_fit1, test = 'Chisq')
+```
+
+:::int
+At the 5% significance level, the addition of the information about the subjects' intentions to quit resulted in a significant decrease in model deviance (12). Comparing this with a chi-squared with 3 degrees of freedom results in a $p = .007$.
+
+Hence, we have strong evidence that the model the subjects' intention to quit are helpful predictors of whether or not they will attempt quitting in the future.
+:::
+
+`r solend()`
+
+
+
+
+
+
+[^1]: Kalkhoran S, Grana RA, Neilands TB, and Ling PM. Dual use of smokeless tobacco or e-cigarettes with cigarettes and cessation. _Am J Health Behav._ 2015;39:277–284.
+
+
+<!-- Formatting -->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
+
+
