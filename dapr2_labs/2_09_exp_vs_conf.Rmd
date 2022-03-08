@@ -1,0 +1,318 @@
+---
+title: "Exploratory vs Confirmatory Data Analysis"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+```
+
+```{r echo=FALSE}
+set.seed(3)
+```
+
+
+
+:::lo
+**LEARNING OBJECTIVES**
+
+1. Understand k-folding
+2. Understand how to perform exploratory analyses
+3. 
+
+:::
+
+# Wine Quality
+
+This week's lab explores wine quality based on physiochemical properties/attributes, using data that was collected between 2004 and 2007. Specifically, the data concern white and red **vinho verde**. 
+
+## The Data
+
+Download the data here: https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv and https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv
+
+This week you will be reading in two files, and using the `bind_rows` argument to combine the datasets (as the name suggests, we will be combining by row). Let's read in the data, and call it `wine`.
+ 
+```{r}
+# Read the data
+library(tidyverse)
+wine <- bind_rows(
+  read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";", header=T) %>% mutate(col="red"),
+  read.table("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv", sep=";", header=T) %>% mutate(col="white")
+)
+```
+
+`r qbegin(1)`
+
+Inspect the data and check the dimensions. How many observations and how many variables are there?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+# Inspect top 6 rows
+head(wine)
+# Check data dimensions
+dim(wine)
+```
+
+There are `r nrow(wine)` observations on `r ncol(wine)` variables.
+
+`r solend()`
+
+# Exploratory
+
+For this section of the lab, we do not have a fixed research question and/or hypothesis, but will instead be exploring associations among variables. We have randomly selected two variables (`alcohol`, and `col`) to predict the outcome `quality`:
+
+```{r echo = FALSE}
+library(kableExtra)
+
+tibble(
+    Variable = c('`quality`', '`alcohol`', '`col`'),
+    Description = c('Quality rating of wine - assessed on a scale  ranging from 0 (very bad) to 10 (excellent).',
+                    'Alcohol volume - measured as a percentage.',
+                    'Colour of wine - red or white.')
+) %>%
+    kable() %>%
+    kable_styling(full_width = FALSE)
+```
+
+`r qbegin(2)`
+
+Subset the data to only include these three variables we want to explore further - `quality`, `alcohol`, `col`.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wine <- wine %>%
+    select(quality, alcohol, col)
+```
+
+`r solend()`
+
+`r qbegin(3)`
+
+Visualise each variable individually, and note down your observations.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+#Quality Rating
+ggplot(wine, aes(x = quality)) +
+    geom_histogram(color = 'white') +
+    labs(x = 'Quality Rating', 
+         y = 'Frequency')
+
+# Alcohol (%)
+ggplot(wine, aes(x = alcohol)) +
+    geom_histogram(color = 'white') +
+    labs(x = 'Alcohol (%)', 
+         y = 'Frequency')
+
+#Colour
+ggplot(wine, aes(x = col)) + 
+    geom_bar() + 
+    labs(x = 'Colour', 
+         y = 'Frequency')
+
+```
+
+:::int
+* Quality rating appears to be heavily set in mid-range scores (i.e., no extremely low or high)
+* Alcohol (%) rather skewed, although this makes sense given that we don't expect many wines to have a very high alcohol volume
+* White wines make up the majority of the wine colours sampled - more than double that of reds
+
+:::
+
+`r solend()`
+
+
+`r qbegin(4)`
+
+Produce a visualisation of the relationship between quality and alcohol. Consider either presenting with separate facets for wine colour, or add the `colour` argument within your `aes()` statement.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r fig.width=12, fig.height=4, out.width = '95%'}
+library(patchwork)
+
+p1 <- ggplot(wine, aes(alcohol, quality)) +
+    geom_point() +
+    facet_wrap(~col) +
+    scale_x_continuous(limits = c(5, 15)) + 
+    scale_y_continuous(limits = c(0, 10)) + 
+    labs(x = 'Alcohol (%)', y = 'Quality Rating')
+
+p2 <- ggplot(wine, aes(alcohol, quality, colour = col)) +
+    geom_point(size = 1) +
+    scale_x_continuous(limits = c(5, 15)) + 
+    scale_y_continuous(limits = c(0, 10)) + 
+    labs(x = 'Alcohol (%)', y = 'Quality Rating')
+
+p1 | p2
+```
+
+:::int 
+
+From the plots, it appears that there is a positive association between alcohol percentage and quality rating. It is not so clera if there is an association between quality and colour, but white wines do seem to have more high ratings.
+
+:::
+
+`r solend()`
+
+`r qbegin(5)`
+
+Next we are going to manually calculate K-Fold Cross Validation. 
+
+As a first step, we need to randomise our data, and then divide into 'k' groups, or “folds”, of roughly equal size. We will subset into 3 groups. Recall that we have `nrow(wine)`, and so need to create two datasets of 2166 observations, and one with 2165 observations.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+#randomise the data
+wine_shuffle <- wine[sample(1:nrow(wine)),]
+
+#split into three data frames 
+wine1 <- wine_shuffle[1:2166, ]
+wine2 <- wine_shuffle[2167:4332, ]
+wine3 <- wine_shuffle[4333:6497, ]
+
+```
+
+`r solend()`
+
+`r qbegin(6)`
+
+We are going to work through the following:
+
+* Model1: Trained on Wine1 + Wine2, Tested on Wine3
+* Model2: Trained on Wine2 + Wine3, Tested on Wine1
+* Model3: Trained on Wine1 + Wine3, Tested on Wine2
+
+Lets build two additive models using the `wine1` and `wine2` datasets. We will allocate `wine3` as our test dataset for now (i.e., Model 1 from above).
+
+$$
+\texttt{Additive Model:}
+\\\\
+\texttt{Quality Rating}
+= \beta_0 
++ \beta_1 \ \texttt{Alcohol Percentage}
++ \beta_2 \texttt{Wine Colour}
++ \epsilon_i
+$$
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wine1train <- lm(quality ~ alcohol + col, data = wine1)
+wine2train <- lm(quality ~ alcohol + col, data = wine2)
+```
+
+`r solend()`
+
+
+`r qbegin(7)`
+Calculate the test MSE on the observations in the fold that was held out (i.e., used as the test dataset - `wine3`). Remember that the MSE is the average squared distance between the observed and predicted values.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wine3 %>% mutate(
+  pred1 = predict(wine1train, newdata = wine3),
+  pred2 = predict(wine2train, newdata = wine3),
+  sq_err1 = (quality - pred1)^2,
+  sq_err2 = (quality - pred2)^2
+) %>%
+  summarise(
+    mse1 = mean(sq_err1),
+    mse2 = mean(sq_err2)
+  )
+```
+
+`r solend()`
+
+`r qbegin(8)`
+
+Repeat the steps in questions 6 & 7, so that all three of our data subsets (i.e., also `wine1`, `wine2`) are used as the test dataset.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's start with `wine1` as the test dataset, and then `wine2`
+```{r}
+#Wine 1
+wine2train <- lm(quality ~ alcohol + col, data = wine2)
+wine3train <- lm(quality ~ alcohol + col, data = wine3)
+
+wine1 %>% mutate(
+  pred2 = predict(wine2train, newdata = wine1),
+  pred3 = predict(wine3train, newdata = wine1),
+  sq_err2 = (quality - pred2)^2,
+  sq_err3 = (quality - pred3)^2
+) %>%
+  summarise(
+    mse2 = mean(sq_err2),
+    mse3 = mean(sq_err3)
+  )
+```
+
+And now `wine2`.
+```{r}
+#Wine 2
+wine1train <- lm(quality ~ alcohol + col, data = wine1)
+wine3train <- lm(quality ~ alcohol + col, data = wine3)
+
+wine2 %>% mutate(
+  pred1 = predict(wine2train, newdata = wine2),
+  pred3 = predict(wine3train, newdata = wine2),
+  sq_err1 = (quality - pred1)^2,
+  sq_err3 = (quality - pred3)^2
+) %>%
+  summarise(
+    mse1 = mean(sq_err1),
+    mse3 = mean(sq_err3)
+  )
+```
+
+
+`r solend()`
+
+:::blue
+
+In **R**, as demonstrated in the lectures, you can use the `crossv_kfold()` function from the `modelr` package to conduct K-Folding. You also need to use the `map()` function too in order to X.
+
+```{r, eval = FALSE}
+library(modelr)
+
+#example of three folds
+cv <- crossv_kfold(wine, k = 3)
+cv
+```
+
+:::
+
+:::frame
+Important! We selected two variables at random from the original `wine` dataset. If you would like more practice, feel free to 'explore' the associations of other variables that you think sound intriguing! 
+:::
+
+# Confirmatory 
+
+You have already conducted many confirmatory analyses during the DAPR2 course - you have been asked to complete specific analyses, test pre-determined hypotheses, etc.
+
+
+<!-- Formatting -->
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
