@@ -1,0 +1,319 @@
+---
+title: "<b>Binary Logistic Model </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: "AY 2020-2021"
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmosaic)
+library(kableExtra)
+library(performance)
+
+hire <- read_csv("hire.csv", col_types = 'fdff')
+```
+
+# Weeks Learning Objectives
+1. Identify and provide examples of binary psychological outcomes.
+2. Understand why a standard LM is not appropriate for binary data.
+3. Fit and interpret a logistic model
+
+---
+# Topics for today
++ More logistic regression
+	+ The effects of individual IVs
+	+ Model selection
+	+ Other issues
+
+---
+#  Our data and model
++ Imagine we're interested in predicting hiring decisions. 
+
++ We collect data on n=242 job-seekers
+	+ Age
+	+ Effort put into job application
+
++ Our variables:
+	+ DV: `work` (0 = did not get job; 1 = did get job)
+	+ IV1: `age` (in years)
+	+ IV2: `msrch` (effort into job application, 0=low effort, 1 = high effort)
+
+```{r, eval=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, family = "binomial")
+summary(m2)
+```
+
+---
+#  Job-seeking example 
+
+```{r, echo=FALSE}
+m2 <- glm(work ~ age + msrch, data = hire, family = "binomial")
+summary(m2)
+```
+
+
+---
+#  Model equation: job-seeking example 
++ Below we have the general form with two $x$'s
+
+$$P(y_i) = \frac{1}{1+e^{-(b_0 + b_1x_1 + b_2x_2)}}$$
+
++ And we can insert the values from the previous slide with our model results:
+
+
+$$P(y_i) = \frac{1}{1+e^{-(4.525 -0.118age + 1.683msrch)}}$$
+
+---
+#  Interpreting logistic model coefficients
++ In linear regression, the $b$ coefficients for each IV are the unit increase in $Y$ for every unit increase in $X$ (holding other IVs constant)
+
++ In logistic regression, the $b$ coefficients for each IV are the **change in log odds of $Y$ for every unit increase in $x$** (holding other IVs constant)
+
+
+---
+#  What are log odds? 
+$b$ = **the change in log odds of $Y$ for every unit increase in $X$**
+
++ The odds of an event occurring (e.g., a job offer; Y=1) is defined as the ratio of the probability of the event occurring to the probability of the event not occurring:
+
+$$odds = \frac{P(Y=1)}{1-P(Y=1)}$$
+
++ $P(Y=1)$ is the same as $P(y_i)$ calculated in the logistic regression model
+  + Think of a coin toss.
+  + Odds of tails occurring = 0.5
+  + Odds of not tails = 0.5
+  + Odds = 1
+
+
+---
+#  What are log odds?  
+$b$ = **the change in log odds of $Y$ for every unit increase in $X$**
+
++ Log odds are then the natural logarithm of the odds:
+
+
+$$log odds = ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right)$$
+
+---
+#  Probabilities, odds and log-odds 
+
+```{r}
+tibble(
+  Probs = seq(0.1, 0.9, 0.1)
+) %>%
+  mutate(
+    Odds = round(Probs/(1-Probs),2),
+    Logits = round(log(Odds),2)
+  )
+```
+
+
+
+---
+#  For our job-seekers example 
++ For every additional year of age, there was a decrease in the log odds of a job offer of 0.118
+
++ Those who showed high effort in their application had a 1.683 greater log odds of a job offer than those who showed low effort
+
+---
+#  Odds ratio 
++ Log odds don't provide an easily interpretable way of understanding how the DV changes with the IV's
+
++ The $b$ coefficients from logistic regression are thus often converted to odds ratios
+	+ Odds ratios are a bit easier to interpret
+	+ Odds ratios are obtained by exponentiating the $b$ coefficients
+
++ In R, we exponentiate coefficients using the `exp()` function.
+
+---
+#  Exponentiating $b$ coefficients 
+
+```{r}
+exp(coef(m2))
+```
+
+
+---
+#  Interpreting odds ratios  
+
++ When the coefficients are converted to odds ratios, they represent the **change in odds with a unit increase in X**
+	+ Specifically the *ratio of odds* at X=x and X=x+1
+	
++ An odds ratio of 1 indicates no effect
+
++ An odds ratio < 1 indicates a negative effect
+
++ An odds ratio of >1 indicates a positive effect
+
+---
+#  Interpreting odds ratios 
+
+```{r}
+exp(coef(m2))
+```
+
++ For every year of `age`, the odds of being hired decrease by 0.88.
+
++ For those who put high effort into applications, the odds of being hired increase by a factor of 5.38.
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+**Now let's look at the significance of predictors**
+
+
+---
+#  Statistical significance of predictors
++ We can also evaluate the statistical significance of the predictors
+
++ To do this we can use a $z$-test:
+
+$$z = \frac{b}{SE(b)}$$
+
++ However , we should be aware that the $z$-test is a little prone to Type II errors
+	+ We can supplement it using model selection procedures (see later)
+
++ The z-test and associated $p$-value is provided as part of the summary output for `glm()`
+
+---
+#  The z-test 
+```{r, echo=FALSE}
+summary(m2)
+```
+
+
+---
+#  Confidence intervals  
++ We can also compute confidence intervals for our coefficients and associated odds ratios
+	+ For odds ratios, a value of 1= no effect
+	+ The question is, therefore, whether the confidence interval includes 1 or not
+
+---
+#  95% confidence intervals for our job-seekers example 
+
+.pull-left[
++ We can use the `confint()` function to compute confidence intervals
+
++ We can embed this in the `exp()` function to convert our coefficients to odds ratios.
+
++ Neither 95% CI includes 1, therefore, both predictors are significant at $p$<.05.
+]
+
+.pull-right[
+
+```{r}
+exp(confint(m2))
+```
+
+
+]
+
+---
+#  Model selection 
+
++ Just as in linear regression, we can compare logistic models differing in their predictors to choose a best fitting model
+
++ Methods we can use:
+	+ Likelihood ratio test
+	+ AIC
+	+ BIC
+
+
+---
+#  Likelihood ratio test 
++ We already encountered this when we compared our model to a baseline model with no predictors.
+
++ We can compare any set of **nested**  models using the likelihood ratio test
+	+ Including models differing in one predictor
+	+ This tests the statistical significance of the effect of that predictor
+	+ Provides an alternative to the z-test
+
+---
+#  Likelihood ratio test in R 
+
+```{r}
+m_null <- glm(work ~ 1, data = hire, family = "binomial")
+m_age <- glm(work ~ age , data = hire, family = "binomial")
+m_full <- glm(work ~ age + msrch, data = hire, family = "binomial")
+
+anova(m_null, m_age, m_full, test = "Chisq")
+```
+
+
+---
+#  AIC and BIC  
++ We met AIC and BIC in the model selection section in linear regression
+	+ Can be used to compare either nested or non-nested models
+	+ Smaller (more negative) AIC and BIC indicate better fitting models
+	+ BIC, in the context of regression, penalises extra predictors more heavily
+	+ BIC differences >10 indicate that one model is better than another to a practically significant extent
+
+---
+#  AIC and BIC in R 
+
+```{r}
+AIC(m_null, m_age, m_full)
+```
+
+
+```{r}
+BIC(m_null, m_age, m_full)
+```
+
+
+---
+# Summary of today
++ Logistic regression coefficients are converted to  odds ratios to make them more interpretable
+	+ Odds ratios tell us how the odds of the event change with a unit increase in X
+		+ 1 is no effect
+		+ Less than 1 is a negative effect
+		+ More than 1 is a positive effect
+
++ Statistical significance of predictors can be assessed via:
+	+ z-test
+	+ Confidence intervals
+	+ Likelihood ratio test
+
++ Model selection uses
+	+ Likelihood ratio test
+	+ AIC and BIC
+
+
+

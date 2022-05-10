@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Case Diagnostics 1</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b> Case Diagnostics 1 </b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+
+---
+
+
+
+
+
+
+
+
+# Week's Learning Objectives
+
+1. Be able to state the assumptions underlying a linear model.
+
+2. Understand how to test linear model assumptions.
+
+3. Understand the difference between outliers and influential points. 
+
+4. Test and assess the effect of influential cases on LM coefficients and overall model evaluations.
+
+5. Describe and apply some approaches to dealing with violations of model assumptions.
+
+---
+# Topics for today
+
++ Linear model outliers
+
++ Leverage
+
++ Influence
+
++ Dealing with problematic cases
+
+---
+#  Linear model diagnostics
+
++ In previous lectures we have discussed evaluating linear models:
+	+ Evaluating model fit ( `\(R^2\)` and `\(F\)`-ratio )
+	+ Evaluating individual predictors
+	+ Evaluating assumptions
+
++ Another important aspect of evaluating linear models pertains to the cases (individuals):
+	+ Does the model fit poorly for some individuals?
+	+ Do some individuals have a lot of influence on the results?
+
++ Linear model diagnostics allow us to explore individual cases in the context of a model
+
+---
+#  Three important features
+
++ Model outliers
+	+ Cases for which there is a large discrepancy between their predicted value ( `\(\hat{y_i}\)` ) and their observed value ( `\(y_i\)` )
+
+--
+
++ High leverage cases
+	+ Cases with an unusual value of the predictor ( `\(x_i\)` )
+
+--
+
++ High influence cases
+	+ Cases who are having a large impact on the estimation of model
+
+---
+#  Model outliers
+
++ Linear model outliers are cases that have unusual outcome values given their predictor values
+	+ They will show a large difference between the predicted ( `\(\hat{y_i}\)` ) and the observed value ( `\(y_i\)` )
+
++ **What quantity have we calculated that would summarise this difference?**
+
+--
+
++ Outliers will demonstrate large **residuals** ( `\(\epsilon_i\)` )
+  + If you got stuck here, look back at the introduction to linear models
+
+---
+#  Why are we interested in linear model outliers?
+
+.pull-left[
++ They can (but do not necessarily) have a strong influence on the model
+	+ We'll get to this.
+
++ It may be informative to follow-up and investigate outliers
+	+ Is it a data entry error?
+	+ Does the case somehow not belong with the rest of the data? (E.g., a male in a sample of females)
+]
+
+.pull-right[
+![](dapr2_13_diagnostics1_files/figure-html/unnamed-chunk-2-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+#  How do we determine if a case is an outlier?
+
++ We judge linear model outlying-ness of a case on the basis of the size of its residual
+
++ Unstandardised residuals are:
+
+`$$y_i - \hat{y_i}$$`
+
++ They are in the same units as the DV
+
++ Fine for comparison across cases within the same linear model model
+
++ Difficult to compare across models where the DVs will have different units
+
+---
+#  Standardised residuals
+
++ **Standardised residuals**
+	+ Divide the unstandardised residuals by an estimate of their standard deviation
+	+ Converts the residuals to z-score units
+	+ However, their calculation includes the potential outlier
+
++ **Studentised residuals**
+	+ Provide a version of the standardised residual excluding the case
+	+ Values **&gt;+2 or &lt;-2** indicate potential outlyingness
+
+---
+#  Identifying studentised residuals &gt;2 
+
+.pull-left[
+
+```r
+m1 &lt;- lm(score ~ hours + study, data = df)
+
+df %&gt;%
+  mutate(
+*   resid = rstudent(m1)
+  ) %&gt;%
+* filter(., resid &gt; 2 | resid &lt; -2) %&gt;%
+  kable(.)  %&gt;%
+  kable_styling(., full_width = F)
+```
+]
+
+
+.pull-right[
+
++ Steps:
+  + Extract the studentized residuals from our model.
+  + Identify those outside `\(\pm &gt; 2\)`
+]
+
+
+---
+#  Identifying studentised residuals &gt;2 
+
+.pull-left[
+
+```r
+m1 &lt;- lm(score ~ hours + study, data = df)
+
+df %&gt;%
+  mutate(
+*   resid = rstudent(m1)
+  ) %&gt;%
+* filter(., resid &gt; 2 | resid &lt; -2) %&gt;%
+  kable(.)  %&gt;%
+  kable_styling(., full_width = F)
+```
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ID &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; study &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; resid &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.086507 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID38 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.084493 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID46 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.059949 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID96 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -3.121323 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID106 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.649423 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID128 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.342825 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+
+
+---
+#  Leverage 
+.pull-left[
++ High leverage cases are those with an unusual predictor value or combination of predictor values
+	+ In simple linear model: an `\(x\)` value far from the `\(\bar{x}\)` 
+
++ **Why are we interested in leverage?** 
++ High leverage cases have potential to influence `\(\hat \beta_0\)` and `\(\hat \beta_1\)` 
+]
+
+.pull-right[
+![](dapr2_13_diagnostics1_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+]
+
+---
+#  Finding a case with high leverage
+
++ **Hat values** ( `\(h_i\)` ) are used to assess leverage in linear model
+
++ For a simple linear model, the hat value for case `\(i\)` would be:
+
+`$$h_i = \frac{1}{n} + \frac{(x_i - \bar{x})^2}{\sum_{i=1}^n(x_i - \bar{x})^2}$$`
+
++ Where:
+  + `\(n\)` is the sample size
+  + `\((x_i - \bar{x})^2\)` is the squared deviation of the predictor value for that case, `\(x_i\)`, from the mean `\(\bar x\)`
+  + `\(\sum_i^n(x_i - \bar{x})^2\)` is the sum of all these squared deviations, for all cases
+
+
+
+---
+#  Finding a case with high leverage
+
++ The mean of hat values ( `\(\bar{h}\)` ) is then:
+
+`$$\bar{h} = (k+1)/n$$`
+
+  + `\(k\)` is the number of predictors
+  + `\(n\)` is the sample size
+
++ In simple linear regression `\(k = 1\)` as there is just one predictor, hence `\(\bar h = (1 + 1) / n = 2 /n\)`
+
++ As a rough heuristic, values more than `\(2\bar{h}\)` are considered high leverage
+
+---
+#  Hat values in R 
+
+.pull-left[
+
+```r
+df %&gt;%
+  mutate(
+*   hat = hatvalues(m1)
+  ) %&gt;%
+* filter(., hat &gt; 2*((1+1)/150)) %&gt;%
+  kable(.)  %&gt;%
+  kable_styling(., full_width = F)
+```
+
+]
+
+.pull-right[
+
++ Steps to identify large `\(h_i\)` values:
+  + Extract the `\(h_i\)` from our model.
+  + Identify those outside `\(2\bar{h}\)`
+  
+]
+
+
+---
+#  Hat values in R 
+
+.pull-left[
+
+```r
+df %&gt;%
+  mutate(
+*   hat = hatvalues(m1)
+  ) %&gt;%
+* filter(., hat &gt; 2*((1+1)/150)) %&gt;%
+  kable(.)  %&gt;%
+  kable_styling(., full_width = F)
+```
+
+]
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ID &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; study &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hat &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID11 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0391827 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID12 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0415213 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0327092 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0301982 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0279917 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID37 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0277085 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID39 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0283075 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0456985 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID49 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0771241 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID54 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0415213 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID57 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0382704 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID60 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0677040 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID66 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0333857 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID71 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0326944 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID74 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0277085 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID80 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0301116 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID87 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0384352 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID88 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0303330 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID93 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0283075 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID101 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0391827 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID104 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0278669 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID106 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0361943 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID113 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0328540 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID117 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0303330 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID118 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0301982 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID126 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0283075 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID131 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0327092 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID141 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0729670 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+  
+]
+
+
+---
+class: center, middle
+# Time for a break
+
+Let's have a R task.
+
+Look at the code of the previous slide
+
+Write in words what each line is doing
+
+---
+class: center, middle
+# Welcome Back!
+
+**Where we left off... **
+
+We had discussed outliers and leverage.
+
+Next up, influence.
+
+---
+#  Influence
+
++ High leverage cases, when they are also linear model outliers, will have high **influence**
+
++ Cases with high influence, have a strong effect on the coefficients
+
++ If we deleted such a case, the linear model coefficients would change substantially
+
+
+---
+# Influence
+
++ If a handful of influential cases are responsible for the linear model results, the conclusions might not generalise very well
+
++ Multiple ways to consider influence.
+  + Here we will discuss Cook's distance.
+  + In a few weeks we will consider some additional measures
+  
++ Cook's Distance of a data point `\(i\)` (can be written many ways):
+
+
+`$$D_i = \frac{(\text{StandardizedResidual}_i)^2}{k+1} \times \frac{h_i}{1-h_i}$$`
+
+---
+#  Cooks Distance 
+`$$\frac{(\text{StandardizedResidual}_i)^2}{k+1} = \text{Outlyingness}$$`
+
+
+`$$\frac{h_i}{1-h_i} = \text{Leverage}$$`
+
++ So `\(D_i = \text{Outlyingness} \times \text{Leverage}\)`
+
+
++ Cook's distance refers to **the average distance the `\(\hat{y}\)` values will move if a given case is removed.**
+  + If removing one case changes the predicted values a lot (moves the regression line), then that case is influencing our results.
+
+---
+#  Cooks Distance 
+
++ Many different suggestions for cut-off's:
+  + `\(D_i &gt; 1\)` 
+  + `\(D_i &gt; \frac{4}{n-k-1}\)`
+  + Or size relative all values in data set
+
+---
+#  Cook's distance in R
+
+.pull-left[
+
+```r
+df %&gt;%
+  mutate(
+*   cook = cooks.distance(m1)
+  ) %&gt;%
+* filter(., cook &gt; 4/(150-1-1)) %&gt;%
+  kable(.)  %&gt;%
+  kable_styling(., full_width = F)
+```
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; ID &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; study &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; cook &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0385549 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID93 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0355863 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID96 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0488481 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID106 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0844117 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID128 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0283752 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+.pull-right[
+![](dapr2_13_diagnostics1_files/figure-html/unnamed-chunk-11-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+# Influence of coefficients
++ Cook's distance is a single value summarizing the total influence of a case
+
++ In the context of a lm with 2+ predictors, we may want to look in a little more detail.
+
++ **DFFit**: The difference between the predicted outcome value for a case with versus without a case included
+
++ **DFbeta**: The difference between the value for a coefficient with and without a case included
+
++ **DFbetas**: A standardised version of DFbeta
+  + Obtained by dividing by an estimate of the standard error of the regression coefficient with the case removed
+
+---
+# In R
+
++ We can extract these measures using the `influence.measures()` function:
+
+
+```r
+dfs_m1 &lt;- influence.measures(m1)
+round(dfs_m1$infmat[1:10,],3)
+```
+
+```
+##    dfb.1_ dfb.hors dfb.stdy  dffit cov.r cook.d   hat
+## 1  -0.016   -0.002    0.035 -0.050 1.031  0.001 0.014
+## 2   0.209   -0.129   -0.120  0.280 0.951  0.025 0.018
+## 3  -0.020    0.022   -0.087 -0.125 1.010  0.005 0.013
+## 4   0.009    0.027   -0.075  0.101 1.022  0.003 0.015
+## 5   0.010   -0.011    0.043  0.062 1.028  0.001 0.013
+## 6  -0.056    0.060    0.073  0.158 1.002  0.008 0.015
+## 7   0.018   -0.020    0.055  0.077 1.026  0.002 0.014
+## 8  -0.001    0.001    0.002  0.004 1.034  0.000 0.013
+## 9  -0.009   -0.027    0.073 -0.098 1.023  0.003 0.015
+## 10  0.019   -0.073    0.120 -0.158 1.010  0.008 0.018
+```
+
+
+---
+#  Influence on standard errors 
++ Influential cases can impact the `\(SE\)` as well as the estimation of coefficients.
+  + This means it impacts our inferences.
+
++ Recall, the standard error for a regression slope (single predictor):
+
+`$$SE(\beta_1) = \sqrt{\frac{\frac{SSE}{(N-k-1)}}{\sum(x_i  -\bar{x})^2}}$$`
+
++ Where:
+	+ `\(SSE\)` is the sum of squared error (i.e. `\(SS_{residual}\)` )
+	+ `\(N\)` is the sample size
+	+ `\(k\)` is the number of predictors
+
+---
+#  Influence on standard errors 
+
+`$$SE(\beta_1) = \sqrt{\frac{\frac{SSE}{(N-k-1)}}{\sum(x_i  -\bar{x})^2}}$$`
+
++ `\(\sum(x_i  -\bar{x})^2\)` is the sum of squared deviations from each `\(X\)` value from the mean of `\(X\)`
+
++ This term implies that increasing the variance in `\(X\)` will decrease the standard error of
+
++ High leverage cases (which are far from the mean of X) can increase `\(X\)` variance
+
+---
+#  COVRATIO 
++ Influence on standard errors can be measured using the **COVRATIO** statistic
+	+ COVRATIO value &lt;1 show that precision is decreased (SE increased)  by a case
+	+ COVRATIO value &gt;1 show that precision is increased (SE decreased) by a case
+
++ Cases with COVRATIOS `\(&gt; 1+[3(k +1)/n]\)` or `\(&lt; 1-[3( k +1)/ n ]\)` can be considered to have a strong influence on the standard errors
+
+---
+#  COVRATIO in R 
++ COVRATIO values can be extracted using the `covratio()` function:
+
+
+```r
+cr &lt;- covratio(m1)
+cr[1:5]
+```
+
+```
+##         1         2         3         4         5 
+## 1.0312958 0.9513632 1.0099567 1.0221887 1.0283815
+```
+
+
+---
+#  COVRATIO in R 
+
++ And we can check cases using the cuts above:
+
+
+```r
+which(cr &gt; (1+(3*2)/100))
+```
+
+```
+##  12  45  49  54  57  60 141 
+##  12  45  49  54  57  60 141
+```
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+
+---
+#  What should be done about outliers, high leverage and high influence values?
+
++ Easier to identify unusual cases than it is to decide what to do about them?
+
++ In general, not a good idea to delete cases automatically for exceeding a threshold. 
+	+ Especially if they don't show large influence
+	
++ Instead, try to investigate why a case is unusual
+
++ Think of linear model diagnostics more as a way of learning about the limitations of the model
+	+ Which cases can't it explain very well?
+	+ Why is that?
+	+ Do results depend quite strongly on certain cases?
+
+---
+#  Investigating and dealing with unusual cases
+
++ Is there a data entry error?
+	+ Is the value within the plausible range of values for a variable?
+	+ Can it be corrected? If not, the incorrect value should be deleted
+
++ Is the data legitimate but extreme?
+	+ Consider ways to reduce its influence rather than delete (e.g. **windsorizing**)
+	+ May be model specification problems (e.g. missing variables, interactions - coming soon)
+
++ Are there unusual values as a result of skewness?
+
+???
++ Replacing the extreme value with the next largest value for that variable
++ Avoids missingness/ preserves information
++ Note that deleting or winsorising values can change the model, therefore, different cases might then show up as outlying, high leverage, or influential
++ Iterative approach to removing/ winsorising cases is needed
+
+
+---
+#  Sensitivity Analyses
+
++ Sensitivity analysis refers to the idea of checking whether you get similar results irrespective of the methodological decisions you make
+
++ Sensitivity analysis can be used to check whether you get the same pattern of results. Do the estimated regression coefficients change substantially:
+	+ With versus without including certain unusual cases?
+	+ With versus without transforming a variable?
+
++ If results are highly similar, you have more confidence that the results aren't very dependent on those decisions
+
++ If they differ a lot, this should be reported as a limitation
+  
+---
+# Summary
+
++ We have looked at case diagnostics for lm
+
++ Outliers can be assessed via studentized residuals.
+
++ Leverage can be assessed via hat values
+
++ Influence can be assessed via Cook's distance
+  + As well as dfbeta and COVRATIO
+
++ In short, we do not want a small number of observations having undue influence over our results, so we should always look closely at diagnostics.
+
+---
+class: center, middle
+# Thanks for listening!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

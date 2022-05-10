@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Categorical Predictors (2+ Levels)</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b> Categorical Predictors (2+ Levels) </b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+
+---
+
+
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+
+1. Understand how to extend a simple regression to multiple predictors. 
+
+2. Understand and interpret the coefficients in multiple linear regression models
+
+3. Understand how to include and interpret models with categorical variables with 2+ levels. 
+
+---
+# Topics for today
++ Categorical predictors with more than 2 levels
+
+---
+#  Including categorical predictors with &gt;2 levels in a regression 
++ When we have a categorical variable with 2+ levels, we will typically assign integers
+  + But recall, these are not meaningful numbers
+
++ For example: What city do you live in?
+  + 1 = Edinburgh; 2 = Glasgow, 3 = Birmingham etc.
+
++ So in analysing a categorical predictor with `\(k\)` levels, we need to take an additional step.
+
++ This step involves applying a coding scheme, where by each regressor = a difference in means between levels, or sets of levels.
+
++ Two common coding schemes are:
+  + Dummy coding
+  + Effects coding
+
+---
+#  Dummy coding 
++ Dummy coding uses 0's and 1's to represent group membership
+	+ One level is chosen as a baseline
+	+ All other levels are compared against that baseline
+	
++ Notice, this is identical to binary variables already discussed.
+
++ Dummy coding is simply the process of producing a set of binary coded variables
+
++ For any categorical variable, we will create `\(k\)`-1 dummy variables
+  + `\(k\)` = number of levels
+
+---
+# Steps in dummy coding
+1. Choose a baseline level
+
+2. Assign everyone in the baseline  group `0` for all `\(k\)`-1 dummy variables
+
+3. Assign everyone in the next group a `1` for the first dummy variable and a `0` for all the other dummy variables
+
+4. Assign everyone in the next again group a `1` for the second dummy variable and a `0` for all the other dummy variables
+
+5. Repeat step 5 until all `\(k\)`-1 dummy variables have had 0's and 1's assigned
+
+6. Enter the `\(k\)`-1 dummy variables into your regression
+
+
+---
+#  Choosing a baseline? 
++ Each level of your categorical predictor will be compared against the baseline.
+
++ Good baseline levels could be:
+	+ The control group in an experiment
+	+ The group expected to have the lowest score on the outcome
+	+ The largest group
+
++ It is best the baseline is not:
+	+ A poorly defined level, e.g. an `Other` group
+	+ Much smaller than the other groups
+
+---
+#  Dummy coding 
++ Imagine 100 students took an exam and were each assigned to use one of three `study methods`
+	+ 1 = Notes re-reading 
+	+ 2 = Notes summarising
+	+ 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
+
++ We could use dummy coding to convert our `study methods` variable into `\(k\)`-1 regressors:
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Level &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; D1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; D2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Notes re-reading &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Notes summarising &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Self-testing &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+#  Dummy coding 
+
+.pull-left[
++ We start out with  a dataset that looks like:
+
+
+```
+## # A tibble: 10 x 3
+##    ID     exam method
+##    &lt;chr&gt; &lt;dbl&gt; &lt;fct&gt; 
+##  1 ID101    54 2     
+##  2 ID102    59 3     
+##  3 ID103    50 2     
+##  4 ID104    55 3     
+##  5 ID105    51 2     
+##  6 ID106    52 2     
+##  7 ID107    50 1     
+##  8 ID108    57 2     
+##  9 ID109    52 2     
+## 10 ID110    52 2
+```
+
+
+]
+
+
+.pull-right[
++ And end up with one that looks like:
+
+
+```
+## # A tibble: 10 x 5
+##    ID     exam method dummy1 dummy2
+##    &lt;chr&gt; &lt;dbl&gt; &lt;fct&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+##  1 ID101    54 2           1      0
+##  2 ID102    59 3           0      1
+##  3 ID103    50 2           1      0
+##  4 ID104    55 3           0      1
+##  5 ID105    51 2           1      0
+##  6 ID106    52 2           1      0
+##  7 ID107    50 1           0      0
+##  8 ID108    57 2           1      0
+##  9 ID109    52 2           1      0
+## 10 ID110    52 2           1      0
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` 
+
++ `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
+
++ It selects the first group as the baseline group
+
++ We write:
+
+
+```r
+mod1 &lt;- lm(exam ~ method, data = dum_dat)
+```
+
+
++ And `lm` does all the dummy coding work for us
+
+---
+#  Dummy coding with `lm`
+
+.pull-left[
++ The intercept is the mean of the baseline group (notes re-reading)
+
++ The coefficient for `method2` is the mean difference between the notes summarising group and the baseline group
+
++ The coefficient for `method3` is the mean difference between the self-test group and the baseline group
+
+]
+
+.pull-right[
+
+
+```r
+mod1 &lt;- lm(exam ~ method, data = dum_dat)
+mod1
+```
+
+```
+## 
+## Call:
+## lm(formula = exam ~ method, data = dum_dat)
+## 
+## Coefficients:
+## (Intercept)      method2      method3  
+##      51.696        1.878        4.348
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` (full results)
+
+
+```r
+summary(mod1)
+```
+
+```
+## 
+## Call:
+## lm(formula = exam ~ method, data = dum_dat)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.5741 -1.5741  0.3651  1.4259  5.3043 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  51.6957     0.4261 121.328  &lt; 2e-16 ***
+## method2       1.8784     0.5088   3.692 0.000368 ***
+## method3       4.3478     0.6026   7.215  1.2e-10 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.043 on 97 degrees of freedom
+## Multiple R-squared:  0.3515,	Adjusted R-squared:  0.3382 
+## F-statistic: 26.29 on 2 and 97 DF,  p-value: 7.529e-10
+```
+
+---
+#  Changing the baseline group  
+
++ The level that `lm` chooses as it's baseline may not always be the best choice
+	+ You can change it using:
+
+
+```r
+contrasts(dum_dat$method) &lt;- contr.treatment(3, base = 2)
+```
+
+
+	
++ `contrasts` updates the variable with the new coding scheme
+
++ `contr.treatment` Specifies that you want dummy coding
+
++ `3` is No. of levels of your predictor
+
++ `base=2` is the level number of your new baseline
+
+
+---
+#  Results using the new baseline 
+
+.pull-left[
++ The intercept is the now the mean of the second group (Notes summarising)
+
++ `method1` is now the difference between Notes re-reading and Notes summarising
+
++ `method3` is now the difference between Self-testing and Notes summarising
+
+]
+
+.pull-right[
+
+
+```r
+contrasts(dum_dat$method) &lt;- contr.treatment(3, base = 2)
+mod2 &lt;- lm(exam ~ method, data = dum_dat)
+mod2
+```
+
+```
+## 
+## Call:
+## lm(formula = exam ~ method, data = dum_dat)
+## 
+## Coefficients:
+## (Intercept)      method1      method3  
+##      53.574       -1.878        2.469
+```
+
+]
+
+---
+#  New baseline (full results)
+
+
+```r
+summary(mod2)
+```
+
+```
+## 
+## Call:
+## lm(formula = exam ~ method, data = dum_dat)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -4.5741 -1.5741  0.3651  1.4259  5.3043 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  53.5741     0.2781 192.661  &lt; 2e-16 ***
+## method1      -1.8784     0.5088  -3.692 0.000368 ***
+## method3       2.4694     0.5088   4.853 4.64e-06 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.043 on 97 degrees of freedom
+## Multiple R-squared:  0.3515,	Adjusted R-squared:  0.3382 
+## F-statistic: 26.29 on 2 and 97 DF,  p-value: 7.529e-10
+```
+
+???
++ Note that the choice of baseline does not affect the R^2 or F-ratio
+
+---
+# Exercise in understanding
+
++ Once you are finished watching this recording, please do the following:
+
+  + Download the data used in this lecture from LEARN (`dummy_code_data.csv`)
+  + Read into R
+  + Run the code for `mod1`, creating level 2 as baseline, and `mod2`
+  + Calculate the group means
+  + Try to guess the value of both `method1` and `method2` if you made the third level the baseline
+  + Make it the baseline
+  + Create `mod3` and check your estimate
+  
++ The answer will appear on LEARN at the end of the week.
+
+---
+# Summary of today
+
++ Categorical variables with 2+ levels require a coding scheme.
+
++ Dummy coding is one of the most common
+
++ Dummy coding creates a set of `\(k\)`-1 0-1 binary variables
+
++ These compare each of the other levels to a baseline level.
+
++ Each dummy variable is interpreted as a group difference.
+
+---
+class: center, middle
+# Thanks for listening!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

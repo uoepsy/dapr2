@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Multiple Comparisons </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Alex Doumas and Tom Booth" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b>Multiple Comparisons </b>
+## Data Analysis for Psychology in R 2<br><br>
+### Alex Doumas and Tom Booth
+### Department of Psychology<br>The University of Edinburgh
+### AY 2020-2021
+
+---
+
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Understand the problem of multiple comparisons. 
+
+2. Run appropriate tests and corrections for multiple comparisons. 
+
+3. Apply assumption tests to linear models for experimental designs. 
+
+---
+# Topics for today
+
++ What happens when we have lots of tests? 
+
++ Define the multiple comparisons problem. 
+
++ Talk about a couple of approaches to addressing it. 
+
+
+---
+# Types of errors
+
++ Type I error = False Positive
+  + Reject the null when the null is true. 
+  + `\(\alpha = P(\text{Type I Error})\)`
+
++ Type II error = False negative
+  + Fail to reject the null when the null is false. 
+  + `\(\beta = P(\text{Type II Error})\)`
+  
+---
+# A single test
++ If we perform a single test, our Type I error rate is `\(\alpha\)`.
+  + So if we set `\(\alpha = 0.05\)`, the probability of a false positive is 0.05
+
++ However, what if we do multiple tests ( `\(m\)` ) each with the same `\(\alpha\)` level?
+
++ What is the probability of a false positive among `\(m\)` tests?
+
+---
+# Multiple tests
+
+`$$P(\text{Type I error}) = \alpha$$`
+`$$P(\text{not making a Type I error}) = 1 - \alpha$$`
+
+`$$P(\text{Not making a Type I error in m tests}) = (1 - \alpha)^m$$`
+
+`$$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$`
+
+---
+# P(Making a Type I error in m tests)
+
++ Suppose `\(m=2\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^2)
+```
+
+```
+## [1] 0.0975
+```
+
++ Suppose `\(m=5\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^5)
+```
+
+```
+## [1] 0.2262191
+```
+
++ Suppose `\(m=10\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^10)
+```
+
+```
+## [1] 0.4012631
+```
+
+---
+# Why does this matter?
+
++ The `\(P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m\)` is referred to as the family-wise error rate. 
+
++ A "family" is a set of related tests. 
+
++ When we analyse an experimental design, and we look at lots of specific comparisons, we can think of all these tests as a "family". 
+
++ The larger the family, the more likely we are to find a false positive (see previous slide). 
+
+---
+# Corrections
++ There are various methods designed to control for the number of tests.
+  + Here control means to keep the Type I Error rate at an intended `\(\alpha\)`. 
+
++ Many options. Some of most common:
+  + Bonferroni
+  + Sidak
+  + Tukey
+  + Scheffe
+
++ Others you may see:
+  + Holm's step-down
+  + Hochberg's step-up
+
+---
+# Example
++ The data comes from a study into patient care in a paediatric wards. 
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB). 
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+---
+# The data
+
+```r
+hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %&gt;%
+  slice(1:10)
+```
+
+```
+## # A tibble: 10 x 3
+##      SWB Treatment Hospital
+##    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
+##  1   6.2 TreatA    Hosp1   
+##  2  15.9 TreatA    Hosp1   
+##  3   7.2 TreatA    Hosp1   
+##  4  11.3 TreatA    Hosp1   
+##  5  11.2 TreatA    Hosp1   
+##  6   9   TreatA    Hosp1   
+##  7  14.5 TreatA    Hosp1   
+##  8   7.3 TreatA    Hosp1   
+##  9  13.7 TreatA    Hosp1   
+## 10  12.6 TreatA    Hosp1
+```
+
+---
+# Our results
+
+```r
+m4 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+anova(m4)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Response: SWB
+##                     Df Sum Sq Mean Sq F value    Pr(&gt;F)    
+## Treatment            2 177.02  88.511 21.5597 4.315e-09 ***
+## Hospital             1   9.57   9.568  2.3306    0.1287    
+## Treatment:Hospital   2 392.18 196.088 47.7635 &lt; 2.2e-16 ***
+## Residuals          174 714.34   4.105                      
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+---
+# Bonferroni &amp; Sidak
++ Both are considered "conservative" adjustments.
+
++ Each treats individual tests within the family as if they are independent.
+  + Consider an `\(\alpha = 0.05\)` and `\(m=\text{number of tests}=10\)`
+
++ **Bonferroni**: `\(\alpha_{Bonferroni} = \frac{\alpha}{m}\)`
+
+
+```r
+0.05/10
+```
+
+```
+## [1] 0.005
+```
+
+
++ **Sidak**: `\(\alpha_{Sidak} = 1 - (1- \alpha)^{\frac{1}{m}}\)`
+
+
+```r
+1-((1-0.05)^(1/10))
+```
+
+```
+## [1] 0.005116197
+```
+
+---
+# Bonferroni in action
+- 
+
+```r
+tA1_A2 &lt;- t.test(SWB ~ Hospital, data = filter(hosp_tbl, (Treatment == "TreatA")))
+tA1_B1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp1") | (Treatment == "TreatB" &amp; Hospital == "Hosp1"))))
+tA1_C1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp1") | (Treatment == "TreatC" &amp; Hospital == "Hosp1"))))
+tA1_B2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp1") | (Treatment == "TreatB" &amp; Hospital == "Hosp2"))))
+tA1_C2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp1") | (Treatment == "TreatC" &amp; Hospital == "Hosp2"))))
+tA2_B1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp2") | (Treatment == "TreatB" &amp; Hospital == "Hosp1"))))
+tA2_C1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp2") | (Treatment == "TreatC" &amp; Hospital == "Hosp1"))))
+tA2_B2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp2") | (Treatment == "TreatB" &amp; Hospital == "Hosp2"))))
+tA2_C2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatA" &amp; Hospital == "Hosp2") | (Treatment == "TreatC" &amp; Hospital == "Hosp2"))))
+tB1_C1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" &amp; Hospital == "Hosp1") | (Treatment == "TreatC" &amp; Hospital == "Hosp1"))))
+tB1_B2 &lt;- t.test(SWB ~ Hospital, data = filter(hosp_tbl, ((Treatment == "TreatB" &amp; Hospital == "Hosp1") | (Treatment == "TreatB" &amp; Hospital == "Hosp2"))))
+tB1_C2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" &amp; Hospital == "Hosp1") | (Treatment == "TreatC" &amp; Hospital == "Hosp2"))))
+tB2_C1 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" &amp; Hospital == "Hosp2") | (Treatment == "TreatC" &amp; Hospital == "Hosp1"))))
+tB2_C2 &lt;- t.test(SWB ~ Treatment, data = filter(hosp_tbl, ((Treatment == "TreatB" &amp; Hospital == "Hosp2") | (Treatment == "TreatC" &amp; Hospital == "Hosp2"))))
+tC1_C2 &lt;- t.test(SWB ~ Hospital, data = filter(hosp_tbl, ((Treatment == "TreatC" &amp; Hospital == "Hosp1") | (Treatment == "TreatC" &amp; Hospital == "Hosp2"))))
+```
+
+---
+# Bonferroni in action
+- 15 tests, so our adjusted `\(\alpha = 0.05/15 = 0.003\)`
+
+```r
+tA1_A2
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  SWB by Hospital
+## t = 4.5985, df = 45.013, p-value = 3.455e-05
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  1.656055 4.237278
+## sample estimates:
+## mean in group Hosp1 mean in group Hosp2 
+##           10.800000            7.853333
+```
+  
+---
+# Bonferroni in action
+- 15 tests, so our adjusted `\(\alpha = 0.05/15 = 0.003\)`
+
+```r
+tA1_B1
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  SWB by Treatment
+## t = 1.9726, df = 52.958, p-value = 0.05377
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -0.02304211  2.76304211
+## sample estimates:
+## mean in group TreatA mean in group TreatB 
+##                10.80                 9.43
+```
+  
+---
+# Bonferroni in action
+- 15 tests, so our adjusted `\(\alpha = 0.05/15 = 0.003\)`
+
+```r
+tA1_B2
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  SWB by Treatment
+## t = -3.8923, df = 36.002, p-value = 0.0004123
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -3.523772 -1.109561
+## sample estimates:
+## mean in group TreatA mean in group TreatB 
+##             10.80000             13.11667
+```
+  
+---
+# Bonferroni in action
+- 15 tests, so our adjusted `\(\alpha = 0.05/15 = 0.003\)`
+
+```r
+tA1_C1
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  SWB by Treatment
+## t = 0.99523, df = 53.555, p-value = 0.3241
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -0.7070316  2.1003649
+## sample estimates:
+## mean in group TreatA mean in group TreatC 
+##             10.80000             10.10333
+```
+  
+---
+# Bonferroni in action
+- 15 tests, so our adjusted `\(\alpha = 0.05/15 = 0.003\)`
+
+```r
+tA1_C2
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  SWB by Treatment
+## t = 4.7928, df = 34.573, p-value = 3.073e-05
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  1.624994 4.015006
+## sample estimates:
+## mean in group TreatA mean in group TreatC 
+##                10.80                 7.98
+```
+
+---
+# Bonferroni in action
+- A little easier, but less thorough...
+
+```r
+pairwise_ts &lt;- hosp_tbl %&gt;%
+  group_by(Hospital) %&gt;% 
+  t_test(SWB ~ Treatment, p.adjust.method = "bonferroni")
+```
+
+---
+# Bonferroni in action
+- A little easier, but less thorough...
+
+```r
+pairwise_ts
+```
+
+```
+## # A tibble: 6 x 11
+##   Hospital .y.   group1 group2    n1    n2 statistic    df        p    p.adj
+## * &lt;fct&gt;    &lt;chr&gt; &lt;chr&gt;  &lt;chr&gt;  &lt;int&gt; &lt;int&gt;     &lt;dbl&gt; &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
+## 1 Hosp1    SWB   TreatA TreatB    30    30     1.97   53.0 5.40e- 2 1.61e- 1
+## 2 Hosp1    SWB   TreatA TreatC    30    30     0.995  53.6 3.24e- 1 9.72e- 1
+## 3 Hosp1    SWB   TreatB TreatC    30    30    -1.15   58.0 2.54e- 1 7.62e- 1
+## 4 Hosp2    SWB   TreatA TreatB    30    30   -14.4    49.2 2.83e-19 8.49e-19
+## 5 Hosp2    SWB   TreatA TreatC    30    30    -0.357  45.9 7.22e- 1 1.00e+ 0
+## 6 Hosp2    SWB   TreatB TreatC    30    30    19.5    57.2 5.72e-27 1.72e-26
+## # … with 1 more variable: p.adj.signif &lt;chr&gt;
+```
+
+---
+# Tukey &amp; Scheffe
++ **Scheffe procedure** involves an adjustment to the critical value of `\(F\)`.
+  + The adjustment relates to the number of comparisons being made.
+  + And makes the critical value of `\(F\)` larger for a fixed `\(\alpha\)`. 
+  + The more tests, the larger `\(F\)`. 
+
++ The square-root of the adjusted F provides and adjusted `\(t\)`. 
+
+--
+
++ **Tukey's HSD** (Honest significant Differences)
+  + Compares all pairwise group means. 
+  + Each difference is divided by the `\(SE\)` of the sum of means. 
+  + This produces a `\(q\)` statistic for each comparison. 
+  + And is compared against a studentized range distribution. 
+
+---
+# Tukey in R
+- TukeyHSD() function works on an aov object. 
+
+```r
+m5 &lt;- aov(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+TukeyHSD(m5)
+```
+&lt;img src="./figs/tukey.png" width="40%" /&gt;
+
+---
+# Summary of today
+
++ Recapped the inflation of Type I error rate with multiple tests.
+
++ Briefly introduced tools for correcting for multiple comparisons.
+
++ In next weeks practical exercises, we will look at applying these to the analysis of factorial designs.
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Binary Logistic Model</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b>Binary Logistic Model </b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+### AY 2020-2021
+
+---
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Identify and provide examples of binary psychological outcomes.
+2. Understand why a standard LM is not appropriate for binary data.
+3. Fit and interpret a logistic model
+
+---
+# Topics for today
+
++ Logistic regression
+	+ Why do we need logistic regression?
+	+ The logistic regression model
+	+ Overall model evaluation
+	+ Logistic regression in R
+
+
+---
+#  Binary outcomes 
+
++ Thus far we have discussed:
+	+ linear regression with a continuous DV
+	+ linear regression with categorical (including binary) predictors
+
++ What if we have a binary outcome variable?
+	+ E.g.,:
+		+ Healthy vs diseased
+		+ Died vs survived
+		+ Hired vs not hired
+		+ Correct vs incorrect
+
++ When we have binary outcome variable, linear regression is no longer appropriate
+	+ Let's see what happens when we fit a linear regression model with a binary outcome variable?
+
+
+---
+#  Applying linear regression to binary outcomes 
+
++ We can code our outcome in terms of whether or not an event happened
+	+ `\(Y=1\)` for a job offer (event occurred)
+	+ `\(Y=0\)` for no job offer (event did not occur)
+		
++ If we then fit a linear regression model, our model predicts the probability of the event occurring `\(P(Y=1)\)` or `\(P(y_i)\)`
+
+
+---
+#  Some example data 
++ Imagine we're interested in predicting hiring decisions. 
+
++ We collect data on n=242 job-seekers
+	+ Age
+	+ Effort put into job application
+
++ Our variables:
+	+ DV: `work` (0 = did not get job; 1 = did get job)
+	+ IV1: `age` (in years)
+	+ IV2: `msrch` (effort into job application, 0=low effort, 1 = high effort)
+
+
+---
+#  Visualize Our Data 
+
+.pull-left[
+
++ Here we can see:
+
+1. We have slightly more people being hired than not (light blue bar in left-hand plot)
+
+2. Those who were hired (blue) are younger than those who were not (red) (density plot, top right)
+
+3. There is a greater number of people who work hard (proportion of blue in bottom right plot) among those who were hired (right hand bar of this plot)
+
+]
+
+.pull-right[
+![](dapR2_lec33_BinaryLogistic1_files/figure-html/unnamed-chunk-2-1.png)&lt;!-- --&gt;
+]
+---
+# Proportion hired
+
+
+```r
+hire %&gt;%
+  group_by(work) %&gt;%
+  summarise(
+    n = n()) %&gt;%
+  mutate(
+    Prop = round(n/sum(n),2)
+  ) 
+```
+
+```
+## # A tibble: 2 x 3
+##   work      n  Prop
+## * &lt;fct&gt; &lt;int&gt; &lt;dbl&gt;
+## 1 0       117  0.48
+## 2 1       125  0.52
+```
+
+
+---
+#  Linear probability model 
++ So let's just use `lm()` to predict our outcome (Hire vs no hire)
+  + **Note**: R will actually try and stop us doing this if `work` is a factor
+  + So we have to pretend to R that it is numeric. 
+
+
+```r
+hire &lt;- hire %&gt;%
+  mutate(
+*   work = as.numeric(work)
+  )
+m1 &lt;- lm(work ~ age, data = hire)
+```
+
+
+---
+#  Linear probability model 
++ Nothing  looks too amiss here
+
+
+```
+## 
+## Call:
+## lm(formula = work ~ age, data = hire)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -0.7971 -0.4497  0.2345  0.4240  0.7082 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  3.028641   0.320801   9.441  &lt; 2e-16 ***
+## age         -0.031578   0.006668  -4.736 3.74e-06 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.4799 on 240 degrees of freedom
+## Multiple R-squared:  0.08545,	Adjusted R-squared:  0.08164 
+## F-statistic: 22.42 on 1 and 240 DF,  p-value: 3.739e-06
+```
+
++ But let's look at our assumptions checks?
+
+
+
+---
+#  Violated assumptions 
+
+.pull-left[
+
++ The plots here were produced using the `check_model()` function in the `performance()` package.
+
++ These are not ideally formatted plots for reports, but it is a nice quick way to look at all assumption plots.
+
++ Can also be used for different diagnostics like `vif` etc.
+
+]
+
+.pull-right[
+![](dapR2_lec33_BinaryLogistic1_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+]
+
+---
+#  Impossible probabilities
+
+.pull-left[
++ And there is a further issue?
+
++ By definition, probabilities must be between 0 and 1.
+
++ But our model predicts some `\(P(Y=1)\)` values &gt;1 within the plausible range of age values
+]
+
+.pull-right[
+
+![](dapR2_lec33_BinaryLogistic1_files/figure-html/unnamed-chunk-7-1.png)&lt;!-- --&gt;
+
+]
+
+---
+#  The problem with linear regression 
+
++ In general, when we apply linear regression to binary outcomes:
+	+ The distribution of the residuals is bimodal (not normal)
+	+ The variance of the residuals is not constant
+	+ The relation between `\(x\)` and `\(y\)` is not linear
+	+ Probabilities are not constrained to be between 0 and 1
+	
++ The logistic regression model solves these issues with linear regression
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+**Let's get some details on the logistic model**
+
+---
+#  The logistic regression model 
++ In logistic regression, we predict the probability that `\(Y=1\)`, `\(P(y_i)\)`, from our X's, using:
+
+`$$P(y_i) = \frac{1}{1+e^{-(\beta_0 + \beta_1x_1)}}$$`
+
++ `\(e\)` = exponential
++ `\(\beta_0 + \beta_1x_1\)` is a linear combination with:
+	+ a constant `\(\beta_0\)` (intercept), and
+	+ `\(\beta_1\)` capturing the effect of `\(x_1\)` on the outcome `\(y\)`
+
+
+---
+#  The logistic regression model 
+
+&lt;img src="logistic_model.png" width="70%" style="display: block; margin: auto;" /&gt;
+
+---
+#  Probability, odds and log-odds
++ An alternative way to think about this is in terms of probability, odds and log-odds.
+
++ Our presentation above includes the exponential of the coefficients so that (a) predictions are bounded within 0 and 1, and (b) we can have a linear representation.
+
++ The alternative way to view it is to change what we are predicting...
+
+
+---
+#  Probability, odds and log-odds
+
+
+
+.pull-left[
+
++ `\(Probability = P(Y_i)\)`
+
++ `\(odds = \frac{P(Y=1)}{1-P(Y=1)}\)`
+
++ `\(logodds = ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right)\)`
+
+]
+
+.pull-right[
+&lt;img src="MC_logistic.png" width="80%" style="display: block; margin: auto;" /&gt;
+]
+
+---
+#  Logistic models with different slopes 
++ Given that we can see our log-odds provide a linear relation, we can think about predicting these:
+
+`$$ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right) = \beta_0 + \beta_1x_1$$`
++ and we can easily extend to models with multiple predictors:
+
+`$$P(y_i) = \frac{1}{1+e^{-(\beta_0 + \beta_1x_1 + \beta_2x_2 ... + \beta_kx_k)}}$$`
+
++ Or
+
+`$$ln \left (\frac{P(Y=1)}{1-P(Y=1)} \right) = \beta_0 + \beta_1x_1 + \beta_2x_2 ... + \beta_kx_k$$`
+
+
+---
+#  Estimating logistic regression coefficients 
++ Linear regression models can be estimated using least squares estimation
+
++ Logistic regression models are estimated using maximum likelihood estimation (MLE)
+
++ MLE  finds the logistic regression coefficients that *maximise the likelihood of the observed data having occurred*
+	+ While least squares estimation minimises the SSE to find the coefficients for the line of best, MLE minimises the log-likelihood
+	+ Larger log-likelihood values indicate poorer fitting models
+
+
+
+---
+#  Overall model evaluation 
++ To evaluate overall model fit in logistic regression we:
+	+ Compare our model to a baseline model with no predictors (null model)
+	+ Assess the improvement in fit
+	+ *Note we have already seen this idea when discussing the `\(F\)`-test and incremental `\(F\)`-test*
+	
++ The baseline model is where the predicted values for the DV are based on the most frequent value of the DV (0 or 1)
+	+ Our best guess of the DV value in the absence of informative predictors.
+	+ Analogous to using the mean DV value as the baseline in linear regression.
+
+---
+#  Overall model evaluation 
++ We compare our model with the baseline model using **deviance**:
+
+`$$deviance = -2*loglikelihood$$`
+
++ Deviance often denoted **-2LL**
+
+---
+#  Overall model evaluation 
++ We calculate the -2LL differences between our model and the baseline model.
+
++ We assess the statistical significance of the -2LL difference to see if our model significantly improves on the baseline model
+	+ We compare our -2LL difference to a `\(\chi^2\)` distribution with df = k
+		+ k= number of predictors in model
+		
++ Significant `\(p\)`-value indicates that our model improves on the baseline model.
+
++ Assessing the -2LL differences in this way is called a likelihood ratio test or chi-square difference test
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+
+**Logistic regression in r** 
+
+
+
+---
+#  The `glm()` function 
++ In R, we conduct logistic regression using the `glm()` function
+
++ `glm` stands for **g**eneralised **l**inear **m**odel
+  + More on this next week
+  
++ Very similar in structure to the `lm()` function
+
+
+---
+#  Run our model: a little more code 
+
+
+```r
+*m2 &lt;- glm(work ~ age + msrch, data = hire,
+    family = "binomial")
+```
+
++ `glm()`; R function for running generalised linear models.
+	+ Provide a formula in the same style as lm()
+	+ Provide the name of the dataset
+
+---
+#  Run our model: a little more code 
+
+
+```r
+m2 &lt;- glm(work ~ age + msrch, data = hire, 
+*   family = "binomial")
+```
+
++ The new bit.
+	+ We need to start what family of probability distributions we want for our DV.
+	+ This relates to the type of variable our DV is.
+	+ We will take a little more about this next lecture.
+	+ For now, for a binary variable, we want `family = binomial`
+
+---
+# Quick aside: Why binomial?
++ Binomial distribution is a discrete probability distribution. (you do not need to remember the probability mass function below - don't worry.)
+
+`$$f(k,n,p) = Pr(X = k) = \binom{n}{k}p^{k}q^{n-k}$$`
+
++ `\(k\)` = number of success
++ `\(n\)` = total trials, 
++ `\(p\)` = probability success
++ `\(q\)` = `\(1-p\)` or probability of failure
++ `\(\binom{n}{k}\)` = `\(n\)` choose `\(k\)`, or the number of ways to select `\(k\)` unordered items from a set of `\(n\)` items.
+
++ Practically, we can think of every instance of a `Hire` in out example as a success, and every `no hire` as a failure.
+
+---
+#  `glm()` output 
+
+```r
+m2 &lt;- glm(work ~ age + msrch, data = hire, family = "binomial")
+summary(m2)
+```
+
+---
+#  `glm()` output 
+
+```
+## 
+## Call:
+## glm(formula = work ~ age + msrch, family = "binomial", data = hire)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -1.8834  -1.0496   0.6436   0.9204   2.0589  
+## 
+## Coefficients:
+##             Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)  4.52505    1.56972   2.883 0.003943 ** 
+## age         -0.11848    0.03214  -3.687 0.000227 ***
+## msrch1       1.68335    0.33446   5.033 4.83e-07 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 335.22  on 241  degrees of freedom
+## Residual deviance: 285.36  on 239  degrees of freedom
+## AIC: 291.36
+## 
+## Number of Fisher Scoring iterations: 4
+```
+
+---
+#  Overall Model Test 
+
+
+```r
+m2_null &lt;- glm(work ~ 1, family = "binomial", data = hire)
+anova(m2_null, m2, test="Chisq")
+```
+
+```
+## Analysis of Deviance Table
+## 
+## Model 1: work ~ 1
+## Model 2: work ~ age + msrch
+##   Resid. Df Resid. Dev Df Deviance  Pr(&gt;Chi)    
+## 1       241     335.22                          
+## 2       239     285.36  2   49.858 1.491e-11 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+
+
+---
+# Summary of today
++ For binary outcomes we use logistic rather than linear regression.
+
++ Logistic regression predicts the probability of `\(Y=1\)` from our IVs
+
++ Logistic regression is estimated using maximum likelihood estimation
+
++ Implemented using `glm()` function in R
+
++ The model can be evaluated by comparison with a baseline model using a likelihood ratio  test
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
