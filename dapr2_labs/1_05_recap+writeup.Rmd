@@ -1,0 +1,352 @@
+---
+title: "Block 1 Recap & Write-Up Example"
+bibliography: references.bib
+biblio-style: apalike
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. X.
+2. X.
+3. X.
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+You will need to have completed Labs 1 - 4. 
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **sjPlot**
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/cogapoe4.csv) or read it in via this link https://uoepsy.github.io/data/cogapoe4.csv
+
+:::
+
+# Weeks 1 - 4 recap
+
+In the first part of the lab, there is no new content - the purpose of the recap section is for you to revist and revise the concepts you have learned over the last 4 weeks. 
+
+:::yellow
+
+Before you expand each of the boxes below, think about how comfortable you feel with each concept.  
+
+:::
+
+
+`r optbegin("Types of Models: Deterministic vs Statistical", olabel=FALSE,toggle=params$TOGGLE)`
+
+__Deterministic (*Example: Perimeter & Side*)__
+
+The mathematical model 
+
+$$
+Perimeter = 4 * Side
+$$ 
+
+or, equivalently, 
+$$
+y = 4 * x
+$$
+
+represents the relationship between side and perimeter of squares. This is an example of a _deterministic model_ as it is a model of an *exact relationship* - there can be no deviation.
+
+__Statistical (*Example: Height & Handspan*)__
+
+The relationship between height and handspan shows deviations from the 'average pattern'. Hence, we need to create a model that allows for deviations from the linear relationship - we need a _statistical model_.
+
+A statistical model includes *both* a deterministic function and a random error term:
+$$
+Handspan = \beta_0 + \beta_1 * Height + \epsilon
+$$
+or, in short,
+$$
+y = \underbrace{\beta_0 + \beta_1 * x}_{\text{function of }x} + \underbrace{\epsilon}_{\text{random error}}
+$$
+
+The deterministic function need not be linear if the scatterplot displays signs of nonlinearity.
+
+In the equation above, the terms $\beta_0$ and $\beta_1$ are numbers specifying where the line going through the data meets the y-axis and its slope (rate of increase/decrease).
+
+`r optend()`
+
+`r optbegin("Simple Linear Regression", olabel=FALSE,toggle=params$TOGGLE)`
+
+**Formula:**  
+
+
+$$
+y_i = \beta_0 + \beta_1 x_i + \epsilon_i
+$$
+For regression
+
+:::blue
+
+In **R**:
+
+There are basically two pieces of information that we need to pass to the `lm()` function:
+
+1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV) and $x$ the independent variable (IV).
+2. The data: Specify which dataframe contains the variables specified in the formula.
+
++ run simple linear regression via `lm()` function
+  
+  `model_name <- lm(DV ~ IV, data = data_name)`
+  
+  **OR**
+  
+  `model_name <- lm(data_name$DV ~ data_name$IV)`
+  
+:::
+
+`r optend()`
+
+`r optbegin("Partitioning Variation: Sum of Squares", olabel=FALSE,toggle=params$TOGGLE)`
+
+`r optend()`
+
+`r optbegin("F-statistic", olabel=FALSE,toggle=params$TOGGLE)`
+
+`r optend()`
+
+`r optbegin("R-squared and Adjusted R-squared", olabel=FALSE,toggle=params$TOGGLE)`
+
+$R^2$ represents the proportion of variance in $Y$ that is explained by the model.
+
+Adjusted $R^2$ adjusts for the number of terms in a model.
+
+Adjusted $R^2$ should always be less than or equal to $R^2$.
+
+`r optend()`
+
+`r optbegin("Standardisation", olabel=FALSE,toggle=params$TOGGLE)`
+
+**$z$-score Formula:**
+$$
+z_x = \frac{x - \bar{x}}{s_x}, \qquad z_y = \frac{y - \bar{y}}{s_y}
+$$
+Recall that a standardized variable has mean of 0 and standard deviation equal to 1.
+
+:::blue
+
+In **R**:
+
+```{r eval = FALSE}
+dataframe <- dataframe %>%
+  mutate(
+   z_variable = (variable - mean(variable)) / sd(variable)
+    )
+```
+
+:::
+
+`r optend()`
+
+`r optbegin("Binary Variables", olabel=FALSE,toggle=params$TOGGLE)`
+
+__Binary predictors in linear regression__
+
+We can include categorical predictors in a linear regression, but the interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as "the change in $y$ associated with a 1-unit increase in $x$", for categorical explanatory variables, coefficients can be considered to examine differences in group means. However, they are actually doing exactly the same thing - the model is simply translating the levels (like "Yes"/"No") in to 0s and 1s!  
+
+So while we may have in our dataframe a categorical predictor like the middle column "degree", below, what is inputted into our model is more like the third column, "isYes". 
+```{r echo=FALSE, eval = FALSE}
+riverview %>% sample_n(size=n()) %>%
+  mutate(
+    isYes = ifelse(degree == "Yes", 1, 0)
+  ) %>% select(income, degree, isYes)
+```
+
+Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.  
+However, "zero" for this predictor variable now corresponds to a whole level. This is known as the "reference level". Accordingly, the 1-unit change in our predictor (the move from "zero" to "one") corresponds to the difference between the two levels. 
+
+
+```{r echo=FALSE, eval = FALSE}
+cstat = coef(lm(income~degree,riverview))
+riverview %>%
+  mutate(
+    isYes = ifelse(degree == "Yes", 1, 0)
+  ) %>% ggplot(.,aes(x=factor(isYes), y=income))+
+  #geom_boxplot(fatten=NULL)+
+  geom_jitter(height=0,width=.05)+
+  geom_smooth(method="lm",aes(x=isYes+1), se=F)+
+  geom_segment(aes(x="1",xend="1",y=cstat[1],yend=cstat[1]+cstat[2]), lty="dashed",col="blue")+
+  geom_segment(aes(x="0",xend="1",y=cstat[1],yend=cstat[1]), lty="dashed",col="blue")+
+  annotate("text",x=2.15,y=mean(c(cstat[1], sum(cstat)))-3,label=expression(paste(beta[1], " (slope)")), col="blue")+
+  geom_point(x=1,y=cstat[1], col="blue",size=3)+
+  annotate("text",x=1,y=cstat[1],label=expression(paste(beta[0], " (intercept)")), col="blue", hjust=1.1)+
+  labs(x="degree isYes")
+```
+
+`r optend()`
+
+`r optbegin("Categorical Predictors with k levels", olabel=FALSE,toggle=params$TOGGLE)`
+
+We saw that a _binary categorical_ variable gets inputted into our model as a variable of 0s and 1s (these typically get called __"dummy variables"__).  
+
+:::statbox
+__Dummy variables__ are numeric variables that represent categorical data.  
+:::
+
+When we have a _categorical_ explanatory variable with __more than 2 levels__, our model gets a bit more - it needs not just one, but _a number of_ dummy variables. For a categorical variable with $k$ levels, we can express it in $k-1$ dummy variables.  
+
+For example, the "species" column below has three levels, and can be expressed by the two variables "species_dog" and "species_parrot":  
+```{r echo=FALSE, out.width="80%"}
+data.frame(
+  species = c("cat","cat","dog","parrot","dog","cat","..."),
+  species_dog = c(0,0,1,0,1,0,"..."),
+  species_parrot = c(0,0,0,1,0,0,"...")
+)
+```
+
++ The "cat" level is expressed whenever both the "species_dog" and "species_parrot" variables are 0.
++ The "dog" level is expressed whenever the "species_dog" variable is 1 and the "species_parrot" variable is 0.
++ The "parrot" level is expressed whenever the "species_dog" variable is 0 and the "species_parrot" variable is 1.  
+
+R will do all of this re-expression for us. If we include in our model a categorical explanatory variable with 4 different levels, the model will estimate 3 parameters - one for each dummy variable. We can interpret the parameter estimates (the coefficients we obtain using `coefficients()`,`coef()` or `summary()`) as the estimated increase in the outcome variable associated with an increase of one in each dummy variable (holding all other variables equal).  
+```{r echo=FALSE}
+set.seed(348)
+catplot <- tibble(
+  species = rep(c("cat","dog","parrot"), each = 15),
+  outcome = c(rnorm(15,60,5), rnorm(15,50,5), rnorm(15,55,5))
+)
+cstat = coef(lm(outcome~species,catplot))
+pander::pander(summary(lm(outcome~species,catplot))$coefficients)
+```
+
+Note that in the above example, an increase in 1 of "species_dog" is the difference between a "cat" and a "dog". An increase in one of "species_parrot" is the difference between a "cat" and a "parrot". We think of the "cat" category in this example as the _reference level_ - it is the category against which other categories are compared against. 
+
+```{r echo=FALSE}
+ggplot(catplot, aes(x=species, y=outcome))+
+  #geom_boxplot(fatten=NULL)+
+  geom_jitter(height=0,width=.05, alpha=.4)+
+  geom_point(x=1,y=cstat[1], col="blue",size=3)+
+  annotate("text",x=1,y=cstat[1],label=expression(paste(beta[0], " (intercept)")), col="blue", hjust=1.1)+
+  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue")+
+  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
+  geom_segment(aes(x=2,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue", lty="dashed")+
+  annotate("text",x=2.15,y=mean(c(cstat[1],sum(cstat[1:2]))),label=expression(paste(beta[1], " (slope)")), col="blue", hjust=.35)+
+  
+  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue")+
+  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
+  geom_segment(aes(x=3,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue", lty="dashed")+
+  annotate("text",x=3.15,y=mean(c(cstat[1],sum(cstat[c(1,3)]))),label=expression(paste(beta[2], " (slope)")), col="blue", hjust=.35)
+```
+
+`r optend()`
+
+`r optbegin("Steps Involved in Modelling", olabel=FALSE,toggle=params$TOGGLE)`
+
+
+You can think of the sequence of steps involved in statistical modeling as:  
+$$
+\text{Choose} \rightarrow \text{Fit} \rightarrow \text{Assess} \rightarrow \text{Use}
+$$
+
+:::frame
+**A general rule**  
+<br>
+<center>Do not **use** (draw inferences or predictions from) a model *before* you have **assessed** whether the model satisfies the underlying assumptions</center>
+:::
+
+<br>
+Throughout this block, we have completed the first three steps (**Choose**, **Fit**, and **Use**) in that we have:  
+
+1. Explored/visualised our data and specified our model
+2. Fitted the model in `R`  
+3. Interpreted our parameter estimates
+
+Please note that when conducting real analyses, it would be inappropriate to complete these steps without also **Assessing** whether a regression model meets the assumptions. You will learn how to do this in Block 2 (Weeks 7-11).  
+
+`r optend()`
+
+# Study Overview
+
+In this section of the lab, we will walk through an analysis involving multiple linear regression. 
+
+> **Research Question** 
+>
+> Specify specific question  
+
+Description here
+
+`r optbegin("ACE-R APOE4 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+Design of study
+
+__Preview__
+
+The first ten rows of the data are:
+
+```{r echo=FALSE}
+data <- read_csv("https://uoepsy.github.io/data/cogapoe4.csv")
+
+DT::datatable(head(data, 10), options = list(lengthChange = FALSE))
+```
+
+`r optend()`
+
+# Setup
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the cogapoe4 dataset into R, assigning it to an object named `cogapoe`.
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+#Loading the required package(s)
+library(tidyverse)
+library(sjPlot)
+library(emmeans)
+
+# Reading in the cogapoe4 data and storing to an object named 'cogapoe'
+
+cogapoe <- read_csv("https://uoepsy.github.io/data/cogapoe4.csv")
+```
+`r solend()`
+
+# Exercises - Think, Show, & Tell
+
+`r qbegin(1)`
+
+Examine the dataset, and perform all the appropriate data management steps:
+
+- Convert categorical variables to factors
+- Label appropriately factors to aid with your model interpretations
+- If needed, provide better variable names
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+head(cogapoe)
+```
+
+`r solend()`
+
+## In-line Coding
+
+We have seen above how to interpret and write up sections of our results, but now lets use R to help us do this using inline coding (for a refresher, see [Lesson 3 of the RMD Bootcamp](https://uoepsy.github.io//rmd-bootcamp/03-inline.html)).
