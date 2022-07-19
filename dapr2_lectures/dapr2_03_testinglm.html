@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Testing and Evaluating LM</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b> Testing and Evaluating LM</b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+
+---
+
+
+
+
+
+
+
+
+
+
+# Week's Learning Objectives
+1. Be able to test hypotheses and construct confidence intervals for the model coefficients.
+
+2. Understand the calculation and interpretation of the coefficient of determination. 
+
+3. Understand the calculation and interpretation of the F-test of model utility.
+
+
+---
+# Things to recap
++ We will look again at significance testing.
+
++ And also discuss sampling variability.
+
++ If at any point you feel like you are not following this section of the material, go back and review sampling and hypothesis testing material linked on LEARN.
+
+---
+# `lm` in R
++ We do not generally calculate by hand like this, so we also briefly introduced the `lm()` function.
+
+
+```r
+lm(score ~ hours, data = test)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Coefficients:
+## (Intercept)        hours  
+##       0.400        1.055
+```
+
+---
+# Evaluating our model
++ At this point, we have estimated values for the key parameters of our model (intercept and slope).
+
++ Now we have to think about how we evaluate the model.
+
++ There are three ways to think about evaluation:
+
+  1. Evaluating the individual coefficients
+  2. Evaluating the overall model quality
+  3. Evaluating the model assumptions
+
++ Before accepting a set of results, it is important to consider all three of these aspects of evaluation.
+
+???
+Important to really emphasize this is a package of information and we want it all before we decide to accept our model.
+
+---
+#  Significance of individual effects 
++ A general way to ask this question would be to state: 
+
+&gt; **Is our model model informative about the relationship between X and Y?**
+
+--
+
++ In the context of our example from last lecture, we could ask, 
+
+&gt; **Is study time a useful predictor of test score?**
+
+--
+
++ The above is a research question/hypothesis. As we have done before, we need to turn this into a testable statistical hypothesis.
+
+---
+#  Evaluating individual predictors 
++ Steps in hypothesis testing:
+
+--
+  + Research questions
+    
+--
+  
+  + Statistical hypothesis
+    
+--
+  
+  + Define the null
+    
+--
+  
+  + Calculate an estimate of effect of interest.
+  
+--
+  
+  + Calculate an appropriate test statistic.
+    
+--
+  
+  + Evaluate the test statistic against the null.
+    
+
+---
+# Research question and hypotheses
+
++ **Research questions** are statements of what we intend to study. 
+
++ A good question defines:
+
+--
+
+  + Constructs under study
+  + the relationship being tested
+  + A direction of relationship
+  + target populations etc.
+
+&gt; **Does increased study time improve test scores in school age children?**
+
+--
+
++ **Statistical hypotheses** are testable mathematical statements.
+
+--
+
+  + In typical testing in Psychology, we define have a **null ( `\(H_0\)` )** and an **alternative ( `\(H_1\)` )** hypothesis.
+  + `\(H_0\)` is precise, and states a specific value for the effect of interest.
+  + `\(H_1\)` is not specific, and simply says "something else other than the null is more likely"
+
+???
+Flag here that if these comments are completely alien to them, they should go back and recap the hypothesis testing material from dapR1-lectures 12 to 15 (20-21) or 12-14 (19-20).
+
+---
+# Defining null
+
++ Conceptually:
+	+ If `\(x\)` yields no information on `\(y\)`, then `\(\beta_1 = 0\)`
+	
++ **Why would this be the case?**
+
+--
+	+ `\(\beta\)` gives the predicted change in `\(y\)` for a unit change in `\(x\)`.
+	+ If `\(x\)` and `\(y\)` are unrelated, then a change in `\(x\)` will not result in any change to the predicted value of `\(y\)`
+	+ So for a unit change in `\(x\)`, there is no (=0) change in `\(y\)`.
+	
++ We can state this formally as a null and alternative:
+
+`$$H_0: \beta_1 = 0$$`
+`$$H_1: \beta_1 \neq 0$$`
+
+???
++ For the null to be testable, we need to formally define it. 
++ Point out here the difference in the specificity of the hypotheses. `\(H_0\)` is that the `\(b_1\)` takes a specific value. `\(H_1\)` is that `\(b_1\)` has some value that is not this specific value. i..e one is directly testable, the other is not.
+
+
+---
+class: center, middle
+# Time for a break
+
+**Quiz time**
+
+We are about to look at hypothesis tests for coefficients.
+
+So our quiz is on the concept of the standard error
+
+
+---
+class: center, middle
+# Welcome Back!
+
+**Where we left off... **
+
+We have defined a null, now let's look at constructing the test
+
+
+---
+# Point estimate and test statistic
+
++ We have already seen how we calculate `\(\hat \beta_1\)`.
+
++ The associated test statistic to for `\(\beta\)` coefficients is a `\(t\)`-statistic
+
+`$$t = \frac{\hat \beta}{SE(\hat \beta)}$$`
+
++ where
+
+  + `\(\hat \beta\)` = any beta coefficient we have calculated
+  + `\(SE(\hat \beta)\)` = standard error of `\(\beta\)` 
+
+--
+
++ **Recall** that the standard error describes the spread of the sampling distribution.
+  + The standard error (SE) provides a measure of sampling variability
+  + Smaller SE's suggest more precise estimate (=good)
+  
+???
++ brief reminders on test statistics
+  + every quantity we wish to calculate a significance test for needs an test statistic.
+  + the test statistic is a value that has a known sampling distribution
++ If sampling distribution is unfamiliar, again, recap the hypothesis testing material
+
+
+---
+#  SE( `\(\hat \beta_1\)` )
++ The formula for the standard error of the slope is:
+
+`$$SE(\hat \beta_1) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$`
+
++ Where:
+	+ `\(SS_{Residual}\)` is the residual sum of squares
+	+ `\(n\)` is the sample size
+	+ `\(k\)` is the number of predictors (= 1 for simple linear regression)
+
++ **Given the above, think about what things would make the SE smaller.**
+
+--
+
++ From this formula, we can see that the SE's for `\(\beta\)` will be smaller when:
+	+ Residual variance ( `\(SS_{Residual}\)` ) is smaller
+	+ Sample size, `\(n\)`, is larger
+
+
+---
+# Back to the example
+
+`$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)}$$`
+
++ Let's calculate `\(t\)` for our example.
++ We will use some values we have already calculated
+  + `\(\hat \beta_1 = 1.055\)` 
+
+--
+
++ So we need `\(SE(\hat \beta_1)\)`
+
+`$$SE(\hat \beta_1) = \sqrt{\frac{SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$`
+
++ `\(n\)` = 10
++ `\(k\)` = 1
++ `\(\sum(x_i - \bar{x})^2\)` = 20.625
+
+---
+# Back to the example
++ So all we have left is `\(SS_{Residual}\)`.
+
++ From earlier this week, we know:
+
+`$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$`
+
++ `\(SS_{Residual}\)` = residual sum of squares = sum of the squared residuals
+
+
+```r
+res &lt;- lm(score ~ hours, data = test)
+SSRes = sum(res$residuals^2)
+SSRes
+```
+
+```
+## [1] 21.16364
+```
+
+---
+# Back to our example
+
++ So pull all this together:
+
+`$$SE(\hat \beta_1) = \sqrt{\frac{SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}} 
+= \sqrt{\frac{21.16364 / (10-1-1)}{20.625}} = \sqrt{\frac{2.65455}{20.625}} = 0.35814$$`
+
+--
+
++ and finally
+
+`$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)} = \frac{1.055}{0.35814} = 2.945773 = 2.95$$`
+
+
+---
+# Sampling distribution for the null
+
++ Now we have our `\(t\)`-statistic, we need to evaluate it.
+
++ For that, we need sampling distribution for the null.
+
++ For `\(\beta\)`, this is a `\(t\)`-distribution with `\(n-k-1\)` degrees of freedom.
+	+ Where `\(k\)` is the number of predictors, and the additional -1 represents the intercept.
+
+--
+
++ So for linear models with 1 predictor this is `\(n-2\)`
+  + In our case = 8
+
+---
+#  A decision about the null 
++ So we have a `\(t\)`-value associated with our `\(\beta\)` coefficient.
+	+ t = 2.95
+
++ And we know we will evaluate it against a `\(t\)`-distribution with 8 df.
+
++ As with all tests we need to set our `\(\alpha\)`.
+	+ Let's take 0.05 two tailed.
+
+--
+
++ Now we need a critical value to compare our observed `\(t\)`-value to.
+
+---
+# Visualize the null
+
+.pull-left[
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+
+]
+
+.pull-right[
+
++ Critical value and `\(p\)`-value:
+
+```r
+tibble(
+  LowerCrit = round(qt(0.025, 8), 3),
+  UpperCrit = round(qt(0.975, 8), 3),
+  Exactp = (1 - pt(2.95, 8)) * 2
+)
+```
+
+```
+## # A tibble: 1 x 3
+##   LowerCrit UpperCrit Exactp
+##       &lt;dbl&gt;     &lt;dbl&gt;  &lt;dbl&gt;
+## 1     -2.31      2.31 0.0184
+```
+
+]
+
+???
++ discuss this plot.
++ remind them of 2-tailed
++ areas
++ % underneath each end
++ comment on how it would be different one tailed
++ remind about what X is, thus where the line is
+
+---
+# `lm` in R
+
+.pull-left[
+
+```r
+summary(res)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6182 -1.0773 -0.7454  1.1773  2.4364 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.4000     1.1111   0.360   0.7282  
+## hours         1.0545     0.3581   2.945   0.0186 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.626 on 8 degrees of freedom
+## Multiple R-squared:  0.5201,	Adjusted R-squared:  0.4601 
+## F-statistic:  8.67 on 1 and 8 DF,  p-value: 0.01858
+```
+]
+
+.pull-right[
++ So in our example, we **reject the null**.
++ **Spend a little bit of time looking at this output, and comparing the various values to those things we calculated in our example.**
+  + Some we haven't yet looked at. 
+  + They are coming next.
+
+]
+
+---
+#  Confidence intervals for `\(\beta_1\)`
++ We can also compute confidence intervals for `\(\hat \beta_1\)`
++ The `\(100 (1 - \alpha)\)`, e.g., 95%, confidence interval for the slope is:
+
+`$$\hat \beta_1 \pm t^* \times SE(\hat \beta_1)$$`
+
++ So, 95% confidence interval for in our revision and test score example would be:
+
+
+```r
+tibble(
+  LowerCI = round(1.055 - (2.306 * 0.358), 3),
+  UpperCI = round(1.055 + (2.306 * 0.358), 3)
+)
+```
+
+```
+## # A tibble: 1 x 2
+##   LowerCI UpperCI
+##     &lt;dbl&gt;   &lt;dbl&gt;
+## 1   0.229    1.88
+```
+
+
+
++ The confidence interval of 0.229 to 1.881 does not include zero, 
+  + Therefore, we can conclude that **revision is a statistically significant predictor of test scores** ( `\(p &lt; .05\)`).
+
+---
+# What changes when we have multiple predictors?
++ Broadly follows the same procedure as in simple regression:
+	+ Standard errors (SEs) for each regression slope are computed
+	
+	+ SE gives a measure of the sampling variability of a regression coefficient
+	
+	+ `\(t\)`-tests and confidence intervals evaluate the statistical significance of regression slopes
+
+---
+#  Standard errors 
+
+.pull-left[
+
+`$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$`
+
+]
+
+
+.pull-right[
+
+`$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{ij}})^2(1-R_{xj}^2)}}$$`
+
++ `\(1-R_{xj}^2\)` is capturing the correlation between `\(x_j\)` and all other `\(x\)`'s
+
+]
+
+---
+#  Standard errors
+
+`$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{ij}})^2(1-R_{xj}^2)}}$$`
+
++ Examining the above formula we can see that:
+	+ `\(SE\)` is smaller when residual variance ( `\(SS_{residual}\)` ) is smaller
+	+ `\(SE\)` is smaller when sample size ( `\(N\)` ) is larger
+	+ `\(SE\)` is larger when the number of predictors ( `\(k\)` ) is larger
+	+ `\(SE\)` is larger when a predictor is strongly correlated with other predictors ( `\(R_{xj}^2\)` )
+
+???
++ Well return to this later when we discuss multi-collinearity issues
+
+---
+#  Significance of coefficients 
+
++ Once we have the standard error, all else is the same:
+
+`$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)}$$`
+
++ A `\(t\)`-test of the null hypothesis that `\(b_j = 0\)`
+
++ The `\(t\)`-value is compared to a `\(t\)`-distribution with N-k-1 degrees of freedom to assess statistical significance at a given `\(\alpha\)`.
+
+---
+#  Our academic performance example
+
+
+```r
+res$coefficients
+```
+
+```
+## (Intercept)       hours 
+##    0.400000    1.054545
+```
+
+
+**Self-control (t(647)=14.05, p&lt;.001) was a significant predictor of academic performance ( `\(\alpha = 0.05\)` ), and so we reject the null hypothesis of no effect. However, we failed to reject the null for class interaction (t(647)=-0.34, p&gt;.05).**
+
+
+---
+#  Confidence intervals 
+
++ Like in simple regression, we can also compute confidence intervals for slopes in multiple regression.
+
++ The 100(1-alpha) confidence interval for the slope is:
+
+`$$\hat \beta_1 \pm t^* \times SE(\hat \beta_1)$$`
+
+
+
+
+
+```r
+tibble(
+  lower = res2$coefficients[2,1] - round(qt(0.975, 647), 3) *  res2$coefficients[2,2],
+  upper = res2$coefficients[2,1] + round(qt(0.975, 647), 3) *  res2$coefficients[2,2]
+)
+```
+
+```
+## # A tibble: 1 x 2
+##   lower upper
+##   &lt;dbl&gt; &lt;dbl&gt;
+## 1 0.416 0.551
+```
+
+
+---
+#  Confidence intervals 
+
++ Or the much easier version...
+
+
+```r
+confint(perf)
+```
+
+```
+##                     2.5 %     97.5 %
+## (Intercept)   -0.06747398 0.06747398
+## z_SC           0.41621897 0.55148537
+## z_interaction -0.07938738 0.05587903
+```
+
+
+
+---
+class: center, middle
+# Break
+
+---
+#  Quality of the overall model 
++ When we measure an outcome ( `\(y\)` ) in some data, the scores will vary (we hope).
+  + Variation in `\(y\)` = total variation of interest.
+
+--
+
++ The aim of our linear model is to build a model which describes `\(y\)` as a function of `\(x\)`.
+	+ That is we are trying to explain variation in `\(y\)` using `\(x\)`.
+
+--
+
++ But it won't explain it all.
+  + What is left unexplained is called the residual variance.
+
+--
+
++ So we can breakdown variation in our data based on sums of squares as;
+
+`$$SS_{Total} = SS_{Model} + SS_{Residual}$$`
+
+---
+#  Coefficient of determination 
++ One way to consider how good our model is, would be to consider the proportion of total variance our model accounts for. 
+
+`$$R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}$$`
+
++ `\(R^2\)` = coefficient of determination
+
+--
+
+  + Quantifies the amount of variability in the outcome accounted for by the predictors.
+  + More variance accounted for, the better.
+  + Represents the extent to which the prediction of `\(y\)` is improved when predictions are based on the linear relation between `\(x\)` and `\(y\)`.
+
+--
+
++ Let's see how it works.
+  + To do so, we need to calculate the different sums of squares.
+
+
+---
+# Total Sum of Squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$`
+
++ Squared distance of each data point from the mean of `\(y\)`.
+
++ Mean is our baseline. 
+
++ Without any other information, our best guess at the value of `\(y\)` for any person is the mean.
+
+]
+
+.pull-right[
+
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-12-1.png)&lt;!-- --&gt;
+
+]
+
+---
+# Calculations
+
+.pull-left[
+
+```r
+ss_tab &lt;- test %&gt;%
+    mutate(
+        y_dev = score - mean(score), 
+        y_dev2 = y_dev^2
+    )
+```
+
+
+```r
+ss_tab %&gt;%
+    summarize(
+        ss_tot = sum(y_dev2)
+    )
+```
+
+```
+## # A tibble: 1 x 1
+##   ss_tot
+##    &lt;dbl&gt;
+## 1   44.1
+```
+
+]
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; student &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_dev &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_dev2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -2.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.69 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.69 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.29 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.09 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.49 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22.09 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Residual sum of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$`
+
++ Which you may recognise.
+
++ Squared distance of each point from the predicted value.
+]
+
+.pull-right[
+
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-16-1.png)&lt;!-- --&gt;
+
+]
+
+---
+# Calculations
+
+.pull-left[
+
+```r
+ss_tab &lt;- ss_tab %&gt;%
+  mutate(
+    y_pred = round(res$fitted.values,2),
+    pred_dev = round((score - y_pred),2),
+    pred_dev2 = round(pred_dev^2,2)
+  )
+```
+
+
+```r
+ss_tab %&gt;%
+  summarize(
+    ss_tot = sum(y_dev2),
+*   ss_resid = sum(pred_dev2)
+  )
+```
+
+```
+## # A tibble: 1 x 2
+##   ss_tot ss_resid
+##    &lt;dbl&gt;    &lt;dbl&gt;
+## 1   44.1     21.2
+```
+
+]
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; student &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; hours &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; score &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; y_pred &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pred_dev &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; pred_dev2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.93 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.07 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.00 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.45 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.55 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.40 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.98 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.98 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.96 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.26 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.04 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.04 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.08 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.56 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.95 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID7 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.09 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.09 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.19 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.62 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.62 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.62 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID9 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.15 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.32 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; ID10 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.67 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 5.43 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+
+---
+# Model sums of squares
+
+.pull-left[
++ Sums of squares quantify difference sources of variation.
+
+`$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$`
+
++ That is, it is the deviance of the predicted scores from the mean of `\(y\)`.
+
++ But it is easier to simply take:
+
+`$$SS_{Model} = SS_{Total} - SS_{Residual}$$`
+
+]
+
+.pull-right[
+
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-20-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+# Calculations
+
+.pull-left[
+
+`$$SS_{Model} = SS_{Total} - SS_{Residual}$$`
+
+
+```r
+ss_tab %&gt;%
+  summarize(
+    ss_tot = sum(y_dev2),
+    ss_resid = sum(pred_dev2)
+  ) %&gt;%
+* mutate(
+*   ss_mod = ss_tot - ss_resid
+  )
+```
+
+```
+## # A tibble: 1 x 3
+##   ss_tot ss_resid ss_mod
+##    &lt;dbl&gt;    &lt;dbl&gt;  &lt;dbl&gt;
+## 1   44.1     21.2   22.9
+```
+
+]
+
+.pull-right[
+
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-22-1.png)&lt;!-- --&gt;
+
+]
+
+
+---
+#  Coefficient of determination 
++ Now we can finally come back to `\(R^2\)`.
+
+`$$R^2 = 1 - \frac{SS_{Residual}}{SS_{Total}}$$`
+
++ Or
+
+`$$R^2 = \frac{SS_{Model}}{SS_{Total}}$$`
+
++ So in our example:
+
+`$$R^2 = \frac{SS_{Model}}{SS_{Total}} = \frac{22.9}{44.1} = 0.519$$`
+
++ ** `\(R^2\)` = 0.519 means that 52% of the variation in test scores is accounted for by hours of revision.**
+
+---
+#  Our example 
+
+
+```r
+res &lt;- lm(score ~ hours, data = test)
+summary(res)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6182 -1.0773 -0.7454  1.1773  2.4364 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.4000     1.1111   0.360   0.7282  
+## hours         1.0545     0.3581   2.945   0.0186 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.626 on 8 degrees of freedom
+## Multiple R-squared:  0.5201,	Adjusted R-squared:  0.4601 
+## F-statistic:  8.67 on 1 and 8 DF,  p-value: 0.01858
+```
+
+???
+As at the end of last session, we can check this against the R-output:
+Be sure to flag small amounts of rounding difference from working through "by hand" and so presenting to less decimal places.
+
+---
+#  Adjusted `\(R^2\)` 
++ We can also compute an adjusted `\(R^2\)` when our lm has 2+ predictors.
+  + `\(R^2\)` is an inflated estimate of the corresponding population value
+
++ Due to random sampling fluctuation, even when `\(R^2 = 0\)` in the population, it's value in the sample may `\(\neq 0\)` 
+
++ In **smaller samples** , the fluctuations from zero will be larger on average
+
++ With **more IVs** , there are more opportunities to add to the positive fluctuation
+
+
+`$$\hat R^2 = 1 - (1 - R^2)\frac{N-1}{N-k-1}$$`
+
++ Adjusted `\(R^2\)` adjusts for both sample size ( `\(N\)` ) and number of predictors ( `\(k\)` )
+
+
+---
+#  In our academic performance example 
+
+
+```r
+res2
+```
+
+```
+## 
+## Call:
+## lm(formula = z_perf ~ z_SC + z_interaction, data = data)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -2.3169 -0.5840 -0.0989  0.5284  3.9093 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)    9.822e-17  3.436e-02   0.000    1.000    
+## z_SC           4.839e-01  3.444e-02  14.048   &lt;2e-16 ***
+## z_interaction -1.175e-02  3.444e-02  -0.341    0.733    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.8761 on 647 degrees of freedom
+## Multiple R-squared:  0.2349,	Adjusted R-squared:  0.2325 
+## F-statistic: 99.32 on 2 and 647 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+#  In our academic performance example 
+
++ **Based on adjusted R-squared, self-control and class interaction together explain 23.3% of the variance in academic performance**
+
++ As the sample size is large and the number of predictors small, unadjusted ( 0.235 ) and adjusted R-squared ( 0.233 ) are similar.
+
+
+
+
+---
+class: center, middle
+# Time for a break
+
+**Quiz time!**
+
+
+---
+class: center, middle
+# Welcome Back!
+
+**Where we left off... **
+
+We had just calculated `\(R^2\)`
+
+Now let's look at calculating significance tests for our model
+
+
+---
+#  Significance of the overall model 
++ The test of the individual predictors (IVs, or `\(x\)`'s) does not tell us if the overall model is significant or not.
+	+ Neither does R-square
+	+ But both are indicative
+
++ To test the significance of the model as a whole, we conduct an `\(F\)`-test.
+
+---
+#  F-ratio
++ `\(F\)`-ratio tests the null hypothesis that all the regression slopes in a model are all zero
+  + We are currently talking about a model with only one `\(x\)`, thus one slope.
+  + But the `\(F\)`-ratio test will generalise.
+
+--
+
++ `\(F\)`-ratio is a ratio of the explained to unexplained variance:
+
+`$$F = \frac{MS_{Model}}{MS_{Residual}}$$`
+
++ Where MS = mean squares
+
+--
+
++ **What are mean squares?**
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
+  + The degrees of freedom are defined by the number of "independent" values associated with the different calculations.
+
+---
+# F-table
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; k &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS model/df model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MS model/ MS residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(df model,df residual) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; n-k-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS residual/df residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+---
+# Our example: F-table
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Component &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 22.9 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 22.9 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8.641509 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(1,8) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 21.2 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 8 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 2.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 44.1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+# F-ratio
++ Bigger `\(F\)`-ratios indicate better models.
+  + It means the model variance is big compared to the residual variance.
+
+--
+
++ The null hypothesis for the model says that the best guess of any individuals `\(y\)` value is the mean of `\(y\)` plus error.
+	+ Or, that the `\(x\)` variables carry no information collectively about `\(y\)`.
+
+--
+
++ `\(F\)`-ratio will be close to 1 when the null hypothesis is true
+  + If there is equivalent residual to model variation, `\(F\)`=1
+	+ If there is more model than residual `\(F\)` &gt; 1
+
+--
+
++ `\(F\)`-ratio is then evaluated against an `\(F\)`-distribution with `\(df_{Model}\)` and `\(df_{Residual}\)` and a pre-defined `\(\alpha\)`
+
+--
+
++ Testing the `\(F\)`-ratio evaluates statistical significance of the overall model
+
+---
+# Visualize the test
+
+.pull-left[
+
+![](dapr2_03_testinglm_files/figure-html/unnamed-chunk-27-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
++ Critical value and `\(p\)`-value:
+
+```r
+tibble(
+  Crit = round(qf(0.95, 1, 8),3),
+  Exactp = 1-pf(8.64, 1, 8)
+)
+```
+
+```
+## # A tibble: 1 x 2
+##    Crit Exactp
+##   &lt;dbl&gt;  &lt;dbl&gt;
+## 1  5.32 0.0187
+```
+
++ From this we would **reject the null**. 
+
+]
+
+---
+#  Our example 
+
+
+```r
+res &lt;- lm(score ~ hours, data = test)
+summary(res)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours, data = test)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6182 -1.0773 -0.7454  1.1773  2.4364 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)  
+## (Intercept)   0.4000     1.1111   0.360   0.7282  
+## hours         1.0545     0.3581   2.945   0.0186 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 1.626 on 8 degrees of freedom
+## Multiple R-squared:  0.5201,	Adjusted R-squared:  0.4601 
+## F-statistic:  8.67 on 1 and 8 DF,  p-value: 0.01858
+```
+
+???
+As at the end of last session, we can check this against the R-output:
+Comment on the minor differences for rounding.
+
+---
+#  `\(F\)`-ratio 
++ Like in simple regression, the `\(F\)`-ratio is used to test the null hypothesis that **all** model slopes are zero.
+
++ It is calculated in exactly the same way as in simple linear model:
+
+`$$F = \frac{MS_{Model}}{MS_{Residual}} = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}}$$`
+
++ Where
+	+ df model = `\(k\)`
+	+ df residual = `\(N\)` - `\(k\)` - 1
+		  + `\(N\)` = sample size
+		  + `\(k\)` = number of predictors
+
+---
+#  In our academic performance example? 
+
+
+```r
+res2
+```
+
+```
+## 
+## Call:
+## lm(formula = z_perf ~ z_SC + z_interaction, data = data)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -2.3169 -0.5840 -0.0989  0.5284  3.9093 
+## 
+## Coefficients:
+##                 Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)    9.822e-17  3.436e-02   0.000    1.000    
+## z_SC           4.839e-01  3.444e-02  14.048   &lt;2e-16 ***
+## z_interaction -1.175e-02  3.444e-02  -0.341    0.733    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.8761 on 647 degrees of freedom
+## Multiple R-squared:  0.2349,	Adjusted R-squared:  0.2325 
+## F-statistic: 99.32 on 2 and 647 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+#  In our academic performance example? 
+
++ Our overall model was significant (*F(2,647)=99.32, p&lt;.001*). 
+
+
+
+
+---
+# Summary of today
+
+
+
+---
+class: center, middle
+# Thanks for listening!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>

@@ -1,0 +1,554 @@
+---
+title: "<b>Introduction to the linear model (LM)</b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
+options(htmltools.dir.version = FALSE)
+library(tidyverse)
+library(kableExtra)
+
+knitr::opts_chunk$set(out.width = '80%')
+
+theme_set(theme_gray(base_size = 15))
+```
+
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+# Weeks Learning Objectives
+1. Understand the link between models and functions.
+
+2. Understand the key concepts (intercept and slope) of the linear model
+
+3. Understand and describe fitted values and residuals. 
+
+4. Be able to specify a simple linear model. 
+
+---
+# What is a model?
++ Pretty much all statistics is about models.
+
++ A model is a formal representation of a system.
+
++ Put another way, a model is an idea about the way the world is.
+
+---
+# A model as a function
++ We tend to represent mathematical models as functions.
+  + which can be very helpful.
+  
++ It allows for the precise specification about what is important (arguments) and what those things do (operations)
+  + This leads to predictions
+  + And these predictions can be tested.
+
+---
+# An Example
++ To think through these relations, we can use a simpler example.
+
++ Suppose I have a model for growth of babies.<sup>1</sup>
+
+$$
+Length = 55 + 4 * Month
+$$
+
+.footnote[
+[1] Length is measured in cm.
+]
+
+---
+# Visualizing a model
+
+.pull-left[
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+fun1 <- function(x) 55 + (4*x)
+m1 <- ggplot(data = data.frame(x=0), aes(x=x)) +
+  stat_function(fun = fun1) +
+  xlim(0,24) +
+  ylim(0,150) +
+  ylab("Length (cm)") +
+  xlab("Age (months)") #+
+  #geom_point(colour = "red", size = 3) #+
+ # geom_segment(aes(x = x, y = fx, xend = x, yend = 0), 
+  #             arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  #geom_segment(aes(x = x, y = fx, xend = 0, yend = fx), 
+   #            arrow=arrow(type = "closed", length = unit(0.25, "cm")))
+m1
+```
+]
+
+.pull-right[
+
+{{content}}
+]
+
+--
++ The black line represents our model
+{{content}}
+
+--
++ The x-axis shows `Age` $(x)$
+{{content}}
+
+--
++ The y-axis values for `Length` our model predicts
+{{content}}
+
+
+
+---
+# Models as "a state of the world"
++ Let's suppose my model is true.
+  + That is, it is a perfect representation of how babies grow.
+  
++ What are the implications of this?
+
+
+---
+# Models and predictions
++ My models creates predictions.
+
++ **IF** my model is a true representation of the world, **THEN** data from the world should closely match my predictions.
+
+
+---
+# Predictions and data
+
+.pull-left[
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+m1+
+  geom_segment(aes(x = 11, y = 99, xend = 11, yend = 0),
+               col = "red", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  geom_segment(aes(x = 11, y = 99, xend = 0, yend = 99),
+               col = "red", lty = 2,
+               arrow=arrow(type = "closed", length = unit(0.25, "cm")))
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+tibble(
+  Age = seq(10, 12, 0.25)
+) %>%
+  mutate(
+    Prediction = 55 + (Age*4)
+  ) %>%
+  kable(.) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+]
+
+???
++ Our predictions are points which fall on our line (representing the model, as a function)
++ Here the arrows are showing how we can use the model to find a predicted value.
++ we find the value of the input on the x-axis (here 11), read up to the line, then across to the y-axis
+
+
+
+
+---
+# Predictions and data
+
+.pull-left[
+
++ Consider the predictions when the children get a lot older...
+
+{{content}}
+
+]
+
+
+.pull-right[
+```{r, echo=FALSE}
+tibble(
+  Age = seq(216,300, 12)
+) %>%
+  mutate(
+    Year = Age/12,
+    Prediction = 55 + (Age*4),
+    Prediction_M = Prediction/100
+  ) %>%
+  kable(.) %>%
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+]
+
+--
++ What do you think this would mean for our actual data?
+{{content}}
+
+--
++ Will the data fall on the line?
+{{content}}
+
+
+---
+# How good is my model?
++ How might we judge how good our model is?
+
+--
+
+  1. Model is represented as a function
+  
+  2. We see that as a line (or surface if we have more things to consider)
+  
+  3. That yields predictions (or values we expect if our model is true)
+  
+  4. We can collect data
+  
+  5. If the predictions do not match the data (points deviate from our line), that says something about our model.
+
+
+---
+# Models and Statistics
++ In statistics we (roughly) follow this process.
+
++ We define a model that represents one state of the world (probabilistically)
+
++ We then collect data to compare to it.
+
++ These comparisons lead us to make inferences about how the world actually is, by comparison to a world that we specify by our model. 
+
+
+---
+# Length & Age is non-linear
+
+.pull-left[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+df <- read_csv("length_age.csv", col_names = c("Month", "Mean", "SD", "Lower", "Upper"))
+m1 + 
+  geom_line(data = df, aes(x=Month, y = Mean), colour = "red") + 
+  geom_line(data = df, aes(x=Month, y = Lower), colour = "red", linetype = "dashed") +
+  geom_line(data = df, aes(x=Month, y = Upper), colour = "red", linetype = "dashed")
+```
+]
+
+.pull-right[
+
++ Our red line is plotted based on the mean length for different ages [real data](https://www.cdc.gov/growthcharts/who/boys_length_weight.htm)
+
+]
+
+
+---
+# Deterministic vs Statistical models
+
+.pull-left[
+A deterministic model is a model for an **exact** relationship:
+$$
+y = \underbrace{3 + 2 x}_{f(x)}
+$$
+```{r echo=FALSE, fig.align='center', out.width = '70%'}
+df <- tibble(
+  x = seq(-2.6, 2, length.out = 10),
+  y = 3 + 2 * x
+)
+df_grid <- tibble(
+  x = seq(-3, 3, length.out = 100),
+  y = 3 + 2 * x
+)
+
+ggplot() +
+  geom_point(data = df, aes(x = x, y = y)) +
+  geom_line(data = df_grid, aes(x = x, y = y), color = 'blue') +
+  labs(x = 'x', y = 'y') +
+  ylim(-6, 11)
+```
+
+]
+
+.pull-right[
+A statistical model allows for case-by-case **variability**:
+$$
+y = \underbrace{3 + 2 x}_{f(x)} + \epsilon
+$$
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', out.width = '70%'}
+df <- tibble(
+  x = rnorm(200),
+  y = 3 + 2 * x + rnorm(200, sd = 2.2)
+)
+
+ggplot(data = df, aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = 'x', y = 'y') + 
+  ylim(-6, 11)
+```
+]
+
+---
+class: center, middle
+# Time for a short break
+
+
+---
+# Linear model
++ What we will focus on for the majority of the course is how we move from the idea of an association, to estimating a model for the relationship.
+
++ This model is the **linear model**
+
++ When using a linear model, we are typically trying to explain variation in an **outcome** (Y, dependent, response) variable, using one or more **predictor** (x, independent, explanatory) variable(s).
+
+
+---
+# Example
+
+.pull-left[
+
+```{r, echo=FALSE}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+
+kable(test)
+```
+
+]
+
+.pull-right[
+
+**Simple data**
+
++ `student` = ID variable unique to each respondent
+
++ `hours` = the number of hours spent studying. This will be our predictor ( $x$ )
+
++ `score` = test score ( $y$ )
+
+**Question: Do students who study more get higher scores on the test?**
+]
+
+---
+# Scatterplot of our data
+
+.pull-left[
+```{r, echo=FALSE}
+
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2)+
+  ylab("Test Score") +
+  xlab("Hours Studied")
+
+```
+]
+
+.pull-right[
+
+{{content}}
+
+]
+
+--
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2)+
+  stat_smooth(method="lm", se=FALSE, col="red") +
+  ylab("Test Score") +
+  xlab("Hours Studied")
+
+```
+
+{{content}}
+
+???
++ we can visualize our data. We can see points moving bottom left to top right
++ so association looks positive
++ Now let's add a line that represents the best model
+
+---
+# Definition of the line
++ The line can be described by two values:
+
++ **Intercept**: the point where the line crosses $y$, and $x$ = 0
+
++ **Slope**: the gradient of the line, or rate of change
+
+???
++ In our example, intercept = for someone who doesn't study, what score will they get?
++ Slope = for every hour of study, how much will my score change
+
+---
+# Intercept and slope
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+intercept <- ggplot(test, aes(x=hours, y=score)) +
+  geom_point(alpha = .1) +
+  geom_abline(intercept = 3, slope = .3) +
+  geom_abline(intercept = 4, slope = .3) + 
+  geom_abline(intercept = 5, slope = .3) +
+  ylab("Test Score") +
+  xlab("Hours Studied") +
+  ggtitle("Different intercepts, same slopes")
+
+slope <- ggplot(test, aes(x=hours, y=score)) +
+  geom_point(alpha = .1) +
+  geom_abline(intercept = 4, slope = .3) +
+  geom_abline(intercept = 4, slope = 0) + 
+  geom_abline(intercept = 4, slope = -.3) +
+  ylab("Test Score") +
+  xlab("Hours Studied") +
+  ggtitle("Same intercepts, different slopes")
+
+```
+
+.pull-left[
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+intercept
+
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+slope
+
+```
+
+]
+
+---
+# How to find a line?
++ The line represents a model of our data.
+    + In our example, the model that best characterizes the relationship between hours of study and test score.
+
++ In the scatterplot, the data is represented by points.
+
++ So a good line, is a line that is "close" to all points.
+
+
+---
+# Linear Model
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
+
++ $y_i$ = the outcome variable (e.g. `score`) 
+
++ $x_i$ = the predictor variable, (e.g. `hours`)
+
++ $\beta_0$ = intercept
+
++ $\beta_1$ = slope
+
++ $\epsilon_i$ = residual (we will come to this shortly)
+
+where $\epsilon_i \sim N(0, \sigma)$ independently.
+  + $\sigma$ = standard deviation (spread) of the errors
+  + The standard deviation of the errors, $\sigma$, is constant
+
+
+---
+# Linear Model
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ **Why do we have $i$ in some places and not others?**
+
+
+--
+
++ $i$ is a subscript to indicate that each participant has their own value.
+
++ So each participant has their own: 
+    + score on the test ( $y_i$ )
+    + number of hours studied ( $x_i$ ) and
+    + residual term ( $\epsilon_i$ )
+
+--
++ **What does it mean that the intercept ( $\beta_0$ ) and slope ( $\beta_1$ ) do not have the subscript $i$?**
+
+--
+
++ It means there is one value for all observations.
+    + Remember the model is for **all of our data**
+
+---
+# What is $\epsilon_i$?
+
+.pull-left[
++ $\epsilon_i$, or the residual, is a measure of how well the model fits each data point.
+
++ It is the distance between the model line (on $y$-axis) and a data point.
+
++ $\epsilon_i$ is positive if the point is above the line (red in plot)
+
++ $\epsilon_i$ is negative if the point is below the line (blue in plot)
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2, col = c(rep("darkgrey", 5), "red", "blue", rep("darkgrey", 3)))+
+  stat_smooth(method="lm", se=FALSE, col = "black") +
+  geom_segment(aes(x = 3, y = 3.7, xend = 3, yend = 5.9),
+               col = "red", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+    geom_segment(aes(x = 3.5, y = 4, xend = 3.5, yend = 3.15),
+               col = "blue", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  ylab("Test Score") +
+  xlab("Hours Studied")
+
+
+```
+
+]
+
+???
++ comment red = positive and bigger (longer arrow) model is worse
++ blue is negative, and smaller (shorter arrow) model is better
++ key point to link here is the importance of residuals for knowing how good the model is
++ Link to last lecture in that they are the variability 
++ that is the link into least squares
+
+
+---
+# Summary
+
+---
+class: center, middle
+# That is all for this week
+
