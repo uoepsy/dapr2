@@ -30,6 +30,7 @@ qend<-function(){
     return(output)
 }
 
+
 solbegin<-function(label=NULL,slabel=TRUE,show=TRUE,toggle=TRUE){
     if(slabel){slab = "Solution "}else{slab = ""}
     if(!is.null(label)){
