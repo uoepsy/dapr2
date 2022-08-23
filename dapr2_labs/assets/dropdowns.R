@@ -30,7 +30,6 @@ qend<-function(){
     return(output)
 }
 
-
 solbegin<-function(label=NULL,slabel=TRUE,show=TRUE,toggle=TRUE){
     if(slabel){slab = "Solution "}else{slab = ""}
     if(!is.null(label)){
@@ -43,7 +42,7 @@ solbegin<-function(label=NULL,slabel=TRUE,show=TRUE,toggle=TRUE){
             id1 <- paste0("sol-start-", id)
             id2 <- paste0("sol-body-", id)
             part1 <- paste0("<div class=\"solution-begin\">",
-                            ifelse(toggle, sprintf("<span id='%s' class=\"fa fa-chevron-circle-right solution-icon clickable\" onclick=\"toggle_visibility('%s', '%s')\">  %s</span>",id1, id2, id1, slab),""),
+                            ifelse(toggle, sprintf("<span id='%s' class=\"fa-solid fa-circle-arrow-right solution-icon clickable\" onclick=\"toggle_visibility('%s', '%s')\">  %s</span>",id1, id2, id1, slab),""),
                             "</div>",
                             ifelse(toggle, paste0("<div class=\"solution-body\" id = \"",id2, "\" style=\"display: none;\">"), "<div class=\"solution-body\">")
             )
