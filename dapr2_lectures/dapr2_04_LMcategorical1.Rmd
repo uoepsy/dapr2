@@ -1,0 +1,752 @@
+---
+title: "<b>Binary Predictors </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(effsize)
+
+theme_set(theme_gray(base_size = 15))
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
+```
+
+# Weeks Learning Objectives
+1. Understand the meaning of model coefficients in the case of a binary predictor.
+
+2. Understand how to apply dummy coding to include categoical predictors with 2+ levels.
+
+3. Understand how and when to standardize model coefficients and when this is appropriate to do.
+
+4. Understand the relationship between the correlation coefficient and the regression slope.
+
+---
+#  Recap: Categorical variables 
++ Categorical variables can only take discrete values
+	+ E.g., animal type: 1= duck, 2= cow, 3= wasp
+
++ They are mutually exclusive
+  + No duck-wasps or cow-ducks!
+
++ In R, categorical variables should be of class `factor`
+  + The discrete values are `levels`
+  + Levels can have numeric values (1, 2 3) and labels (e.g. "duck", "cow", "wasp")
+
+---
+# Recap: Binary variable
++ Binary variable is a categorical variable with two levels.
+
++ Traditionally coded with a 0 and 1
+  + Referred to as dummy coding
+  + We will come back to this for categorical variables with 2+ levels
+
+--
+
++ Why 0 and 1?
+  + Quick version: It has some nice properties when it comes to interpretation.
+
+
+---
+# Extending our example
+
+.pull-left[
++ Our in class example so far has used test scores and revision time for 10 students.
+
++ Let's say we collect this data on 150 students.
+
++ We also collected data on who they studied with;
+  + 0 = alone
+  + 1 = with others
+  
++ So our variable `study` is a binary
+]
+
+.pull-right[
+
++ This data set is available on LEARN
+
+```{r, warning=FALSE, message=FALSE}
+df <- read_csv("./dapr2_lec07.csv") #<<
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+kable(df)%>%
+  kable_styling(., full_width = F) %>%
+  scroll_box(height = "300px")
+```
+
+]
+
+---
+#  LM with binary predictors 
++ In previous lectures we asked the question:
+
+  + **Do students who study more get higher scores on the test?**
+
++ And we specified a linear model:
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ Or
+
+$$score_i = \beta_0 + \beta_1 hours_{i} + \epsilon_i$$
+
+--
+
++ And nothing changes with our binary variable. We can ask the question:
+
+  + **Do students who study with others score better than students who study alone?**
+
+$$score_i = \beta_0 + \beta_1 study_{i} + \epsilon_i$$
+
+---
+# In `R`
+
+```{r}
+res <- lm(score ~ study, data = df)
+summary(res)
+```
+
+
+---
+# Interpretation
+
+.pull-left[
++ As before, the intercept $\hat \beta_0$ is the expected value of $y$ when $x=0$
+
++ What is $x=0$ here?
+  + It is the students who study alone.
+
++ So what about $\hat \beta_1$?
+
++ **Look at the output on the right hand side.** 
+  + What do you notice about the difference in averages?
+
+]
+
+.pull-right[
+```{r warning=FALSE, message=FALSE}
+df %>%
+  group_by(., study) %>% #<<
+  summarise(
+    Average = round(mean(score),4) #<<
+  )
+```
+
+
+]
+
+
+---
+# Interpretation
++ $\hat \beta_0$ = predicted expected value of $y$ when $x = 0$
+  + Or, the mean of group coded 0 (those who study alone)
+  
++ $\hat \beta_1$ = predicted difference between the means of the two groups.
+  + Group 1 - Group 0 (Mean `score` for those who study with others - mean `score` of those who study alone)
+  
++ Notice how this maps to our question. 
+  + Do students who study with others score better than students who study alone?
+  
+
+---
+class: center, middle
+# Time for a break
+
+**Have a go at the binary variable quiz**
+
+---
+class: center, middle
+# Welcome Back!
+
+**Where we left off... **
+
+Let's think about the interpretation by group a little more.
+
+---
+#  Equations for each group 
++ What would our linear model look like if we added the values for $x$.
+
+
+$$\widehat{score} = \hat \beta_0 + \hat \beta_1 study$$
+
+
++ For those who study alone ( $study = 0$ ):
+
+
+$$\widehat{score}_{alone} = \hat \beta_0 + \hat \beta_1 \times 0$$
+
+
++ So;
+
+
+$$\widehat{score}_{alone} = \hat \beta_0$$
+
+
+
+---
+#  Equations for each group 
++ For those who study with others ( $study = 1$ ):
+
+
+$$\widehat{score}_{others} = \hat \beta_0 + \hat \beta_1 \times 1$$
+
+
++ So;
+
+
+$$\widehat{score}_{others} = \hat \beta_0 + \hat \beta_1$$
+
+
++ And if we re-arrange;
+
+
+$$\hat \beta_1 = \widehat{score}_{others} - \hat \beta_0$$
+
+
++ Remembering that $\widehat{score}_{alone} = \hat \beta_0$, we finally obtain:
+
+$$\hat \beta_1 = \widehat{score}_{others} - \widehat{score}_{alone}$$
+
+
+---
+#  Visualize the model
+
+```{r, echo=FALSE}
+bin <- df %>%
+  ggplot(., aes(x=factor(study), y=score, colour = study)) +
+  geom_point(alpha=0.4) +
+  labs(x = "\n Study", y = "Test Score \n") +
+  ylim(0,10) +
+  scale_x_discrete(labels = c("alone", "others")) +
+  theme(legend.position = "none")
+
+bin
+```
+
+
+---
+#  Visualize the model
+```{r, echo=FALSE}
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4)
+
+```
+
+
+---
+#  Visualize the model
+```{r, echo=FALSE}
+gpM <- df %>%
+  group_by(study) %>%
+  summarise(
+    score = mean(score)
+  )
+
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4) +
+  geom_errorbar(data = gpM, width=0.6,aes(ymax=..y..,ymin=..y..), size=1)
+
+```
+
+
+
+---
+#  Visualize the model
+
+```{r, echo=FALSE}
+library(latex2exp)
+
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4) +
+  geom_errorbar(data = gpM, width=0.6, aes(ymax=..y..,ymin=..y..), size=1)+
+  geom_segment(x=1.5, y=gpM[[1,2]], xend=1.5, yend=gpM[[2,2]], size =1, col="red") +
+  geom_segment(x=1.48, y=gpM[[1,2]], xend=1.52, yend=gpM[[1,2]], size =1, col="red") +
+  geom_segment(x=1.48, y=gpM[[2,2]], xend=1.52, yend=gpM[[2,2]], size =1, col="red") +
+  geom_text(x=1.55, y = 5.5, label = TeX('$\\hat{\\beta}_1$'), size=5, col = "red") +
+  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=5, col = "red")
+
+```
+
+
+---
+#  Evaluation of model and significance of $\beta_1$
+
++ $R^2$ and $F$-ratio interpretation are identical to their interpretation in models with only continuous predictors.
+
++ And we assess the significance of predictors in the same way
+
++ We use the standard error of the coefficient to construct:
+  + We calculate the $\hat \beta_1$ = difference between groups
+	+ $t$-value and associated $p$-value for the coefficient
+	+ Or a confidence interval around the coefficient
+
+
+---
+# Hold on... it's a t-test
+
+```{r}
+df %>%
+  t.test(score ~ study, .)
+```
+
+???
+Yup!
+
+
+---
+class: center, middle
+# Time for a break!
+
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+# simulate data used in examples
+library(MASS)
+set.seed(1066)
+mu <- c(54, 2)
+Sigma <- matrix(c(7, 1.4,
+                  1.4, .5), byrow = T, ncol = 2)
+
+rawvars <- mvrnorm(n=10000, mu=mu, Sigma=Sigma)
+
+set.seed(7284)
+df <- rawvars[sample(nrow(rawvars), 100),]
+
+set.seed(7284)
+dum_dat <- tibble(
+  ID = c(paste("ID", 101:200, sep = "")),
+  exam = round(df[,1], 0),
+  method = round(df[,2], 0)
+) %>%
+  mutate(
+    method = factor(if_else(method <= 1, 1,
+                     if_else(method >= 3, 3, 2))),
+    dummy1 = if_else(method == 2, 1, 0), 
+    dummy2 = if_else(method == 3, 1, 0),
+  )
+
+write_csv(dum_dat, "./dummy_code_data.csv")
+
+detach("package:MASS", unload = TRUE)
+```
+
+# Weeks Learning Objectives
+
+1. Understand how to extend a simple regression to multiple predictors. 
+
+2. Understand and interpret the coefficients in multiple linear regression models
+
+3. Understand how to include and interpret models with categorical variables with 2+ levels. 
+
+---
+# Topics for today
++ Categorical predictors with more than 2 levels
+
+---
+#  Including categorical predictors with >2 levels in a regression 
++ When we have a categorical variable with 2+ levels, we will typically assign integers
+  + But recall, these are not meaningful numbers
+
++ For example: What city do you live in?
+  + 1 = Edinburgh; 2 = Glasgow, 3 = Birmingham etc.
+
++ So in analysing a categorical predictor with $k$ levels, we need to take an additional step.
+
++ This step involves applying a coding scheme, where by each regressor = a difference in means between levels, or sets of levels.
+
++ Two common coding schemes are:
+  + Dummy coding
+  + Effects coding
+
+---
+#  Dummy coding 
++ Dummy coding uses 0's and 1's to represent group membership
+	+ One level is chosen as a baseline
+	+ All other levels are compared against that baseline
+	
++ Notice, this is identical to binary variables already discussed.
+
++ Dummy coding is simply the process of producing a set of binary coded variables
+
++ For any categorical variable, we will create $k$-1 dummy variables
+  + $k$ = number of levels
+
+---
+# Steps in dummy coding
+1. Choose a baseline level
+
+2. Assign everyone in the baseline  group `0` for all $k$-1 dummy variables
+
+3. Assign everyone in the next group a `1` for the first dummy variable and a `0` for all the other dummy variables
+
+4. Assign everyone in the next again group a `1` for the second dummy variable and a `0` for all the other dummy variables
+
+5. Repeat step 5 until all $k$-1 dummy variables have had 0's and 1's assigned
+
+6. Enter the $k$-1 dummy variables into your regression
+
+
+---
+#  Choosing a baseline? 
++ Each level of your categorical predictor will be compared against the baseline.
+
++ Good baseline levels could be:
+	+ The control group in an experiment
+	+ The group expected to have the lowest score on the outcome
+	+ The largest group
+
++ It is best the baseline is not:
+	+ A poorly defined level, e.g. an `Other` group
+	+ Much smaller than the other groups
+
+---
+#  Dummy coding 
++ Imagine 100 students took an exam and were each assigned to use one of three `study methods`
+	+ 1 = Notes re-reading 
+	+ 2 = Notes summarising
+	+ 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
+
++ We could use dummy coding to convert our `study methods` variable into $k$-1 regressors:
+
+```{r tbl23, echo = FALSE}
+dummy <- tibble(
+  Level = c("Notes re-reading", "Notes summarising", "Self-testing"),
+  D1 = c(0,1,0),
+  D2 = c(0,0,1)
+) 
+
+kable(dummy)%>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+#  Dummy coding 
+
+.pull-left[
++ We start out with  a dataset that looks like:
+
+```{r, echo=FALSE}
+dum_dat %>%
+  select(ID:method) %>%
+  slice(1:10)
+```
+
+
+]
+
+
+.pull-right[
++ And end up with one that looks like:
+
+```{r, echo=FALSE}
+dum_dat %>%
+  slice(1:10)
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` 
+
++ `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
+
++ It selects the first group as the baseline group
+
++ We write:
+
+```{r, eval=FALSE}
+
+mod1 <- lm(exam ~ method, data = dum_dat)
+
+```
+
+
++ And `lm` does all the dummy coding work for us
+
+---
+#  Dummy coding with `lm`
+
+.pull-left[
++ The intercept is the mean of the baseline group (notes re-reading)
+
++ The coefficient for `method2` is the mean difference between the notes summarising group and the baseline group
+
++ The coefficient for `method3` is the mean difference between the self-test group and the baseline group
+
+]
+
+.pull-right[
+
+```{r}
+mod1 <- lm(exam ~ method, data = dum_dat)
+mod1
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` (full results)
+
+```{r}
+summary(mod1)
+```
+
+---
+#  Changing the baseline group  
+
++ The level that `lm` chooses as it's baseline may not always be the best choice
+	+ You can change it using:
+
+```{r, eval=FALSE}
+contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
+```
+
+
+	
++ `contrasts` updates the variable with the new coding scheme
+
++ `contr.treatment` Specifies that you want dummy coding
+
++ `3` is No. of levels of your predictor
+
++ `base=2` is the level number of your new baseline
+
+
+---
+#  Results using the new baseline 
+
+.pull-left[
++ The intercept is the now the mean of the second group (Notes summarising)
+
++ `method1` is now the difference between Notes re-reading and Notes summarising
+
++ `method3` is now the difference between Self-testing and Notes summarising
+
+]
+
+.pull-right[
+
+```{r}
+contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
+mod2 <- lm(exam ~ method, data = dum_dat)
+mod2
+```
+
+]
+
+---
+#  New baseline (full results)
+
+```{r}
+summary(mod2)
+```
+
+???
++ Note that the choice of baseline does not affect the R^2 or F-ratio
+
+
+
+---
+class: center, middle
+# Time for a break!
+
+
+---
+# Unstandardized vs standardized coefficients
+- So far we have calculated unstandardized $\hat \beta_1$.
+
++ We interpreted the slope as the change in $y$ units for a unit change in $x$
+  + Where the unit is determined by how we have measured our variables.
+
++ In our running example:
+  + A unit of study time is 1 hour.
+  + A unit of test score is 1 point.
+  
++ However, sometimes we may want to represent our results in standard units.
+
+---
+# Standardized units
++ Why might standard units be useful?
+
+--
+
++ **If the scales of our variables are arbitrary.**
+  + Example: A sum score of questionnaire items answered on a Likert scale.
+  + A unit here would equal moving from a 2 to 3 on one item.
+  + This is not especially meaningful (and actually has A LOT of associated assumptions)
+
+--
+
++ **If we want to compare the effects of variables on different scales**
+  + If we want to say something like, the effect of $x_1$ is stronger than the effect of $x_2$, we need a common scale.
+
+
+---
+# Standardizing the coefficients
++ After calculating a $\hat \beta_1$, it can be standardized by:
+
+
+$$\hat{\beta_1^*} = \hat \beta_1 \frac{s_x}{s_y}$$
+
++ where;
+  + $\hat{\beta_1^*}$ = standardized beta coefficient
+  + $\hat \beta_1$ = unstandardized beta coefficient
+  + $s_x$ = standard deviation of $x$
+  + $s_y$ = standard deviation of $y$
+
+---
+# Standardizing the variables
+
++ Alternatively, for continuous variables, transforming both the IV and DV to $z$-scores (mean=0, SD=1) prior to fitting the model yields standardised betas.
+
++ $z$-score for $x$:
+
+$$z_{x_i} = \frac{x_i - \bar{x}}{s_x}$$
+
++ and the $z$-score for $y$:
+
+$$z_{y_i} = \frac{y_i - \bar{y}}{s_y}$$
+
++ That is, we divide the individual deviations from the mean by the standard deviation
+  
+---
+# Two approaches in action
+```{r, echo=FALSE}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+
+```
+
+```{r}
+res <- lm(score ~ hours, data = test)
+summary(res)$coefficients
+```
+
+```{r}
+1.055 * (sd(test$hours)/sd(test$score)) #<<
+```
+
+---
+# Two approaches in action
+
+
+```{r}
+test <- test %>%
+  mutate(
+    z_score = scale(score, center = T, scale = T),
+    z_hours = scale(hours, center = T, scale = T)
+  )
+
+res_z <- lm(z_score ~ z_hours, data = test) #<<
+summary(res_z)$coefficients
+```
+
+
+---
+#  Interpreting standardized regression coefficients  
++ $R^2$ , $F$ and $t$-test remain the same for the standardized coefficients as for unstandardised coefficients.
+
++ $b_0$ (intercept) = zero when all variables are standardized:
+$$
+\bar{y} - \hat \beta_1 \bar{x} = 0 - \hat \beta_1  0 = 0
+$$
+
++ The interpretation of the coefficients becomes the increase in $y$ in standard deviation units for every standard deviation increase in $x$
+
++ So, in our example:
+
+>**For every standard deviation increase in hours of study, test score increases by 0.72 standard deviations**
+
+---
+# Relationship to r
++ Standardized slope ( $\hat \beta_1^*$ ) = correlation coefficient ( $r$ ) for a linear model with a single continuous predictor.
+
++ In our example, $\hat \beta_{hours}^*$ = 0.72
+
+```{r}
+cor(test$hours, test$score)
+```
+
++ $r$ is a standardized measure of linear association
+
++ $\hat \beta_1^*$ is a standardized measure of the linear slope.
+
+---
+# Which should we use? 
++ Unstandardized regression coefficients are often more useful when the variables are on  meaningful scales
+	+ E.g. X additional hours of exercise per week adds Y years of healthy life
+
++ Sometimes it's useful to obtain standardized regression coefficients
+	+ When the scales of variables are arbitrary
+	+ When there is a desire to compare the effects of variables measured on different scales	
+
++ Cautions
+	+ Just because you can put regression coefficients on a common metric doesn't mean they can be meaningfully compared.
+	+ The SD is a poor measure of spread for skewed distributions, therefore, be cautious of their use with skewed variables
+
+
+
+
+---
+# Standardizing $\hat \beta_1$
+
++ When discussing continuous predictors we discussed standardized $b_1$ and unstandardized $\hat \beta_1$
+
++ Recall, when we calculated $b_1$ we used the SD of x, $s_x$.
+
++ For a binary categorical variable, the SD is not appropriate.
+
++ 1 unit also has meaning - it is the membership of a different group.
+
++ As such, we do not standardize
+
+
+---
+# Summary of today
+
+
+---
+class: center, middle
+# Thanks for listening!
