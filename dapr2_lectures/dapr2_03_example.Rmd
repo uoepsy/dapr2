@@ -1,0 +1,169 @@
+---
+title: "Calculating sums of squares for the linear model"
+author: "dapR2 Team"
+output: html_document
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(simglm)
+library(kableExtra)
+
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+This document shows the worked through calculations for:
+
+- $SS_{total}$
+- $SS_{residual}$
+- $SS_{model}$
+
+We will make our calculations for the model we have been using in class this week:
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2)
+summary(performance)
+```
+
+# Sums of Squares Total
+
+$$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$
+
+Here we are:
+
+- Taking the observed values of `score` for each individual ( $y_i$ )
+- subtracting the mean of `score` ( $\bar{y}$ ) - which is the same for everyone
+- squaring each of these values
+- and summing them
+
+We will build an object called `ss_tab` stand for sums of squares table. Here we will add our calculations to the original data.
+
+```{r}
+ss_tab <- test_study2 %>%
+    mutate(
+        y_dev = score - mean(score), 
+        y_dev2 = y_dev^2
+    )
+```
+
+In the code above, `y_dev` = $(y_i - \bar{y})$ , and `y_dev2` squares these values. Each individual has these values calculated. This we can see below where we print the top 10 rows of `ss_tab`.
+
+```{r, echo=FALSE}
+ss_tab %>%
+  slice(1:10) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+We can then calculate the sum of `y_dev2` to give us our sums of squares total: 
+
+```{r}
+ss_tot <- sum(ss_tab$y_dev2)
+ss_tot
+```
+
+
+# Sums of Squares Residual
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+Here we are:
+
+- Taking the observed values of `score` for each individual ( $y_i$ )
+- subtracting the predicted value of `score` for each individual from our model ( $\hat{y}_i$ )
+- squaring each of these values
+- and summing them
+
+```{r}
+ss_tab <- ss_tab %>%
+  mutate(
+    y_pred = round(performance$fitted.values,2), # extract the predicted values from the model
+    pred_dev = round((score - y_pred),2), # subtract these from the observed values of score
+    pred_dev2 = round(pred_dev^2,2) # square these values
+  )
+```
+
+```{r, echo=FALSE}
+ss_tab %>%
+  slice(1:10) %>%
+  dplyr::select(-c(4,5)) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+As we did previously, we can then sum this final column to give the sums of squares residual:
+
+```{r}
+ss_resid <- sum(ss_tab$pred_dev2)
+ss_resid
+```
+
+# Sums of Squares Model
+
+$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
+Here we are:
+
+- Taking the predicted value of `score` for each individual from our model ( $\hat{y}_i$ )
+- subtracting the mean of `score` ( $\bar{y}$ )
+- squaring each of these values
+- and summing them
+
+However, there is a much more efficient way to do this which is simply:
+
+$$SS_{Model} = SS_{Total} - SS_{Residual}$$
+
+
+
+```{r}
+ss_mod = ss_tot - ss_resid
+ss_mod
+```
+
+# Calulate $R^2$
+
+$$R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}$$
+```{r}
+ss_mod/ss_tot
+```
+
+or
+
+```{r}
+1 - (ss_resid/ss_tot)
+```
+
+We can compare this to the value at the bottom of our model summary:
+
+```{r}
+summary(performance)
+```
+
+If we wanted to save this specific value from the summary output, we can:
+```{r}
+sum_performance <- summary(performance)
+sum_performance$r.squared
+```
+

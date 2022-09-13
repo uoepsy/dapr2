@@ -39,6 +39,7 @@ style_mono_accent(
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(kableExtra)
+library(simglm)
 
 test <- tibble(
   student = paste(rep("ID",10),1:10, sep=""),
@@ -49,32 +50,30 @@ test <- tibble(
 
 
 # Week's Learning Objectives
-1. Be able to test hypotheses and construct confidence intervals for the model coefficients.
-
-2. Understand the calculation and interpretation of the coefficient of determination. 
-
-3. Understand the calculation and interpretation of the F-test of model utility.
-
+1. Understand how to interpret significance tests for $\beta$ coefficients.
+2. Understand how to calculate the interpret $R^2$ and adjusted-$R^2$ as a measure of model quality.
+3. Understand how to interpret the $F$-test of overall model significance.
+4. Be able to locate each of these tests in R `lm` model output.
 
 ---
-# Things to recap
-+ We will look again at significance testing.
+# Recap
++ Last week we introduced the general linear model equation:
 
-+ And also discuss sampling variability.
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
 
-+ If at any point you feel like you are not following this section of the material, go back and review sampling and hypothesis testing material linked on LEARN.
++ And we ran an example concerning test scores:
 
----
-# `lm` in R
-+ We do not generally calculate by hand like this, so we also briefly introduced the `lm()` function.
+$$score_i = \beta_0 + \beta_1 hours_{i} + \beta_2 motivation_{i} + \epsilon_i$$
 
-```{r}
-lm(score ~ hours, data = test)
++ And we looked at how to run this model in R:
+
+```{r, eval=FALSE}
+lm(score ~ hours + motivation, data = test_study2)
 ```
 
 ---
 # Evaluating our model
-+ At this point, we have estimated values for the key parameters of our model (intercept and slope).
++ At this point, we have estimated values for the key parameters of our model ( $\beta$s ).
 
 + Now we have to think about how we evaluate the model.
 
@@ -82,7 +81,7 @@ lm(score ~ hours, data = test)
 
   1. Evaluating the individual coefficients
   2. Evaluating the overall model quality
-  3. Evaluating the model assumptions
+  3. Evaluating the model assumptions (later in the course)
 
 + Before accepting a set of results, it is important to consider all three of these aspects of evaluation.
 
@@ -159,8 +158,60 @@ Important to really emphasize this is a package of information and we want it al
   + $H_0$ is precise, and states a specific value for the effect of interest.
   + $H_1$ is not specific, and simply says "something else other than the null is more likely"
 
-???
-Flag here that if these comments are completely alien to them, they should go back and recap the hypothesis testing material from dapR1-lectures 12 to 15 (20-21) or 12-14 (19-20).
+
+---
+# Statistical significance: Overview
+
++ Remember, we only ever test the null.
+
++ We select a significance level, $\alpha$ (typically .05)
+
++ Then we calculate the $p$-value associated with our test statistic (here $\beta$ )
+
++ If the associated $p$ is smaller, then we **reject** the null.
+
++ If it is larger, then we **fail to reject** the null.
+
+
+---
+# Our results
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2)
+summary(performance)
+```
+
+---
+class: center, middle
+# A brief pause
+
+**Any questions before we look at this process in a little more detail**
 
 ---
 # Defining null
@@ -186,26 +237,6 @@ $$H_1: \beta_1 \neq 0$$
 
 
 ---
-class: center, middle
-# Time for a break
-
-**Quiz time**
-
-We are about to look at hypothesis tests for coefficients.
-
-So our quiz is on the concept of the standard error
-
-
----
-class: center, middle
-# Welcome Back!
-
-**Where we left off... **
-
-We have defined a null, now let's look at constructing the test
-
-
----
 # Point estimate and test statistic
 
 + We have already seen how we calculate $\hat \beta_1$.
@@ -216,7 +247,7 @@ $$t = \frac{\hat \beta}{SE(\hat \beta)}$$
 
 + where
 
-  + $\hat \beta$ = any beta coefficient we have calculated
+  + $\hat \beta$ = any $\beta$ coefficient we have calculated
   + $SE(\hat \beta)$ = standard error of $\beta$ 
 
 --
@@ -233,73 +264,58 @@ $$t = \frac{\hat \beta}{SE(\hat \beta)}$$
 
 
 ---
+# Lets look at the output from `lm` again
+```{r}
+summary(performance)
+```
+
+
+---
+# And work out the $t$-values
+
++ We can check the value for `motivation` first:
+
+$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)} = \frac{0.9163}{0.3838} = 2.388 (3dp)$$
+
++ Check `hours` in your own time.
+
++ So we know where the $\beta$ values come from, and we have just seen $t$, what about the $SE$ and $p$
+
+---
 #  SE( $\hat \beta_1$ )
+
 + The formula for the standard error of the slope is:
 
-$$SE(\hat \beta_1) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$
-
+$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}$$
 + Where:
 	+ $SS_{Residual}$ is the residual sum of squares
 	+ $n$ is the sample size
-	+ $k$ is the number of predictors (= 1 for simple linear regression)
+	+ $k$ is the number of predictors
+	+ $x_{ij}$ is the observed value of a predictor ( $j$ ) for an individual ( $i$ )
+	+ $\bar{x_{ij}$ is the mean of a predictor
+	+ $(1 - R_{xj}^2)$ is the multiple correlation coefficient of the predictors
 
-+ **Given the above, think about what things would make the SE smaller.**
-
---
-
-+ From this formula, we can see that the SE's for $\beta$ will be smaller when:
-	+ Residual variance ( $SS_{Residual}$ ) is smaller
-	+ Sample size, $n$, is larger
-
-
++ $(1 - R_{xj}^2)$ captures to degree to which all of our predictors are related.
+  + For simple linear models, this = 0 as there is only 1 predictor
+  
 ---
-# Back to the example
+# SE( $\hat \beta_1$ )
 
-$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)}$$
+$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}$$  
++ We want our $SE$ to be smaller - this means our estimate is precise
 
-+ Let's calculate $t$ for our example.
-+ We will use some values we have already calculated
-  + $\hat \beta_1 = 1.055$ 
++ Examining the above formula we can see that:
+	+ $SE$ is smaller when residual variance ( $SS_{residual}$ ) is smaller
+	+ $SE$ is smaller when sample size ( $N$ ) is larger
+	+ $SE$ is larger when the number of predictors ( $k$ ) is larger
+	+ $SE$ is larger when a predictor is strongly correlated with other predictors ( $R_{xj}^2$ )
 
---
++ So all we have left is $p$
 
-+ So we need $SE(\hat \beta_1)$
+???
++ Well return to this later when we discuss multi-collinearity issues
 
-$$SE(\hat \beta_1) = \sqrt{\frac{SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$
 
-+ $n$ = 10
-+ $k$ = 1
-+ $\sum(x_i - \bar{x})^2$ = 20.625
-
----
-# Back to the example
-+ So all we have left is $SS_{Residual}$.
-
-+ From earlier this week, we know:
-
-$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
-
-+ $SS_{Residual}$ = residual sum of squares = sum of the squared residuals
-
-```{r}
-res <- lm(score ~ hours, data = test)
-SSRes = sum(res$residuals^2)
-SSRes
-```
-
----
-# Back to our example
-
-+ So pull all this together:
-
-$$SE(\hat \beta_1) = \sqrt{\frac{SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}} 
-= \sqrt{\frac{21.16364 / (10-1-1)}{20.625}} = \sqrt{\frac{2.65455}{20.625}} = 0.35814$$
-
---
-
-+ and finally
-
-$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)} = \frac{1.055}{0.35814} = 2.945773 = 2.95$$
 
 
 ---
@@ -314,15 +330,17 @@ $$t = \frac{\hat \beta_1}{SE(\hat \beta_1)} = \frac{1.055}{0.35814} = 2.945773 =
 
 --
 
-+ So for linear models with 1 predictor this is $n-2$
-  + In our case = 8
++ So in our example:
+  + n = 150
+  + k = 2
+  + 150 - 2 - 1 = 147
 
 ---
 #  A decision about the null 
 + So we have a $t$-value associated with our $\beta$ coefficient.
-	+ t = 2.95
+	+ t = 2.388
 
-+ And we know we will evaluate it against a $t$-distribution with 8 df.
++ And we know we will evaluate it against a $t$-distribution with 147 df.
 
 + As with all tests we need to set our $\alpha$.
 	+ Let's take 0.05 two tailed.
@@ -340,23 +358,23 @@ ggplot() +
   xlim(-8, 8) +
   stat_function(fun=dt,
                 geom = "line",
-                args = list(df=8)) +
+                args = list(df=147)) +
   stat_function(fun = dt, 
                 geom = "area",
                 xlim = c(qt(0.025, 8), -8),
                 alpha=.25,
                 fill = "blue",
-                args = list(df=8)) +
+                args = list(df=147)) +
     stat_function(fun = dt, 
                 geom = "area",
                 xlim = c(qt(0.975, 8), 8),
                 alpha=.25,
                 fill = "blue",
-                args = list(df=8)) +
-  geom_vline(xintercept = 2.95, col="red") +
+                args = list(df=147)) +
+  geom_vline(xintercept = 2.388, col="red") +
   xlab("\n t") +
   ylab("") +
-  ggtitle("t-distribution (df=8); t-statistic (2.95; red line)")
+  ggtitle("t-distribution (df=147); t-statistic (2.388; red line)")
 ```
 
 ]
@@ -366,9 +384,9 @@ ggplot() +
 + Critical value and $p$-value:
 ```{r}
 tibble(
-  LowerCrit = round(qt(0.025, 8), 3),
-  UpperCrit = round(qt(0.975, 8), 3),
-  Exactp = (1 - pt(2.95, 8)) * 2
+  LowerCrit = round(qt(0.025, 147), 3),
+  UpperCrit = round(qt(0.975, 147), 3),
+  Exactp = (1 - pt(2.388, 147)) * 2
 )
 ```
 
@@ -383,152 +401,51 @@ tibble(
 + remind about what X is, thus where the line is
 
 ---
-# `lm` in R
-
-.pull-left[
-```{r}
-summary(res)
-```
-]
-
-.pull-right[
-+ So in our example, we **reject the null**.
-+ **Spend a little bit of time looking at this output, and comparing the various values to those things we calculated in our example.**
-  + Some we haven't yet looked at. 
-  + They are coming next.
-
-]
-
----
-#  Confidence intervals for $\beta_1$
-+ We can also compute confidence intervals for $\hat \beta_1$
+#  Confidence intervals for $\beta$
++ We can also compute confidence intervals for $\hat \beta$
 + The $100 (1 - \alpha)$, e.g., 95%, confidence interval for the slope is:
 
 $$\hat \beta_1 \pm t^* \times SE(\hat \beta_1)$$
 
-+ So, 95% confidence interval for in our revision and test score example would be:
++ So, 95% confidence interval for in our example for the effect of `motivation` would be:
 
 ```{r}
 tibble(
-  LowerCI = round(1.055 - (2.306 * 0.358), 3),
-  UpperCI = round(1.055 + (2.306 * 0.358), 3)
-)
-```
-
-
-
-+ The confidence interval of 0.229 to 1.881 does not include zero, 
-  + Therefore, we can conclude that **revision is a statistically significant predictor of test scores** ( $p < .05$).
-
----
-# What changes when we have multiple predictors?
-+ Broadly follows the same procedure as in simple regression:
-	+ Standard errors (SEs) for each regression slope are computed
-	
-	+ SE gives a measure of the sampling variability of a regression coefficient
-	
-	+ $t$-tests and confidence intervals evaluate the statistical significance of regression slopes
-
----
-#  Standard errors 
-
-.pull-left[
-
-$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_i - \bar{x})^2}}$$
-
-]
-
-
-.pull-right[
-
-$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{ij}})^2(1-R_{xj}^2)}}$$
-
-+ $1-R_{xj}^2$ is capturing the correlation between $x_j$ and all other $x$'s
-
-]
-
----
-#  Standard errors
-
-$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{ij}})^2(1-R_{xj}^2)}}$$
-
-+ Examining the above formula we can see that:
-	+ $SE$ is smaller when residual variance ( $SS_{residual}$ ) is smaller
-	+ $SE$ is smaller when sample size ( $N$ ) is larger
-	+ $SE$ is larger when the number of predictors ( $k$ ) is larger
-	+ $SE$ is larger when a predictor is strongly correlated with other predictors ( $R_{xj}^2$ )
-
-???
-+ Well return to this later when we discuss multi-collinearity issues
-
----
-#  Significance of coefficients 
-
-+ Once we have the standard error, all else is the same:
-
-$$t = \frac{\hat \beta_1}{SE(\hat \beta_1)}$$
-
-+ A $t$-test of the null hypothesis that $b_j = 0$
-
-+ The $t$-value is compared to a $t$-distribution with N-k-1 degrees of freedom to assess statistical significance at a given $\alpha$.
-
----
-#  Our academic performance example
-
-```{r}
-res$coefficients
-```
-
-
-**Self-control (t(647)=14.05, p<.001) was a significant predictor of academic performance ( $\alpha = 0.05$ ), and so we reject the null hypothesis of no effect. However, we failed to reject the null for class interaction (t(647)=-0.34, p>.05).**
-
-
----
-#  Confidence intervals 
-
-+ Like in simple regression, we can also compute confidence intervals for slopes in multiple regression.
-
-+ The 100(1-alpha) confidence interval for the slope is:
-
-$$\hat \beta_1 \pm t^* \times SE(\hat \beta_1)$$
-
-```{r, echo=FALSE, message=FALSE}
-data <- read_csv("./aggression.csv")
-data <- data %>%
-  transmute(
-    z_perf = scale(aggression),
-    z_SC = scale(self_control),
-    z_interaction = scale(resting_HR)
-    )
-perf <- lm(z_perf ~ z_SC + z_interaction, #<<
-          data = data)
-res2 <- summary(perf)
-```
-
-
-```{r}
-tibble(
-  lower = res2$coefficients[2,1] - round(qt(0.975, 647), 3) *  res2$coefficients[2,2],
-  upper = res2$coefficients[2,1] + round(qt(0.975, 647), 3) *  res2$coefficients[2,2]
+  LowerCI = round(0.91634 - (qt(0.975, 147) * 0.38376), 3),
+  UpperCI = round(0.91634 + (qt(0.975, 147)* 0.38376), 3)
 )
 
 ```
 
 
----
-#  Confidence intervals 
 
-+ Or the much easier version...
++ The confidence interval of 0.158 to 1.675 does not include zero, 
+  + Therefore, we can conclude that **motivation is a statistically significant predictor of test scores** ( $p < .05$).
+
+
+---
+# `confint` function
+
++ We can get confidence intervals for our models more easily than this:
 
 ```{r}
-confint(perf)
+confint(performance)
 ```
 
+
+---
+# Where are we up to...
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2)
+summary(performance)
+```
 
 
 ---
 class: center, middle
-# Break
+# Time for a break! Questions
+
 
 ---
 #  Quality of the overall model 
@@ -604,35 +521,6 @@ test %>%
 
 ]
 
----
-# Calculations
-
-.pull-left[
-```{r}
-ss_tab <- test %>%
-    mutate(
-        y_dev = score - mean(score), 
-        y_dev2 = y_dev^2
-    )
-```
-
-```{r}
-ss_tab %>%
-    summarize(
-        ss_tot = sum(y_dev2)
-    )
-```
-
-]
-
-.pull-right[
-
-```{r, echo=FALSE}
-kable(ss_tab) %>%
-  kable_styling(., full_width = F)
-```
-
-]
 
 ---
 # Residual sum of squares
@@ -665,37 +553,6 @@ test %>%
 
 ]
 
----
-# Calculations
-
-.pull-left[
-```{r}
-ss_tab <- ss_tab %>%
-  mutate(
-    y_pred = round(res$fitted.values,2),
-    pred_dev = round((score - y_pred),2),
-    pred_dev2 = round(pred_dev^2,2)
-  )
-```
-
-```{r}
-ss_tab %>%
-  summarize(
-    ss_tot = sum(y_dev2),
-    ss_resid = sum(pred_dev2) #<<
-  )
-```
-
-]
-
-.pull-right[
-
-```{r, echo=FALSE}
-kable(ss_tab[-c(4,5)]) %>%
-  kable_styling(., full_width = F)
-```
-
-]
 
 
 ---
@@ -732,44 +589,15 @@ test %>%
 
 ]
 
-
 ---
-# Calculations
+# Values in our sample
++ In the current example, these values are:
 
-.pull-left[
+  + $SS_{total}$ = 8556.06
+  + $SS_{residual}$ = 2826.83
+  + $SS_{model}$ = 5729.23
 
-$$SS_{Model} = SS_{Total} - SS_{Residual}$$
-
-```{r}
-ss_tab %>%
-  summarize(
-    ss_tot = sum(y_dev2),
-    ss_resid = sum(pred_dev2)
-  ) %>%
-  mutate( #<<
-    ss_mod = ss_tot - ss_resid #<<
-  )
-```
-
-]
-
-.pull-right[
-
-```{r, echo=FALSE}
-test %>%
-  ggplot(., aes(hours, score)) +
-  geom_point(color="red", size = 2) +
-  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0))) +
-  theme(axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0))) +
-  xlab("Hours of Study") +
-  ylab("Test Score") +
-  ggtitle("SS Model") +
-  geom_hline(aes(yintercept = mean(score)),color="blue", size=1) + 
-  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", size=1) + 
-  geom_segment(aes(x = hours, c(res$fitted.values), xend = hours, yend = c(rep(mean(score),10))), color = "red", lty =2)
-```
-
-]
++ In the LEARN folder there is a document which shows the calculations from the raw data
 
 
 ---
@@ -784,16 +612,15 @@ $$R^2 = \frac{SS_{Model}}{SS_{Total}}$$
 
 + So in our example:
 
-$$R^2 = \frac{SS_{Model}}{SS_{Total}} = \frac{22.9}{44.1} = 0.519$$
+$$R^2 = \frac{SS_{Model}}{SS_{Total}} = \frac{5729.23}{8556.06} = 0.6695$$
 
-+ ** $R^2$ = 0.519 means that 52% of the variation in test scores is accounted for by hours of revision.**
++ ** $R^2$ = 0.6695 means that 66.95% of the variation in test scores is accounted for by hours of revision and student motivation.**
 
 ---
 #  Our example 
 
 ```{r}
-res <- lm(score ~ hours, data = test)
-summary(res)
+summary(performance)
 ```
 
 ???
@@ -802,7 +629,7 @@ Be sure to flag small amounts of rounding difference from working through "by ha
 
 ---
 #  Adjusted $R^2$ 
-+ We can also compute an adjusted $R^2$ when our lm has 2+ predictors.
++ We can also compute an adjusted $R^2$ when our `lm` has 2+ predictors.
   + $R^2$ is an inflated estimate of the corresponding population value
 
 + Due to random sampling fluctuation, even when $R^2 = 0$ in the population, it's value in the sample may $\neq 0$ 
@@ -818,18 +645,21 @@ $$\hat R^2 = 1 - (1 - R^2)\frac{N-1}{N-k-1}$$
 
 
 ---
-#  In our academic performance example 
+#  In our example 
 
 ```{r}
-res2
+summary(performance)
 ```
 
 ---
-#  In our academic performance example 
+#  In our example 
+```{r, echo=FALSE}
+sum_performance <- summary(performance)
+```
 
 + **Based on adjusted R-squared, self-control and class interaction together explain `r round(res2$adj.r.squared,3)*100`% of the variance in academic performance**
 
-+ As the sample size is large and the number of predictors small, unadjusted ( `r round(res2$r.squared,3)` ) and adjusted R-squared ( `r round(res2$adj.r.squared,3)` ) are similar.
++ As the sample size is large and the number of predictors small, unadjusted ( `r round(sum_performance$r.squared,3)` ) and adjusted R-squared ( `r round(sum_performance$adj.r.squared,3)` ) are similar.
 
 
 
@@ -838,19 +668,7 @@ res2
 class: center, middle
 # Time for a break
 
-**Quiz time!**
-
-
----
-class: center, middle
-# Welcome Back!
-
-**Where we left off... **
-
-We had just calculated $R^2$
-
-Now let's look at calculating significance tests for our model
-
+**Any questions...**
 
 ---
 #  Significance of the overall model 
@@ -1014,10 +832,12 @@ res2
 + Our overall model was significant (*F(2,647)=99.32, p<.001*). 
 
 
+---
+# Writing up our model
 
 
 ---
-# Summary of today
+# Summary
 
 
 

@@ -1,5 +1,5 @@
 ---
-title: "<b> Linear Model 2 </b>"
+title: "<b> Linear Model: Fundamentals </b>"
 subtitle: "Data Analysis for Psychology in R 2<br><br> "
 author: "dapR2 Team"
 institute: "Department of Psychology<br>The University of Edinburgh"
@@ -41,6 +41,7 @@ library(tidyverse)
 library(patchwork)
 library(kableExtra)
 library(MASS)
+library(simglm)
 
 knitr::opts_chunk$set(fig.retina = 1.5,
                       out.width = '90%')
@@ -108,7 +109,7 @@ $$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
 
 + Predicted value = $\hat{y}_i = \hat \beta_0 + \hat \beta_1 x_i$ 
     + Or, the value of the outcome our model predicts given someone's values for predictors.
-    + In our example, given you study for 4 hrs, what test score does our model predict you will get.
+    + In our example, given you study for 4 hours, what test score does our model predict you will get.
 
 + Residual = Difference between $y_i$ and $\hat{y}_i$.
 
@@ -250,20 +251,19 @@ $$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
 
 + Recall last lecture we said that $\epsilon_i \sim N(0, \sigma)$ independently.
 
-+ This means $\epsilon_i$ are...
-  + approximately ( $\sim$ )
-    + normally distributed ( $N$ )
++ This means $\epsilon_i$ ...
+  + are distributed ( $\sim$ )
+    + a normal distribution ( $N$ )
       + with a mean of 0 ( $N(0,$ )
         + and a standard deviation of $\sigma$
   
 + $\sigma$ = standard deviation (spread) of the errors
-  + $\sigma$, is constant, meaning that at any point along the x-axis, the spred of the residuals should be the same.
+  + $\sigma$, is constant, meaning that at any point along the x-axis, the spread of the residuals should be the same.
   
 ---
 # Visualizing $sigma$
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
-library(patchwork)
 
 n = 300
 df1 <- tibble(
@@ -423,39 +423,57 @@ knitr::include_graphics("./lm_surface.png")
 
 ---
 #  Example: lm with 2 predictors 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(7284) 
 
-+ Imagine we were interested in examining predictors of school performance.  
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
 
-+ we get a teacher rating of child's performance, a self-report measure of self control, and also measure teacher rated class interaction. 
+df <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
 
-+ We collect data on a sample of n=650 12 year old and fit a linear model.
+test_study2 <- df %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
 
-+ We'll fit the model to $z$-scores for all variables. 
-  + Remember $z$-scores have a mean of 0, and a SD of 1
-  + So "1 unit" of a $z$-score is 1 SD
+```
+
+
++ Imagine we extend our study of test scores.
+
++ We sample 150 students taking a multiple choice Biology exam (max score 40).
+
++ We give all students a survey at the start of the year measuring their school motivation. 
+  + We standardize this variable so the mean is 0, negative numbers are low motivation, and positive numbers high motivation. 
+  
++ We then measure the hours they spent studying for the test, and collate their scores on the test.
+
+---
+# Our data
+```{r}
+slice(test_study2, 1:6)
+```
 
 
 ---
 #  `lm` code
 
-.pull-left[
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-data <- read_csv("./aggression.csv")
-data <- data %>%
-  transmute(
-    z_perf = scale(aggression),
-    z_SC = scale(self_control),
-    z_interaction = scale(resting_HR)
-    )
-#write_csv(data, "./school.csv")
-```
-]
-
 ```{r}
-perf <- lm(z_perf ~ z_SC + z_interaction, #<<
-          data = data)
+performance <- lm(score ~ hours + motivation, #<<
+          data = test_study2)
 ```
-
 
 + Multiple predictors are separated by `+`
 
@@ -465,7 +483,7 @@ perf <- lm(z_perf ~ z_SC + z_interaction, #<<
 #  Multiple regression coefficients 
 
 ```{r}
-summary(perf)
+summary(performance)
 ```
 
 
@@ -473,22 +491,34 @@ summary(perf)
 #  Multiple regression coefficients 
 
 ```{r}
-res <- summary(perf)
-res$coefficients
+res <- summary(performance)
+round(res$coefficients,2)
 ```
 
-+ **Controlling for class interaction, for every SD unit increase in self-control, there is a `r round(res$coefficients[[2,1]],2)` SD unit increase in academic performance**
++ **A student who did not study, and who has average school motivation would be expected to score `r round(res$coefficients[[1,1]],2)` on the test.**
+
 
 
 ---
 #  Multiple regression coefficients 
 
 ```{r}
-res <- summary(perf)
+res <- summary(performance)
+round(res$coefficients,2)
+```
+
++ **Controlling for students level of motivation, for every additional hour studied, there is a `r round(res$coefficients[[2,1]],2)` points increase in test score.**
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(performance)
 res$coefficients
 ```
 
-+ **Controlling for self-control, for every SD unit increase in rating of class interaction, there is a `r round(res$coefficients[[3,1]],2)` SD unit decrease in academic performance**
++ **Controlling for hours of study, for every SD unit increase in motivation, there is a `r round(res$coefficients[[3,1]],2)` points increase in test score.**
 
 
 
@@ -503,6 +533,16 @@ res$coefficients
 5. The slope is the unit change in $Y$ for each unit change in $X$
 6. We can easily add more predictors to our model
 7. When we do, our interpretations of the coefficients are when all other predictors are held constant.
+
+
+---
+# For next week
++ Things to recap...
+
+  + We will look again at significance testing.
+  + And also discuss sampling variability.
+
++ If you want a refresh, go back and review sampling and hypothesis testing material from dapR1 !(here)[https://uoepsy.github.io/dapr1/2122/index.html]
 
 
 ---
