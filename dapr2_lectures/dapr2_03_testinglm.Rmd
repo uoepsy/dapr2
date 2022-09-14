@@ -46,14 +46,15 @@ test <- tibble(
   hours = seq(0.5,5,.5),
   score = c(1,3,1,2,2,6,3,3,4,8)
 )
+
+res <- lm(score ~ hours, data = test)
 ```
 
 
 # Week's Learning Objectives
 1. Understand how to interpret significance tests for $\beta$ coefficients.
-2. Understand how to calculate the interpret $R^2$ and adjusted-$R^2$ as a measure of model quality.
-3. Understand how to interpret the $F$-test of overall model significance.
-4. Be able to locate each of these tests in R `lm` model output.
+2. Understand how to calculate the interpret $R^2$ and adjusted- $R^2$ as a measure of model quality.
+3. Be able to locate each of these tests in R `lm` model output.
 
 ---
 # Recap
@@ -203,8 +204,7 @@ test_study2 <- df %>%
 ```
 
 ```{r}
-performance <- lm(score ~ hours + motivation, data = test_study2)
-summary(performance)
+performance <- lm(score ~ hours + motivation, data = test_study2); summary(performance)
 ```
 
 ---
@@ -554,7 +554,6 @@ test %>%
 ]
 
 
-
 ---
 # Model sums of squares
 
@@ -657,189 +656,27 @@ summary(performance)
 sum_performance <- summary(performance)
 ```
 
-+ **Based on adjusted R-squared, self-control and class interaction together explain `r round(res2$adj.r.squared,3)*100`% of the variance in academic performance**
++ **Based on adjusted R-squared, self-control and class interaction together explain `r round(sum_performance$adj.r.squared,3)*100`% of the variance in academic performance**
 
 + As the sample size is large and the number of predictors small, unadjusted ( `r round(sum_performance$r.squared,3)` ) and adjusted R-squared ( `r round(sum_performance$adj.r.squared,3)` ) are similar.
 
 
-
-
 ---
 class: center, middle
-# Time for a break
-
+#
 **Any questions...**
-
----
-#  Significance of the overall model 
-+ The test of the individual predictors (IVs, or $x$'s) does not tell us if the overall model is significant or not.
-	+ Neither does R-square
-	+ But both are indicative
-
-+ To test the significance of the model as a whole, we conduct an $F$-test.
-
----
-#  F-ratio
-+ $F$-ratio tests the null hypothesis that all the regression slopes in a model are all zero
-  + We are currently talking about a model with only one $x$, thus one slope.
-  + But the $F$-ratio test will generalise.
-
---
-
-+ $F$-ratio is a ratio of the explained to unexplained variance:
-
-$$F = \frac{MS_{Model}}{MS_{Residual}}$$
-
-+ Where MS = mean squares
-
---
-
-+ **What are mean squares?**
-  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
-  + The degrees of freedom are defined by the number of "independent" values associated with the different calculations.
-
----
-# F-table
-
-```{r, echo=FALSE}
-ftest <- tibble(
-  SS = c("Model", "Residual", "Total"),
-  df = c("k", "n-k-1", " "),
-  MS = c("SS model/df model", "SS residual/df residual", " "),
-  Fratio = c("MS model/ MS residual", " ", " "),
-  pvalue = c("F(df model,df residual)", "", "")
-)
-
-kable(ftest)%>%
-  kable_styling(., full_width = F)
-```
-
----
-# Our example: F-table
-
-```{r, echo=FALSE}
-tibble(
-  Component = c("Model", "Residual", "Total"),
-  SS = c(22.9,21.2,44.1),
-  df = c(1, 8, " "),
-  MS = c(22.9, 2.65, " "),
-  Fratio = c(8.641509, " ", " "),
-  pvalue = c("F(1,8)", "", "")
-) %>%
-  kable(.)%>%
-  kable_styling(., full_width = F)
-```
-
-
----
-# F-ratio
-+ Bigger $F$-ratios indicate better models.
-  + It means the model variance is big compared to the residual variance.
-
---
-
-+ The null hypothesis for the model says that the best guess of any individuals $y$ value is the mean of $y$ plus error.
-	+ Or, that the $x$ variables carry no information collectively about $y$.
-
---
-
-+ $F$-ratio will be close to 1 when the null hypothesis is true
-  + If there is equivalent residual to model variation, $F$=1
-	+ If there is more model than residual $F$ > 1
-
---
-
-+ $F$-ratio is then evaluated against an $F$-distribution with $df_{Model}$ and $df_{Residual}$ and a pre-defined $\alpha$
-
---
-
-+ Testing the $F$-ratio evaluates statistical significance of the overall model
-
----
-# Visualize the test
-
-.pull-left[
-
-```{r, echo=FALSE}
-ggplot() +
-  xlim(-1,10) + 
-  stat_function(fun=df,
-                geom = "line",
-                args = list(df1=1, df2=8)) +
-  stat_function(fun = df, 
-                geom = "area",
-                xlim = c(qf(0.95, 1,8), 10),
-                alpha=.25,
-                fill = "blue",
-                args = list(df1=1, df2=8)) +
-  geom_vline(xintercept = 8.641509, col="red") +
-  xlab("\n F") +
-  ylab("") +
-  ggtitle("F-distribution (1,8); f-ratio (8.64; red line)")
-```
-]
-
-.pull-right[
-
-+ Critical value and $p$-value:
-```{r}
-tibble(
-  Crit = round(qf(0.95, 1, 8),3),
-  Exactp = 1-pf(8.64, 1, 8)
-)
-```
-
-+ From this we would **reject the null**. 
-
-]
-
----
-#  Our example 
-
-```{r}
-res <- lm(score ~ hours, data = test)
-summary(res)
-```
-
-???
-As at the end of last session, we can check this against the R-output:
-Comment on the minor differences for rounding.
-
----
-#  $F$-ratio 
-+ Like in simple regression, the $F$-ratio is used to test the null hypothesis that **all** model slopes are zero.
-
-+ It is calculated in exactly the same way as in simple linear model:
-
-$$F = \frac{MS_{Model}}{MS_{Residual}} = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}}$$
-
-+ Where
-	+ df model = $k$
-	+ df residual = $N$ - $k$ - 1
-		  + $N$ = sample size
-		  + $k$ = number of predictors
-
----
-#  In our academic performance example? 
-
-```{r}
-res2
-```
-
----
-#  In our academic performance example? 
-
-+ Our overall model was significant (*F(2,647)=99.32, p<.001*). 
-
-
----
-# Writing up our model
 
 
 ---
 # Summary
 
-
++ Key take homes:
+  1. We have an inferential test, based on a $t$-distribution, for the significance of $\beta$.
+  2. We are more likely to find a significant effect when we have picked good variables (smaller residual SS) and we have a large sample.
+  3. We can assess the degree to which our model explains variance in the outcome based on $R^2$
+  4. When we have multiple predictors, we can use the adjusted $R^2$ to account for the random fluctuations due to the model being more complex.
+  
++ Next week we will look at model comparisons and standardization of coefficients.
 
 ---
 class: center, middle
