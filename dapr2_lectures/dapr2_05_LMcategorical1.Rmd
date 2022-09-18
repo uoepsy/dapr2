@@ -1,5 +1,5 @@
 ---
-title: "<b>Binary Predictors </b>"
+title: "<b>Categorical Predictors </b>"
 subtitle: "Data Analysis for Psychology in R 2<br><br> "
 author: "dapR2 Team"
 institute: "Department of Psychology<br>The University of Edinburgh"
@@ -40,6 +40,7 @@ style_mono_accent(
 library(tidyverse)
 library(kableExtra)
 library(effsize)
+library(simglm)
 
 theme_set(theme_gray(base_size = 15))
 
@@ -49,11 +50,9 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
 # Weeks Learning Objectives
 1. Understand the meaning of model coefficients in the case of a binary predictor.
 
-2. Understand how to apply dummy coding to include categoical predictors with 2+ levels.
+2. Understand how to apply dummy coding to include categorical predictors with 2+ levels.
 
-3. Understand how and when to standardize model coefficients and when this is appropriate to do.
-
-4. Understand the relationship between the correlation coefficient and the regression slope.
+3. Be able to include categorical predictors into an `lm` model in R
 
 ---
 #  Recap: Categorical variables 
@@ -66,82 +65,107 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
 + In R, categorical variables should be of class `factor`
   + The discrete values are `levels`
   + Levels can have numeric values (1, 2 3) and labels (e.g. "duck", "cow", "wasp")
+  + All that these numbers represent is category membership.
+  
 
 ---
 # Recap: Binary variable
 + Binary variable is a categorical variable with two levels.
 
 + Traditionally coded with a 0 and 1
-  + Referred to as dummy coding
-  + We will come back to this for categorical variables with 2+ levels
+
++ In `lm`, binary variables are often referred to as dummy variables
+  + when we use multiple dummies, we talk about the general procedure of dummy coding
+
++ Why 0 and 1?
+
+--
+  
++ Quick version: It has some nice properties when it comes to interpretation.
 
 --
 
-+ Why 0 and 1?
-  + Quick version: It has some nice properties when it comes to interpretation.
+  + What is the interpretation of the intercept?
+
+--
+
+  + What about the slope?
 
 
 ---
 # Extending our example
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(),
+               study_method = list()),
+  error = list(variance = 20),
+  sample_size = 200,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+
+
 .pull-left[
-+ Our in class example so far has used test scores and revision time for 10 students.
++ Our in class example so far has used test scores and revision time and motivation.
 
-+ Let's say we collect this data on 150 students.
-
-+ We also collected data on who they studied with;
-  + 0 = alone
-  + 1 = with others
++ Let's we also collected data on who they studied with (`study`);
+  + 0 = alone; 1 = with others
   
-+ So our variable `study` is a binary
++ And also which of three different revisions methods they used for the test (`study_method`)
+	+ 1 = Notes re-reading; 2 = Notes summarising; 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
+
++ We collect a new sample of 200 students.
 ]
+
 
 .pull-right[
 
-+ This data set is available on LEARN
 
-```{r, warning=FALSE, message=FALSE}
-df <- read_csv("./dapr2_lec07.csv") #<<
-```
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-kable(df)%>%
-  kable_styling(., full_width = F) %>%
-  scroll_box(height = "300px")
-```
 
 ]
 
 ---
 #  LM with binary predictors 
-+ In previous lectures we asked the question:
-
-  + **Do students who study more get higher scores on the test?**
-
-+ And we specified a linear model:
-
-$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
-
-+ Or
-
-$$score_i = \beta_0 + \beta_1 hours_{i} + \epsilon_i$$
-
---
-
-+ And nothing changes with our binary variable. We can ask the question:
++ Now lets ask the question:
 
   + **Do students who study with others score better than students who study alone?**
 
++ Our equation does not change: 
+
 $$score_i = \beta_0 + \beta_1 study_{i} + \epsilon_i$$
 
----
-# In `R`
++ And in R:
 
 ```{r}
-res <- lm(score ~ study, data = df)
-summary(res)
+performance_study <- lm(score ~ study, data = test_study3)
 ```
 
+---
+# Model results
+```{r}
+summary(performance_study)
+```
 
 ---
 # Interpretation
@@ -153,6 +177,7 @@ summary(res)
   + It is the students who study alone.
 
 + So what about $\hat \beta_1$?
+  + $\beta_1$ = 
 
 + **Look at the output on the right hand side.** 
   + What do you notice about the difference in averages?
@@ -161,7 +186,7 @@ summary(res)
 
 .pull-right[
 ```{r warning=FALSE, message=FALSE}
-df %>%
+test_study3 %>%
   group_by(., study) %>% #<<
   summarise(
     Average = round(mean(score),4) #<<
@@ -186,17 +211,8 @@ df %>%
 
 ---
 class: center, middle
-# Time for a break
+# Quick pause for questions
 
-**Have a go at the binary variable quiz**
-
----
-class: center, middle
-# Welcome Back!
-
-**Where we left off... **
-
-Let's think about the interpretation by group a little more.
 
 ---
 #  Equations for each group 
@@ -334,65 +350,17 @@ class: center, middle
 # Time for a break!
 
 
-
-```{r echo=FALSE, warning=FALSE, message=FALSE}
-# simulate data used in examples
-library(MASS)
-set.seed(1066)
-mu <- c(54, 2)
-Sigma <- matrix(c(7, 1.4,
-                  1.4, .5), byrow = T, ncol = 2)
-
-rawvars <- mvrnorm(n=10000, mu=mu, Sigma=Sigma)
-
-set.seed(7284)
-df <- rawvars[sample(nrow(rawvars), 100),]
-
-set.seed(7284)
-dum_dat <- tibble(
-  ID = c(paste("ID", 101:200, sep = "")),
-  exam = round(df[,1], 0),
-  method = round(df[,2], 0)
-) %>%
-  mutate(
-    method = factor(if_else(method <= 1, 1,
-                     if_else(method >= 3, 3, 2))),
-    dummy1 = if_else(method == 2, 1, 0), 
-    dummy2 = if_else(method == 3, 1, 0),
-  )
-
-write_csv(dum_dat, "./dummy_code_data.csv")
-
-detach("package:MASS", unload = TRUE)
-```
-
-# Weeks Learning Objectives
-
-1. Understand how to extend a simple regression to multiple predictors. 
-
-2. Understand and interpret the coefficients in multiple linear regression models
-
-3. Understand how to include and interpret models with categorical variables with 2+ levels. 
-
----
-# Topics for today
-+ Categorical predictors with more than 2 levels
-
 ---
 #  Including categorical predictors with >2 levels in a regression 
-+ When we have a categorical variable with 2+ levels, we will typically assign integers
-  + But recall, these are not meaningful numbers
++ The goal when analyzing categorical data with 2+ levels, we want each of our $\beta$ coefficients to represent a specific difference between means.
+  + e.g. like with the use of a single binary variable, $\beta_1$ is the difference between the two groups.
 
-+ For example: What city do you live in?
-  + 1 = Edinburgh; 2 = Glasgow, 3 = Birmingham etc.
-
-+ So in analysing a categorical predictor with $k$ levels, we need to take an additional step.
-
-+ This step involves applying a coding scheme, where by each regressor = a difference in means between levels, or sets of levels.
++ When we have 2+ levels, to be able to do this, we need to apply a **coding scheme**. 
 
 + Two common coding schemes are:
-  + Dummy coding
-  + Effects coding
+  + Dummy coding (which we will discuss now)
+  + Effects coding (or sum to zero, which we will discuss at the start of next semester)
+  + There are LOTS of ways to do this, if curious, see !(here)[] UCLA
 
 ---
 #  Dummy coding 
@@ -435,25 +403,6 @@ detach("package:MASS", unload = TRUE)
 	+ A poorly defined level, e.g. an `Other` group
 	+ Much smaller than the other groups
 
----
-#  Dummy coding 
-+ Imagine 100 students took an exam and were each assigned to use one of three `study methods`
-	+ 1 = Notes re-reading 
-	+ 2 = Notes summarising
-	+ 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
-
-+ We could use dummy coding to convert our `study methods` variable into $k$-1 regressors:
-
-```{r tbl23, echo = FALSE}
-dummy <- tibble(
-  Level = c("Notes re-reading", "Notes summarising", "Self-testing"),
-  D1 = c(0,1,0),
-  D2 = c(0,0,1)
-) 
-
-kable(dummy)%>%
-  kable_styling(., full_width = F)
-```
 
 
 ---
