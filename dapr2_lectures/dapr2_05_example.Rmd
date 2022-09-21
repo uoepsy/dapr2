@@ -1,0 +1,173 @@
+---
+title: "Calculating the Slope and Intercept with binary predictor"
+author: "dapR2 Team"
+output: html_document
+---
+
+In the lecture we noted the nice properties of 0 and 1 as values for binary variables. This becomes really clear if we run through the slope and intercept calculations with a binary variable. So here we will follow the same steps as week 2, using a binary.
+
+## Packages
+For this example we will only need the `tidyverse` package.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+
+## Data
+Below is code to create a smaller version of the data from the lecture, where we have the `method` variable for mode of study coded as 0 and 1, and the score on the test.
+
+```{r}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  study = c(0,0,0,0,0,1,1,1,1,1),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+```
+
+It will be useful for us to have a mental note of the means of each group.
+
+```{r}
+test %>%
+  group_by(factor(study)) %>%
+  summarise(
+    mean = mean(score)
+  )
+```
+
+So we can see the mean for those in the `0` group (study alone) is 1.8, and the mean for those in the `1` group (study with others) is 4.8.
+
+## Calculating slope
+
+From lecture, we can calculate the slope using the following:
+
+$$
+\hat \beta_1 = \frac{SP_{xy}}{SS_x}
+$$
+
+Where $SP_{xy}$ = sum of cross-products:
+
+
+$$
+SP_{xy} = \sum_{i = 1}^{n}(x_i - \bar{x})(y_i - \bar{y})
+$$
+
+and $SS_x$ = sums of squared deviations of $x$:
+
+
+$$
+SS_x = \sum_{i = 1}^{n}(x_i - \bar{x})^2
+$$
+
+### Sum of cross-products
+
+$$
+SP_{xy} = \sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})
+$$
+
+We will follow the same calculations as in week 2, for extended discussion of the steps, read this file side by side with week 2.
+
+```{r}
+calc <- test %>%
+  mutate(
+    m_study = mean(study),
+    m_score = mean(score)
+  ) %>%
+  select(1,2,4,3,5)
+
+calc
+```
+
+Next, we can calculate the deviances:
+
+```{r}
+calc <- calc %>%
+  mutate(
+    dev_study = study - m_study,
+    dev_score = score - m_score
+  ) %>%
+  select(1:3, 6, 4,5,7)
+calc
+```
+
+The last step is to multiply the two deviances for each person.
+
+```{r}
+calc <- calc %>%
+  mutate(
+    SPXYi = dev_study * dev_score
+  )
+calc
+```
+
+And there we go. Our `SPXYi` variable contains the product of the deviations of each observation from the means of hours studied and test score. Our final step is just to add this up.
+
+```{r}
+SPXY <- sum(calc$SPXYi)
+SPXY
+```
+
+### Sum of square deviations
+So now to calculate $SS_x$. Let's look at the equation again:
+
+$$
+SS_x = \sum_{i=1}^{n}(x_i - \bar{x})^2
+$$
+
+We have already calculated the individual deviations $(x_1 - \bar{x}), \dots, (x_n - \bar{x})$. They are the column called `dev_hours` in the `calc` table. So all we need to do is square these for each observation and sum them. 
+
+```{r}
+calc <- calc %>%
+  mutate(
+    SSxi = dev_study^2
+  )
+calc
+```
+
+and
+
+```{r}
+SSx = sum(calc$SSxi)
+SSx
+```
+
+### Return to the slope
+We now have the two values we need to calculate the slope:
+
+$$
+\hat \beta_1 = \frac{SP_{xy}}{SS_x} = \frac{7.5}{2.5} = 3
+$$
+
+```{r}
+beta1_hat <- SPXY/SSx
+beta1_hat
+```
+
+Now to the intercept.
+
+## Calculating intercept
+Calculations for intercept:
+
+$$
+\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x}
+$$
+
+So this one is much easier as all we need are:
+
+- $\hat \beta_1$ = slope estimate
+- $\bar{y}$ = mean of $y$
+- $\bar{x}$ = mean of $x$
+
+So...
+
+
+```{r}
+beta0_hat <- mean(calc$score) - (beta1_hat * mean(calc$study))
+beta0_hat
+```
+
+So we arrive at 1.8 as the intercept - the mean of the group coded 0, and a slope of 3, the difference between the means of the two groups.
+
+
+If we were to repeat this with using values of 1 and 2, we would see different results.
+

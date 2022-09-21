@@ -99,14 +99,18 @@ knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
 set.seed(3119) 
 
 sim_arguments <- list(
-  formula = y ~ 1 + hours + motivation,
+  formula = y ~ 1 + hours + motivation + study + method,
   fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
                motivation = list(var_type = 'continuous', mean = 0, sd = 1),
-               study = list(),
-               study_method = list()),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
   error = list(variance = 20),
-  sample_size = 200,
-  reg_weights = c(0.6, 1.4, 1.5)
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
 )
 
 df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
@@ -114,13 +118,15 @@ df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
   generate_response(sim_arguments)
 
 test_study3 <- df3 %>%
-  dplyr::select(y, hours, motivation) %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
   mutate(
-    ID = paste("ID", 101:250, sep = ""),
+    ID = paste("ID", 101:350, sep = ""),
     score = round(y+abs(min(y))),
-    motivation = round(motivation, 2)
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
   ) %>%
-  dplyr::select(ID, score, hours, motivation)
+  dplyr::select(ID, score, hours, motivation, study, method)
 
 ```
 
@@ -141,6 +147,11 @@ test_study3 <- df3 %>%
 
 .pull-right[
 
+```{r}
+head(test_study3) %>%
+  kable(.) %>%
+  kable_styling(full_width = F)
+```
 
 
 ]
@@ -264,11 +275,11 @@ $$\hat \beta_1 = \widehat{score}_{others} - \widehat{score}_{alone}$$
 #  Visualize the model
 
 ```{r, echo=FALSE}
-bin <- df %>%
+bin <- test_study3 %>%
   ggplot(., aes(x=factor(study), y=score, colour = study)) +
   geom_point(alpha=0.4) +
   labs(x = "\n Study", y = "Test Score \n") +
-  ylim(0,10) +
+  ylim(0,50) +
   scale_x_discrete(labels = c("alone", "others")) +
   theme(legend.position = "none")
 
@@ -288,7 +299,7 @@ bin +
 ---
 #  Visualize the model
 ```{r, echo=FALSE}
-gpM <- df %>%
+gpM <- test_study3 %>%
   group_by(study) %>%
   summarise(
     score = mean(score)
@@ -305,7 +316,7 @@ bin +
 ---
 #  Visualize the model
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 library(latex2exp)
 
 bin +
@@ -314,8 +325,8 @@ bin +
   geom_segment(x=1.5, y=gpM[[1,2]], xend=1.5, yend=gpM[[2,2]], size =1, col="red") +
   geom_segment(x=1.48, y=gpM[[1,2]], xend=1.52, yend=gpM[[1,2]], size =1, col="red") +
   geom_segment(x=1.48, y=gpM[[2,2]], xend=1.52, yend=gpM[[2,2]], size =1, col="red") +
-  geom_text(x=1.55, y = 5.5, label = TeX('$\\hat{\\beta}_1$'), size=5, col = "red") +
-  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=5, col = "red")
+  geom_text(x=1.58, y = gpM[[2,2]]-2, label = TeX('$\\hat{\\beta}_1$'), size=4, col = "red") +
+  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=4, col = "red")
 
 ```
 
@@ -337,8 +348,11 @@ bin +
 # Hold on... it's a t-test
 
 ```{r}
-df %>%
-  t.test(score ~ study, .)
+test_study3 %>%
+  t.test(score ~ study, var.equal = T, .)
+```
+```{r}
+summary(performance_study)
 ```
 
 ???
@@ -360,7 +374,7 @@ class: center, middle
 + Two common coding schemes are:
   + Dummy coding (which we will discuss now)
   + Effects coding (or sum to zero, which we will discuss at the start of next semester)
-  + There are LOTS of ways to do this, if curious, see !(here)[] UCLA
+  + There are LOTS of ways to do this, if curious, see !(here)[https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/] UCLA
 
 ---
 #  Dummy coding 
@@ -412,8 +426,8 @@ class: center, middle
 + We start out with  a dataset that looks like:
 
 ```{r, echo=FALSE}
-dum_dat %>%
-  select(ID:method) %>%
+test_study3 %>%
+  dplyr::select(ID,score,method) %>%
   slice(1:10)
 ```
 
@@ -425,7 +439,12 @@ dum_dat %>%
 + And end up with one that looks like:
 
 ```{r, echo=FALSE}
-dum_dat %>%
+ test_study3 %>%
+  select(ID, score, method) %>%
+  mutate(
+    method1 = ifelse(method == "self-test", 1, 0),
+    method2 = ifelse(method == "summarise", 1, 0)
+  ) %>%
   slice(1:10)
 ```
 
@@ -436,15 +455,22 @@ dum_dat %>%
 #  Dummy coding with `lm` 
 
 + `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
+  + It selects the first group as the baseline group
 
-+ It selects the first group as the baseline group
++ It represents this as a contrast matrix which looks like:
 
-+ We write:
+```{r}
+contrasts(test_study3$method)
+```
 
-```{r, eval=FALSE}
 
-mod1 <- lm(exam ~ method, data = dum_dat)
+---
+#  Dummy coding with `lm` 
 
++ So in order to run the `lm` we simply write:
+
+```{r}
+mod1 <- lm(score ~ method, data = test_study3)
 ```
 
 
@@ -456,18 +482,27 @@ mod1 <- lm(exam ~ method, data = dum_dat)
 .pull-left[
 + The intercept is the mean of the baseline group (notes re-reading)
 
-+ The coefficient for `method2` is the mean difference between the notes summarising group and the baseline group
++ The coefficient for `methodself-test` is the mean difference between the self-testing group and the baseline group (re-reading)
 
-+ The coefficient for `method3` is the mean difference between the self-test group and the baseline group
++ The coefficient for `methodsummarise` is the mean difference between the note summarising group and the baseline group (re-reading)
 
 ]
 
 .pull-right[
 
 ```{r}
-mod1 <- lm(exam ~ method, data = dum_dat)
 mod1
 ```
+
+```{r, echo=FALSE}
+test_study3 %>%
+  group_by(method) %>%
+  summarise(
+    Group_Mean = mean(score)
+  )
+
+```
+
 
 ]
 
@@ -486,7 +521,7 @@ summary(mod1)
 	+ You can change it using:
 
 ```{r, eval=FALSE}
-contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
+contrasts(test_study3$method) <- contr.treatment(3, base = 2)
 ```
 
 
@@ -504,20 +539,29 @@ contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
 #  Results using the new baseline 
 
 .pull-left[
-+ The intercept is the now the mean of the second group (Notes summarising)
++ The intercept is the now the mean of the second group (Self-Testing)
 
-+ `method1` is now the difference between Notes re-reading and Notes summarising
++ `method1` is now the difference between Notes re-reading and Self-Testing
 
-+ `method3` is now the difference between Self-testing and Notes summarising
++ `method3` is now the difference between Notes summarising and Self-testing 
 
 ]
 
 .pull-right[
 
 ```{r}
-contrasts(dum_dat$method) <- contr.treatment(3, base = 2)
-mod2 <- lm(exam ~ method, data = dum_dat)
+contrasts(test_study3$method) <- contr.treatment(3, base = 2)
+mod2 <- lm(score ~ method, data = test_study3)
 mod2
+```
+
+```{r, echo=FALSE}
+test_study3 %>%
+  group_by(method) %>%
+  summarise(
+    Group_Mean = mean(score)
+  )
+
 ```
 
 ]
