@@ -18,13 +18,12 @@ set.seed(953)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Extend the ideas of SLR to consider regression models with two or more predictors.
+1. Extend the ideas of single linear regression to consider regression models with two or more predictors
 2. Understand and interpret the coefficients in multiple linear regression models
-4. (Categorical pred.) Understand the meaning of a MLR model with categorical predictors (no interaction case). For example, two parallel regression lines, one for each of two groups.
 
 ### <i class="fa fa-check-square-o fa-2"></i> Requirements
 1. Be up to date with lectures
-2. Have completed previous lab exercises
+2. Have completed [Week 1](https://uoepsy.github.io/dapr2/2223/labs/1_01_function.html) and [Week 2](https://uoepsy.github.io/dapr2/2223/labs/1_02_slr.html) lab exercises
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -57,7 +56,7 @@ library(patchwork)
 library(sjPlot)
 
 # Reading in data and storing to an object named 'mwdata'
-mwdata <- read_csv(file = 'https://uoepsy.github.io/data/wellbeing.csv')
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
 ```
 
 `r solend()`
@@ -66,17 +65,14 @@ mwdata <- read_csv(file = 'https://uoepsy.github.io/data/wellbeing.csv')
 
 > **Research Question** 
 >
-> Is there an association between well-being and time spent outdoors *after* taking into account the relationship between well-being and social interactions? 
-
-The researchers know that other aspects of peoples' lifestyles such as how much social interaction they have can influence their mental well-being. They are intersted in furthering this understanding, and want to account for the relationship between psychological wellbeing and time spent outdoors.    
-
-<!-- We previously used simple linear regression to examine whether score on the WMBWS was related to the amount of time spent outdoors (self-reported as the average number of hours per week). We will now extend this and build a multiple regression model which we can use to predict WEMWBS score based on both outdoor time *and* number of social interactions.   -->
+> Is there an association between well-being and time spent outdoors *after* taking into account the association between well-being and social interactions? 
 
 `r optbegin("Wellbeing data codebook.", olabel=FALSE)`  
 
 __Description__
 
 Researchers interviewed 32 participants, selected at random from the population of residents of Edinburgh & Lothians. They used the Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+
 The researchers also asked participants to estimate the average number of hours they spend outdoors each week, the average number of social interactions they have each week (whether on-line or in-person), and whether they believe that they stick to a routine throughout the week (Yes/No).  
 
 The data in `wellbeing.csv` contain five attributes collected from a random sample of $n=32$ hypothetical residents over Edinburgh & Lothians, and include:
@@ -154,7 +150,7 @@ wellbeing_plot / outdoortime_plot / social_plot
 <br>
 
 `r qbegin(2)`
-Produce plots of the _marginal relationships_ between the outcome variable (wellbeing) and each of the explanatory variables.
+Produce plots of the _associations_ between the outcome variable (wellbeing) and each of the explanatory variables.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -165,25 +161,33 @@ Think about:
 - *Direction* of association
 - *Form* of association (can it be summarised well with a straight line?)  
 - *Strength* of association (how closely do points fall to a recognizable pattern such as a line?)
-- *Unusual observations* that do not fit the pattern of the rest of the observations and which are worth examining in more detail. 
+- *Unusual observations* that do not fit the pattern of the rest of the observations and which are worth examining in more detail.
+
+Plot tips: 
+
+- use `/n` to wrap text in your titles and or axis labels
+- consider using `geom_smooth()` to  superimpose the best-fitting line describing the association of interest
 
 :::
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
+```{r message = FALSE, warning=FALSE}
 #| label: fig-marg_relationship
 #| fig-cap: "Scatterplots displaying the relationships between scores on the WEMWBS and a) weekly outdoor time (hours), and b) weekly number of social interactions"
 wellbeing_outdoor <- 
   ggplot(data = mwdata, aes(x = outdoor_time, y = wellbeing)) +
   geom_point(alpha = 0.5) +
-  labs(x = "Time spent outdoors per week (hours)", y = "Wellbeing score (WEMWBS)")
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Time spent outdoors \nper week (hours)", y = "Wellbeing score (WEMWBS)")
 
 wellbeing_social <- 
   ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
   geom_point(alpha = 0.5) +
-  labs(x = "Number of social interactions per week", y = "Wellbeing score (WEMWBS)")
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Number of social interactions \nper week", y = "Wellbeing score (WEMWBS)")
 
+# place plots adjacent to one another
 wellbeing_outdoor | wellbeing_social
 ```
 `r solend()`
@@ -191,7 +195,7 @@ wellbeing_outdoor | wellbeing_social
 <br>
   
 `r qbegin(3)`
-Produce a correlation matrix of the variables which are to be used in the analysis, and write a short paragraph describing the relationships. 
+Produce a correlation matrix of the variables which are to be used in the analysis, and write a short paragraph describing the associations. 
 
 :::sticky
 __Correlation matrix__  
@@ -204,20 +208,30 @@ In `R`, we can create a correlation matrix by giving the `cor()` function a data
 
 :::
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Make sure to round your numbers in-line with APA 7th edition guidelines. The `round()` function will come in handy here, as might this [APA numbers and statistics guide](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf)! 
+
+:::
+
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 We can either use:
 ```{r eval=FALSE}
 # correlation matrix of the first 3 columns
-cor(mwdata[,1:3])
+round(cor(mwdata[,1:3]), digits = 2)
 ```
 or:
 ```{r}
 # select only the columns we want by name, and pass this to cor()
 mwdata %>% 
   select(wellbeing, outdoor_time, social_int) %>%
-  cor()
+  cor() %>%
+    round(digits = 2)
 ```
 
 ::: {.callout-important icon=false appearance="minimal"}
@@ -228,16 +242,25 @@ mwdata %>%
 
 ::: 
 
-<br>
+:::{.callout-note}
+
 Note that there is a weak correlation between our two explanatory variables (outdoor_time and social_int). We will return to how this might affect our model when later on we look at the assumptions of multiple regression.  
+
+:::
+
 `r solend()`
 
 <br>
 
 `r qbegin(4)`
-Specify the model equation, where $x_1$ = weekly outdoor time, $x_2$ = weekly numbers of social interactions and $y$ = scores on the WEMWBS. What are the _parameters_ of the model. How do we denote _parameter estimates_?  
 
-Next, fit the linear model in using `lm()`, assigning the output to an object called `mdl1`. 
+The scatterplots we created above show moderate, positive, and linear relationships both between outdoor time and wellbeing, and between numbers of social interactions and wellbeing.
+
+(1) Specify the form of your model, where $y$ = scores on the WEMWBS, $x_1$ = weekly number of social interactions, and $x_2$ = weekly outdoor time. 
+
+(2) What are the _parameters_ of the model. How do we denote _parameter estimates_?  
+
+(3) Fit the linear model in using `lm()`, assigning the output to an object called `mdl1`. 
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -256,7 +279,8 @@ As we did for simple linear regression, we can fit our multiple regression model
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 A model for the relationship between $x_1$ = weekly outdoor time, $x_2$ = weekly numbers of social interactions and $y$ = scores on the WEMWBS is given by:
 $$
-y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon \\ \quad \\ \text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
+y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon \\ \quad \\ 
+\text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
 $$
 
 In the model specified above,
@@ -274,9 +298,20 @@ The parameters of our model are:
 
 When we estimate these parameters from the available data, we have a _fitted model_ (recall that the h$\hat{\textrm{a}}$ts are used to distinguish our _estimates_ from the _true unknown parameters_): 
 $$
-\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Outdoor Time + \hat \beta_2 \cdot Social Interactions
+\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Outdoor Time 
 $$
 And we have residuals $\hat \epsilon = y - \hat y$ which are the deviations from the observed values and our model-predicted responses.  
+
+Fitting the model in `R`:
+
+```{r}
+mdl1 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
+```
+
+`r solend()`
+
+<br>
+<br>
 
 :::statbox
 __Visual__
@@ -287,7 +322,7 @@ In this particular case of three variables (one outcome + two explanatory), we c
 
 ```{r regsurf, echo=FALSE, out.width="100%"}
 #| label: fig-reg-surface
-#| fig-cap: "Regression surface for wellbeing ~ outdoor_time + social_int, from two different angles"
+#| fig-cap: "Regression surface for wellbeing ~  social_int + outdoor_time, from two different angles"
 
 fit<-lm(wellbeing~outdoor_time+social_int, data=mwdata)
 steps=50
@@ -319,17 +354,43 @@ Don't worry about trying to figure out how to visualise it if we had any more ex
 
 :::
 
-Fitting the model in `R`:
+<br>
 
-```{r}
-mdl1 <- lm(wellbeing ~ 1 + outdoor_time + social_int, data = mwdata)
-```
+`r qbegin(5)`
+
+State the research question in the form of a testable hypothesis.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You must define both a null ($H_0$) and alternative hypothesis ($H_1$). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+In words:
+
+$H_0$: There is no association between well-being and time spent outdoors after taking into account the relationship between well-being and social interactions
+
+$H_1$: There is an association between well-being and time spent outdoors after taking into account the relationship between well-being and social interactions
+
+
+In symbols:
+
+$H_0: \beta_2 = 0$
+
+$H_1: \beta_2 \neq 0$
+
 
 `r solend()`
 
 <br>
 
-`r qbegin(5)`
+`r qbegin(6)`
 Using any of:  
 
 - `mdl1`
@@ -341,8 +402,17 @@ Using any of:
 Write out the estimated parameter values of: 
 
 1. $\hat \beta_0$, the estimated average wellbeing score associated with zero hours of outdoor time and zero social interactions per week.  
-2. $\hat \beta_1$, the estimated increase in average wellbeing score associated with one hour increase in weekly outdoor time, _holding the number of social interactions constant_ (i.e., when the remaining explanatory variables are held at the same value or are fixed).
-3. $\hat \beta_2$, the estimated increase in average wellbeing score associated with an additional social interaction per week (an increase of one), _holding weekly outdoor time constant_.  
+2. $\hat \beta_1$, the estimated increase in average wellbeing score associated with an additional social interaction per week (an increase of one), _holding weekly outdoor time constant_.  
+3. $\hat \beta_2$, the estimated increase in average wellbeing score associated with one hour increase in weekly outdoor time, _holding the number of social interactions constant_ 
+
+:::{.callout-note}
+
+Q: What do we mean by hold constant / controlling for / partialling out / residualizing for?
+
+A: When the remaining explanatory variables are held at the same value or are fixed.
+
+:::
+
 
 `r qend()`
 
@@ -386,7 +456,7 @@ summary(mdl1)
 
 <br>
 
-`r qbegin(6)`
+`r qbegin(7)`
 Within what distance from the model predicted values (the regression surface) would we expect 95% of wEMWBS wellbeing scores to be?
 
 :::{.callout-tip appearance="simple" collapse="true"}
@@ -424,36 +494,16 @@ The estimated standard deviation of the errors is $\hat \sigma$ = `r round(sigma
 
 `r solend()`
 
-<br>
+## Numeric + Categorical
 
-`r qbegin(7)`
-Obtain 95\% confidence intervals for the regression coefficients, and write a sentence about each one.  
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-confint(mdl1, level = 0.95)
-```
+Let's do that again, but paying careful attention to where and how the process differs when we have a _categorical_ predictor.
 
-:::int 
-
-+ The average wellbeing score for all those with zero hours of outdoor time and zero social interactions per week is between `r round(confint(mdl1, level=.95)[1,1],2)` and `r round(confint(mdl1, level=.95)[1,2],2)`.  
-+ When _holding the number of social interactions per week constant_, each one hour increase in weekly outdoor time is associated with a difference in wellbeing scores between `r round(confint(mdl1, level=.95)[2,1],2)` and `r round(confint(mdl1, level=.95)[2,2],2)`, on average.  
-+ When _holding weekly outdoor time constant_, each increase of one social interaction per week is associated with a difference in wellbeing scores between `r round(confint(mdl1, level=.95)[3,1],2)` and `r round(confint(mdl1, level=.95)[3,2],2)`, on average.  
-
-:::
-
-`r solend()`
-
-    
-# Numeric + Categorical
-
-Let's do that again, but paying careful attention to where and how the process differs when we have a _categorical_ (or "qualitative") predictor.
-
-> Suppose that the group of researchers were instead wanting to study the relationship between well-being and time spent outdoors after taking into account the relationship between well-being and _having a routine_. 
+> Suppose that the group of researchers were instead wanting to study the assocation between well-being and time spent outdoors *after* taking into account the assocation between well-being and _having a routine_. 
 
 
 `r qbegin(8)`
-We have already visualised the marginal distribution of weekly outdoor time in an earlier question, as well as its relationship with wellbeing scores.  
+We have already visualised the marginal distribution of weekly outdoor time in an earlier question, as well as its association with wellbeing scores.
+
 Produce visualisations of:  
 
 1. the distribution of the `routine` variable
@@ -462,6 +512,14 @@ Produce visualisations of:
 :::{.callout-note}
 
 We cannot visualise the distribution of `routine` as a density curve or boxplot, because it is a _categorical_ variable (observations can only take one of a set of discrete response values).
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Consider using `geom_bar()` and/or `geom_boxplot()`
 
 :::
 
@@ -479,9 +537,10 @@ ggplot(data = mwdata, aes(x = routine)) +
   labs(x = "Routine", y = "Frequency")
 ```
 
-We might plot the relationship between routine and wellbeing as two boxplots:
-```{r}
-#| label: fig-relation-wb+outine
+We might plot the association between routine and wellbeing as two boxplots:
+
+```{r wbroutine}
+#| label: fig-relation-wboutine
 #| fig-cap: "Relationship between wellbeing and presence of routine"
 
 ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
@@ -496,11 +555,12 @@ ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
 `r qbegin(9)`
 
 Fit the multiple regression model below using `lm()`, and assign it to an object named `mdl2`. 
+
 $$
-Wellbeing = \beta_0 + \beta_1 \cdot OutdoorTime + \beta_2 \cdot Routine + \epsilon
+Wellbeing = \beta_0 + \beta_1 \cdot Routine + \beta_2 \cdot OutdoorTime + \epsilon
 $$
 
-Examine the summary output of the model. 
+Examine the `summary()` output of the model. 
 
 $\hat \beta_0$ (the intercept) is the estimated average wellbeing score associated with zero hours of weekly outdoor time and zero in the routine variable. What group is the intercept the estimated wellbeing score for when they have zero hours of outdoor time? Why (think about what zero in the routine variable means)?  
 
@@ -508,7 +568,7 @@ $\hat \beta_0$ (the intercept) is the estimated average wellbeing score associat
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
-mdl2 <- lm(wellbeing ~ outdoor_time + routine, data = mwdata)
+mdl2 <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
 summary(mdl2)
 ```
 
@@ -522,7 +582,7 @@ The intercept is therefore the estimated wellbeing score for those with No Routi
 
 `r qbegin(10)`
 
-We can visualise the model $\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot OutdoorTime + \hat \beta_2 \cdot Routine$ as two lines.  
+We can visualise the model $\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Routine + \hat \beta_2 \cdot OutdoorTime$ as two lines.  
 
 Each line represents the model predicted values for wellbeing scores across the range of weekly outdoor time, with one line for those who report having "Routine" and one for those with "No Routine".  
 
@@ -530,7 +590,7 @@ Get a pen and paper, and sketch out the plot shown in @fig-annotate.
 
 ```{r plot-annotate, echo=FALSE, message=FALSE}
 #| label: fig-annotate
-#| fig-cap: "Multiple regression model: Wellbeing ~ Outdoor Time + Routine"
+#| fig-cap: "Multiple regression model: Wellbeing ~ Routine + Outdoor Time"
 
 sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
   scale_fill_manual(NULL, values=c(NA,NA))
@@ -538,11 +598,11 @@ sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.da
 
 Annotate your plot with labels for each of parameter estimates from your model: 
 
-| Parameter Estimate   |      Model Coefficient      |  Estimate |
-|----------|:-------------:|------:|
-| $\hat \beta_0$ | `(Intercept)` | `r round(coef(mdl2)[1],2)` |
-| $\hat \beta_1$ | `outdoor_time`   |  `r round(coef(mdl2)[2],2)` |
-| $\hat \beta_2$ | `routineRoutine` | `r round(coef(mdl2)[3],2)` |
+| Parameter Estimate   |      Model Coefficient    |  Estimate                  |
+|----------------------|:-------------------------:|---------------------------:|
+| $\hat \beta_0$       | `(Intercept)`             | `r round(coef(mdl2)[1],2)` |
+| $\hat \beta_1$       | `routineRoutine`          | `r round(coef(mdl2)[2],2)` |
+| $\hat \beta_2$       | `outdoor_time`            | `r round(coef(mdl2)[3],2)` |
 
 
 :::{.callout-tip appearance="simple" collapse="true"}
@@ -594,9 +654,9 @@ plot_annotate
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-+ A = $\hat \beta_2$ = `routineRoutine` coefficient = `r round(coef(mdl2)[3],2)`
++ A = $\hat \beta_2$ = `routineRoutine` coefficient = `r round(coef(mdl2)[2],2)`
 + B = $\hat \beta_0$ = `(Intercept)` coefficient  = `r round(coef(mdl2)[1],2)`
-+ C = $\hat \beta_1$ = `outdoor_time` coefficient = `r round(coef(mdl2)[2],2)` 
++ C = $\hat \beta_1$ = `outdoor_time` coefficient = `r round(coef(mdl2)[3],2)` 
 
 ```{r echo=FALSE}
 plot_annotate
