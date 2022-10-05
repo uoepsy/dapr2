@@ -29,7 +29,7 @@ At the end of this lab, you will:
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
 1. Be up to date with lectures
-2. Have completed previous lab exercises 
+2. Have completed previous lab exercises from [Week 1](https://uoepsy.github.io/dapr2/2223/labs/1_01_function.html), [Week 2](https://uoepsy.github.io/dapr2/2223/labs/1_02_slr.html), and [Week 3](https://uoepsy.github.io/dapr2/2223/labs/1_03_mlr.html)
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -38,40 +38,40 @@ For this lab, you will need to load the following package(s):
 
 * **tidyverse**
 * **patchwork**
+* **kableExtra**
 
 ### <i class="fa fa-file"></i> Lab Data
-You can download the data required for this lab [here](https://uoepsy.github.io/data/riverview.csv) or read it in via this link https://uoepsy.github.io/data/riverview.csv. **Note**:  this is the same data as Lab 2.
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. **Note**:  this is the same data as Lab 3.
 :::
 
 # Study Overview 
 
-## Data recap
+## Data Recap
 
-`r optbegin('Riverview data codebook', FALSE, show = TRUE, toggle = params$TOGGLE)`
+`r optbegin("Wellbeing data codebook.", olabel=FALSE)`  
 
 __Description__
 
-The riverview data come from @Lewis-Beck2015 and contain five attributes collected from a random sample of $n=32$ employees working for the city of Riverview, a hypothetical midwestern city in the US. The attributes include:
+Researchers interviewed 32 participants, selected at random from the population of residents of Edinburgh & Lothians. They used the Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
 
-- `education`: Years of formal education
-- `income`: Annual income (in thousands of U.S. dollars)
-- `seniority`: Years of seniority
-- `gender`: Employee's gender
-- `male`: Dummy coded gender variable (0 = Female, 1 = Male)
-- `party`: Political party affiliation
+The researchers also asked participants to estimate the average number of hours they spend outdoors each week, the average number of social interactions they have each week (whether on-line or in-person), and whether they believe that they stick to a routine throughout the week (Yes/No).  
 
+The data in `wellbeing.csv` contain five attributes collected from a random sample of $n=32$ hypothetical residents over Edinburgh & Lothians, and include:
+
+- `wellbeing`: Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+- `outdoor_time`: Self report estimated number of hours per week spent outdoors  
+- `social_int`: Self report estimated number of social interactions per week (both online and in-person)
+- `routine`: Binary Yes/No response to the question "Do you follow a daily routine throughout the week?"
+- `location`: Location of primary residence (City, Suburb, Rural)
 
 __Preview__
 
 The first six rows of the data are:
 
-```{r echo=FALSE}
-library(tidyverse)
-library(kableExtra)
-
-riverview <- read_csv('https://uoepsy.github.io/data/riverview.csv')
-kable(head(riverview), align='c') %>% kable_styling(full_width = FALSE)
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
 ```
+  
 `r optend()`
 
 
@@ -80,17 +80,19 @@ kable(head(riverview), align='c') %>% kable_styling(full_width = FALSE)
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read the riverview dataset into R assigning it to an object named `riverview`
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
+```{r message=FALSE}
 #Loading the required package(s)
 library(tidyverse)
 library(kableExtra)
+library(patchwork)
 
-# Reading in data and storing to an object named 'riverview'
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
 riverview <- read_csv('https://uoepsy.github.io/data/riverview.csv')
 ```
 `r solend()`
@@ -98,89 +100,247 @@ riverview <- read_csv('https://uoepsy.github.io/data/riverview.csv')
 # Exercises
 
 `r qbegin(1)`
-Fit a linear model to investigate how income varies with years of formal education.
+Specify and fit a linear model to investigate how WEMWBS scores vary with time spent outdoors *after* controlling for the number of social interactions and whether the individual follows a daily routine. Next, check the `summary()` output from the model.
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-```{r}
-library(tidyverse)
 
-riverview <- read_csv(file = "https://uoepsy.github.io/data/riverview.csv")
-head(riverview)
+The model is:
+$$
+\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Routine + \hat \beta_3 \cdot Outdoor Time 
+$$
+In `R`:
+```{r message=FALSE}
+#fit model
+mdl <- lm(wellbeing ~ social_int + routine + outdoor_time, data = mwdata)
 
-mdl <- lm(income ~ 1 + education, data = riverview)
-mdl
+#look at summary output from model
+summary(mdl)
 ```
 
-The fitted model is:
-$$
-\widehat{Income} = 11.32 + 2.65 \times Education
-$$
 `r solend()`
 
+Recall the main formulas for obtaining a confidence interval and a test-statistic:
+
+:::statbox
+
+**Test statistic**
+
+A test statistic for the null hypothesis $H_0: \beta_1 = 0$ is
+$$
+t = \frac{\hat \beta_1 - 0}{SE(\hat \beta_1)}
+$$
+which follows a $t$-distribution with $n-2$ degrees of freedom.
+
+**Confidence interval**
+
+A confidence interval for the population slope is
+$$
+\hat \beta_1 \pm t^* \cdot SE(\hat \beta_1)
+$$
+where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
+
+:::
+
+<br>
+
 `r qbegin(2)`
-What is the proportion of the total variability in incomes explained by the linear relationship with education level?
+Test the hypothesis that the population slope is zero --- that is, that there is no linear association between wellbeing and outdoor time (*after* controlling for the number of social interactions and whether the individual follows a daily routine) in the population. 
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
-### Hint 
+### Hint
 
-The question asks to compute the value of $R^2$.
+You can find all of the necessary information in the `summary()` output of your model, or calculate manually.
 
 :::
 
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-The proportion of the total variability in incomes explained by the linear relationship with education level is given by R-squared.
+
+::: {.panel-tabset}
+
+## Manually
+
+We calculate the test statistic
+$$
+t = \frac{\hat \beta_3 - 0}{SE(\hat \beta_3)} = \frac{0.5371 - 0}{0.1397} = 3.845
+$$
+
+and compare it with the 5% critical value from a $t$-distribution with $n-2$ degrees of freedom, which is:
+
+```{r}
+n <- nrow(mwdata)
+tstar <- qt(0.975, df = n - 2)
+tstar
+#tstar = 2.042272
+```
+
+As $|t|$ ($|t|$ = 3.85) is much larger than $t^*$ ($t^*$ = 2.04), we reject then null hypothesis as we have strong evidence against it.
+
+The $p$-value, shown below, also confirms this conclusion.
+```{r}
+2 * (1 - pt(3.845, n - 2))
+```
+
+## R function
+
+Please note that the same information was already contained in the row corresponding to the variable "outdoor_time" in the output of `summary(mdl)`, which reported the $t$-statistic under `t value` and the $p$-value under `Pr(>|t|)`:
+```{r}
+summary(mdl)
+```
+
+:::
+
+Before we interpret the results, note that sometimes $p$-values will be reported to $e^X$. For example, look in the `Pr(>|t|)` column for "social_int". The value $8.81e^{-09}$ simply means $8.81 \times 10^{-9}$. This is a very small value (i.e., 0.00000000881), hence we will report it as <.001 following the [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We performed a $t$-test against the null hypothesis that outdoor time was not associated with wellbeing scores. A significant association was found between level of outdoor time  (in hours per week) and wellbeing (WEMWBS scores) $t(28) = 3.84,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Compute a confidence interval for the regression slope for $\hat \beta_3$.
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+For 95\% confidence we have $t^* = 2.04$:
+```{r}
+n <- nrow(mwdata)
+tstar <- qt(0.975, df = n - 2)
+tstar
+```
+
+The confidence interval is:
+```{r}
+beta3_ci <- tibble(
+  lower = 0.5371 - tstar * 0.1397,
+  upper = 0.5371 + tstar * 0.1397,
+                  )
+beta3_ci
+```
+
+## R function
+We can easily obtain the confidence intervals for the regression coefficients using the command `confint()`:
+
+```{r}
+confint(mdl, level = 0.95)
+```
+
+The result is exactly the same (up to rounding errors) as calculating manually. 
+
+:::
+
+We typically report our uncertainty in a statistic by providing $\text{estimate} \pm t^* \cdot \text{SE}$. Here we would say that because of sampling variation, we are 95\% confident that the slope is between 0.252 and 0.822. Interpreting this, we might say,
+
+
+::: {.callout-important icon=false appearance="minimal"}
+
+For all Riverview city employees, each one-year difference in formal education was associated with a difference in income between \$1,896 and \$3,406, on average.
+
+:::
+
+Similarly, we could express the uncertainty in the intercept $\hat \beta_0$ as:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The average income for all Riverview city employees with zero years of education is between \$-1184 and \$23,827.
+
+:::
+
+`r solend()`
+
+
+
+`r qbegin(4)`
+What is the proportion of the total variability in wellbeing scores explained by the model?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+The question asks to compute the value of $R^2$. Since the model has more than 2 predictors, you should report the Adjusted $R^2$.
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+The proportion of the total variability explained is given by R-squared.
 
 The R-squared coefficient is defined as:
 $$
 R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}
 $$
+The Adjusted R-squared coefficient is defined as:
 
-
+$$
+\hat R^2 = 1 - \frac{(1 - R^2)(n-1)}{n-k-1}
+\quad \\
+\begin{align}
+& \text{Where:} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+\end{align}
+$$
 ::: {.panel-tabset}
 
-## Option 1
+## Manually
 
 In `R` we can write:
 ```{r}
-riverview_fitted <- riverview %>%
-  mutate(
-    income_hat = predict(mdl),
-    resid = income - income_hat
-  )
-head(riverview_fitted)
+#R squared & adjusted R squared
 
-riverview_fitted %>%
+wellbeing_fitted <- mwdata %>%
+  mutate(
+    wellbeing_hat = predict(mdl),
+    resid = wellbeing - wellbeing_hat
+  )
+head(wellbeing_fitted)
+
+wellbeing_fitted %>%
   summarise(
-    SSModel = sum( (income_hat - mean(income))^2 ),
-    SSTotal = sum( (income - mean(income))^2 )
+    SSModel = sum( (wellbeing_hat - mean(wellbeing))^2 ),
+    SSTotal = sum( (wellbeing - mean(wellbeing))^2 )
   ) %>%
   summarise(
-    RSquared = SSModel / SSTotal
+    RSquared = SSModel / SSTotal,
+    AdjRSquared = 1-((1-(RSquared))*(32-1)/(32-3-1))
   )
+
+
 ```
 
 
-## Option 2
+## summary()
 
 ```{r}
 summary(mdl)
 ```
 
-The output of `summary()` displays the R-squared value in the following line:
+The output of `summary()` displays the Adjusted $R$-squared value in the following line:
 ```
-Multiple R-squared:  0.6317
+Adjusted R-squared:  0.8121 
 ```
 
-For the moment, ignore "Adjusted R-squared". We will come back to this later in the course.
 
-
-## Option 3
+## Manually: ANOVA - kill
 
 We can perform an **AN**alysis **O**f **VA**riance or, in short, ANOVA.
+
 It simply means that we are examining/partitioning the total variability of a response variable.
 
 The `anova()` function returns the sum of squares of interest in the column `Sum Sq`:
@@ -194,13 +354,26 @@ The entry corresponding to `education` gives $SS_{Model}$ = 4147.3, as education
 
 ```{r}
 # Because the column name Sum Sq has a space, we need to wrap it with backticks
-SSModel <- mdl_anova$`Sum Sq`[1]
-SSResidual <- mdl_anova$`Sum Sq`[2]
+SSModel <- (mdl_anova$`Sum Sq`[1])+(mdl_anova$`Sum Sq`[2])+(mdl_anova$`Sum Sq`[3])
+SSResidual <- mdl_anova$`Sum Sq`[4]
 SSTotal <- SSModel + SSResidual
 
 RSquared <- SSModel / SSTotal
 RSquared
 ```
+
+Now to calculate the Adjusted R Squared, simply sub the values into the formula given above:
+
+$$
+\hat R^2 = 1 - \frac{(1 - 0.83)(32-1)}{32-3-1}
+$$
+In R: 
+```{r}
+#sub in values - pull from R as opposed to including rounded numbers to improve accuracy of estimation
+AdjRSquared <- 1 - ((1-RSquared)*(nrow(mwdata)-1))/(nrow(mwdata)-3-1)
+AdjRSquared 
+```
+
 
 :::
 ---
@@ -209,46 +382,69 @@ RSquared
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Approximately 63\% of the total variability in employee incomes is explained by the linear association with education level.
+Approximately 81\% of the total variability in wellbeing scores is explained by associations with social interactions, routine, and outdoor time.
 
 :::
 
 `r solend()`
 
 
-`r qbegin(3)`
+`r qbegin(5)`
 Perform a model utility test at the 5\% significance level, by computing the F-statistic using its definition.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint 
 
-The relevant test-statistic is the F-statistic:
+The F-ratio is used to test the null hypothesis that all regression slopes are zero.  
+It is called the F-ratio because it is the ratio of the how much of the variation is explained by the model (per paramater) versus how much of the variation is left unexplained in the residuals (per remaining degrees of freedom). 
 
 $$
-\begin{split}
-F = \frac{MS_{Model}}{MS_{Residual}} = \frac{SS_{Model} / 1}{SS_{Residual} / (n-2)}
-\end{split}
+F_{df_{model},df_{residual}} = \frac{MS_{Model}}{MS_{Residual}} = \frac{SS_{Model}/df_{Model}}{SS_{Residual}/df_{Residual}} \\
+\quad \\
+\begin{align}
+& \text{Where:} \\
+& df_{model} = k \\
+& df_{residual} = n-k-1 \\
+& n = \text{sample size} \\
+& k  = \text{number of explanatory variables} \\
+\end{align}
 $$
-
-which compares the amount of variation in the response explained by the model to the amount of variation left unexplained in the residuals.
-
 :::
 
 `r qend()`
 
+`r optbegin('Optional: Another formula for the F-test.', FALSE)`
+
+With some algebra we can also show that:
+$$
+F = \frac{R^2 / 1}{(1 - R^2) / (n - 2) } = \frac{R^2 / df_{Model}}{(1 - R^2) / df_{Residual} }
+$$
+
+Proof:
+
+$$
+\begin{aligned}
+F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
+= \frac{\frac{SS_{Model}}{SS_{Total}}}{\frac{SS_{Residual}}{SS_{Total}} \cdot \frac{1}{(n - 2)}} 
+= \frac{R^2 / 1}{(1 - R^2) / (n - 2)}
+\end{aligned}
+$$
+
+`r optend()`
+
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 ```{r}
 df1 <- 1
-df2 <- nrow(riverview) - 2
+df2 <- nrow(mwdata) - 2
 f_star <- qf(0.95, df1, df2)
 f_star
 ```
 
 ```{r}
-model_utility <- riverview_fitted %>%
+model_utility <- wellbeing_fitted %>%
   summarise(
-    SSModel = sum( (income_hat - mean(income))^2 ),
+    SSModel = sum((wellbeing_hat - mean(wellbeing))^2 ),
     SSResid = sum( resid^2 ),
     MSModel = SSModel / 1,
     MSResid = SSResid / df2,
@@ -283,24 +479,9 @@ The $p$-value (< .001) is much lower than the specified significance level, mean
 `r solend()`
 
 
-`r optbegin('Optional: Another formula for the F-test.', FALSE)`
-With some algebra we can also show that:
-$$
-F = \frac{R^2 / 1}{(1 - R^2) / (n - 2) } = \frac{R^2 / df_{Model}}{(1 - R^2) / df_{Residual} }
-$$
 
-Proof:
 
-$$
-\begin{aligned}
-F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
-= \frac{\frac{SS_{Model}}{SS_{Total}}}{\frac{SS_{Residual}}{SS_{Total}} \cdot \frac{1}{(n - 2)}} 
-= \frac{R^2 / 1}{(1 - R^2) / (n - 2)}
-\end{aligned}
-$$
-`r optend()`
-
-`r qbegin(4)`
+`r qbegin(6)`
 Look at the output of `summary(mdl)` and `anova(mdl)`.
 
 For each output, identify the relevant information to conduct an F-test against the null hypothesis that the model is ineffective at predicting income using education level.
@@ -350,7 +531,7 @@ In other words, the data provide strong evidence that education is an effective 
 `r solend()`
 
 
-`r qbegin(5)`
+`r qbegin(8)`
 Consider the `F value` output of `anova(mdl)` and the `t value` for education returned by `summary(mdl)`
 
 ```
@@ -405,167 +586,75 @@ It is evident that the latter is obtained as the square root of the former.
 
 `r solend()`
 
-## Back to regression coefficients
 
-`r qbegin(6)`
-Compute the average education level and the average income in the sample.
+## Standardization
 
-Use the `predict()` function to compute the predicted income for those with average education level.
+`r qbegin(8)`
+Fit the regression model using the standardized response and explanatory variables.
 
-What do you notice?
-`r qend()`
-
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-Sample means:
-```{r}
-stats <- riverview %>%
-  summarise(
-    mean_education = mean(education),
-    mean_income = mean(income)
-  )
-stats
-```
-
-Prediction:
-```{r}
-query <- tibble(education = stats$mean_education)
-query
-
-predict(mdl, newdata = query)
-```
-
-<br>
-The predicted average income for those having average education level is equal to the average income in the sample.
-`r solend()`
-
-`r qbegin(7)`
-Let's formalise the previous question using symbols.
-Consider the fitted model $\hat{y} = \hat \beta_0 + \hat \beta_1 x$.
-
-What is the predicted response for an individual having an explanatory variable at the average level $\bar{x}$?
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
-### Hint 
+### Hint
 
-Substitute the formula of $\hat \beta_0$ into the equation of the fitted model.
+You can either:
+
+1. Add to the "mwdata" dataset three variables called `z_wellbeing`, `z_social_int`, and `z_outdoor_time` representing the standardized welllbeing, social interactions and outdoor time variables, respectively.
+or
+2. Use the `scale()` function when specifying your `lm()` statement.
 
 :::
 
 `r qend()`
 
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-We require the prediction at $x = \bar{x}$, that is:
-$$
-\hat{y} = \hat \beta_0 + \hat \beta_1 \bar{x}
-$$
-Recall the formula for the fitted intercept: $\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x}$. Let's substitute it into the equation:
-
-$$
-\begin{split}
-\hat{y} &= \hat \beta_0 + \hat \beta_1 \bar{x} \\
-&= \bar{y} - \hat \beta_1 \bar{x} + \hat \beta_1 \bar{x} \\
-&= \bar{y}
-\end{split}
-$$
-
-This highlights an important property of the fitted regression line: it always passes through the point of averages $(\bar x, \bar y)$.
-
-Intuitively, what would be your prediction $\hat y$ when $x$ equals $\bar{x}$? If you guessed $\bar{y}$ you're on track!
-
-`r solend()`
-
-<div class="boxy boxy-primary boxy-lightbulb">
-
-## Binary predictors
-
-Let's suppose that instead of having measured education in years, we had data instead on "Obtained College Degree: Yes/No". Our explanatory variable would be binary categorical (think back to our discussion of [types of data](https://uoepsy.github.io/dapr1/2122/labs/1_01_data_types.html#Types_of_data)).  
-
-Let us pretend that everyone with >18 years of education has a college degree:
-```{r}
-#create new variable called 'degree', where those over age 18 are allocated to Yes condition, and those under 18 to No.
-riverview <- 
-  riverview %>%
-    mutate(
-      degree = ifelse(education > 18, "Yes", "No")
-    )
-```
-
-We may then plot our relationship as a boxplot. If you want to see the individual points, you could always "jitter" them (right-hand plot below)
-```{r}
-ggplot(riverview, aes(x = degree, y = income)) + 
-  geom_boxplot() +
-ggplot(riverview, aes(x = degree, y = income)) + 
-  geom_jitter(height=0, width=.05)
-```
-
-
-
-## Standardization
-
-`r qbegin(8)`
-Add to the riverview dataset two variables called `z_education` and `z_income` representing the standardized education and income variables, respectively.
-
-**Without using R**, if you were to fit a linear regression model using the standardized response and standardized predictor, what would the intercept be?
-
-`r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Z-score
+
 ```{r}
-riverview <- riverview %>%
+mwdata <- mwdata %>%
   mutate(
-    z_education = (education - mean(education)) / sd(education),
-    z_income = (income - mean(income)) / sd(income)
+    z_wellbeing = (wellbeing - mean(wellbeing)) / sd(wellbeing),
+    z_social_int = (social_int - mean(social_int)) / sd(social_int),
+    z_outdoor_time = (outdoor_time - mean(outdoor_time)) / sd(outdoor_time)
   )
 ```
 
 Check that they are standardized:
 ```{r}
-riverview %>%
+mwdata %>%
   summarise(
-    M_z_education = mean(z_education), SD_z_education = sd(z_education), 
-    M_z_income = mean(z_income), SD_z_income = sd(z_income)
+    M_z_wellbeing = round(mean(z_wellbeing),2), SD_z_wellbeing = sd(z_wellbeing), 
+    M_z_social_int = round(mean(z_social_int),2), SD_z_social_int = sd(z_social_int),
+    M_z_outdoor_time = round(mean(z_outdoor_time),2), SD_z_outdoor_time = sd(z_outdoor_time)
   )
+#mean of 0, SD of 1 - all good to go
 ```
 
-A standardized variable has mean 0 and standard deviation equal to 1.
-We can substitute this in the formula of the estimated intercept:
-
-$$
-\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x} = 0 - \hat \beta_1 0 = 0
-$$
-
-The intercept of the linear model between the standardized variables is zero --- that is, the regression line passes through the origin of the graph. 
-
-But wait... The origin is also the average of $z_x$ and the average of $z_y$ as they are standardized. In symbols $(0, 0) = (\bar{z}_x, \bar{z}_y)$. 
-
-We expected the fitted line to pass through the point of averages --- in this case, the origin.
-`r solend()`
-
-
-`r qbegin(9)`
-**Using R**, fit the regression model using the standardized response and explanatory variables.
-
-What is the slope equal to?
-`r qend()`
-
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-Linear model for standardized variables:
+Run model:
 ```{r}
-mdl_z <- lm(z_income ~ 1 + z_education, data = riverview)
+#with z scoring
+mdl_z <- lm(z_wellbeing ~ z_social_int + z_outdoor_time, data = mwdata)
 summary(mdl_z)
+round(summary(mdl_z)$coefficients,3)
 ```
 
-<br>
-Correlation coefficient of original variables:
+
+
+## scale() function
+
 ```{r}
-riverview %>%
-  select(education, income) %>%
-  cor()
+#use scale
+mdl_s <- lm(scale(wellbeing) ~ scale(social_int) + scale(outdoor_time), data = mwdata)
+summary(mdl_s)
+round(summary(mdl_s)$coefficients,3)
 ```
 
-<br>
-The slope of the standardized variables is equal to the correlation between the original variables.
+:::
+
 `r solend()`
 
 
@@ -582,181 +671,6 @@ For every standard deviation increase in education, income increases on average 
 :::
 `r solend()`
 
-
-
-STUFF TO BE INCORPORATED FROM LAB 2 ORIGINALLY
-
-
-:::statbox 
-
-## Inference for Regression Coefficients
-
-We have fitted a linear model, and we now know how we interpret our coefficients. But this is only part of the story. Consider again the output of the `summary()` function:
-```{r}
-#summary(mdl)
-```
-
-To quantify the amount of uncertainty in each estimated coefficient that is due to sampling variability, we use the standard error (SE) of the coefficient. 
-_Recall that a standard error gives a numerical answer to the question of how variable a statistic will be because of random sampling._
-
-The standard errors are found in the column "Std. Error". That is, the SE of the intercept is 6.1232, and the SE of the slope corresponding to the education variable is 0.3696.
-
-In this example the slope, 2.651, has a standard error of 0.37. One way to envision this is as a distribution. Our best guess (mean) for the slope parameter is 2.651. The standard deviation of this distribution is 0.37, which indicates the precision (uncertainty) of our estimate.
-
-```{r echo=FALSE, fig.cap='Sampling distribution of the slope coefficient. The distribution is approximately bell-shaped with a mean of 2.651 and a standard error of 0.37.'}
-#ggplot(tibble(x = c(-3 * 0.37 + 2.651, 3 * 0.37 + 2.651)), aes(x = x)) +
-#    stat_function(fun = dnorm, args = list(mean = 2.651, sd = 0.37)) +
-#  labs(x = "Estimate for employee incomes", y = '')
-```
-
-It shouldn't surprise you that the reference distribution in this case is a $t$-distribution with $n-2$ degrees of freedom, where $n$ is the sample size.
-
-:::
-
-<br>
-
-
-
-
-:::sticky
-
-Recall the main formulas for obtaining a confidence interval and a test-statistic:
-
-**Test statistic**
-
-A test statistic for the null hypothesis $H_0: \beta_1 = 0$ is
-$$
-t = \frac{\hat \beta_1 - 0}{SE(\hat \beta_1)}
-$$
-which follows a $t$-distribution with $n-2$ degrees of freedom.
-
-**Confidence interval**
-
-A confidence interval for the population slope is
-$$
-\hat \beta_1 \pm t^* \cdot SE(\hat \beta_1)
-$$
-where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
-:::
-
-<br>
-
-
-`r qbegin(9)`
-Test the hypothesis that the population slope is zero --- that is, that there is no linear association between income and education level in the population. 
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-You can find all of the necessary information in the `summary()` output of your model, or calculate manually.
-
-:::
-
-`r qend()`
-
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-
-::: {.panel-tabset}
-
-## Manually
-
-We calculate the test statistic
-$$
-t = \frac{\hat \beta_1 - 0}{SE(\hat \beta_1)} = \frac{ 2.6513 - 0 }{0.3696} = 7.173
-$$
-
-and compare it with the 5% critical value from a $t$-distribution with $n-2$ degrees of freedom, which is:
-
-```{r}
-#n <- nrow(riverview)
-#tstar <- qt(0.975, df = n - 2)
-#tstar
-```
-
-As $|t|$ is much larger than $t^*$, we reject then null hypothesis as have strong evidence against it.
-
-The p-value, shown below, also confirms the conclusion.
-```{r}
-#2 * (1 - pt(7.173, n - 2))
-```
-
-## R function
-
-Please note that the same information was already contained in the row corresponding to the variable "education" in the output of `summary(mdl)`, which reported the $t$-statistic under `t value` and the $p$-value under `Pr(>|t|)`:
-```{r}
-#summary(mdl)
-```
-
-:::
-
-Before we interpret the results, recall that the p-value `5.56e-08` in the `Pr(>|t|)` column simply means $5.56 \times 10^{-8}$. This is a very small value (i.e., 0.0000000556), hence we will report it as <.001 following the APA guidelines.
-
-::: {.callout-important icon=false appearance="minimal"}
-
-We performed a $t$-test against the null hypothesis that education was not associated with income. A significant association was found between level of education (in years) and income $t(30) = 7.173,\ p < .001$, two-sided. Thus, we have evidence against the null hypothesis.
-
-:::
-
-`r solend()`
-
-<br>
-
-`r qbegin(10)`
-Compute a confidence interval for the regression slope
-`r qend()`
-
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-
-::: {.panel-tabset}
-
-## Manually
-
-In the riverview example, for 95\% confidence we have $t^* = 2.04$:
-```{r}
-#n <- nrow(riverview)
-#tstar <- qt(0.975, df = n - 2)
-#tstar
-```
-
-The confidence interval is:
-```{r}
-#beta1_ci <- tibble(
-#  lower = 2.6513 - tstar * 0.3696,
-#  upper = 2.6513 + tstar * 0.3696,
-#)
-#beta1_ci
-```
-
-## R function
-We can easily obtain the confidence intervals for the regression coefficients using the command `confint()`:
-
-```{r}
-#(mdl, level = 0.95)
-```
-
-The result is exactly the same (up to rounding errors) as calculating manually. 
-
-:::
-
-We typically report our uncertainty in a statistic by providing $\text{estimate} \pm t^* \cdot \text{SE}$. Here we would say that because of sampling variation, we are 95\% confident that the slope is between 1.896 and 3.406. Interpreting this, we might say,
-
-
-::: {.callout-important icon=false appearance="minimal"}
-
-For all Riverview city employees, each one-year difference in formal education was associated with a difference in income between \$1,896 and \$3,406, on average.
-
-:::
-
-Similarly, we could express the uncertainty in the intercept $\hat \beta_0$ as:
-
-::: {.callout-important icon=false appearance="minimal"}
-
-The average income for all Riverview city employees with zero years of education is between \$-1184 and \$23,827.
-
-:::
-
-`r solend()`
 
 
 # References

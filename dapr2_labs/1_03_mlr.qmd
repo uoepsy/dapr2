@@ -510,173 +510,63 @@ The estimated standard deviation of the errors is $\hat \sigma$ = `r round(sigma
 
 `r solend()`
 
-## Numeric + Categorical
-
-Let's do that again, but paying careful attention to where and how the process differs when we have a _categorical_ predictor.
-
-> Suppose that the group of researchers were instead wanting to study the assocation between well-being and time spent outdoors *after* taking into account the assocation between well-being and _having a routine_. 
-
-
 `r qbegin(8)`
-We have already visualised the marginal distribution of weekly outdoor time in an earlier question, as well as its association with wellbeing scores.
 
-Produce visualisations of:  
+Based on the model, predict the wellbeing scores for the following individuals:
 
-1. the distribution of the `routine` variable
-2. the relationship between `routine` and `wellbeing`. 
+- Leah: Social Interactions = 24; Outdoor Time = 3
+- Sean: Social Interactions = 19; Outdoor Time = 26
+- Mike: Social Interactions = 15; Outdoor Time = 20
+- Donna: Social Interactions = 7; Outdoor Time = 2
 
-:::{.callout-note}
-
-We cannot visualise the distribution of `routine` as a density curve or boxplot, because it is a _categorical_ variable (observations can only take one of a set of discrete response values).
-
-:::
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint 
-
-Consider using `geom_bar()` and/or `geom_boxplot()`
-
-:::
+Who has the highest predicted wellbeing score, and who has the lowest?
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-`geom_bar()` will count the number of observations falling into each unique level of the routine variable:
+First we need to pass the data into R:
 ```{r}
-#| label: fig-dist-routine
-#| fig-cap: "Marginal distribution plots of Routine (y/n)"
-
-ggplot(data = mwdata, aes(x = routine)) +
-  geom_bar()+
-  labs(x = "Routine", y = "Frequency")
+wellbeing_query <- tibble(social_int = c(24, 19, 15, 7),
+                          outdoor_time = c(3, 26, 20, 2))
 ```
 
-We might plot the association between routine and wellbeing as two boxplots:
+And next use `predict()` to get their estimated wellbeing scores:
 
-```{r wbroutine}
-#| label: fig-relation-wboutine
-#| fig-cap: "Relationship between wellbeing and presence of routine"
-
-ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
-  geom_boxplot()+
-  labs(x = "Routine", y = "Wellbeing score (WEMWBS)")
+```{r}
+predict(mdl1, newdata = wellbeing_query)
 ```
 
-`r solend()`  
+Sean has the highest predicted wellbeing score (55.04), and Donna the lowest (19.18). 
 
-<br>
+`r solend()`
 
 `r qbegin(9)`
 
-Fit the multiple regression model below using `lm()`, and assign it to an object named `mdl2`. 
-
-$$
-Wellbeing = \beta_0 + \beta_1 \cdot Routine + \beta_2 \cdot OutdoorTime + \epsilon
-$$
-
-Examine the `summary()` output of the model. 
-
-$\hat \beta_0$ (the intercept) is the estimated average wellbeing score associated with zero hours of weekly outdoor time and zero in the routine variable. What group is the intercept the estimated wellbeing score for when they have zero hours of outdoor time? Why (think about what zero in the routine variable means)?  
+Should we reject or fail to reject $H_0$? Why?
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-mdl2 <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
-summary(mdl2)
-```
 
-As you can see in the output of the model, we have a coefficient called `routineRoutine`. This is the parameter estimate for a dummy variable which has been inputted into the model. The `lm()` function will automatically name the dummy variables (and therefore the coefficients) according to what level is identified by the 1. It names them `<variable><Level>`, so we can tell that `routineRoutine` is 1 for "Routine" and 0 for "No Routine".  
+The research question asked whether there was an association between well-being and time spent outdoors *after* taking into account the association between well-being and social interactions. This was equivalent to testing the following null hypothesis:
 
-The intercept is therefore the estimated wellbeing score for those with No Routine and zero hours of outdoor time.   
+$H_0: \beta_2 = 0$
+
+Based on the model output (if we considered effects to be significant at $\alpha$ = .05), we should reject the null hypothesis since our $p$-value smaller than this ($p$ = .0015). In short, we reject the null since $p$ < .05.
 
 `r solend()`
-
-<br>
 
 `r qbegin(10)`
 
-We can visualise the model $\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Routine + \hat \beta_2 \cdot OutdoorTime$ as two lines.  
-
-Each line represents the model predicted values for wellbeing scores across the range of weekly outdoor time, with one line for those who report having "Routine" and one for those with "No Routine".  
-
-Get a pen and paper, and sketch out the plot shown in @fig-annotate.  
-
-```{r plot-annotate, echo=FALSE, message=FALSE}
-#| label: fig-annotate
-#| fig-cap: "Multiple regression model: Wellbeing ~ Routine + Outdoor Time"
-
-sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
-  scale_fill_manual(NULL, values=c(NA,NA))
-```
-
-Annotate your plot with labels for each of parameter estimates from your model: 
-
-| Parameter Estimate   |      Model Coefficient    |  Estimate                  |
-|----------------------|:-------------------------:|---------------------------:|
-| $\hat \beta_0$       | `(Intercept)`             | `r round(coef(mdl2)[1],2)` |
-| $\hat \beta_1$       | `routineRoutine`          | `r round(coef(mdl2)[2],2)` |
-| $\hat \beta_2$       | `outdoor_time`            | `r round(coef(mdl2)[3],2)` |
-
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint 
-
-Below you can see where to add the labels, but we have not said which is which. 
-
-```{r echo=FALSE, message=FALSE}
-sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
-  scale_fill_manual(NULL, values=c(NA,NA))+
-  geom_vline(xintercept = 0) +
-  geom_segment(aes(x=1,xend=0,
-                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-1,
-                   yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))),
-               col="black",lwd=.2)+
-  geom_label(aes(x=2,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-3), 
-             label="B", col="black")+
-  geom_segment(aes(x=20,xend=20,
-                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=20)),
-                   yend=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))),
-               col="black",lwd=.2,
-               arrow = arrow(length = unit(3, "mm")))+
-  geom_label(aes(x=21,y=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))-5),
-               label="A", col="black")+
-  geom_segment(aes(x=10,xend=11,
-                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
-                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
-             col="black",lwd=.2)+
-  geom_segment(aes(x=11,xend=11,
-                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
-                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=11))),
-             col="black",lwd=.2)+
-  geom_label(aes(x=12,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
-                 label="C",col="black")+
-  NULL -> plot_annotate
-
-plot_annotate
-
-```
-
-+ A is the vertical distance between the red and blue lines (the lines are parallel, so this distance is the same wherever you cut it on the x-axis).  
-+ B is the point at which the blue line cuts the y-axis.  
-+ C is the vertical increase (increase on the y-axis) for the blue line associated with a 1 unit increase on the x-axis (the lines are parallel, so this is the same for the red line).  
-
-:::
+Interpret the outdoor time coefficient in the context of the research question. 
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-+ A = $\hat \beta_2$ = `routineRoutine` coefficient = `r round(coef(mdl2)[2],2)`
-+ B = $\hat \beta_0$ = `(Intercept)` coefficient  = `r round(coef(mdl2)[1],2)`
-+ C = $\hat \beta_1$ = `outdoor_time` coefficient = `r round(coef(mdl2)[3],2)` 
-
-```{r echo=FALSE}
-plot_annotate
-```
+A multiple regression model was used to determine if there was an association between well-being and time spent outdoors after taking into account the association between well-being and social interactions. Outdoor time was significantly associated with wellbeing scores ($\beta$ = 0.59, SE = 0.17, $p$ < .001) after controlling for the number of weekly social interactions. Results suggested that for every additional hour spent outdoors each week, wellbeing scores increased by 0.59 points. 
 
 `r solend()`
+
 
