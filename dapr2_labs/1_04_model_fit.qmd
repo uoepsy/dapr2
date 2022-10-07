@@ -21,8 +21,9 @@ set.seed(1)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Understand the calculation and interpretation of the coefficient of determination.
-1. Understand the calculation and interpretation of the F-test of model utility.
+1. Understand how to interpret significance tests for $\beta$ coefficients
+1. Understand how to calculate the interpret $R^2$ and adjusted-$R^2$ as a measure of model quality.
+1. Understand the calculation and interpretation of the $F$-test of model utility.
 1. Understand how to standardize model coefficients and when this is appropriate to do.
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
@@ -40,7 +41,10 @@ For this lab, you will need to load the following package(s):
 * **sjPlot**
 
 ### <i class="fa fa-file"></i> Lab Data
-You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. **Note**:  this is the same data as Lab 3.
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. 
+
+**Note**:  this is the same data as Lab 3.
+
 :::
 
 # Study Overview 
@@ -89,8 +93,8 @@ read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
 ```{r message=FALSE}
 #Loading the required package(s)
 library(tidyverse)
-library(sjPlot)
 library(patchwork)
+library(sjPlot)
 
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
@@ -186,20 +190,20 @@ $$
 t = \frac{\hat \beta_2 - 0}{SE(\hat \beta_2)} = \frac{0.5924 - 0}{0.1689} = 3.5074
 $$
 
-and compare it with the 5% critical value from a $t$-distribution with $n-2$ degrees of freedom, which is:
+and compare it with the 5% critical value from a $t$-distribution with $n-3$ degrees of freedom, which is:
 
 ```{r}
 n <- nrow(mwdata)
-tstar <- qt(0.975, df = n - 2)
+tstar <- qt(0.975, df = n - 3)
 tstar
-#tstar = 2.042272
+#tstar = 2.04523
 ```
 
-As $|t|$ ($|t|$ = 3.51) is much larger than $t^*$ ($t^*$ = 2.04), we can reject then null hypothesis as we have strong evidence against it.
+As $|t|$ ($|t|$ = 3.51) is much larger than $t^*$ ($t^*$ = 2.05), we can reject then null hypothesis as we have strong evidence against it.
 
 The $p$-value, shown below, also confirms this conclusion.
 ```{r}
-2 * (1 - pt(3.5074, n - 2))
+2 * (1 - pt(3.506, n - 3))
 ```
 
 ## R function
@@ -239,7 +243,7 @@ A confidence interval for the population slope is
 $$
 \hat \beta_1 \pm t^* \cdot SE(\hat \beta_1)
 $$
-where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
+where $t^*$ denotes the critical value chosen from t-distribution with $n-k-1 = n - 2 - 1 = n - 3$ degrees of freedom for a desired $\alpha$ level of confidence. 
 
 :::
 
@@ -251,32 +255,25 @@ where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ deg
 
 ## Manually
 
-For 95\% confidence we have $t^* = 2.04$:
+For 95\% confidence we have $t^* = 2.05$:
 ```{r}
 n <- nrow(mwdata)
-tstar <- qt(0.975, df = n - 2)
+tstar <- qt(0.975, df = n - 3)
 tstar
 ```
 
 The confidence intervals are:
 ```{r}
-beta0_ci <- tibble(
-  lower = 5.3704 - tstar * 4.3205,
-  upper = 5.3704 + tstar * 4.3205
-  )
-beta0_ci
 
-beta1_ci <- tibble(
-  lower = 1.8034 - tstar * 0.2691,
-  upper = 1.8034 + tstar * 0.2691
-  )
-beta1_ci 
+tibble(
+  b0_LowerCI = round(5.3704 - (qt(0.975, n-3) * 4.3205), 3),
+  b0_UpperCI = round(5.3704 + (qt(0.975, n-3)* 4.3205), 3),
+  b1_LowerCI = round(1.8034 - (qt(0.975, n-3) * 0.2691), 3),
+  b1_UpperCI = round(1.8034 + (qt(0.975, n-3)* 0.2691), 3),
+  b2_LowerCI = round(0.5924 - (qt(0.975, n-3) * 0.1689), 3),
+  b2_UpperCI = round(0.5924 + (qt(0.975, n-3)* 0.1689), 3)
+      )
 
-beta2_ci <- tibble(
-  lower = 0.5924 - tstar * 0.1689,
-  upper = 0.5924 + tstar * 0.1689
-  )
-beta2_ci
 ```
 
 ## R function
@@ -520,7 +517,14 @@ Fit the regression model using the standardized response and explanatory variabl
 You can either:
 
 1. Add to the "mwdata" dataset three variables called `z_wellbeing`, `z_social_int`, and `z_outdoor_time` representing the standardized welllbeing, social interactions and outdoor time variables, respectively.
-or
+
+Recall the formula for the $z$-score:
+$$
+z_x = \frac{x - \bar{x}}{s_x}, \qquad z_y = \frac{y - \bar{y}}{s_y}
+$$
+
+**OR**
+
 2. Use the `scale()` function when specifying your `lm()` statement.
 
 :::
@@ -613,7 +617,9 @@ tab_model(mdl_z,
 <br>
 
 `r qbegin(10)`
+
 Interpret the standardized variables presented in the above table.
+
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
