@@ -24,7 +24,6 @@ At the end of this lab, you will:
 1. Understand the calculation and interpretation of the coefficient of determination.
 1. Understand the calculation and interpretation of the F-test of model utility.
 1. Understand how to standardize model coefficients and when this is appropriate to do.
-1. Understand the relationship between the correlation coefficient and the regression slope.
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -38,7 +37,7 @@ For this lab, you will need to load the following package(s):
 
 * **tidyverse**
 * **patchwork**
-* **kableExtra**
+* **sjPlot**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. **Note**:  this is the same data as Lab 3.
@@ -46,7 +45,9 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 
 # Study Overview 
 
-## Data Recap
+> **Research Question** 
+>
+> Is there an association between well-being and time spent outdoors *after* taking into account the association between well-being and social interactions? 
 
 `r optbegin("Wellbeing data codebook.", olabel=FALSE)`  
 
@@ -88,70 +89,87 @@ read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
 ```{r message=FALSE}
 #Loading the required package(s)
 library(tidyverse)
-library(kableExtra)
+library(sjPlot)
 library(patchwork)
 
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
-riverview <- read_csv('https://uoepsy.github.io/data/riverview.csv')
 ```
 `r solend()`
 
 # Exercises
 
 `r qbegin(1)`
-Specify and fit a linear model to investigate how WEMWBS scores vary with time spent outdoors *after* controlling for the number of social interactions and whether the individual follows a daily routine. Next, check the `summary()` output from the model.
+Specify and fit a linear model to investigate how wellbeing (WEMWBS scores) are associated with time spent outdoors *after* controlling for the number of social interactions. 
+
+Next, check the `summary()` output from the model.
+
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 
 The model is:
 $$
-\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Routine + \hat \beta_3 \cdot Outdoor Time 
+\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Outdoor Time 
 $$
 In `R`:
 ```{r message=FALSE}
 #fit model
-mdl <- lm(wellbeing ~ social_int + routine + outdoor_time, data = mwdata)
+mdl1 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
 
 #look at summary output from model
-summary(mdl)
+summary(mdl1)
 ```
 
 `r solend()`
 
-Recall the main formulas for obtaining a confidence interval and a test-statistic:
+<br>
 
-:::statbox
+`r qbegin(2)`
 
-**Test statistic**
+Formally state:
+
++ your chosen significance level 
++ the null and alternative hypotheses
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+Effects will be considered statistically significant at $\alpha=.05$
+
+$H_0: \beta_2 = 0$
+There is no association between well-being and time spent outdoors after taking into account the relationship between well-being and social interactions
+
+$H_1: \beta_2 \neq 0$
+There is an association between well-being and time spent outdoors after taking into account the relationship between well-being and social interactions
+
+`r solend()`
+
+## Lab Purpose
+
+In this lab (Lab 4), you will focus on the statistics contained within the highlighted sections of the `summary()` output below. You will be both calculating these by hand and deriving via `R` code before interpreting these values in the context of the research question.
+
+```{r echo = FALSE, out.width='85%'}
+knitr::include_graphics('images/summary_mwdata.PNG')
+```
+
+<br>
+
+`r qbegin(3)`
+Test the hypothesis that the population slope is zero --- that is, that there is no linear association between wellbeing and outdoor time (*after* controlling for the number of social interactions) in the population. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall the formula for obtaining a **test statistic**:
 
 A test statistic for the null hypothesis $H_0: \beta_1 = 0$ is
 $$
 t = \frac{\hat \beta_1 - 0}{SE(\hat \beta_1)}
 $$
 which follows a $t$-distribution with $n-2$ degrees of freedom.
-
-**Confidence interval**
-
-A confidence interval for the population slope is
-$$
-\hat \beta_1 \pm t^* \cdot SE(\hat \beta_1)
-$$
-where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
-
-:::
-
-<br>
-
-`r qbegin(2)`
-Test the hypothesis that the population slope is zero --- that is, that there is no linear association between wellbeing and outdoor time (*after* controlling for the number of social interactions and whether the individual follows a daily routine) in the population. 
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-You can find all of the necessary information in the `summary()` output of your model, or calculate manually.
 
 :::
 
@@ -163,9 +181,9 @@ You can find all of the necessary information in the `summary()` output of your 
 
 ## Manually
 
-We calculate the test statistic
+We calculate the test statistic for $\beta_2$
 $$
-t = \frac{\hat \beta_3 - 0}{SE(\hat \beta_3)} = \frac{0.5371 - 0}{0.1397} = 3.845
+t = \frac{\hat \beta_2 - 0}{SE(\hat \beta_2)} = \frac{0.5924 - 0}{0.1689} = 3.5074
 $$
 
 and compare it with the 5% critical value from a $t$-distribution with $n-2$ degrees of freedom, which is:
@@ -177,27 +195,29 @@ tstar
 #tstar = 2.042272
 ```
 
-As $|t|$ ($|t|$ = 3.85) is much larger than $t^*$ ($t^*$ = 2.04), we reject then null hypothesis as we have strong evidence against it.
+As $|t|$ ($|t|$ = 3.51) is much larger than $t^*$ ($t^*$ = 2.04), we can reject then null hypothesis as we have strong evidence against it.
 
 The $p$-value, shown below, also confirms this conclusion.
 ```{r}
-2 * (1 - pt(3.845, n - 2))
+2 * (1 - pt(3.5074, n - 2))
 ```
 
 ## R function
 
 Please note that the same information was already contained in the row corresponding to the variable "outdoor_time" in the output of `summary(mdl)`, which reported the $t$-statistic under `t value` and the $p$-value under `Pr(>|t|)`:
 ```{r}
-summary(mdl)
+summary(mdl1)
 ```
+
+The result is exactly the same (up to rounding errors) as calculating manually.
+
+Before we interpret the results, note that sometimes $p$-values will be reported to $e^X$. For example, look in the `Pr(>|t|)` column for "social_int". The value $2.37e^{-07}$ simply means $2.37 \times 10^{-7}$. This is a very small value (i.e., 0.000000237), hence we will report it as <.001 following the [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).
 
 :::
 
-Before we interpret the results, note that sometimes $p$-values will be reported to $e^X$. For example, look in the `Pr(>|t|)` column for "social_int". The value $8.81e^{-09}$ simply means $8.81 \times 10^{-9}$. This is a very small value (i.e., 0.00000000881), hence we will report it as <.001 following the [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).
-
 ::: {.callout-important icon=false appearance="minimal"}
 
-We performed a $t$-test against the null hypothesis that outdoor time was not associated with wellbeing scores. A significant association was found between level of outdoor time  (in hours per week) and wellbeing (WEMWBS scores) $t(28) = 3.84,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
+We performed a $t$-test against the null hypothesis that outdoor time was not associated with wellbeing scores after controlling for social interactions. A significant association was found between outdoor time (in hours per week) and wellbeing (WEMWBS scores) $t(29) = 3.51,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
 
 :::
 
@@ -205,9 +225,23 @@ We performed a $t$-test against the null hypothesis that outdoor time was not as
 
 <br>
 
-`r qbegin(3)`
+`r qbegin(4)`
 
-Compute a confidence interval for the regression slope for $\hat \beta_3$.
+Obtain 95% confidence intervals for the regression coefficients, and write a sentence about each one.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall the formula for obtaining a **confidence interval**:
+
+A confidence interval for the population slope is
+$$
+\hat \beta_1 \pm t^* \cdot SE(\hat \beta_1)
+$$
+where $t^*$ denotes the critical value chosen from t-distribution with $n-2$ degrees of freedom for a desired $\alpha$ level of confidence. 
+
+:::
 
 `r qend()`
 
@@ -224,55 +258,59 @@ tstar <- qt(0.975, df = n - 2)
 tstar
 ```
 
-The confidence interval is:
+The confidence intervals are:
 ```{r}
-beta3_ci <- tibble(
-  lower = 0.5371 - tstar * 0.1397,
-  upper = 0.5371 + tstar * 0.1397,
-                  )
-beta3_ci
+beta0_ci <- tibble(
+  lower = 5.3704 - tstar * 4.3205,
+  upper = 5.3704 + tstar * 4.3205
+  )
+beta0_ci
+
+beta1_ci <- tibble(
+  lower = 1.8034 - tstar * 0.2691,
+  upper = 1.8034 + tstar * 0.2691
+  )
+beta1_ci 
+
+beta2_ci <- tibble(
+  lower = 0.5924 - tstar * 0.1689,
+  upper = 0.5924 + tstar * 0.1689
+  )
+beta2_ci
 ```
 
 ## R function
 We can easily obtain the confidence intervals for the regression coefficients using the command `confint()`:
 
 ```{r}
-confint(mdl, level = 0.95)
+confint(mdl1, level = 0.95)
 ```
 
 The result is exactly the same (up to rounding errors) as calculating manually. 
 
 :::
 
-We typically report our uncertainty in a statistic by providing $\text{estimate} \pm t^* \cdot \text{SE}$. Here we would say that because of sampling variation, we are 95\% confident that the slope is between 0.252 and 0.822. Interpreting this, we might say,
-
-
 ::: {.callout-important icon=false appearance="minimal"}
 
-For all Riverview city employees, each one-year difference in formal education was associated with a difference in income between \$1,896 and \$3,406, on average.
 
-:::
-
-Similarly, we could express the uncertainty in the intercept $\hat \beta_0$ as:
-
-::: {.callout-important icon=false appearance="minimal"}
-
-The average income for all Riverview city employees with zero years of education is between \$-1184 and \$23,827.
++ The average wellbeing score for all those with zero hours of outdoor time and zero social interactions per week was between `r round(confint(mdl1, level=.95)[1,1],2)` and `r round(confint(mdl1, level=.95)[1,2],2)`.  
++ When _holding weekly outdoor time constant_, each increase of one social interaction per week was associated with a difference in wellbeing scores between `r round(confint(mdl1, level=.95)[2,1],2)` and `r round(confint(mdl1, level=.95)[2,2],2)`, on average.  
++ When _holding the number of social interactions per week constant_, each one hour increase in weekly outdoor time was associated with a difference in wellbeing scores between `r round(confint(mdl1, level=.95)[3,1],2)` and `r round(confint(mdl1, level=.95)[3,2],2)`, on average.  
 
 :::
 
 `r solend()`
 
+<br>
 
-
-`r qbegin(4)`
+`r qbegin(5)`
 What is the proportion of the total variability in wellbeing scores explained by the model?
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint 
 
-The question asks to compute the value of $R^2$. Since the model has more than 2 predictors, you should report the Adjusted $R^2$.
+The question asks to compute the value of $R^2$. Since the model includes 2 predictors, you should report the Adjusted $R^2$.
 
 :::
 
@@ -306,10 +344,10 @@ In `R` we can write:
 
 wellbeing_fitted <- mwdata %>%
   mutate(
-    wellbeing_hat = predict(mdl),
+    wellbeing_hat = predict(mdl1),
     resid = wellbeing - wellbeing_hat
   )
-head(wellbeing_fitted)
+
 
 wellbeing_fitted %>%
   summarise(
@@ -318,62 +356,24 @@ wellbeing_fitted %>%
   ) %>%
   summarise(
     RSquared = SSModel / SSTotal,
-    AdjRSquared = 1-((1-(RSquared))*(32-1)/(32-3-1))
+    AdjRSquared = 1-((1-(RSquared))*(32-1)/(32-2-1))
   )
 
 
 ```
 
-
-## summary()
+## R funciton
 
 ```{r}
-summary(mdl)
+#look in second bottom row - Multiple R Squared and Adjusted R Squared both reported here
+summary(mdl1)
 ```
 
 The output of `summary()` displays the Adjusted $R$-squared value in the following line:
+
 ```
-Adjusted R-squared:  0.8121 
+Adjusted R-squared:  0.7224 
 ```
-
-
-## Manually: ANOVA - kill
-
-We can perform an **AN**alysis **O**f **VA**riance or, in short, ANOVA.
-
-It simply means that we are examining/partitioning the total variability of a response variable.
-
-The `anova()` function returns the sum of squares of interest in the column `Sum Sq`:
-```{r}
-mdl_anova <- anova(mdl)
-mdl_anova
-```
-
-Consider the column `Sum Sq`. 
-The entry corresponding to `education` gives $SS_{Model}$ = 4147.3, as education is the explanatory variable. The entry corresponding to `Residuals` gives $SS_{Residual}$ = 2418.2.
-
-```{r}
-# Because the column name Sum Sq has a space, we need to wrap it with backticks
-SSModel <- (mdl_anova$`Sum Sq`[1])+(mdl_anova$`Sum Sq`[2])+(mdl_anova$`Sum Sq`[3])
-SSResidual <- mdl_anova$`Sum Sq`[4]
-SSTotal <- SSModel + SSResidual
-
-RSquared <- SSModel / SSTotal
-RSquared
-```
-
-Now to calculate the Adjusted R Squared, simply sub the values into the formula given above:
-
-$$
-\hat R^2 = 1 - \frac{(1 - 0.83)(32-1)}{32-3-1}
-$$
-In R: 
-```{r}
-#sub in values - pull from R as opposed to including rounded numbers to improve accuracy of estimation
-AdjRSquared <- 1 - ((1-RSquared)*(nrow(mwdata)-1))/(nrow(mwdata)-3-1)
-AdjRSquared 
-```
-
 
 :::
 ---
@@ -382,15 +382,20 @@ AdjRSquared
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Approximately 81\% of the total variability in wellbeing scores is explained by associations with social interactions, routine, and outdoor time.
+Approximately 72\% of the total variability in wellbeing scores is explained by associations with social interactions and outdoor time.
 
 :::
 
 `r solend()`
 
+<br>
 
-`r qbegin(5)`
-Perform a model utility test at the 5\% significance level, by computing the F-statistic using its definition.
+`r qbegin(6)`
+Perform a model utility test at the 5\% significance level. 
+
+In other words, conduct an $F$-test against the null hypothesis that the model is ineffective at predicting wellbeing scores using social interactions and outdoor time by computing the F-statistic using its definition.
+
+Write up the results following APA format.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -414,29 +419,15 @@ $$
 
 `r qend()`
 
-`r optbegin('Optional: Another formula for the F-test.', FALSE)`
-
-With some algebra we can also show that:
-$$
-F = \frac{R^2 / 1}{(1 - R^2) / (n - 2) } = \frac{R^2 / df_{Model}}{(1 - R^2) / df_{Residual} }
-$$
-
-Proof:
-
-$$
-\begin{aligned}
-F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
-= \frac{\frac{SS_{Model}}{SS_{Total}}}{\frac{SS_{Residual}}{SS_{Total}} \cdot \frac{1}{(n - 2)}} 
-= \frac{R^2 / 1}{(1 - R^2) / (n - 2)}
-\end{aligned}
-$$
-
-`r optend()`
-
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
 ```{r}
-df1 <- 1
-df2 <- nrow(mwdata) - 2
+df1 <- 2
+df2 <- nrow(mwdata) - 2 - 1
 f_star <- qf(0.95, df1, df2)
 f_star
 ```
@@ -446,146 +437,75 @@ model_utility <- wellbeing_fitted %>%
   summarise(
     SSModel = sum((wellbeing_hat - mean(wellbeing))^2 ),
     SSResid = sum( resid^2 ),
-    MSModel = SSModel / 1,
+    MSModel = SSModel / df1,
     MSResid = SSResid / df2,
     FObs = MSModel / MSResid
   )
 model_utility
 ```
 
+We can also compute the p-value:
 
-::: {.callout-important icon=false appearance="minimal"}
-
-We performed an $F$-test of model utility at the 5\% significance level, where $F(1,30) = 51.45$.
-
-As the observed $F = 51.45$ is much larger than the critical value $F^* = 4.17$, we have strong evidence to reject the null hypothesis that the model is ineffective.
-:::
-
-<br>
-Alternatively, we can compute the p-value:
 ```{r}
 pvalue <- 1 - pf(model_utility$FObs, df1, df2)
 pvalue
 ```
-The value `5.562116e-08` simply means $5.56 \times 10^{-8}$, so it's a really small number.
 
-::: {.callout-important icon=false appearance="minimal"}
+The value `3.225548e-09` simply means $3.2 \times 10^{-9}$, so it's a really small number.
 
-We performed an $F$-test of model utility at the 5\% significance level, where $F(1,30) = 51.45, p<.001$.
+## R function
 
-The $p$-value (< .001) is much lower than the specified significance level, meaning that we have evidence against the null hypothesis.
-:::
-
-`r solend()`
-
-
-
-
-`r qbegin(6)`
-Look at the output of `summary(mdl)` and `anova(mdl)`.
-
-For each output, identify the relevant information to conduct an F-test against the null hypothesis that the model is ineffective at predicting income using education level.
-`r qend()`
-
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-
-::: {.panel-tabset}
-
-## summary() output
 ```{r}
-summary(mdl)
+#look in bottom row
+summary(mdl1)
 ```
 
 The relevant row is the following:
 
 ```
-F-statistic: 51.45 on 1 and 30 DF,  p-value: 5.562e-08
+
+F-statistic: 41.34 on 2 and 29 DF,  p-value: 3.226e-09
+
 ```
-
-## anova() output
-```{r}
-anova(mdl)
-```
-
-And the relevant entries are:
-
-- the `Df` column, which contains the degrees of freedom;
-- `F value = 51.452`, which is the F-statistic;
-- `Pr(>F) = 5.562e-08` = $5.562 \times 10^{-8}$, which is the p-value.
 
 :::
----
-
-**Interpretation**
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-We performed an $F$-test for the overall significance of the regression, $F(1, 30) = 51.45, p < .001$.
+We performed an $F$-test of model utility at the 5\% significance level, where $F(2,29) = 41.34, p<.001$.
 
-The large $F$-statistic leads to a very small $p$-value ($<.001$), meaning that we have very strong evidence against the null hypothesis that the model is ineffective.
+The large $F$-statistic and small $p$-value ($<.001$) suggested that we have very strong evidence against the null hypothesis that the model is ineffective.
 
-In other words, the data provide strong evidence that education is an effective predictor of income.
+In other words, the data provide strong evidence that the number of social interactions and outdoor time are effective predictors of wellbeing scores.
+
 
 :::
 
 `r solend()`
 
+<br>
 
-`r qbegin(8)`
-Consider the `F value` output of `anova(mdl)` and the `t value` for education returned by `summary(mdl)`
+`r qbegin(7)`
+Produce a visualisation of the association between wellbeing and outdoor time, after accounting for social interactions.  
 
-```
-F value = 51.452
-t value = 7.173
-```
+:::{.callout-tip appearance="simple" collapse="true"}
 
-Do you notice any relationship between the F-statistic for overall model utility and the t-statistic for $H_0: \beta_1 = 0$?
+### Hint
+To visualise just one association, you might need to specify the `terms` argument in `plot_model()`. Don't forget you can look up the documentation by typing `?plot_model` in the console. 
+
+:::
+
 `r qend()`
 
-`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
-**In simple linear regression only**, the F-statistic for overall model significance is equal to the square of the t-statistic for $H_0: \beta_1 = 0$.
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-You can check that the squared t-statistic is equal, up to rounding error, to the F-statistic:
-$$
-t^2 = F \\
-7.173^2 = 51.452
-$$
-
-`r optbegin('Optional: Equivalence of t-test for the slope and model utility F-test in SLR.', FALSE)`
-
-Here we will show the equivalence of the F-test for model effectiveness and t-test for the slope.
-
-Recall the formula of the sum of squares due to the model. We will rewrite it in an equivalent form below:
-$$
-\begin{aligned}
-SS_{Model} &= \sum_i (\hat y_i - \bar y)^2 \\
-&= \sum_i (\hat \beta_0 + \hat \beta_1 x_i - \bar y)^2 \\
-&= \sum_i (\bar y - \hat \beta_1 \bar x + \hat \beta_1 x_i - \bar y)^2 \\
-&= \sum_i (\hat \beta_1 (x_i - \bar x))^2 \\
-&= \hat \beta_1^2 \sum_i (x_i - \bar x)^2
-\end{aligned}
-$$
-
-The $F$-statistic is given by:
-$$
-\begin{aligned}
-F = \frac{SS_{Model} / 1}{SS_{Residual} / (n - 2)} 
-= \frac{\hat \beta_1^2 \sum_i (x_i - \bar x)^2}{\hat \sigma^2} 
-= \frac{\hat \beta_1^2 }{\hat \sigma^2 / \sum_i (x_i - \bar x)^2}
-\end{aligned}
-$$
-
-Now recall the formula of the $t$-statistic,
-$$
-t = \frac{\hat \beta_1}{SE(\hat \beta_1)} = \frac{\hat \beta_1}{\hat \sigma / \sqrt{\sum_i (x_i - \bar x)^2}}
-$$
-
-It is evident that the latter is obtained as the square root of the former.
-
-`r optend()`
+```{r}
+plot_model(mdl1, type = "eff",
+           terms = c("outdoor_time"), 
+           show.data = TRUE)
+```
 
 `r solend()`
-
 
 ## Standardization
 
@@ -607,12 +527,13 @@ or
 
 `r qend()`
 
-
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 
 ::: {.panel-tabset}
 
-## Z-score
+## Z-Score
+
+z score variables
 
 ```{r}
 mwdata <- mwdata %>%
@@ -623,7 +544,8 @@ mwdata <- mwdata %>%
   )
 ```
 
-Check that they are standardized:
+Check that they are standardized
+
 ```{r}
 mwdata %>%
   summarise(
@@ -634,7 +556,8 @@ mwdata %>%
 #mean of 0, SD of 1 - all good to go
 ```
 
-Run model:
+Run model
+
 ```{r}
 #with z scoring
 mdl_z <- lm(z_wellbeing ~ z_social_int + z_outdoor_time, data = mwdata)
@@ -642,12 +565,9 @@ summary(mdl_z)
 round(summary(mdl_z)$coefficients,3)
 ```
 
-
-
-## scale() function
+## scale function
 
 ```{r}
-#use scale
 mdl_s <- lm(scale(wellbeing) ~ scale(social_int) + scale(outdoor_time), data = mwdata)
 summary(mdl_s)
 round(summary(mdl_s)$coefficients,3)
@@ -655,22 +575,51 @@ round(summary(mdl_s)$coefficients,3)
 
 :::
 
+From comparing either the `summary()` or rounded output, you should see that the estimates are the same under both approaches.
+
 `r solend()`
 
+<br> 
+
+`r qbegin(9)`
+
+Create a table to present your results from the standardized model.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. 
+
+Remember that you can rename your DV and IV labels by specifying `dv.labels` and `pred.labels`.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r tabmodel}
+tab_model(mdl_z,
+          dv.labels = "Wellbeing (WEMWBS Scores)",
+          pred.labels = c("z_social_int" = "Social Interactions (number per week)",
+                          "z_outdoor_time" = "Outdoor Time (hours per week)"),
+          title = "Regression table for Wellbeing model. Outcome variable and predictors are Z-scored")
+          
+```
+
+`r solend()`
+
+<br>
 
 `r qbegin(10)`
-Interpret the slope of the standardized variables.
+Interpret the standardized variables presented in the above table.
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 
-::: {.callout-important icon=false appearance="minimal"}
+- For every standard deviation increase in social interactions, wellbeing scores increased on average by 0.67 standard deviations.
+- For every standard deviation increase in outdoor time, wellbeing scores increased on average by 0.35 standard deviations.
 
-For every standard deviation increase in education, income increases on average by 0.79 standard deviations.
-
-:::
 `r solend()`
 
-
-
-# References
