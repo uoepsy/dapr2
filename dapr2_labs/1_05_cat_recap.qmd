@@ -15,6 +15,7 @@ set.seed(953)
 
 library(DT)
 library(pander)
+library(sjPlot)
 library(tidyverse)
 ```
 
@@ -23,9 +24,8 @@ library(tidyverse)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. X.
-2. X.
-3. X.
+1. Understand the meaning of (and how to interpret) a multiple regression model with a binary predictor
+2. Understand how to specify a new baseline/reference level for categorical variables
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -38,7 +38,7 @@ Remember to load all packages within a code chunk at the start of your RMarkdown
 For this lab, you will need to load the following package(s):
 
 * **tidyverse** 
-* **sjPlot**
+* **patchwork**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. 
@@ -88,6 +88,7 @@ read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
 1. Create a new RMarkdown file
 2. Load the required package(s)
 3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+4. Check coding of variables (e.g., that catgorical variables are coded as factors)
 
 `r qend()`
 
@@ -96,10 +97,18 @@ read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
 #Loading the required package(s)
 library(tidyverse)
 library(patchwork)
-library(sjPlot)
 
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
+```
+
+
+```{r message=FALSE}
+#check coding of routine variable - should be a factor - check by running `is.factor()`
+is.factor(mwdata$routine) #result = false, so need to make routine a factor
+
+#designate routine as factor and check using above code if change has been applied by re-running line (should now be TRUE)
+mwdata$routine <- as_factor(mwdata$routine)
 ```
 
 `r solend()`
@@ -112,6 +121,8 @@ Produce visualisations of:
 
 1. the distribution of the `routine` variable
 2. the association between `routine` and `wellbeing`. 
+
+Provide interpretation of these figures. 
 
 
 :::{.callout-note}
@@ -137,9 +148,10 @@ Consider using `geom_bar()` and/or `geom_boxplot()`. The [DAPR1 categorical data
 #| label: fig-dist-routine
 #| fig-cap: "Marginal distribution plots of Routine (y/n)"
 
-ggplot(data = mwdata, aes(x = routine)) +
+p1 <- ggplot(data = mwdata, aes(x = routine)) +
   geom_bar()+
   labs(x = "Routine", y = "Frequency")
+p1
 ```
 
 We might plot the association between routine and wellbeing as two boxplots:
@@ -148,10 +160,21 @@ We might plot the association between routine and wellbeing as two boxplots:
 #| label: fig-relation-wboutine
 #| fig-cap: "Relationship between wellbeing and presence of routine"
 
-ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
+p2 <- ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
   geom_boxplot()+
   labs(x = "Routine", y = "Wellbeing score (WEMWBS)")
+p2
 ```
+
+
+```{r}
+#place plots adjacent to one another
+p1 | p2
+```
+
+From @fig-dist-routine, we can see that there are more individuals that do not have a routine than those who do. 
+
+From @fig-relation-wboutine, we can see that individuals with a routine tend to have higher wellbeing scores than those who do not. 
 
 `r solend()`  
 
@@ -290,7 +313,7 @@ plot_annotate
 
 `r qbegin(4)`
 
-The researchers have decided that they would prefer 'routine' to be considered the reference level for the "routine" variable. Apply this change to the variable and re-run your model.
+The researchers have decided that they would prefer 'routine' to be considered the reference level for the "routine" variable instead of 'no routine'. Apply this change to the variable and re-run your model.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -305,10 +328,7 @@ You will need to use the `relevel()` function here.
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-#ensure routine is coded as a factor
-mwdata$routine  <- as_factor(mwdata$routine)
-
-#re-order so that routine is baseline/reference level
+#re-order so that routine is reference level
 mwdata$routine <- relevel(mwdata$routine, 'Routine')
 
 #re-run model and check summary
@@ -403,7 +423,7 @@ In the equation above, the terms $\beta_0$ and $\beta_1$ are numbers specifying 
 
 :::{.callout-note}
 
-See [Week 1](https://uoepsy.github.io/dapr2/2223/labs/1_01_function.html) for further details and to revise these concepts further.
+See [Week 1 lab](https://uoepsy.github.io/dapr2/2223/labs/1_01_function.html) and lectures for further details and to revise these concepts further.
 
 :::
 
@@ -441,18 +461,22 @@ There are basically two pieces of information that we need to pass to the `lm()`
 2. The data: Specify which dataframe contains the variables specified in the formula.
 
 + run simple linear regression via `lm()` function
-  
-  `model_name <- lm(DV ~ IV, data = data_name)`
-  
-  **OR**
-  
-  `model_name <- lm(data_name$DV ~ data_name$IV)`
-  
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV, data = data_name)
+```
+
+**OR**
+
+```{r eval=FALSE}
+model_name <- lm(data_name$DV ~ data_name$IV)
+```
+
 :::
 
 :::{.callout-note}
 
-See [Week 2](https://uoepsy.github.io/dapr2/2223/labs/1_02_slr.html) for further details, examples, and to revise these concepts further.
+See [Week 2 lab](https://uoepsy.github.io/dapr2/2223/labs/1_02_slr.html) and lectures for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -502,7 +526,7 @@ the increase in $y$ for a one unit increase in $x_1$ when...
 
 :::{.callout-note}
 
-See [Week 3](https://uoepsy.github.io/dapr2/2223/labs/1_03_mlr.html) for further details, examples, and to revise these concepts further.
+See [Week 3 lab](https://uoepsy.github.io/dapr2/2223/labs/1_03_mlr.html) and lectures for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -510,35 +534,101 @@ See [Week 3](https://uoepsy.github.io/dapr2/2223/labs/1_03_mlr.html) for further
 
 `r optbegin("Partitioning Variation: Sum of Squares", olabel=FALSE,toggle=params$TOGGLE)`
 
+### __Sum of Squares__
+
+The sum of squares measures the deviation or variation of data points away from the mean (i.e., how spread out are the numbers in a given dataset). We are trying to find the equation/function that best fits our data by varying the least from our data points. 
+
 #### __Total Sum of Squares__
 
-**Formula**: $$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$
+**Formula**: 
 
-**In words**: Squared distance of each data point from the mean of $y$.
+$$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$
 
-**Description**: How much variation there is in the DV - a measure that captures the spread of the observed variables around the mean. The Total Sum of Squares quantifies the total variation in the sample / dataset. 
+**In words**: 
+
+Squared distance of each data point from the mean of $y$.
+
+**Description**: 
+
+How much variation there is in the DV.
 
 #### __Residual Sum of Squares__
 
-**Formula**: $$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+**Formula**: 
 
-**In words**: Squared distance of each point from the predicted value.
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
 
-**Description**: How much of the variation in the DV the model did not explain - a measure that captures the unexplained variation in your regression model. Lower residual sum of squares suggests that your model fits the data well, and higher suggests that the model poorly explains the data (in other words, the lower the value, the better the regression model). If the value was zero here, it would suggest the model fits perfectly with no error.
+**In words**: 
+
+Squared distance of each point from the predicted value.
+
+**Description**: 
+
+How much of the variation in the DV the model did not explain - a measure that captures the unexplained variation in your regression model. Lower residual sum of squares suggests that your model fits the data well, and higher suggests that the model poorly explains the data (in other words, the lower the value, the better the regression model). If the value was zero here, it would suggest the model fits perfectly with no error.
 
 #### __Model Sum of Squares__ 
 
-**Formula**: $$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
+**Formula**: 
+
+$$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
 
 Can also be derived from:
-$$SS_{Model} = SS_{Total} - SS_{Residual}$$
-**In words**: The deviance of the predicted scores from the mean of $y$.
 
-**Description**: How much of the variation in the DV your model explained - like a measure that captures how well the regression line fits your data.
+$$SS_{Model} = SS_{Total} - SS_{Residual}$$
+**In words**: 
+
+The deviance of the predicted scores from the mean of $y$.
+
+**Description**: 
+
+How much of the variation in the DV your model explained - like a measure that captures how well the regression line fits your data.
+
+:::{.callout-note}
+
+See [Week 3 lab](https://uoepsy.github.io/dapr2/2223/labs/1_03_mlr.html) & [Week 4 lab](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
 
 `r optend()`
 
-`r optbegin("F-statistic", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("F-test & F-ratio", olabel=FALSE,toggle=params$TOGGLE)`
+
+**Formula**: 
+
+$$
+F_{df_{model},df_{residual}} = \frac{MS_{Model}}{MS_{Residual}} = \frac{SS_{Model}/df_{Model}}{SS_{Residual}/df_{Residual}} \\
+\quad \\
+\begin{align}
+& \text{Where:} \\
+& df_{model} = k \\
+& df_{residual} = n-k-1 \\
+& n = \text{sample size} \\
+& k  = \text{number of explanatory variables} \\
+\end{align}
+$$
+**Description**: 
+
+To test the significance of an overall model, we can conduct an $F$-test. The $F$-test compares your model to a model containing zero predictor variables (i.e., the intercept only model), and tests whether your added predictor variables significantly improved the model.
+
+The $F$-test involves testing the statistical significance of the $F$-ratio. 
+Q: What does the $F$-ratio test?
+A: The null hypothesis that all regression slopes in a model are zero (i.e., explain no variance in your outcome/DV).
+
+*Points to note*: 
+
+- The larger your $F$-ratio, the better your model
+- The $F$-ratio will be close to 1 when the null is true (i.e., that all slopes are zero)
+
+
+**Interpretation**: 
+
+If your model predictors do explain some variance, the $F$-ratio will be significant, and you would reject the null, as this would suggest that your predictor variables included in your model improved the model fit (in comparison to the intercept only model).
+
+:::{.callout-note}
+
+See [Week 4 lab](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
 
 `r optend()`
 
@@ -566,11 +656,11 @@ We can see the Multiple and Adjusted $R$-squared in the `summary()` output of a 
 Points to note:
 
 - Adjusted-$R^2$ adjusts for the number of terms in a model, and should be used when there are 2 or more predictors in the model
-- Adjusted $R^2$ should always be less than or equal to $R^2$
+- Adjusted-$R^2$ should always be less than or equal to $R^2$
 
 :::{.callout-note}
 
-See [Week 4](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) for further details, examples, and to revise these concepts further.
+See [Week 4 lab](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) and lectures for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -579,9 +669,11 @@ See [Week 4](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) for f
 `r optbegin("Standardisation", olabel=FALSE,toggle=params$TOGGLE)`
 
 **$z$-score Formula:**
+
 $$
 z_x = \frac{x - \bar{x}}{s_x}, \qquad z_y = \frac{y - \bar{y}}{s_y}
 $$
+
 Recall that a standardized variable has mean of 0 and standard deviation of 1.
 
 In **R**:
@@ -607,7 +699,7 @@ model <- lm(scale(DV) ~ scale(IV), data = dataset)
 
 :::{.callout-note}
 
-See [Week 4](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) for further details, examples, and to revise these concepts further.
+See [Week 4 lab](https://uoepsy.github.io/dapr2/2223/labs/1_04_model_fit.html) and lectures for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -619,34 +711,15 @@ __Binary predictors in linear regression__
 
 We can include categorical predictors in a linear regression, but the interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as "the change in $y$ associated with a 1-unit increase in $x$", for categorical explanatory variables, coefficients can be considered to examine differences in group means. However, they are actually doing exactly the same thing - the model is simply translating the levels (like "Yes"/"No") in to 0s and 1s!  
 
-So while we may have in our dataframe a categorical predictor like the middle column "degree", below, what is inputted into our model is more like the third column, "isYes". 
-```{r echo=FALSE, eval = FALSE}
-riverview %>% sample_n(size=n()) %>%
-  mutate(
-    isYes = ifelse(degree == "Yes", 1, 0)
-  ) %>% select(income, degree, isYes)
-```
-
 Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.  
+
 However, "zero" for this predictor variable now corresponds to a whole level. This is known as the "reference level". Accordingly, the 1-unit change in our predictor (the move from "zero" to "one") corresponds to the difference between the two levels. 
 
+:::{.callout-note}
 
-```{r echo=FALSE, eval = FALSE}
-cstat = coef(lm(income~degree,riverview))
-riverview %>%
-  mutate(
-    isYes = ifelse(degree == "Yes", 1, 0)
-  ) %>% ggplot(.,aes(x=factor(isYes), y=income))+
-  #geom_boxplot(fatten=NULL)+
-  geom_jitter(height=0,width=.05)+
-  geom_smooth(method="lm",aes(x=isYes+1), se=F)+
-  geom_segment(aes(x="1",xend="1",y=cstat[1],yend=cstat[1]+cstat[2]), lty="dashed",col="blue")+
-  geom_segment(aes(x="0",xend="1",y=cstat[1],yend=cstat[1]), lty="dashed",col="blue")+
-  annotate("text",x=2.15,y=mean(c(cstat[1], sum(cstat)))-3,label=expression(paste(beta[1], " (slope)")), col="blue")+
-  geom_point(x=1,y=cstat[1], col="blue",size=3)+
-  annotate("text",x=1,y=cstat[1],label=expression(paste(beta[0], " (intercept)")), col="blue", hjust=1.1)+
-  labs(x="degree isYes")
-```
+See [Week 5 lab](https://uoepsy.github.io/dapr2/2223/labs/1_05_cat_recap.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
 
 `r optend()`
 
@@ -673,7 +746,8 @@ data.frame(
 + The "dog" level is expressed whenever the "species_dog" variable is 1 and the "species_parrot" variable is 0.
 + The "parrot" level is expressed whenever the "species_dog" variable is 0 and the "species_parrot" variable is 1.  
 
-R will do all of this re-expression for us. If we include in our model a categorical explanatory variable with 4 different levels, the model will estimate 3 parameters - one for each dummy variable. We can interpret the parameter estimates (the coefficients we obtain using `coefficients()`,`coef()` or `summary()`) as the estimated increase in the outcome variable associated with an increase of one in each dummy variable (holding all other variables equal).  
+`R` will do all of this re-expression for us. If we include in our model a categorical explanatory variable with 4 different levels, the model will estimate 3 parameters - one for each dummy variable. We can interpret the parameter estimates (the coefficients we obtain using `coefficients()`,`coef()` or `summary()`) as the estimated increase in the outcome variable associated with an increase of one in each dummy variable (holding all other variables equal).  
+
 ```{r echo=FALSE}
 set.seed(348)
 catplot <- tibble(
@@ -702,6 +776,12 @@ ggplot(catplot, aes(x=species, y=outcome))+
   geom_segment(aes(x=3,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue", lty="dashed")+
   annotate("text",x=3.15,y=mean(c(cstat[1],sum(cstat[c(1,3)]))),label=expression(paste(beta[2], " (slope)")), col="blue", hjust=.35)
 ```
+
+:::{.callout-note}
+
+See Week 5 lectures for further details, examples, and to revise these concepts further.
+
+:::
 
 `r optend()`
 
