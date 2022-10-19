@@ -20,10 +20,9 @@ set.seed(953)
 At the end of this lab, you will:
 
 1. Understand the concept of an interaction.
-2. Be able to interpret the meaning of a numeric $\times$ categorical interaction. 
-3. Be able to interpret the meaning of a numeric $\times$ numeric interaction.
-4. Understand the principle of marginality and why this impacts modelling choices with interactions.
-5. Visualize and probe interactions.
+2. Be able to interpret the meaning of a numeric $\times$ numeric interaction.
+3. Understand the principle of marginality and why this impacts modelling choices with interactions.
+4. Visualize and probe interactions.
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -78,226 +77,10 @@ scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 ```
 `r solend()`
 
-# Part A
+# Study Overview 
 
 > **Research Question** 
->
-> Does the association between number of social interactions and wellbeing differ between rural and non-rural residents?  
 
-Researchers were specifically interested in how the number of social interactions might influence mental health and wellbeing differently for those living in rural communities compared to those in cities and suburbs. They want to assess whether the effect of social interactions on wellbeing _is moderated by_ (depends upon) whether or not a person lives in a rural area. 
-
-To investigate how the association between the number of social interactions and mental wellbeing might be different for those living in rural communities, the researchers conducted a study, where they collected data from 200 randomly selected residents of the Edinburgh & Lothian postcodes. 
-
-`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
-
-__Description__
-
-From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being. 
-
-Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
-  
-The data in `wellbeing.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include:  
-
-- `wellbeing`: Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
-- `outdoor_time`: Self report estimated number of hours per week spent outdoors  
-- `social_int`: Self report estimated number of social interactions per week (both online and in-person)
-- `routine`: Binary 1=Yes/0=No response to the question "Do you follow a daily routine throughout the week?"
-- `location`: Location of primary residence (City, Suburb, Rural)
-- `steps_k`: Average weekly number of steps in thousands (as given by activity tracker if available)
-- `age`: Age in years of respondent
-
-__Preview__
-
-The first six rows of the data are:
-
-```{r echo=FALSE}
-read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% 
-    head() %>% 
-    gt::gt()
-```
-  
-`r optend()`
-
-## Exercises
-
-`r qbegin("A1")`
-1. Specify a multiple regression model to address the research question. 
-2. Visually explore the associations among the variables included in your analysis.
-
-:::quote
-"Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
---- @Ramsey2012
-:::
-
-+ **Hint 1:** Check the "location" variable. It currently has three levels (Rural/Suburb/City), but we only want two (Rural/Not Rural). You'll need to fix this. One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. Type `?ifelse` in the *console* if you want to see the help function. You can use it to add a new variable either inside `mutate()`, or using `data$new_variable_name <- ifelse(test, x, y)` syntax.
-+ **Hint 2:**  The `pairs.panels()` function from the `psych` package will plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots.  
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-To address the research question, we are going to fit the following model, where $y$ = wellbeing; $x_1$ = weekly outdoor time; and $x_2$ = whether or not the respondent lives in a rural location or not. 
-
-$$
-y = \beta_0 + \beta_1  x_1 + \beta_2  x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon \\ 
-\quad \\ \text{where} \quad \epsilon \sim N(0, \sigma) \quad \text{independently}
-$$
-First let's create a new variable for Rural/Not Rural
-```{r}
-wrdata <- wrdata %>% 
-  mutate(
-    isRural = ifelse(location == "rural", "rural", "not rural")
-  )
-```
-
-Now let's use the `pairs.panels()` function from the `psych` package. We could use it on the whole dataset, but for now we'll just do it on the variables we're interested in:
-```{r}
-wrdata %>% 
-  select(wellbeing, social_int, isRural) %>%
-  pairs.panels()
-```
-`r solend()`
-
-`r qbegin("A2")`
-
-Produce a visualisation of the association between weekly number of social interactions and well-being, with separate _facets_ for rural vs non-rural respondents. 
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-ggplot(data = wrdata, aes(x = social_int, y = wellbeing))
-  geom_point() 
-  facet_wrap(~isRural) 
-```
-`r solend()`
-
-`r qbegin("A3")`
-Fit your model using `lm()`, and assign it as an object with the name "rural_mod".   
-
-**Hint:** When fitting a regression model in R with two explanatory variables A and B, and their interaction, these two are equivalent:  
-
-+ y ~ A + B + A:B
-+ y ~ A*B  
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-#fit model including interaction between social_int and isRural
-rural_mod <- lm(wellbeing ~ 1 + social_int * isRural, data = wrdata)
-
-#check model output
-summary(rural_mod)
-```
-`r solend()`
-
-:::statbox
-__Interpreting coefficients for A and B in the presence of an interaction A:B__   
-
-When you include an interaction between $x_1$ and $x_2$ in a regression model, you are estimating the extent to which the effect of $x_1$ on $y$ is different across the values of $x_2$.  
-
-What this means is that the effect of $x_1$ on $y$ *depends on/is conditional upon* the value of $x_2$.  
-(and vice versa, the effect of $x_2$ on $y$ is different across the values of $x_1$).   
-This means that we can no longer talk about the "effect of $x_1$ _holding $x_2$ constant_". Instead we can talk about a _marginal effect_ of $x_1$ on $y$ at a specific value of $x_2$. 
-
-:::frame
-When we fit the model $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon$ using `lm()`:  
-
-- the parameter estimate $\hat \beta_1$ is the _marginal effect_ of $x_1$ on $y$ where $x_2 = 0$  
-- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$  
-:::
-
-<div style="margin-left: 15px">
-<small>
-__N.B.__ Regardless of whether or not there is an interaction term in our model, all parameter estimates in multiple regression are "conditional" in the sense that they are dependent upon the inclusion of other variables in the model. For instance, in $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon$ the coefficient $\hat \beta_1$ is conditional upon holding $x_2$ constant. 
-</small>
-</div>
-
-:::
-
-:::statbox
-__Interpreting the interaction term A:B__  
-
-The coefficient for an interaction term can be thought of as providing an _adjustment to the slope._   
-  
-In the model below, we have a numeric*categorical interaction:
-$$
-\begin{align}
-\text{wellbeing} \ = \ &\beta_0 + \beta_1 \text{social_interactions} + \beta_2 \text{isRural} + \\
-&\beta_3 (\text{social_interactions} \cdot \text{isRural}) + \epsilon
-\end{align}
-$$
-
-The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be made for the individuals in the $\text{isRural}=1$ group. 
-
-:::
-
-
-`r qbegin("A4")`  
-Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in Figure \@ref(fig:plot-annotate-int) (it may help to sketch out the plot yourself and annotate it).  
-
-:::quote
-"The best method of communicating findings about the presence of significant interaction may be to present a table of graph of the estimated means at various combinations of the interacting variables."    
---- @Ramsey2012  
-:::
-
-
-```{r plot-annotate-int, echo=FALSE, fig.cap="Multiple regression model: Wellbeing ~ Social Interactions * is Rural<br><small>Note that the dashed lines represent predicted values below the minimum observed number of social interactions, to ensure that zero on the x-axis is visible</small>"}
-nd = expand_grid(social_int=0:13,isRural=c("rural","not rural"))
-nd = nd %>% mutate(wellbeing = predict(rural_mod, newdata = .))
-sjPlot::plot_model(rural_mod, type="int")+
-  scale_fill_manual(NULL, values=c(NA,NA))+xlim(0,28)+
-  geom_line(inherit.aes=FALSE,data=nd,aes(x=social_int,col=isRural,y=wellbeing), lty="longdash")+
-  scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1))
-```
-
-`r optbegin("Hints.", olabel=FALSE, toggle=params$TOGGLE)`
-Here are some options to choose from:
-
-+ The point at which the blue line cuts the y-axis (where social_int = 0)
-+ The point at which the red line cuts the y-axis (where social_int = 0)
-+ The average vertical distance between the red and blue lines. 
-+ The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0)
-+ The vertical distance from the red to the blue line _at the y-axis_ (where social_int = 0)
-+ The vertical distance from the blue to the red line _at the center of the plot_
-+ The vertical distance from the red to the blue line _at the center of the plot_
-+ The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line
-+ The slope of the red line
-+ How the slope of the line changes when you move from the blue to the red line
-+ How the slope of the line changes when you move from the red to the blue line
-`r optend()`
-
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-We can obtain our parameter estimates using various functions such as `summary(rural_mod)`,`coef(rural_mod)`, `coefficients(rural_mod)` etc. 
-
-```{r}
-coefficients(rural_mod)
-```
-
-
-+ $\hat \beta_0$ = `(Intercept)` = `r round(coef(rural_mod)[1],2)`: The point at which the blue line cuts the y-axis (where social_int = 0).  
-+ $\hat \beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line.
-+ $\hat \beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`: The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0).  
-+ $\hat \beta_3$ = `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`: How the slope of the line changes when you move from the blue to the red line. 
-
-`r solend()`
-
-`r qbegin("A5")`
-Load the __sjPlot__ package and try using the function `plot_model()`.  
-The default behaviour of `plot_model()` is to plot the parameter estimates and their confidence intervals. This is where `type = "est"`. 
-Try to create a plot like Figure \@ref(fig:plot-annotate-int), which shows the two lines (**Hint:** what are this weeks' exercises all about? `type = ???`.)
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-plot_model(rural_mod, type="int")
-```
-`r solend()`
-
-# Part B
-
-> **Research Question**   
 > Does the effect of social comparison on symptoms of depression, anxiety and stress vary depending on level of neuroticism?
 
 Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this association. 
@@ -336,7 +119,8 @@ read_csv('https://uoepsy.github.io/data/scs_study.csv') %>%
 `r optend()`
 
 ## Exercises 
-`r qbegin("B1")`
+
+`r qbegin(1)`
  Produce plots of the relevant distributions and associations involved in the research question. 
 `r qend()`
 
@@ -382,8 +166,6 @@ The marginal distribution of Neuroticism (Z-scored) is positively skewed, with t
 
 
 ```{r, fig.width = 8, fig.height = 4, out.width = '90%'}
-
-
 p1 <- ggplot(data = scs_study, aes(x=scs, y=dass)) + 
   geom_point()+
   labs(x = "SCS", y = "DASS-21")
@@ -403,13 +185,44 @@ scs_study %>%
 ```
 
 :::int
-There is a weak, negative, linear relationship between scores on the Social Comparison Scale and scores on the Depression Anxiety and Stress Scale for the participants in the sample. Severity of symptoms measured on the DASS-21 tend to decrease, on average, the more favourably participants view their social rank.  
-There is a weak, positive, linear relationship between the levels of Neuroticism and scores on the DASS-21. Participants who are more neurotic tend to, on average, display a higher severity of symptoms of depression, anxiety and stress.  
++ There is a weak, negative, association between scores on the Social Comparison Scale and scores on the Depression Anxiety and Stress Scale for the participants in the sample. Severity of symptoms measured on the DASS-21 tend to decrease, on average, the more favourably participants view their social rank.  
++ There is a weak, positive, association between the levels of Neuroticism and scores on the DASS-21. Participants who are more neurotic tend to, on average, display a higher severity of symptoms of depression, anxiety and stress.  
 :::
 
 `r solend()`
 
-`r qbegin("B2")`
+`r qbegin(2)`
+
+Formally state:
+
+- a linear model to investigate if the association between wellbeing and social interactions differs among rural and non-rural residents
+- your chosen significance level
+- the null and alternative hypotheses
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\widehat{DASS-21 Score} = \hat \beta_0 + \hat \beta_1 \cdot SCS Score + \hat \beta_2 \cdot Neuroticism  + \hat \beta_3 \cdot (SCS Score \cdot Neuroticism) 
+$$ 
+Effects will be considered statistically significant at $\alpha=.05$
+
+Our hypotheses are:
+
+$H_0: \beta_3 = 0$
+
+The effect of social comparison on symptoms of depression, anxiety and stress does not vary depending on level of Neuroticism
+
+$H_1: \beta_3 \neq 0$
+
+The effect of social comparison on symptoms of depression, anxiety and stress does vary depending on level of Neuroticism.
+
+`r solend()`
+
+<br> 
+
+`r qbegin(3)`
 Run the code below. It takes the dataset, and uses the `cut()` function to add a new variable called "zn_group", which is the "zn" variable split into 4 groups.  
 
 _Remember:_ we have to re-assign this output as the name of the dataset (the `scs_study <- ` bit at the beginning) to make these changes occur in our __environment__ (the top-right window of Rstudio). If we didn't have the first line, then it would simply print the output.  
@@ -503,24 +316,32 @@ plot_ly(x=scs,y=zn,z=dass, type="surface") %>% layout(
 :::
 
 
-`r qbegin("B3")`
+`r qbegin(4)`
 
-Specify the model required in order to answer the research question (e.g., $\text{??} = \beta_0 + \beta_1 \cdot \text{??} + .... + \epsilon$), and then fit your model using `lm()`.
+Fit your model using `lm()`, and assign it as an object with the name "dass_mdl".   
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+When fitting a regression model in `R` with two explanatory variables A and B, and their interaction, these two are equivalent:  
+
++ y ~ A + B + A:B
++ y ~ A*B  
+
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Model to answer research question:
-$$
-\text{DASS-21 Score} = \beta_0 + \beta_1 \cdot \text{SCS Score} + \beta_2 \cdot \text{Neuroticism} + \beta_3 \cdot (\text{SCS score} \cdot \text{Neuroticism}) + \epsilon
-$$
-
-
 ```{r}
 #fit interaction model
-dass_mdl <- lm(dass ~ 1 + scs*zn, data = scs_study)
+dass_mdl <- lm(dass ~ scs*zn, data = scs_study)
 
+#check model output
 summary(dass_mdl)
 ```
 
+`r solend()`
 

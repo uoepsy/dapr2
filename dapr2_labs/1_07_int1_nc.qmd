@@ -11,6 +11,13 @@ editor_options:
 ```{r setup, include=FALSE}
 source('assets/setup.R')
 library(tidyverse)
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(patchwork)
+library(kableExtra) 
+library(plotly)
+library(pander)
 set.seed(953)
 ```
 
@@ -26,7 +33,7 @@ At the end of this lab, you will:
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
 1. Be up to date with lectures
-2. Have completed all labs from Block 1 Semester 1 (Weeks 1 - 5)
+2. Have completed all labs from Semester 1 Block 1 (Weeks 1 - 5)
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -35,11 +42,9 @@ For this lab, you will need to load the following package(s):
 
 * **tidyverse** 
 * **psych** 
-* **sjPlot**
 * **patchwork** 
-* **kableExtra**
-* **plotly**
-* **pander** 
+* **sandwich**
+* **interactions**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv. 
@@ -84,7 +89,6 @@ read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::g
   
 `r optend()`
 
-
 # Setup
 
 `r qbegin("Setup", qlabel = FALSE)`  
@@ -100,11 +104,9 @@ read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::g
 #Loading the required package(s)
 library(tidyverse)
 library(psych)
-library(sjPlot)
 library(patchwork)
-library(kableExtra) 
-library(plotly)
-library(pander)
+library(sandwich)
+library(interactions)
 
 #Reading in data and storing in object named 'wrdata'
 wrdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
@@ -139,7 +141,7 @@ y = \beta_0 + \beta_1  x_1 + \beta_2  x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon \
 $$
 or 
 $$
-\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Location  + \hat \beta_3 \cdot (Social Interactions \cdot Location)  
+\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Location_{Rural}  + \hat \beta_3 \cdot (Social Interactions \cdot Location_{Rural})  
 $$
 
 Effects will be considered statistically significant at $\alpha=.05$
@@ -162,7 +164,9 @@ The association between wellbeing and social interactions is moderated by whethe
 
 Check coding of variables (e.g., that categorical variables are coded as factors). 
 
-Note that the "location" variable currently has three levels (Rural/Suburb/City), but we only want two (Rural/Not Rural) in order to address our research question, so you'll need to fix this. One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. 
+Note that the "location" variable currently has three levels (Rural/Suburb/City), but we only want two (Rural/Not Rural) in order to address our research question, you'll need to fix this. One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. 
+
+Specify 'not rural' as your reference group.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -188,6 +192,12 @@ Check coding of variables within `wrdata` and ensure `isRural` is a factor with 
 ```{r}
 str(wrdata) #overall 'structure of data. Or could run is.factor()
 wrdata$isRural <- as_factor(wrdata$isRural)
+is.factor(wrdata$isRural) #check that isRural is now a factor
+```
+
+```{r}
+#specify 'not rural' as reference group
+wrdata$isRural <- relevel(wrdata$isRural, 'not rural')
 ```
 
 `r solend()`
@@ -201,7 +211,7 @@ Visualise your data.
 In particular:
 
 1. Explore the associations among the variables included in your analysis
-2. Produce a visualisation of the association between weekly number of social interactions and well-being, with separate _facets_ for rural vs non-rural respondents
+2. Produce a visualisation of the association between weekly number of social interactions and well-being, with separate _facets_ for rural vs non-rural respondents **OR** with different colours for each level of the `isRural` variable.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -209,7 +219,7 @@ In particular:
 
 1. The `pairs.panels()` function from the `psych` package will plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots.  
 
-2. Within your `ggplot` argument, you will need to specify `+ facet_wrap()`
+2. Within your `ggplot()` argument, you will need to specify `+ facet_wrap()` in order to produce facets for each location. It would also be useful to specify `  geom_smooth(method="lm")`
 
 :::
 
@@ -230,8 +240,21 @@ Next, lets produce our plots with a facet for rural vs non-rural residents:
 ```{r}
 ggplot(data = wrdata, aes(x = social_int, y = wellbeing)) +
   geom_point() +
+  geom_smooth(method="lm", se=FALSE) +
   facet_wrap(~isRural) 
 ```
+
+Or different colours for location (rural vs rural):
+
+```{r}
+ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=FALSE) +
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural"))
+```
+
 
 `r solend()`
 
@@ -267,6 +290,8 @@ summary(rural_mod)
 `r solend()`
 
 :::statbox
+## Interpretation coefficients
+
 __Interpreting coefficients for A and B in the presence of an interaction A:B__   
 
 When you include an interaction between $x_1$ and $x_2$ in a regression model, you are estimating the extent to which the effect of $x_1$ on $y$ is different across the values of $x_2$.  
@@ -288,19 +313,14 @@ __N.B.__ Regardless of whether or not there is an interaction term in our model,
 </small>
 </div>
 
-:::
-
-:::statbox
 __Interpreting the interaction term A:B__  
 
 The coefficient for an interaction term can be thought of as providing an _adjustment to the slope._   
   
 In the model below, we have a numeric*categorical interaction:
+
 $$
-\begin{align}
-\text{wellbeing} \ = \ &\beta_0 + \beta_1 \text{social_interactions} + \beta_2 \text{isRural} + \\
-&\beta_3 (\text{social_interactions} \cdot \text{isRural}) + \epsilon
-\end{align}
+\text{wellbeing} \ = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural}  + \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon  
 $$
 
 The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be made for the individuals in the $\text{isRural}=1$ group. 
@@ -353,11 +373,24 @@ We can obtain our parameter estimates using various functions such as `summary(r
 coefficients(rural_mod)
 ```
 
+ 
 
-+ $\hat \beta_0$ = `(Intercept)` = `r round(coef(rural_mod)[1],2)`: The point at which the blue line cuts the y-axis (where social_int = 0).  
-+ $\hat \beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line.
-+ $\hat \beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`: The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0).  
-+ $\hat \beta_3$ = `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`: How the slope of the line changes when you move from the blue to the red line. 
++ $\beta_0$ = `(Intercept)` = `r round(coef(rural_mod)[1],2)`
+    - On plot: The point at which the blue line cuts the y-axis
+    - Interpretation: The intercept, or predicted wellbeing score when the number of social interactions per week is 0, and when location is rural.
+
++ $\beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`
+    - On plot: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line.
+    - Interpretation: The simple slope of social interactions (number per week) for location reference group (rural).
+
++ $\beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`
+    - On plot: The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0).  
+    - Interpretation: The simple effect of location (or the difference in wellbeing scores between rural and non rural residents) when number of social interactions is 0. 
+
++ $\beta_3$ `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`
+    - On plot: How the slope of the line changes when you move from the blue to the red line. 
+    - Interpretation: The interaction between social interactions (number per week) and location (rural/non-rural) - the difference in the simple slopes of social interactions for rural vs non-rural residents. 
+
 
 `r solend()`
 
@@ -365,37 +398,42 @@ coefficients(rural_mod)
 
 `r qbegin(6)`
 
-Using `plot_model()`, visualize the interaction between social interactions and rural.
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-Try to create a plot like @fig-annotate-int, which shows the two lines. 
-
-Think about what you need to specify in the `type = ` argument - what types of models are these questions all about?
-
-:::
+Using the `probe_interactions()` function from the interactions package, visualise the interaction effects from your model, and conduct a simple slopes analysis.
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-plot_model(rural_mod, 
-           type="int", 
-           axis.title = c("Social Interactions (number per week)", "Wellbeing (WEMWBS Scores)"))
+plt_rural_mod <- probe_interaction(model = rural_mod, 
+                  pred = social_int, 
+                  modx = isRural, 
+                  cond.int = T,
+                  interval = T, 
+                  jnplot = T)
+```
+
+Let's look at our plot:
+
+```{r}
+#| label: fig-int
+#| fig-cap: "Interaction Plot"
+plt_rural_mod$interactplot
+```
+
+From the same function, we can look at the significance of the slopes:
+
+```{r}
+plt_rural_mod$simslopes$slopes
 ```
 
 `r solend()`
-
-<br>
 
 `r qbegin(7)`
 
 Interpret your results in the context of the research question and report your model in full. 
 
-Provide key model results in a formatted table.
+Provide key model results in a formatted table, and make reference to your interaction plot.
 
 `r qend()`
 
@@ -408,7 +446,8 @@ Provide key model results in a formatted table.
 tab_model(rural_mod,
           dv.labels = "Wellbeing (WEMWBS Scores)",
           pred.labels = c("social_int" = "Social Interactions (number per week)",
-                          "isRural" = "Location"),
+                          "isRuralrural" = "Location - Rural",
+                          "social_int:isRuralrural" = "Social Interactions * Location - Rural"),
           title = "Regression Table for Wellbeing Model")
 ```
 
@@ -416,7 +455,10 @@ And now lets write our results up:
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Full regression results including 95% Confidence Intervals are shown in @tbl-rural-modresults. The $F$-test for model utility was significant $(F(3, 196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores.
+Full regression results including 95% Confidence Intervals are shown in @tbl-rural-modresults. The $F$-test for model utility was significant $(F(3, 196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores. See @fig-int
+
+The association between wellbeing scores and social interactions was dependent upon location (rural vs not rural), with a greater negative association between the two for those in rural locaions (β = -0.52, SE = 0.24, p = .002). This interaction is visually presented in Figure 3.
+
 
 :::
 
@@ -445,23 +487,63 @@ Mean center the continuous IV, and re-run your model.
 Create mean centred variable for 'social_int':
 
 ```{r}
-#wrdata <-
- # wrdata %>%
-  #mutate(
-   # mc_social_int = scs - mean(social_int)
-    #)
+wrdata <-
+ wrdata %>%
+  mutate(
+   mc_social_int = social_int - mean(social_int)
+    )
 ```
 
 Re-run model:
 
 ```{r}
 #fit model including interaction between social_int and isRural
-#rural_mod1 <- lm(wellbeing ~  mc_social_int * isRural, data = wrdata)
+rural_mod1 <- lm(wellbeing ~  mc_social_int * isRural, data = wrdata)
 
 #check model output
-#summary(rural_mod1)
+summary(rural_mod1)
 ```
 
+`r solend()`
 
+<br>
+
+
+<br> 
+
+`r qbegin(9)`
+
+Interpret your results (from the mean centred model) in the context of the research question and report your model in full.
+
+Provide key model results in a formatted table, and refer to your interaction plot.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+
+```{r}
+#| label: tbl-rural-mc-modresults
+#| tbl-cap: Regression Table for Wellbeing Model
+#create table for results
+tab_model(rural_mod1,
+          dv.labels = "Wellbeing (WEMWBS Scores)",
+          pred.labels = c("mc_social_int" = "Social Interactions (number per week)",
+                          "isRuralrural" = "Location - Rural",
+                          "mc_social_int:isRuralrural" = "Social Interactions * Location - Rural"),
+          title = "Regression Table for Wellbeing Model")
+```
+
+And now lets write our results up:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Full regression results including 95% Confidence Intervals are shown in @tbl-rural-mc-modresults. The $F$-test for model utility was significant $(F(3,196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores.
+
+Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+
+:::
 
 `r solend()`
+
+
