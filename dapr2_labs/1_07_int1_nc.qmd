@@ -27,8 +27,7 @@ At the end of this lab, you will:
 
 1. Understand the concept of an interaction.
 2. Be able to interpret the meaning of a numeric $\times$ categorical interaction.
-4. Understand the principle of marginality and why this impacts modelling choices with interactions.
-5. Visualize and probe interactions.
+3. Visualize and probe interactions.
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -124,12 +123,12 @@ Formally state:
 - your chosen significance level
 - the null and alternative hypotheses
 
-`r qend()`
-
 :::quote
 "Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
 --- @Ramsey2012
 :::
+
+`r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
@@ -141,7 +140,7 @@ y = \beta_0 + \beta_1  x_1 + \beta_2  x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon \
 $$
 or 
 $$
-\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social Interactions + \hat \beta_2 \cdot Location_{Rural}  + \hat \beta_3 \cdot (Social Interactions \cdot Location_{Rural})  
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural}  + \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon \\ 
 $$
 
 Effects will be considered statistically significant at $\alpha=.05$
@@ -255,7 +254,6 @@ ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
     labels=c("Not Rural", "Rural"))
 ```
 
-
 `r solend()`
 
 <br>
@@ -348,7 +346,7 @@ sjPlot::plot_model(rural_mod, type="int")+
   scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1))
 ```
 
-`r optbegin("Hints.", olabel=FALSE, toggle=params$TOGGLE)`
+`r optbegin("Options", olabel=FALSE, toggle=params$TOGGLE)`
 Here are some options to choose from:
 
 + The point at which the blue line cuts the y-axis (where social_int = 0)
@@ -367,21 +365,20 @@ Here are some options to choose from:
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-We can obtain our parameter estimates using various functions such as `summary(rural_mod)`,`coef(rural_mod)`, `coefficients(rural_mod)` etc. 
+
+Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. 
 
 ```{r}
 coefficients(rural_mod)
 ```
 
- 
-
 + $\beta_0$ = `(Intercept)` = `r round(coef(rural_mod)[1],2)`
     - On plot: The point at which the blue line cuts the y-axis
-    - Interpretation: The intercept, or predicted wellbeing score when the number of social interactions per week is 0, and when location is rural.
+    - Interpretation: The intercept, or predicted wellbeing score when the number of social interactions per week is 0, and when location is not rural.
 
 + $\beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`
     - On plot: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line.
-    - Interpretation: The simple slope of social interactions (number per week) for location reference group (rural).
+    - Interpretation: The simple slope of social interactions (number per week) for location reference group (not rural).
 
 + $\beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`
     - On plot: The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0).  
@@ -389,14 +386,56 @@ coefficients(rural_mod)
 
 + $\beta_3$ `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`
     - On plot: How the slope of the line changes when you move from the blue to the red line. 
-    - Interpretation: The interaction between social interactions (number per week) and location (rural/non-rural) - the difference in the simple slopes of social interactions for rural vs non-rural residents. 
+    - Interpretation: The interaction between social interactions (number per week) and location (rural/not rural) - the difference in the simple slopes of social interactions for rural vs non-rural residents. 
 
 
 `r solend()`
 
 <br>
 
+:::statbox
+
+__Mean Centering__
+
+Mean centering a variable involves subtracting the mean of that variable from every individual value. When working with models that contain interaction terms (like our `rural_mod`), it is generally a good idea to center your continuous predictor variables. This is because:
+
+- centering helps to address issues of multicollinearity (you'll learn more about this later in the course)
+- centering makes the model coefficients easier to interpret
+:::
+
 `r qbegin(6)`
+
+Mean center the continuous IV(s), and re-run your model with mean centred variable(s).
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Create mean centred variable for 'social_int':
+
+```{r}
+wrdata <-
+ wrdata %>%
+  mutate(
+   mc_social_int = social_int - mean(social_int)
+    )
+```
+
+Re-run model:
+
+```{r}
+#fit model including interaction between social_int and isRural
+rural_mod1 <- lm(wellbeing ~  mc_social_int * isRural, data = wrdata)
+
+#check model output
+summary(rural_mod1)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
 
 Using the `probe_interactions()` function from the interactions package, visualise the interaction effects from your model, and conduct a simple slopes analysis.
 
@@ -429,89 +468,9 @@ plt_rural_mod$simslopes$slopes
 
 `r solend()`
 
-`r qbegin(7)`
-
-Interpret your results in the context of the research question and report your model in full. 
-
-Provide key model results in a formatted table, and make reference to your interaction plot.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-#| label: tbl-rural-modresults
-#| tbl-cap: Regression Table for Wellbeing Model
-#create table for results
-tab_model(rural_mod,
-          dv.labels = "Wellbeing (WEMWBS Scores)",
-          pred.labels = c("social_int" = "Social Interactions (number per week)",
-                          "isRuralrural" = "Location - Rural",
-                          "social_int:isRuralrural" = "Social Interactions * Location - Rural"),
-          title = "Regression Table for Wellbeing Model")
-```
-
-And now lets write our results up:
-
-::: {.callout-important icon=false appearance="minimal"}
-
-Full regression results including 95% Confidence Intervals are shown in @tbl-rural-modresults. The $F$-test for model utility was significant $(F(3, 196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores. See @fig-int
-
-The association between wellbeing scores and social interactions was dependent upon location (rural vs not rural), with a greater negative association between the two for those in rural locaions (β = -0.52, SE = 0.24, p = .002). This interaction is visually presented in Figure 3.
-
-
-:::
-
-`r solend()`
-
 <br>
-
-:::statbox
-
-__Mean Centering__
-
-Mean centering a variable involves subtracting the mean of that variable from every individual value. When working with models that contain interaction terms (like our `rural_mod`), it is generally a good idea to center your continuous predictor variables. This is because:
-
-- centering helps to address issues of multicollinearity (you'll learn more about this later in the course)
-- centering makes the model coefficients easier to interpret
-:::
 
 `r qbegin(8)`
-
-Mean center the continuous IV, and re-run your model.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-Create mean centred variable for 'social_int':
-
-```{r}
-wrdata <-
- wrdata %>%
-  mutate(
-   mc_social_int = social_int - mean(social_int)
-    )
-```
-
-Re-run model:
-
-```{r}
-#fit model including interaction between social_int and isRural
-rural_mod1 <- lm(wellbeing ~  mc_social_int * isRural, data = wrdata)
-
-#check model output
-summary(rural_mod1)
-```
-
-`r solend()`
-
-<br>
-
-
-<br> 
-
-`r qbegin(9)`
 
 Interpret your results (from the mean centred model) in the context of the research question and report your model in full.
 
@@ -520,7 +479,6 @@ Provide key model results in a formatted table, and refer to your interaction pl
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
 
 ```{r}
 #| label: tbl-rural-mc-modresults
