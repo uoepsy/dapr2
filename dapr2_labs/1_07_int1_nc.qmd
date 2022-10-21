@@ -11,7 +11,6 @@ editor_options:
 ```{r setup, include=FALSE}
 source('assets/setup.R')
 library(tidyverse)
-library(tidyverse)
 library(psych)
 library(sjPlot)
 library(patchwork)
@@ -82,7 +81,7 @@ __Preview__
 
 The first six rows of the data are:
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE}
 read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
 ```
   
@@ -123,9 +122,13 @@ Formally state:
 - your chosen significance level
 - the null and alternative hypotheses
 
+:::frame
+
 :::quote
 "Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
 --- @Ramsey2012
+:::
+
 :::
 
 `r qend()`
@@ -205,7 +208,7 @@ wrdata$isRural <- relevel(wrdata$isRural, 'not rural')
 
 `r qbegin(3)`
 
-Visualise your data. 
+Visualise your data, and interpret your plots. 
 
 In particular:
 
@@ -233,6 +236,22 @@ wrdata %>%
   select(wellbeing, social_int, isRural) %>%
   pairs.panels()
 ```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Wellbeing and social interactions appear to follow unimodal distributions. There was a weak, positive association between wellbeing and social interactions ($r$ = .24). 
+
+```{r}
+wrdata %>%
+  select(wellbeing, social_int) %>%
+  cor() %>% 
+  kable(digits = 2) %>%
+  kable_styling(full_width = FALSE)
+```
+
+
+::: 
+
 
 Next, lets produce our plots with a facet for rural vs non-rural residents: 
 
@@ -287,6 +306,8 @@ summary(rural_mod)
 
 `r solend()`
 
+<br>
+
 :::statbox
 ## Interpretation coefficients
 
@@ -325,15 +346,10 @@ The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be 
 
 :::
 
+<br>
 
 `r qbegin(5)`  
 Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in @fig-annotate-int (it may help to sketch out the plot yourself and annotate it).  
-
-:::quote
-"The best method of communicating findings about the presence of significant interaction may be to present a table of graph of the estimated means at various combinations of the interacting variables."    
---- @Ramsey2012  
-:::
-
 
 ```{r fig-annotate-int, echo=FALSE, message = FALSE, fig.cap="Multiple regression model: Wellbeing ~ Social Interactions * is Rural<br><small>Note that the dashed lines represent predicted values below the minimum observed number of social interactions, to ensure that zero on the x-axis is visible</small>"}
 #| label: fig-annotate-int
@@ -403,6 +419,8 @@ Mean centering a variable involves subtracting the mean of that variable from ev
 - centering makes the model coefficients easier to interpret
 :::
 
+<br>
+
 `r qbegin(6)`
 
 Mean center the continuous IV(s), and re-run your model with mean centred variable(s).
@@ -437,44 +455,98 @@ summary(rural_mod1)
 
 `r qbegin(7)`
 
-Using the `probe_interactions()` function from the interactions package, visualise the interaction effects from your model, and conduct a simple slopes analysis.
+Note any differences between the `summary()` output between the "rural_mod" and "rural_mod1" models. Pay particular attention to your coefficients and their significance values. Why do you think these differences have been observed?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+This plot illustrates the difference between the "rural_mod" and "rural_mod1" models. 
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+p1 <- ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=TRUE) +
+    geom_vline(xintercept = 3, colour="black", linetype = "longdash", size = 1) + 
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural"))
+
+p2 <- ggplot(data = wrdata, aes(x = mc_social_int, y = wellbeing, colour = isRural)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=TRUE) +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 1) + 
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural"))
+
+p1 | p2
+```
+
+:::
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-```{r}
-plt_rural_mod <- probe_interaction(model = rural_mod, 
-                  pred = social_int, 
+Recall that when there is an interaction A$\times$B, the coefficients A and B are no longer *main effects*. Instead, they are *conditional effects* upon the other being zero. 
+
+In our "rural_mod", the `isRural` coefficient is the difference in rural vs non-rural when social interactions is 0. In our "rural_mod1", this difference is when social interactions is the mean (12.06). 
+
+Whilst the difference in rural vs non-rural may not be significantly different when social interactions is zero, there is a significant difference at the average number of social interactions (as you can see from the plot in the hint or below).
+
+`r solend()`
+
+<br> 
+
+`r qbegin(8)`
+
+Using the `probe_interaction()` function from the interactions package, visualise the interaction effects from your model.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Make sure to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)
+- a legend title (specify `legend.main = `)
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r warning=FALSE, message=FALSE}
+plt_rural_mod <- probe_interaction(model = rural_mod1, 
+                  pred = mc_social_int, 
                   modx = isRural, 
-                  cond.int = T,
-                  interval = T, 
-                  jnplot = T)
+                  interval = T,
+                  main.title = "Predicted Wellbeing Scores across \n Social Interactions by Location",
+                  x.label = "Number of Social Interactions per Week (mean centred)",
+                  y.label = "Wellbeing (WEMWBS Scores)",
+                  legend.main = "Location")
 ```
 
 Let's look at our plot:
 
 ```{r}
 #| label: fig-int
-#| fig-cap: "Interaction Plot"
+#| fig-cap: "Predicted Wellbeing Scores across Social Interactions by Location"
+
 plt_rural_mod$interactplot
-```
-
-From the same function, we can look at the significance of the slopes:
-
-```{r}
-plt_rural_mod$simslopes$slopes
 ```
 
 `r solend()`
 
 <br>
 
-`r qbegin(8)`
+`r qbegin(9)`
 
-Interpret your results (from the mean centred model) in the context of the research question and report your model in full.
+Provide key model results in a formatted table.
 
-Provide key model results in a formatted table, and refer to your interaction plot.
 
 `r qend()`
 
@@ -492,13 +564,38 @@ tab_model(rural_mod1,
           title = "Regression Table for Wellbeing Model")
 ```
 
-And now lets write our results up:
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+Interpret your results in the context of the research question and report your model in full.
+
+Make reference to the interaction plot and regression table.
+
+:::frame
+
+:::quote
+"The best method of communicating findings about the presence of significant interaction may be to present a table of graph of the estimated means at various combinations of the interacting variables."    
+--- @Ramsey2012  
+:::
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Make sure to write your results up following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf):
 
 ::: {.callout-important icon=false appearance="minimal"}
 
 Full regression results including 95% Confidence Intervals are shown in @tbl-rural-mc-modresults. The $F$-test for model utility was significant $(F(3,196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores.
 
-Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+There was a significant conditional association between wellbeing (WEMWBS Scores) and social interactions ($\beta$ = 0.65, $SE$ = 0.12, $p$ < .001), which suggested that for those living in non-rural locations, wellbeing scores increased by 0.65 for every additional social interaction per week. A significant conditional association was also evident between wellbeing and location ($\beta$ = -4.86, $SE$ = 0.65, $p$ < .001), which suggested that for those with the average number of social interactions per week ($M$ = 12.06), wellbeing scores were 4.86 points lower for those in rural areas in comparison to those in non-rurual.
+
+The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), with a less positive association between the two for those located in rural locations ($\beta$ = -0.52, $SE$ = 0.16, $p$ = .002). This interaction is visually presented in @fig-int. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
 
 :::
 
