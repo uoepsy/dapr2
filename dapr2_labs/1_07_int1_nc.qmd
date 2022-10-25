@@ -250,7 +250,7 @@ Now lets look at wellbeing scores by location:
 ```{r}
 ggplot(data = wrdata, aes(x = isRural, y = wellbeing)) +
   geom_boxplot() + 
-  labs(x = "Location", y = "Wellbeing Score (WEMWBS)")
+  labs(x = "Location", y = "Wellbeing (WEMWBS Scores)")
 ```
 
 ::: {.callout-important icon=false appearance="minimal"}
@@ -266,7 +266,7 @@ ggplot(data = wrdata, aes(x = social_int, y = wellbeing)) +
   geom_point() +
   geom_smooth(method="lm", se=FALSE) +
   facet_wrap(~isRural) + 
-  labs(x = "Social Interactions (number per week)", y = "Wellbeing Score (WEMWBS)")
+  labs(x = "Social Interactions (number per week)", y = "Wellbeing (WEMWBS Scores)")
 ```
 
 Or instead of facets, we could use different colours for each location (rural vs non-rural):
@@ -277,20 +277,21 @@ ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
   geom_smooth(method="lm", se=FALSE) +
     scale_colour_discrete(
     name ="Location",
-    labels=c("Not Rural", "Rural"))
+    labels=c("Not Rural", "Rural")) + 
+    labs(x = "Social Interactions (number per week)", y = "Wellbeing (WEMWBS Scores)")
 ```
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Those in non-rural locations appear to have higher wellbeing scores across all levels of social interactions. There appears to be a greater difference in wellbeing scores by location at the highest number of social interactions.
+Those in non-rural locations appear to have higher wellbeing scores across almost all levels of social interactions. The slopes appear to be different for each location, where the greatest difference in wellbeing scores by location is most visible the highest number of social interactions.
 
 ::: 
 
 :::{.callout-note}
 
-*How can we tell that there is an interaction?*
+**How can we tell that there is an interaction?**
 
-The lines in thetwo plots above are not running in parallel - this suggests the presence of an interaction. Specifically in our example, the non-parallel lines suggested an interaction effect based on location, as the number of social interactions does not appear to have the same influence on rural and non-rural residents' wellbeing scores. 
+The lines in the two plots above are not running in *parallel* - this suggests the presence of an interaction. Specifically in our example, the non-parallel lines suggest an interaction effect based on location, as the number of social interactions does not appear to have the same influence on rural and non-rural residents' wellbeing scores. 
 
 :::
 
@@ -435,39 +436,42 @@ This plot illustrates the difference between the "rural_mod" and "rural_mod1" mo
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 #| label: fig-mc_difference
-#| fig-cap: "Difference when social interactions is not vs is mean centered" 
-nd = expand_grid(social_int=-0.5:13,isRural=c("rural","not rural"))
+#| fig-cap: "Difference when social interactions is not vs is mean centered.<br><small>Note that the lines without SE intervals on the left plot represent \npredicted values below the minimum observed number of social \ninteractions, to ensure that zero on the x-axis is visible</small>"
+nd = expand_grid(social_int=-1:13,isRural=c("rural","not rural"))
 nd = nd %>% mutate(wellbeing = predict(rural_mod, newdata = .))
 
 p1 <- ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
-    geom_point() + 
+    geom_point() +
     geom_smooth(method="lm", se=TRUE) +
+    geom_smooth(method="lm", se=FALSE, fullrange=TRUE) +
     geom_point(aes(x=0, y=30.9986), colour="#F8766D", size = 7) +
     geom_point(aes(x=0, y=32.3852), colour="#00BFC4", size = 7) +
-    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) + 
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) +
     scale_fill_manual(NULL, values=c(NA,NA))+xlim(-5,30)+
     geom_line(inherit.aes=FALSE,data=nd,aes(x=social_int,col=isRural,y=wellbeing), lty="solid", lwd=1) + 
-    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) + 
-    labs(x = "Social Interactions \n(n per week)", y = "Wellbeing Score", caption = "Note that the lines without SE intervals on the left plot represent \npredicted values below the minimum observed number of social \ninteractions, to ensure that zero on the x-axis is visible") +
-    theme(plot.caption = element_text(size = 8, hjust = 0, face = "italic")) + 
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) +
+    labs(x = "Social Interactions \n(n per week)", y = "Wellbeing (WEMWBS Scores)", caption = "") +
+    theme(plot.caption = element_text(size = 8, hjust = 0, face = "italic"), legend.position="none") +
     scale_colour_discrete(
     name ="Location",
     labels=c("Not Rural", "Rural"))
 
 p2 <- ggplot(data = wrdata, aes(x = mc_social_int, y = wellbeing, colour = isRural)) +
-    geom_point() + 
+    geom_point() +
     geom_smooth(method="lm", se=TRUE) +
+    geom_smooth(method="lm", se=FALSE, fullrange=TRUE) +
     geom_point(aes(x=0, y=38.8263), colour="#F8766D", size = 7) +
     geom_point(aes(x=0, y=34), colour="#00BFC4", size = 7) +
-    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) + 
-    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) + 
-    labs(x = "Mean Centred Social Interactions \n(n per week)", y = "Wellbeing Score") +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) +
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) +
+    labs(x = "Mean Centred Social \nInteractions (n per week)", y = "Wellbeing (WEMWBS Scores)") +
     scale_colour_discrete(
     name ="Location",
-    labels=c("Not Rural", "Rural"))
+    labels=c("Not Rural", "Rural"))+
+    guides(fill="none")
 
-p1 | p2 + plot_layout(guides = "collect") 
 
+(p1 | p2) + plot_layout(guides = "collect")
 ```
 
 :::
@@ -486,7 +490,7 @@ Whilst the difference in rural vs non-rural may not be significantly different w
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
 #| label: fig-mc_difference-2
 #| fig-cap: "Difference when social interactions is not vs is mean centered" 
-p1 | p2 + plot_layout(guides = "collect") 
+(p1 | p2) + plot_layout(guides = "collect")
 ```
 
 `r solend()`
@@ -571,7 +575,7 @@ Make reference to the interaction plot and regression table.
 :::frame
 
 :::quote
-"The best method of communicating findings about the presence of significant interaction may be to present a table of graph of the estimated means at various combinations of the interacting variables."    
+"The best method of communicating findings about the presence of a significant interaction may be to present a table or graph of the estimated means at various combinations of the interacting variables."    
 --- @Ramsey2012  
 :::
 
