@@ -143,7 +143,9 @@ y = \beta_0 + \beta_1  x_1 + \beta_2  x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon \
 $$
 or 
 $$
-\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural}  + \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon \\ 
+\begin{split}
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural} \\+ \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon \\
+\end{split}
 $$
 
 Effects will be considered statistically significant at $\alpha=.05$
@@ -166,15 +168,14 @@ The association between wellbeing and social interactions is moderated by whethe
 
 Check coding of variables (e.g., that categorical variables are coded as factors). 
 
-Note that the "location" variable currently has three levels (Rural/Suburb/City), but we only want two (Rural/Not Rural) in order to address our research question, you'll need to fix this. One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. 
+Note that the "location" variable currently has three levels (Rural/Suburb/City). In order to address the research question, we only want two (Rural/Not Rural) locations - you will need to fix this.
 
 Specify 'not rural' as your reference group.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint
-
-Type `?ifelse` in the *console* if you want to see the help function. You can use it to add a new variable either inside `mutate()`, or using `data$new_variable_name <- ifelse(test, x, y)` syntax.
+One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. Type `?ifelse` in the *console* if you want to see the help function. You can use it to add a new variable either inside `mutate()`, or using `data$new_variable_name <- ifelse(test, x, y)` syntax.
 
 :::
 
@@ -184,6 +185,8 @@ Type `?ifelse` in the *console* if you want to see the help function. You can us
 
 Create a new variable for Rural/Not Rural:
 ```{r}
+#if location is rural, assign name 'rural'. If another value (i.e., city or suburb) assign name 'not rural'.
+# In other words, if location = rural assign name rural; if location != rural then assign name not rural.
 wrdata <- wrdata %>% 
   mutate(
     isRural = ifelse(location == "rural", "rural", "not rural")
@@ -192,7 +195,7 @@ wrdata <- wrdata %>%
 
 Check coding of variables within `wrdata` and ensure `isRural` is a factor with two levels, 'rural' and 'not rural':
 ```{r}
-str(wrdata) #overall 'structure of data. Or could run is.factor()
+str(wrdata) #returns overall 'structure' of data. Or could run is.factor() for specific variable of interest
 wrdata$isRural <- as_factor(wrdata$isRural)
 is.factor(wrdata$isRural) #check that isRural is now a factor
 ```
@@ -219,9 +222,8 @@ In particular:
 
 ### Hint
 
-1. The `pairs.panels()` function from the `psych` package will plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots.  
-
-2. Within your `ggplot()` argument, you will need to specify `+ facet_wrap()` in order to produce facets for each location. It would also be useful to specify `  geom_smooth(method="lm")`
+1. The `pairs.panels()` function from the `psych` package will can plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots, but is only useful for *continuous* variables.
+2. To include facets, Within your `ggplot()` argument you will need to specify `+ facet_wrap()` in order to produce facets for each location. It would also be useful to specify `geom_smooth(method="lm")`
 
 :::
 
@@ -229,11 +231,11 @@ In particular:
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Let's first plot the variables included within our model (note that we could use this for the whole dataset, but we don't want to include irrelevant variables):
+Let's first plot the continuous variables included within our model (note that we could use this for the whole dataset, but we don't want to include irrelevant variables):
 
 ```{r}
 wrdata %>% 
-  select(wellbeing, social_int, isRural) %>%
+  select(wellbeing, social_int) %>%
   pairs.panels()
 ```
 
@@ -241,30 +243,35 @@ wrdata %>%
 
 Wellbeing and social interactions appear to follow unimodal distributions. There was a weak, positive association between wellbeing and social interactions ($r$ = .24). 
 
+::: 
+
+Now lets look at wellbeing scores by location:
+
 ```{r}
-wrdata %>%
-  select(wellbeing, social_int) %>%
-  cor() %>% 
-  kable(digits = 2) %>%
-  kable_styling(full_width = FALSE)
+ggplot(data = wrdata, aes(x = isRural, y = wellbeing)) +
+  geom_boxplot() + 
+  labs(x = "Location", y = "Wellbeing Score (WEMWBS)")
 ```
 
+::: {.callout-important icon=false appearance="minimal"}
+
+Those in rural locations appear to have lower wellbeing scores in comparison to those in non-rural locations.
 
 ::: 
 
-
 Next, lets produce our plots with a facet for rural vs non-rural residents: 
 
-```{r}
+```{r message=FALSE, warning = FALSE}
 ggplot(data = wrdata, aes(x = social_int, y = wellbeing)) +
   geom_point() +
   geom_smooth(method="lm", se=FALSE) +
-  facet_wrap(~isRural) 
+  facet_wrap(~isRural) + 
+  labs(x = "Social Interactions (number per week)", y = "Wellbeing Score (WEMWBS)")
 ```
 
-Or different colours for location (rural vs rural):
+Or instead of facets, we could use different colours for each location (rural vs non-rural):
 
-```{r}
+```{r message=FALSE, warning = FALSE}
 ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
   geom_point() + 
   geom_smooth(method="lm", se=FALSE) +
@@ -272,6 +279,20 @@ ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
     name ="Location",
     labels=c("Not Rural", "Rural"))
 ```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Those in non-rural locations appear to have higher wellbeing scores across all levels of social interactions. There appears to be a greater difference in wellbeing scores by location at the highest number of social interactions.
+
+::: 
+
+:::{.callout-note}
+
+*How can we tell that there is an interaction?*
+
+The lines in thetwo plots above are not running in parallel - this suggests the presence of an interaction. Specifically in our example, the non-parallel lines suggested an interaction effect based on location, as the number of social interactions does not appear to have the same influence on rural and non-rural residents' wellbeing scores. 
+
+:::
 
 `r solend()`
 
@@ -288,6 +309,7 @@ Fit your model using `lm()`, and assign it as an object with the name "rural_mod
 When fitting a regression model in `R` with two explanatory variables A and B, and their interaction, these two are equivalent:  
 
 + y ~ A + B + A:B
++ y ~ A + B + A*B
 + y ~ A*B  
 
 :::
@@ -308,47 +330,8 @@ summary(rural_mod)
 
 <br>
 
-:::statbox
-## Interpretation coefficients
-
-__Interpreting coefficients for A and B in the presence of an interaction A:B__   
-
-When you include an interaction between $x_1$ and $x_2$ in a regression model, you are estimating the extent to which the effect of $x_1$ on $y$ is different across the values of $x_2$.  
-
-What this means is that the effect of $x_1$ on $y$ *depends on/is conditional upon* the value of $x_2$.  
-(and vice versa, the effect of $x_2$ on $y$ is different across the values of $x_1$).   
-This means that we can no longer talk about the "effect of $x_1$ _holding $x_2$ constant_". Instead we can talk about a _marginal effect_ of $x_1$ on $y$ at a specific value of $x_2$. 
-
-:::frame
-When we fit the model $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon$ using `lm()`:  
-
-- the parameter estimate $\hat \beta_1$ is the _marginal effect_ of $x_1$ on $y$ where $x_2 = 0$  
-- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$  
-:::
-
-<div style="margin-left: 15px">
-<small>
-__N.B.__ Regardless of whether or not there is an interaction term in our model, all parameter estimates in multiple regression are "conditional" in the sense that they are dependent upon the inclusion of other variables in the model. For instance, in $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon$ the coefficient $\hat \beta_1$ is conditional upon holding $x_2$ constant. 
-</small>
-</div>
-
-__Interpreting the interaction term A:B__  
-
-The coefficient for an interaction term can be thought of as providing an _adjustment to the slope._   
-  
-In the model below, we have a numeric*categorical interaction:
-
-$$
-\text{wellbeing} \ = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural}  + \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon  
-$$
-
-The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be made for the individuals in the $\text{isRural}=1$ group. 
-
-:::
-
-<br>
-
 `r qbegin(5)`  
+
 Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in @fig-annotate-int (it may help to sketch out the plot yourself and annotate it).  
 
 ```{r fig-annotate-int, echo=FALSE, message = FALSE, fig.cap="Multiple regression model: Wellbeing ~ Social Interactions * is Rural<br><small>Note that the dashed lines represent predicted values below the minimum observed number of social interactions, to ensure that zero on the x-axis is visible</small>"}
@@ -404,32 +387,19 @@ coefficients(rural_mod)
     - On plot: How the slope of the line changes when you move from the blue to the red line. 
     - Interpretation: The interaction between social interactions (number per week) and location (rural/not rural) - the difference in the simple slopes of social interactions for rural vs non-rural residents. 
 
-
 `r solend()`
-
-<br>
-
-:::statbox
-
-__Mean Centering__
-
-Mean centering a variable involves subtracting the mean of that variable from every individual value. When working with models that contain interaction terms (like our `rural_mod`), it is generally a good idea to center your continuous predictor variables. This is because:
-
-- centering helps to address issues of multicollinearity (you'll learn more about this later in the course)
-- centering makes the model coefficients easier to interpret
-:::
 
 <br>
 
 `r qbegin(6)`
 
-Mean center the continuous IV(s), and re-run your model with mean centred variable(s).
+Mean center the continuous IV(s), and re-run your model with mean centered variable(s).
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Create mean centred variable for 'social_int':
+Create mean centered variable for 'social_int':
 
 ```{r}
 wrdata <-
@@ -464,23 +434,40 @@ Note any differences between the `summary()` output between the "rural_mod" and 
 This plot illustrates the difference between the "rural_mod" and "rural_mod1" models. 
 
 ```{r echo = FALSE, message=FALSE, warning=FALSE}
+#| label: fig-mc_difference
+#| fig-cap: "Difference when social interactions is not vs is mean centered" 
+nd = expand_grid(social_int=-0.5:13,isRural=c("rural","not rural"))
+nd = nd %>% mutate(wellbeing = predict(rural_mod, newdata = .))
+
 p1 <- ggplot(data = wrdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
-  geom_point() + 
-  geom_smooth(method="lm", se=TRUE) +
-    geom_vline(xintercept = 3, colour="black", linetype = "longdash", size = 1) + 
+    geom_point() + 
+    geom_smooth(method="lm", se=TRUE) +
+    geom_point(aes(x=0, y=30.9986), colour="#F8766D", size = 7) +
+    geom_point(aes(x=0, y=32.3852), colour="#00BFC4", size = 7) +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) + 
+    scale_fill_manual(NULL, values=c(NA,NA))+xlim(-5,30)+
+    geom_line(inherit.aes=FALSE,data=nd,aes(x=social_int,col=isRural,y=wellbeing), lty="solid", lwd=1) + 
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) + 
+    labs(x = "Social Interactions \n(n per week)", y = "Wellbeing Score", caption = "Note that the lines without SE intervals on the left plot represent \npredicted values below the minimum observed number of social \ninteractions, to ensure that zero on the x-axis is visible") +
+    theme(plot.caption = element_text(size = 8, hjust = 0, face = "italic")) + 
     scale_colour_discrete(
     name ="Location",
     labels=c("Not Rural", "Rural"))
 
 p2 <- ggplot(data = wrdata, aes(x = mc_social_int, y = wellbeing, colour = isRural)) +
-  geom_point() + 
-  geom_smooth(method="lm", se=TRUE) +
-    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 1) + 
+    geom_point() + 
+    geom_smooth(method="lm", se=TRUE) +
+    geom_point(aes(x=0, y=38.8263), colour="#F8766D", size = 7) +
+    geom_point(aes(x=0, y=34), colour="#00BFC4", size = 7) +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) + 
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) + 
+    labs(x = "Mean Centred Social Interactions \n(n per week)", y = "Wellbeing Score") +
     scale_colour_discrete(
     name ="Location",
     labels=c("Not Rural", "Rural"))
 
-p1 | p2
+p1 | p2 + plot_layout(guides = "collect") 
+
 ```
 
 :::
@@ -489,11 +476,18 @@ p1 | p2
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
+
 Recall that when there is an interaction A$\times$B, the coefficients A and B are no longer *main effects*. Instead, they are *conditional effects* upon the other being zero. 
 
 In our "rural_mod", the `isRural` coefficient is the difference in rural vs non-rural when social interactions is 0. In our "rural_mod1", this difference is when social interactions is the mean (12.06). 
 
-Whilst the difference in rural vs non-rural may not be significantly different when social interactions is zero, there is a significant difference at the average number of social interactions (as you can see from the plot in the hint or below).
+Whilst the difference in rural vs non-rural may not be significantly different when social interactions is zero, there is a significant difference at the average number of social interactions (as you can see from the plot below - note that this is the same plot as in the hint).
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+#| label: fig-mc_difference-2
+#| fig-cap: "Difference when social interactions is not vs is mean centered" 
+p1 | p2 + plot_layout(guides = "collect") 
+```
 
 `r solend()`
 
@@ -595,7 +589,7 @@ Full regression results including 95% Confidence Intervals are shown in @tbl-rur
 
 There was a significant conditional association between wellbeing (WEMWBS Scores) and social interactions ($\beta$ = 0.65, $SE$ = 0.12, $p$ < .001), which suggested that for those living in non-rural locations, wellbeing scores increased by 0.65 for every additional social interaction per week. A significant conditional association was also evident between wellbeing and location ($\beta$ = -4.86, $SE$ = 0.65, $p$ < .001), which suggested that for those with the average number of social interactions per week ($M$ = 12.06), wellbeing scores were 4.86 points lower for those in rural areas in comparison to those in non-rurual.
 
-The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), with a less positive association between the two for those located in rural locations ($\beta$ = -0.52, $SE$ = 0.16, $p$ = .002). This interaction is visually presented in @fig-int. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), where the slope was less steep for those in rural locations ($\beta$ = -0.52, $SE$ = 0.16, $p$ = .002). This interaction is visually presented in @fig-int. The effect of every additional social interaction per week on wellbeing (WEMWBS Scores) was 0.52 less for those living in rural locations in comparison to those in non-rural locations. This suggested that for individuals living in non-rural locations, wellbeing scores increased at a steeper rate across the number of social interactions in comparison to those in rural locations. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
 
 :::
 

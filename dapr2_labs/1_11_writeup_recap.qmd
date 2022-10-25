@@ -1,0 +1,566 @@
+---
+title: "Categorical Predictors & Block 1 Recap"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. X
+2. X
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed Labs 7-10
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **patchwork**
+* **sjPlot**
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. 
+
+**Note**:  this is the same data as Lab 3 & 4.
+
+:::
+
+# Section A: X
+
+## Study Overview 
+
+> **Research Question** 
+>
+> Is there an assocation between well-being and time spent outdoors *after* taking into account the assocation between well-being and _having a routine_?
+
+`r optbegin("Wellbeing data codebook.", olabel=FALSE)`  
+
+__Description__
+
+Researchers interviewed 32 participants, selected at random from the population of residents of Edinburgh & Lothians. They used the Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+
+The researchers also asked participants to estimate the average number of hours they spend outdoors each week, the average number of social interactions they have each week (whether on-line or in-person), and whether they believe that they stick to a routine throughout the week (Yes/No).  
+
+The data in `wellbeing.csv` contain five attributes collected from a random sample of $n=32$ hypothetical residents over Edinburgh & Lothians, and include:
+
+- `wellbeing`: Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+- `outdoor_time`: Self report estimated number of hours per week spent outdoors  
+- `social_int`: Self report estimated number of social interactions per week (both online and in-person)
+- `routine`: Binary Yes/No response to the question "Do you follow a daily routine throughout the week?"
+- `location`: Location of primary residence (City, Suburb, Rural)
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+4. Check coding of variables (e.g., make sure that catgorical variables are coded as factors)
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+You will need to use the `as_factor()` function here. Note that this function creates levels from the order in which they appear in your dataset (e.g., routine is in the first row of our mwdata, so would be assigned as the reference group).
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(patchwork)
+library(sjPlot)
+
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
+```
+
+
+```{r message=FALSE}
+#check coding of routine variable - should be a factor - check by running `is.factor()`
+is.factor(mwdata$routine) #result = false, so need to make routine a factor
+
+#designate routine as factor and check using above code if change has been applied by re-running line (should now be TRUE)
+mwdata$routine <- as_factor(mwdata$routine)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(1)`
+
+Produce visualisations of:  
+
+1. the distribution of the `routine` variable
+2. the association between `routine` and `wellbeing`. 
+
+Provide interpretation of these figures. 
+
+
+:::{.callout-note}
+
+We cannot visualise the distribution of `routine` as a density curve or boxplot, because it is a _categorical_ variable (observations can only take one of a set of discrete response values). Revise the [DAPR1 materials](https://uoepsy.github.io/dapr1/2122/labs/1_01_data_types.html#Types_of_data) for a recap of data types.
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Consider using `geom_bar()` and/or `geom_boxplot()`. The [DAPR1 categorical data lab](https://uoepsy.github.io/dapr1/2122/labs/1_02_categorical.html) might provide a useful starting point if needed.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`geom_bar()` will count the number of observations falling into each unique level of the routine variable:
+```{r}
+#| label: fig-dist-routine
+#| fig-cap: "Marginal distribution plots of Routine (y/n)"
+
+p1 <- ggplot(data = mwdata, aes(x = routine)) +
+  geom_bar()+
+  labs(x = "Routine", y = "Frequency")
+p1
+```
+
+We might plot the association between routine and wellbeing as two boxplots:
+
+```{r wbroutine}
+#| label: fig-relation-wboutine
+#| fig-cap: "Relationship between wellbeing and presence of routine"
+
+p2 <- ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
+  geom_boxplot()+
+  labs(x = "Routine", y = "Wellbeing score (WEMWBS)")
+p2
+```
+
+
+```{r}
+#place plots adjacent to one another
+p1 | p2
+```
+
+From @fig-dist-routine, we can see that there are more individuals that do not have a routine than those who do. 
+
+From @fig-relation-wboutine, we can see that individuals with a routine tend to have higher wellbeing scores than those who do not. 
+
+`r solend()`  
+
+<br>
+
+`r qbegin(2)`
+
+1. Formally state:
+
++ your chosen significance level 
++ the null and alternative hypotheses
+
+2. Fit the multiple regression model below using `lm()`, and assign it to an object named `mdl2`. 
+
+$$
+Wellbeing = \beta_0 + \beta_1 \cdot Routine_{No Routine} + \beta_2 \cdot OutdoorTime + \epsilon
+$$
+
+Examine the `summary()` output of the model. 
+
+$\hat \beta_0$ (the intercept) is the estimated average wellbeing score associated with zero hours of weekly outdoor time and zero in the routine variable. What group is the intercept the estimated wellbeing score for when they have zero hours of outdoor time? Why (think about what zero in the routine variable means)?  
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Effects will be considered statistically significant at $\alpha=.05$
+
+$H_0: \beta_2 = 0$
+
+There is no association between well-being and time spent outdoors after taking into account the relationship between well-being and routine
+
+$H_1: \beta_2 \neq 0$
+
+There is an association between well-being and time spent outdoors after taking into account the relationship between well-being and routine
+
+
+```{r}
+mdl2 <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
+summary(mdl2)
+```
+
+As you can see in the output of the model, we have a coefficient called `routineNo Routine`. This is the parameter estimate for a dummy variable which has been inputted into the model. The `lm()` function will automatically name the dummy variables (and therefore the coefficients) according to what level is identified by the 1. It names them `<variable><Level>`, so we can tell that `routineNo Routine` is 1 for "No Routine" and 0 for "Routine".  
+
+The intercept is therefore the estimated wellbeing score for those with a Routine and zero hours of outdoor time.   
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+The researchers have decided that they would prefer 'no routine' to be considered the reference level for the "routine" variable instead of 'routine'. Apply this change to the variable and re-run your model.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You will need to use the `relevel()` function here. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Now we are fitting the below model:
+
+$$
+Wellbeing = \beta_0 + \beta_1 \cdot Routine_{Routine} + \beta_2 \cdot OutdoorTime + \epsilon
+$$
+So we will need to change our reference group before re-running out model:
+
+```{r}
+#re-order so that no routine is reference level
+mwdata$routine <- relevel(mwdata$routine, 'No Routine')
+
+#re-run model and check summary
+mdl2_reorder <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
+summary(mdl2_reorder)
+
+```
+
+You should now see that our routine variable is now showing  `routineRoutine` instead of `routineNo Routine`. This means that 1 is now for "Routine" and 0 for "No Routine".
+
+`r solend()`
+
+
+<br>
+
+`r qbegin(4)`
+
+We can visualise the model below as two lines.
+
+$\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Routine_{Routine} + \hat \beta_2 \cdot OutdoorTime$ 
+
+Each line represents the model predicted values for wellbeing scores across the range of weekly outdoor time, with one line for those who report having "Routine" and one for those with "No Routine".  
+
+Get a pen and paper, and sketch out the plot shown in @fig-annotate.  
+
+```{r plot-annotate, echo=FALSE, message=FALSE}
+#| label: fig-annotate
+#| fig-cap: "Multiple regression model: Wellbeing ~ Routine + Outdoor Time"
+
+sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
+  scale_fill_manual(NULL, values=c(NA,NA))
+```
+
+Annotate your plot with labels for each of parameter estimates from your model: 
+
+| Parameter Estimate   |      Model Coefficient    |  Estimate                  |
+|----------------------|:-------------------------:|---------------------------:|
+| $\hat \beta_0$       | `(Intercept)`             | `r round(coef(mdl2_reorder)[1],2)` |
+| $\hat \beta_1$       | `routineRoutine`          | `r round(coef(mdl2_reorder)[2],2)` |
+| $\hat \beta_2$       | `outdoor_time`            | `r round(coef(mdl2_reorder)[3],2)` |
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Below you can see where to add the labels, but we have not said which is which. 
+
+```{r echo=FALSE, message=FALSE}
+sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
+  scale_fill_manual(NULL, values=c(NA,NA))+
+  geom_vline(xintercept = 0) +
+  geom_segment(aes(x=1,xend=0,
+                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-1,
+                   yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))),
+               col="black",lwd=.2)+
+  geom_label(aes(x=2,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-3), 
+             label="B", col="black")+
+  geom_segment(aes(x=20,xend=20,
+                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=20)),
+                   yend=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))),
+               col="black",lwd=.2,
+               arrow = arrow(length = unit(3, "mm")))+
+  geom_label(aes(x=21,y=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))-5),
+               label="A", col="black")+
+  geom_segment(aes(x=10,xend=11,
+                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
+                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
+             col="black",lwd=.2)+
+  geom_segment(aes(x=11,xend=11,
+                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
+                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=11))),
+             col="black",lwd=.2)+
+  geom_label(aes(x=12,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
+                 label="C",col="black")+
+  NULL -> plot_annotate
+
+plot_annotate
+
+```
+
++ A is the vertical distance between the red and blue lines (the lines are parallel, so this distance is the same wherever you cut it on the x-axis).  
++ B is the point at which the blue line cuts the y-axis.  
++ C is the vertical increase (increase on the y-axis) for the blue line associated with a 1 unit increase on the x-axis (the lines are parallel, so this is the same for the red line).  
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
++ A = $\hat \beta_2$ = `routineRoutine` coefficient = `r round(coef(mdl2_reorder)[2],2)`
++ B = $\hat \beta_0$ = `(Intercept)` coefficient  = `r round(coef(mdl2_reorder)[1],2)`
++ C = $\hat \beta_1$ = `outdoor_time` coefficient = `r round(coef(mdl2_reorder)[3],2)` 
+
+```{r echo=FALSE}
+plot_annotate
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Interpret your results in the context of the research question and report your model in full. 
+
+Provide key model results in a formatted table.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#| label: tbl-modresults
+#| tbl-cap: Regression Table for Wellbeing Model
+#create table for results
+tab_model(mdl2_reorder,
+          dv.labels = "Wellbeing (WEMWBS Scores)",
+          pred.labels = c("routineRoutine" = "Has Routine",
+                          "outdoor_time" = "Outdoor Time (hours per week)"),
+          title = "Regression Table for Wellbeing Model")
+```
+
+And now lets write our results up:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Full regression results including 95% Confidence Intervals are shown in @tbl-modresults. The $F$-test for model utility was significant $(F(2,29) = 11.21, p<.001)$, and the model explained approximately 39.72% of the variability in wellbeing scores.
+
+After controlling for routine, there was a significant association between wellbeing scores and outdoor time $(\beta = 0.92, SE = 0.24, p < .001)$. This suggested that for every additional hour of outdoor time, wellbeing scores, on average, were higher by 0.92 points ($CI_{95}[0.43 - 1.40]$). Therefore, we have evidence to reject the null hypothesis (that there was no association between well-being and time spent outdoors after taking into account the relationship between well-being and routine).
+
+:::
+ 
+`r solend()`
+
+# Section B: Weeks 6 - 11 Recap
+
+In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4 weeks. 
+
+:::red
+
+Before you expand each of the boxes below, think about how comfortable you feel with each concept.  
+
+:::
+
+
+`r optbegin("Null & Alternative Hypotheses", olabel=FALSE,toggle=params$TOGGLE)`
+`r optend()`
+
+
+`r optbegin("Interaction Model", olabel=FALSE,toggle=params$TOGGLE)`
+
+**Formula:**  
+
+
+$$
+y_i = \beta_0 + \beta_1 x_i + \beta_2x_i + \beta_3 x_i + \epsilon_i
+$$
+In **R**:
+
+:::blue
+
+There are basically two pieces of information that we need to pass to the `lm()` function:
+
+1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV) and $x$ the independent variable (IV).
+2. The data: Specify which dataframe contains the variables specified in the formula.
+
++ run simple linear regression via `lm()` function
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV1*IV2, data = data_name)
+```
+
+**OR**
+
+```{r eval=FALSE}
+model_name <- lm(data_name$DV ~ data_name$IV1 + data_name$IV2 + data_name$IV1:data_name$IV2)
+```
+
+:::
+
+:::{.callout-note}
+
+See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
+
+`r optend()`
+
+`r optbegin("Types of Models: Deterministic vs Statistical", olabel=FALSE,toggle=params$TOGGLE)`
+
+#### __Interpreting Coefficients__
+
+__Interpreting coefficients for A and B in the presence of an interaction A:B__   
+
+When you include an interaction between $x_1$ and $x_2$ in a regression model, you are estimating the extent to which the effect of $x_1$ on $y$ is different across the values of $x_2$.  
+
+What this means is that the effect of $x_1$ on $y$ *depends on/is conditional upon* the value of $x_2$.  
+(and vice versa, the effect of $x_2$ on $y$ is different across the values of $x_1$).   
+This means that we can no longer talk about the "effect of $x_1$ _holding $x_2$ constant_". Instead we can talk about a _marginal effect_ of $x_1$ on $y$ at a specific value of $x_2$. 
+
+:::frame
+When we fit the model $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon$ using `lm()`:  
+
+- the parameter estimate $\hat \beta_1$ is the _marginal effect_ of $x_1$ on $y$ where $x_2 = 0$  
+- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$  
+:::
+
+<div style="margin-left: 15px">
+<small>
+__N.B.__ Regardless of whether or not there is an interaction term in our model, all parameter estimates in multiple regression are "conditional" in the sense that they are dependent upon the inclusion of other variables in the model. For instance, in $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon$ the coefficient $\hat \beta_1$ is conditional upon holding $x_2$ constant. 
+</small>
+</div>
+
+__Interpreting the interaction term A:B__  
+
+The coefficient for an interaction term can be thought of as providing an _adjustment to the slope._   
+  
+For example, in the model below, we have a numeric*categorical interaction:
+
+$$
+\begin{split}
+\text{Wellbeing} \ = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural} \\ + \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon  
+\end{split}
+$$
+
+
+The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be made for the individuals in the $\text{isRural}=1$ group. 
+
+:::{.callout-note}
+
+See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
+
+`r optend()`
+
+`r optbegin("Mean Centreing", olabel=FALSE,toggle=params$TOGGLE)`
+
+Mean centering a variable involves subtracting the mean of that variable from every individual value. When working with models that contain interaction terms (like our `rural_mod`), it is generally a good idea to center your continuous predictor variables. This is because:
+
+- centering helps to address issues of multicollinearity
+- centering makes the model coefficients easier to interpret
+
+:::{.callout-note}
+
+See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+
+:::
+
+`r optend()`
+
+
+`r optbegin("Partitioning Variation: Sum of Squares", olabel=FALSE,toggle=params$TOGGLE)`
+`r optend()`
+
+
+`r optbegin("F-test & F-ratio", olabel=FALSE,toggle=params$TOGGLE)`
+`r optend()`
+
+
+`r optbegin("R-squared and Adjusted R-squared", olabel=FALSE,toggle=params$TOGGLE)`
+`r optend()`
+
+
+`r optbegin("Binary Variables", olabel=FALSE,toggle=params$TOGGLE)`
+`r optend()`
+
+
+`r optbegin("Categorical Predictors with k levels", olabel=FALSE,toggle=params$TOGGLE)`
+
+:::{.callout-note}
+
+See Week 5 lectures for further details, examples, and to revise these concepts further.
+
+:::
+
+`r optend()`
+
+`r optbegin("Steps Involved in Modelling", olabel=FALSE,toggle=params$TOGGLE)`
+
+
+You can think of the sequence of steps involved in statistical modeling as:  
+$$
+\text{Choose} \rightarrow \text{Fit} \rightarrow \text{Assess} \rightarrow \text{Use}
+$$
+
+:::frame
+**A general rule**  
+<br>
+<center> Do not use (draw inferences or predictions from) a model before you have **assessed** whether the model satisfies the underlying assumptions</center>
+:::
+
+<br>
+Throughout this block, we have completed the first three steps (**Choose**, **Fit**, and **Use**) in that we have:  
+
+1. Explored/visualised our data and specified our model
+2. Fitted the model in `R`  
+3. Interpreted our parameter estimates
+
+Please note that when conducting real analyses, it would be inappropriate to complete these steps without also **assessing** whether a regression model meets the assumptions. You will learn how to do this in Block 2 of Semester 1 for linear regression models.  
+
+`r optend()`
