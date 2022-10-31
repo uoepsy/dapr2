@@ -29,7 +29,8 @@ At the end of this lab, you will:
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
-You will need to have completed [Lab X]. 
+1. Be up to date with lectures
+2. Have completed previous lab exercises from Week 7 and 8
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -37,13 +38,46 @@ Remember to load all packages within a code chunk at the start of your RMarkdown
 For this lab, you will need to load the following package(s):
 
 * **tidyverse** 
+* **psych** 
 * **sjPlot**
+* **patchwork** 
+* **kableExtra**
+* **sandwich**
+* **interactions**
 * **emmeans** 
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv
 
 :::
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the cognitive_experiment_3_by_2 dataset into R, assigning it to an object named `cog` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(patchwork)
+library(kableExtra) 
+library(sandwich)
+library(interactions)
+
+#Reading in data for Part B and storing in object named 'cog'
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+```
+
+`r solend()`
 
 # Study Overview
 
@@ -76,10 +110,8 @@ __Preview__
 
 The first ten rows of the data are:
 
-```{r echo=FALSE}
-data <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
-
-DT::datatable(head(data, 10), options = list(lengthChange = FALSE))
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% head %>% gt::gt()
 ```
 
 `r optend()`
@@ -96,7 +128,12 @@ DT::datatable(head(data, 10), options = list(lengthChange = FALSE))
 ```{r}
 #Loading the required package(s)
 library(tidyverse)
+library(psych)
 library(sjPlot)
+library(patchwork)
+library(kableExtra) 
+library(sandwich)
+library(interactions)
 library(emmeans)
 
 # Reading in data and storing to an object named 'cog'
@@ -108,22 +145,36 @@ cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
 
 `r qbegin(1)`
 
-Examine the dataset, and perform all the appropriate data management steps:
+Examine the dataset, and perform any necessary and appropriate data management steps.
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
 - Convert categorical variables to factors
 - Label appropriately factors to aid with your model interpretations
 - If needed, provide better variable names
 
+Note that all of these steps can be done in combination - the `mutate()` and `factor()` functions will likely be useful here. 
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's have a look at the data to see what we're working with:
 ```{r}
+#first look at dataset structure
+str(cog)
+
+#now lets look at top 6 rows (or the head) of the dataset
 head(cog)
 ```
 
-The columns Diagnosis and Task should be coded into factors with better labels (i.e., without making reference to the codebook, it is not clear what "1" and "2" represent). The function `factor()` can be used by specifying the current levels and what labels each level should map to.
+The columns Diagnosis and Task should be coded into factors with better labels, as currently, without making reference to the codebook, it is not clear what "1" and "2" represent. It is also unclear what the Y column represents - this should be renamed. 
 
 ```{r}
+#We can make all of the changes noted above in one (long command). First we can use the function `factor()` by specifying the current levels and what labels each level should map to. We can also simply rename the Y column to score. 
+
 cog <- cog %>%
     mutate(
         Diagnosis = factor(Diagnosis, 
@@ -131,11 +182,8 @@ cog <- cog %>%
                            labels = c('Amnesic', 'Huntingtons', 'Control')),
         Task = factor(Task, 
                       levels = c(1, 2),
-                      labels = c('Grammar', 'Recognition'))
-    ) %>%
-    rename(
-        Score = Y
-    )
+                      labels = c('Grammar', 'Recognition'))) %>%
+    rename(Score = Y)
 
 #Use head() function to check renaming
 head(cog)
@@ -143,9 +191,11 @@ head(cog)
 
 `r solend()`
 
+<br>
+
 `r qbegin(2)`
 
-Choose appropriate reference levels for the factors.
+Choose appropriate reference levels for the Diagnosis and Task variables.
 
 `r qend()`
 
@@ -163,15 +213,29 @@ There is no natural reference category for the Task factor, so we will leave it 
 
 `r solend()`
 
+<br>
+
+```{r}
+ggplot(data = cog, aes(x = Task, y = Score)) + 
+  geom_boxplot() + 
+  facet_wrap(~Diagnosis)
+  labs(x = "Diagnosis ", y = "Score") 
+```
+
+
 `r qbegin(3)`
 
-Specify a multiple regression model to test the research hypothesis.  
+Formally state:
+
+- a linear model to investigate whether the X
+- your chosen significance level
+- the null and alternative hypotheses
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Define the dummy variables for Diagnosis:
+Before stating the model, you we first need to define the dummy variables for Diagnosis:
 
 $$
 D_\text{Amnesic} = \begin{cases}
@@ -187,7 +251,7 @@ D_\text{Huntingtons} = \begin{cases}
 (\text{Control is base level})
 $$
 
-Define the dummy variable for Task:
+And for Task:
 
 $$
 T_\text{Recognition} = \begin{cases}
@@ -208,23 +272,33 @@ Score &= \beta_0 \\
       &+ \epsilon
 \end{aligned}
 $$
+Effects will be considered statistically significant at $\alpha=.05$
 
+Our hypotheses are:
+
+$H_0: \beta_4 | \beta_5 = 0$
+
+The effect of social comparison on symptoms of depression, anxiety and stress does not vary depending on level of Neuroticism
+
+$H_0: \beta_4 | \beta_5 \neq 0$
+
+The effect of social comparison on symptoms of depression, anxiety and stress does vary depending on level of Neuroticism.
 
 `r solend()`
 
 `r qbegin(4)`
 
-Fit the specified model using `lm()`, and store the model in an object named `mdl_int`.
+Fit the specified model using `lm()`, and store the model in an object named "cog_mdl".
 
-**Note**: Fortunately, `R` computes the dummy variables for us! Thus. each row in the summary of the model will correspond to one of the estimated $\beta$'s in the equation above.
+**Note**: Fortunately, `R` computes the dummy variables for us! Thus. each row in the `summary()` output of the model will correspond to one of the estimated $\beta$'s in the equation above.
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
-mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
+cog_mdl <- lm(Score ~ Diagnosis * Task, data = cog)
 
-summary(mdl_int)
+summary(cog_mdl)
 ```
 
 `r solend()`
@@ -280,16 +354,25 @@ means %>%
 `r solend()`
 
 `r qbegin(6)`
-Use the function `plot_model()` (from the `sjPlot` package) to investigate the interactions.
+Using the `probe_interaction()` function from the interactions package, visualise the interaction effects from your model.
 
-**Hint**: Remember from last week that the default behaviour of `plot_model()` is to plot the parameter *estimates* and their confidence intervals. This is where `type = " "` will come handy.
+Try to summarise the interaction effects in a short and concise sentence. 
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-plot_model(mdl_int, type = "int")
+#plt_dass_mdl <- probe_interaction(model = cog_mdl, 
+#                  pred = Diagnosis, 
+#                  modx = Task, 
+#                  cond.int = T,
+#                  interval = T, 
+#                  jnplot = T,
+#                  main.title = "Neuroticism moderating the effect of\nsocial comparison on depression and anxiety",
+#                  x.label = "Diagnosis",
+#                  y.label = "Score",
+#                  legend.main = "Task")
 ```
 
 The red dots ('Grammar') represent the baseline for Task, while 'Control' is the baseline for Diagnosis.
@@ -308,7 +391,7 @@ An alternative to `plot_model()` is the function `emmip()` (from the `emmeans` p
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-emmip(mdl_int, Task ~ Diagnosis, CIs = TRUE)
+emmip(cog_mdl, Task ~ Diagnosis, CIs = TRUE)
 ```
 
 `r solend()`
@@ -382,42 +465,42 @@ H_0: \Delta_{\text{Huntingtons}} - \Delta_{\text{Control}} = 0 \\
 H_1: \Delta_{\text{Huntingtons}} - \Delta_{\text{Control}} \neq 0 
 $$
 
-`r qbegin(8)`
-Interpret the model output in the context of the research hypothesis.
+
+`r qbegin(9)`
+
+Provide key model results in a formatted table.
+
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Let's recall the researchers' hypothesis:
-
-> A group of researchers wants to test an hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls.  
-> On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
-
-We can get a nice printout of the model summary as follows:
-
-<center>
 ```{r message = FALSE, warning = FALSE, info = FALSE}
-tab_model(mdl_int, show.stat = TRUE)
+#| label: tbl-cog-modresults
+#| tbl-cap: Regression table for X
+#create table for results
+tab_model(cog_mdl, 
+          show.stat = TRUE,
+          dv.labels = "Scores",
+          title = "Regression table for Scores model")
 ```
-</center>
 
-<br>
+`r solend()`
 
-We could interpret it as follows:
+`r qbegin(10)`
 
-:::int
+Interpret your results in the context of the research question and report your model in full.
+
+Make reference to the interaction plot and regression table.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
 The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntingtons patients in comparison to controls was significant and indicated a difference of $\hat \beta_5 = 40$ points in explicit vs implicit memory performance: $t(24) = 3.41, p = 0.002$.
 
 The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be $\hat \beta_4 = -10$ points but it is not found to be significantly different from 0: $t(24) = -0.85, p = 0.40$.
 
 This indicates that the researchers' hypothesis that the difference in performance between explicit and implicit memory tasks does not differ significantly between amnesic and control patients, while it does differ significantly between Huntington and control patients.
-:::
-
-
-We can also provide an interpretation of the interaction plot:
-
-```{r}
-plot_model(mdl_int, type = "int")
-```
 
 Compared to controls, amnesiac patients will have a significant deficit in explicit memory (as measured by the recognition task), but not on implicit memory (as measured by the grammar task).
 
