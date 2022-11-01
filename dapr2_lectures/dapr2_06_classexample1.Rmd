@@ -1,0 +1,118 @@
+---
+title: "Cat*Con Interactions"
+author: "Tom Booth"
+date: '2022-11-01'
+output: html_document
+---
+
+This document is to briefly elaborate the difference between two linear models with a continous outcome ( $y$ ), a continuous predictor ( $x$ ) and a binary predictor ( $z$ ) First with no interaction. :
+
+$$y = b_0 + b_1x + b_2z + \epsilon$$
+
+And second with an interaction: 
+
+$$y = b_0 + b_1x + b_2z + b_3xz + \epsilon$$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(simglm)
+library(sjPlot)
+
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+data1 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+```
+
+
+```{r}
+m1 <- lm(score ~ hours + study, data = data1)
+summary(m1)
+```
+
+```{r}
+sjPlot::plot_model(m1, type="pred", terms=c("hours","study"))
+```
+
+
+- $b_0$ = `r round(m1$coefficients[1],3)` the point where the red line crosses 0. For someone who studies no hours in the `alone` group, expected test score is 12.18
+- $b_1$ = `r round(m1$coefficients[2],3)` the slope of both lines. For each additional hour of study, score increases by 1.28 points
+- $b_2$ = `r round(m1$coefficients[3],3)` the point where the blue line crosses 0. The difference in the intercepts between study `alone` and with `others`. Those who study with others and have 0 hours of revision have an expected test score of `r round(m1$coefficients[1],3) + round(m1$coefficients[3],3)` (`r round(m1$coefficients[3],3)` higher than $b_0$ )
+
+
+```{r, echo=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method + hours:study,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0, 1.4, 1.5, 6, 6, 2, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+data2 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+```
+
+```{r}
+m2 <- lm(score ~ hours + study + hours*study, data = data2)
+summary(m2)
+```
+
+```{r}
+sjPlot::plot_model(m2, type="int")
+```
+
+
+- $b_0$ = `r round(m2$coefficients[1],3)` the point where the red line crosses 0. For someone who studies no hours in the `alone` group, expected test score is 12.51
+- $b_1$ = `r round(m2$coefficients[2],3)` the slope for those who study `alone`. For each additional hour of study, score increases by 1.24 points
+- $b_2$ = `r round(m2$coefficients[3],3)` the point where the blue line crosses 0. The difference in the intercepts between study `alone` and with `others`. Those who study with others and have 0 hours of revision have an expected test score of `r round(m2$coefficients[1],3) + round(m2$coefficients[3],3)` (`r round(m2$coefficients[3],3)` higher than $b_0$ )
+- $b_3$ = `r round(m2$coefficients[4],3)` the difference in slopes between red and blue lines. The difference in effect of hours between study `alone` and with `others`. Those who study with others have a more positive effect of hours studied (more effective) than those who study alone. The slope for others is `r round(m2$coefficients[2],3) + round(m2$coefficients[4],3)` ( $b_1 + b_3$ )
