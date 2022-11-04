@@ -1,5 +1,5 @@
 ---
-title: "Interactions I: Num x Cat & Num x Num"
+title: "Interactions II: Num x Num"
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
@@ -12,6 +12,7 @@ editor_options:
 source('assets/setup.R')
 library(tidyverse)
 library(plotly)
+library(patchwork)
 library(pander)
 set.seed(953)
 ```
@@ -38,7 +39,6 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **psych** 
 * **sjPlot**
-* **patchwork** 
 * **kableExtra**
 * **sandwich**
 * **interactions**
@@ -64,7 +64,6 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 library(tidyverse)
 library(psych)
 library(sjPlot)
-library(patchwork)
 library(kableExtra) 
 library(sandwich)
 library(interactions)
@@ -77,7 +76,7 @@ scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 # Study Overview 
 
 > **Research Question** 
-
+>
 > Does the effect of social comparison on symptoms of depression, anxiety and stress vary depending on level of Neuroticism?
 
 Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this association. 
@@ -105,7 +104,7 @@ __Preview__
 The first six rows of the data are:
 
 ```{r echo=FALSE, message=FALSE}
-read_csv('https://uoepsy.github.io/data/scs_study.csv') %>% head %>% gt::gt()
+read_csv('https://uoepsy.github.io/data/scs_study.csv') %>%  head %>% round(2) %>% gt::gt()
 ```
 
 `r optend()`
@@ -125,7 +124,7 @@ Formally state:
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 $$
-{DASS-21 Score} = \beta_0 + \beta_1 \cdot SCS Score + beta_2 \cdot Neuroticism  + \beta_3 \cdot (SCS Score \cdot Neuroticism) 
+{DASS-21 Score} = \beta_0 + \beta_1 \cdot SCS Score + \beta_2 \cdot Neuroticism  + \beta_3 \cdot (SCS Score \cdot Neuroticism) 
 $$ 
 Effects will be considered statistically significant at $\alpha=.05$
 
@@ -153,7 +152,7 @@ Remember to interpret these plots in the context of the study.
 
 ### Hint
 
-1. The `describe()` function is from the `psych` package, and `kable()` (which is used to make a nice table) from `kableExtra` would be useful to present your descriptive statistics. 
+1. The `describe()` function is from the `psych` package; and `kable()` and `kable_styling()` (which are used to make a nice table) from `kableExtra` would be useful to present your descriptive statistics. 
 2. The `pairs.panels()` function from the `psych` package will plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots.  
 
 :::
@@ -166,14 +165,15 @@ First, lets look at our descriptive statistics and present in a well formatted t
 ```{r}
 #| label: tbl-descript
 #| tbl-cap: Descriptive Statistics - DASS-21, SCS, and Neuroticism (Z-Scored)
-# note that we are selecting columns 2:4 and 8:9 from the describe() output - we want to include n, mean, sd, min, and max 
-# specify round(2) so that output is rounded to 2 decimal places
+# note that we are selecting our three variables of interest (dass, scs, zn)
+# we are then passing these to the kable() and kable_styling() functions so that we end up with a nice looking table, and specify digits = 2 so that output is rounded to 2 decimal places
 
-describe(scs_study %>% select(dass, scs, zn))[,c(2:4,8:9)] %>% round(2) %>%
-  kable(., caption = "Descriptive Statistics - DASS-21, SCS, and Neuroticism (Z-Scored)") %>%
-  kable_styling()
+describe(scs_study %>% 
+             select(dass, scs, zn)) %>% 
+             kable(caption = "Descriptive Statistics - DASS-21, SCS, and Neuroticism (Z-Scored)", digits = 2) %>%
+             kable_styling()
 ```
-
+<br>
 Next, look at associations among variables of interest:
 ```{r}
 scs_study %>% 
@@ -184,9 +184,9 @@ scs_study %>%
 Description of individual variables:
 
 ::: {.callout-important icon=false appearance="minimal"}
-+ The marginal distribution of scores on the Depression, Anxiety and Stress Scale (DASS-21) is unimodal with a mean of approximately `r round(mean(scs_study$dass))` and a standard deviation of `r round(sd(scs_study$dass))`. 
-+ The marginal distribution of score on the Social Comparison Scale (SCS) is unimodal with a mean of approximately `r round(mean(scs_study$scs))` and a standard deviation of `r round(sd(scs_study$scs))`.
-+ The marginal distribution of Neuroticism (Z-scored) is positively skewed, with the 25\% of scores falling below `r round(quantile(scs_study$zn, .25),2)`, 75\% of scores falling below `r round(quantile(scs_study$zn, .75),2)`.
++ The marginal distribution of scores on the Depression, Anxiety and Stress Scale (DASS-21) was unimodal with a mean of `r round(mean(scs_study$dass), 2)` and a standard deviation of `r round(sd(scs_study$dass), 2)`. 
++ The marginal distribution of score on the Social Comparison Scale (SCS) was unimodal with a mean of `r round(mean(scs_study$scs), 2)` and a standard deviation of `r round(sd(scs_study$scs), 2)`.
++ The marginal distribution of Neuroticism (Z-scored) was positively skewed.
 :::
 
 Description of correlations:
@@ -201,7 +201,8 @@ Description of correlations:
 <br> 
 
 `r qbegin(3)`
-Run the code below. It takes the dataset, and uses the `cut()` function to add a new variable called "zn_group", which is the "zn" variable split into 4 groups.  
+Run the two code chunks below. It takes the dataset, and uses the `cut()` function to add a new variable called "zn_group", which is the "zn" variable split into 4 groups.  
+
 ```{r}
 scs_study <-
   scs_study %>%
@@ -240,7 +241,7 @@ ggplot(data = scs_study, aes(x = scs, y = dass, col = zn_group)) +
   geom_smooth(method='lm', se = FALSE) +
   facet_grid(~zn_group) +
   labs(x = "SCS Scores ", y = "DASS-21 Scores") +
-  theme(legend.position = "none") # remove the legend
+  theme(legend.position = "none") # removes the legend
 ```
 
 The association between SCS scores and DASS-21 scores appears to be different across these groups. For those with a relatively high Neuroticism score, the association seems stronger, while for those with a low Neuroticism score there is almost no discernible association. 
@@ -252,6 +253,8 @@ This does suggest an interaction - the association of DASS-21 ~ SCS differs acro
 <br>
 
 :::frame
+
+**Visualising Interaction Terms**
 
 Cutting one of the explanatory variables up into groups essentially turns a numeric variable into a categorical one. We did this just to make it easier to visualise how a an association differs across the values of another variable, because we can imagine a separate line for the association between SCS and DASS-21 scores for each of the groups of Neuroticism. However, in grouping a numeric variable like this we lose information. Neuroticism is measured on a continuous scale, and we want to capture how the association between SCS and DASS-21 differs across that continuum (rather than cutting it into chunks). 
 
@@ -312,9 +315,7 @@ plot_ly(x=scs,y=zn,z=dass, type="surface") %>% layout(
 
 `r qbegin(4)`
 
-Consider that Neuroticism has already been $z$-scored, but scs has not. 
-
-Standardize the scs variable.
+Consider that Neuroticism has already been $z$-scored, but scs has not. To ensure that we can compare the effects of our estimates (and so they are both on meaningful scales), standardize the scs variable.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -391,20 +392,19 @@ coefficients(dass_mdl)
 ```
 
 + $\beta_0$ = `(Intercept)` = `r round(coef(dass_mdl)[1],2)`
-    - The intercept, or predicted DASS-21 score for the average SCS score and average level of Neuroticism. 
+    - The intercept, or predicted DASS-21 score for average SCS score (Mean = 0) and average Neuroticism score (Mean = 0).
 
 + $\beta_1$ = `zscs` = `r round(coef(dass_mdl)[2],2)`
-    - The simple slope of SCS scores for mean Neuroticism scores. 
-    - For those of average Neuroticism levels, DASS-21 scores decreased by 1.57 standard deviations for every 1 standard deviation increase in SCS scores, 
+    - The simple slope of SCS scores for average Nueroticism scores (Mean = 0). 
+    - For an individual with average Neuroticism levels, DASS-21 scores decreased by 1.57 standard deviations for every 1 standard deviation increase in SCS scores. 
     
 + $\beta_2$ = `zn` = `r round(coef(dass_mdl)[3],2)`
-    - The simple slope of Neuroticism  when number of social interactions was 0.
-    - For those with X SCS scores, DASS-21 scored increased by 1.58 for every 1 standard deviation increase in Neuroticism
+    - The simple slope of Neuroticism for average SCS scores (Mean = 0). 
+    - For those with average SCS scores, DASS-21 scored increased by 1.58 for every 1 standard deviation increase in Neuroticism.
 
 + $\beta_3$ `zscs:zn` = `r round(coef(dass_mdl)[4],2)`
-    - The interaction between SCS score and Neurotic ism on DASS-21 Scores 
-    - For every standard deviation increase in SCS scores, the association between Neuroticism and DASS-21 scores decreased by 1.83 standard deviations. 
-
+    - The interaction between SCS score and Neuroticism on DASS-21 Scores 
+    - For every 1 standard deviation increase in SCS scores, the association between Neuroticism and DASS-21 scores decreased by 1.83 standard deviations. 
 
 `r solend()`
 
@@ -420,7 +420,9 @@ Try to summarise the interaction effects in a short and concise sentence.
 
 ### Hint
 
-Make sure to give your plot informative titles/labels. You, for example, likely want to give your plot:
+Because we are looking at a numeric x numeric interaction, we want to specify `jnplot = T` (see [this weeks lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_07_interactions2), slides 17-21 for a worked example).
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
 
 - a clear and concise title (specify `main.title = `)
 - axis labels with units or scale included (specify `x.label = ` and `y.label = `)
@@ -445,11 +447,11 @@ plt_dass_mdl <- probe_interaction(model = dass_mdl,
                   legend.main = "Neuroticism (Z-scored)")
 ```
 
-Let's look at our plot:
+Let's look at the plot - to do so you need to call `interactplot` from your object `plt_dass_mdl`:
 
 ```{r}
 #| label: fig-int-dass
-#| fig-cap: "Predicted Wellbeing Scores across Social Interactions by Location"
+#| fig-cap: "Simple Sloes for +/- 1 SD and Mean Neuroticism Scores"
 
 plt_dass_mdl$interactplot
 ```
@@ -464,13 +466,34 @@ The effect of SCS scores on DASS-21 scores was more negatively pronounced for th
 
 Conduct a simple slopes analysis.
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You will need to call `$simslopes$slopes` and `simslopes$jnplot` from your object `plt_dass_mdl`. 
+
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
+#| label: fig-int-simpslope
+#| fig-cap: "Simple Slopes Results"
 plt_dass_mdl$simslopes$slopes
 ```
+
+And look at the associated plot:
+
+```{r}
+#| label: fig-int-jn
+#| fig-cap: "Johnson-Neyman Plot"
+plt_dass_mdl$simslopes$jnplot
+```
+
+
+The Johnson-Neyman technique indicated that the association between DASS-21 scores and SCS was significant when Neuroticism scores were less than 1.28 standard deviations below the mean or above -0.55 standard deviations above the mean.
 
 `r solend()`
 
@@ -479,6 +502,17 @@ plt_dass_mdl$simslopes$slopes
 `r qbegin(9)`
 
 Provide key model results in a formatted table.
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. 
+
+Remember that you can rename your DV and IV labels by specifying `dv.labels` and `pred.labels`.
+
+:::
 
 `r qend()`
 
@@ -500,7 +534,6 @@ tab_model(dass_mdl,
 
 <br>
 
-
 `r qbegin(10)`
 
 Interpret your results in the context of the research question and report your model in full.
@@ -517,11 +550,11 @@ Make sure to write your results up following [APA guidelines](https://apastyle.a
 
 Full regression results including 95% Confidence Intervals are shown in @tbl-dass-modresults. The $F$-test for model utility was significant $(F(3,652) = 48.50, p<.001)$, and the model explained approximately 17.87% of the variability in DASS-21 scores.
 
-There was a significant conditional association between DASS-21 Scores and SCS scores (Z-scored) ($\beta$ = -1.57, SE = 0.24, $p$ < .001), suggesting that for those at the mean level of Neuroticism, scores on the DASS-21 decrease by 1.57 for every 1 standard deviation increase in SCS scores. 
+There was a significant conditional association between DASS-21 Scores and SCS scores (Z-scored) ($\beta$ = -1.57, SE = 0.24, $p$ < .001), suggesting that for those with average Neuroticism scores ($M$ = 0),DASS-21 scores decreased by 1.57 for every 1 standard deviation increase in SCS scores. 
 
-A significant conditional association was also evident between DASS-21 Scores and Neuroticism (Z-scored) ($\beta$ = 1.58, SE = 0.24, $p$ <.001), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by 1.58 for every 1 standard deviation increase in Neuroticism. 
+A significant conditional association was also evident between DASS-21 Scores and Neuroticism (Z-scored) ($\beta$ = 1.58, SE = 0.24, $p$ <.001), suggesting that for those with average SCS scores ($M$ = 0), DASS-21 scores increased by 1.58 for every 1 standard deviation increase in Neuroticism. 
 
-The association between symptoms of depression and anxiety (DASS-21 scores) and social comparison was found to be dependent upon the level of Neuroticism, with a greater negative association between the two for those with high levels of Neuroticism ($\beta$ = -1.83, SE = 0.23, $p$ <.001). This interaction is visually presented in @fig-int-dass. 
+The association between symptoms of depression and anxiety (DASS-21 scores) and social comparison was found to be dependent upon the level of Neuroticism, with a greater negative association between the two for those with high levels of Neuroticism ($\beta$ = -1.83, SE = 0.23, $p$ <.001). This buffering interaction suggested that for every standard deviation increase in SCS Scores, the negative influence of Neuroticism on DASS-21 scores was reduced by 1.83 standard deviations (see @fig-int-dass). We further used the Johnson-Neyman technique to probe the interaction, and to identify regions of significance. We identified that Neuroticism values (z-scored) outside the range of -1.28 to -0.55 were significant (see @fig-int-jn).
 
 Therefore, we have evidence to reject the null hypothesis (that the effect of social comparison on symptoms of depression, anxiety and stress does not vary depending on level of Neuroticism).
 
