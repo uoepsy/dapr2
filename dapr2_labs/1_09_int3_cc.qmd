@@ -40,11 +40,9 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **psych** 
 * **sjPlot**
-* **patchwork** 
 * **kableExtra**
 * **sandwich**
 * **interactions**
-* **emmeans** 
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv
@@ -68,7 +66,6 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 library(tidyverse)
 library(psych)
 library(sjPlot)
-library(patchwork)
 library(kableExtra) 
 library(sandwich)
 library(interactions)
@@ -309,7 +306,9 @@ First, lets look at our descriptive statistics and present in a well formatted t
 cog_desc <- cog %>% 
             group_by(Diagnosis, Task) %>%
             summarise(Mean = mean(Score),
-                      SD = sd(Score)) %>% 
+                      SD = sd(Score),
+                      Min = min(Score),
+                      Max = max(Score)) %>% 
             kable(caption = "Descriptive Statistics", digits = 2) %>%
             kable_styling()
 
@@ -395,7 +394,48 @@ cog_desc
 <br> 
 
 `r qbegin(7)`
-Using the `probe_interaction()` function from the interactions package, visualise the interaction effects from your model.
+
+Interpret your coefficients in the context of the study.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. 
+
+```{r}
+coefficients(cog_mdl)
+```
+
++ $\beta_0$ = `(Intercept)` = `r round(coef(cog_mdl)[1],2)`
+    - The intercept, or predicted scores for those in the Control diagnosis condition on the Grammar task.
+
++ $\beta_1$ = `DiagnosisAmnesic` = `r round(coef(cog_mdl)[2],2)`
+    - The difference in score between Amnesic and Control conditions on the Grammar task
+    - Individuals with Amnesia scored 20 points lower than Control participants when completing the Grammar task.
+    
++ $\beta_2$ = `DiagnosisHuntingtons` = `r round(coef(cog_mdl)[3],2)`
+    - The difference in score between Huntingtons and Control conditions on the Grammar task
+    - Individuals with Huntingtons scored 40 points lower than Control participants when completing the Grammar task.
+
++ $\beta_3$ `TaskRecognition` = `r round(coef(cog_mdl)[4],2)`
+    - The difference in score between individuals in the Control diagnosis condition completing Recognition and Grammar tasks. 
+    - Individuals in the Control diagnosis condition completing Recognition tasks score 15 points higher than those Control participants completing Grammar tasks.
+    
++ $\beta_4$ `DiagnosisAmnesic:TaskRecognition` = `r round(coef(cog_mdl)[5],2)`
+    - The difference between score in Control and Amnesic diagnosis conditions between Grammar and Recognition tasks
+    - ADD INTERPRETATION
+
++ $\beta_5$ `DiagnosisHuntingtons:TaskRecognition` = `r round(coef(cog_mdl)[6],2)`
+    - The difference between score in Control and Huntington diagnosis conditions between Grammar and Recognition tasks
+    - ADD INTERPRETATION
+    
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+Using the `cat_plot()` function from the interactions package, visualise the interaction effects from your model.
 
 Try to summarise the interaction effects in a short and concise sentence. 
 
@@ -404,108 +444,41 @@ Try to summarise the interaction effects in a short and concise sentence.
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-#plt_cog_mdl <- probe_interaction(model = cog_mdl, 
-#                  modx = Diagnosis, 
-#                  mod2 = Task, 
-#                  interval = T, 
-#                  main.title = "Neuroticism moderating the effect of\nsocial comparison on depression and anxiety",
-#                  x.label = "Diagnosis",
-#                  y.label = "Score",
-#                  legend.main = "Task")
+#| label: fig-cog-int1
+#| fig-cap: "Interaction Plot"
+plt_cog_mdl <- cat_plot(model = cog_mdl, 
+                  pred = Diagnosis, 
+                  modx = Task, 
+                  interval = T, 
+                  main.title = "Interaction Plot",
+                  x.label = "Diagnosis",
+                  y.label = "Score",
+                  legend.main = "Task")
+plt_cog_mdl
 ```
 
-The red dots ('Grammar') represent the baseline for Task, while 'Control' is the baseline for Diagnosis.
+If you imagine connecting the dots of the same color with a line (you could specify `geom = "line"` in a new lline in the code chunk above to do this), you can see that the two virtual lines are not parallel (see below plot), suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.
 
-If you imagine connecting the dots of the same color with a line, you can see that the two virtual lines are not parallel, suggesting the presence of an interaction. The difference in score between recognition and grammar tasks for Huntingtons patients (consider the vertical difference) is larger than the difference in score between recognition and grammar tasks for the Control patients. If those vertical differences were the same, there would be no interaction.
+
+```{r echo = FALSE}
+#| label: fig-cog-int2
+#| fig-cap: "Interaction Plot with Connected Lines"
+plt_cog_mdl2 <- cat_plot(model = cog_mdl, 
+                  pred = Diagnosis, 
+                  modx = Task, 
+                  geom = "line",
+                  interval = T, 
+                  main.title = "Interaction Plot",
+                  x.label = "Diagnosis",
+                  y.label = "Score",
+                  legend.main = "Task")
+plt_cog_mdl2
+```
+
 
 `r solend()`
 
 <br>
-
-`r qbegin(7)`
-An alternative to `plot_model()` is the function `emmip()` (from the `emmeans` package) which stands for *EMM*eans *I*nteraction *P*lot. Use the function `emmip()` to investigate the interactions.
-
-**Hint**: You must provide as the first argument the fitted model, then a special formula saying what to plot on the x axis and what to use to differentiate the colors: `colors ~ x`, and then `CIs = TRUE` tells the function to display uncertainty intervals.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-emmip(cog_mdl, Task ~ Diagnosis, CIs = TRUE)
-```
-
-`r solend()`
-
-## Visualising the interactions
-
-```{r echo = FALSE, out.width='85%'}
-knitr::include_graphics('images/int_cc/int_cc.png')
-```
-
-In the interaction plot above you can see three highlighted differences, where the differences are denoted with the Greek letter $\Delta$ ("delta") with a hat on top, $\hat \Delta$, to denote that those are **estimates** for the unknown population differences based on the available sample data. 
-The corresponding population differences are unknown as we don't have the data for the entire population, and they are denoted with a $\Delta$ without a hat on top.
-
-You can see highlighted:
-
-- The difference in the mean score between Recognition and Grammar for Control patients, $\hat \Delta_{\text{Control}}$
-- The difference in the mean score between Recognition and Grammar for Amnesic patients, $\hat \Delta_{\text{Amnesic}}$
-- The difference in the mean score between Recognition and Grammar for Huntingtons patients, $\hat \Delta_{\text{Huntingtons}}$
-
-An interaction is present if the effect of Task (i.e. the difference in mean score between Recognition and Grammar tasks) substantially varies across the possible values for Diagnosis. That is, if the difference for Amnesic is not the same as that for Control, or if the difference for Huntingtons is not the same as that for Control, or both.
-
-The model summary returns two rows for the interactions. Let's focus on this row:
-
-```
-## DiagnosisAmnesic:TaskRecognition      -10.000     11.719  -0.853  0.40192    
-```
-
-It returns an estimate for the difference
-
-$$
-\hat \beta_4 = \hat \Delta_{\text{Amnesic}} - \hat \Delta_{\text{Control}}
-$$
-
-and also performs a test for the hypothesis that the differences are equal **in the population**:
-
-$$
-H_0: \Delta_{\text{Amnesic}} = \Delta_{\text{Control}} \\
-H_1: \Delta_{\text{Amnesic}} \neq \Delta_{\text{Control}}
-$$
-
-or, equivalently, that:
-
-$$
-H_0: \Delta_{\text{Amnesic}} - \Delta_{\text{Control}} = 0 \\
-H_1: \Delta_{\text{Amnesic}} - \Delta_{\text{Control}} \neq 0 
-$$
-
-Let's now focus on the last row:
-
-```
-## DiagnosisHuntingtons:TaskRecognition   40.000     11.719   3.413  0.00228 ** 
-```
-
-It returns an estimate for the difference
-
-$$
-\hat \beta_5 = \hat \Delta_{\text{Huntingtons}} - \hat \Delta_{\text{Control}}
-$$
-
-and also performs a test for the hypothesis that the differences are equal **in the population**:
-
-$$
-H_0: \Delta_{\text{Huntingtons}} = \Delta_{\text{Control}} \\
-H_1: \Delta_{\text{Huntingtons}} \neq \Delta_{\text{Control}}
-$$
-
-or, equivalently, that:
-
-$$
-H_0: \Delta_{\text{Huntingtons}} - \Delta_{\text{Control}} = 0 \\
-H_1: \Delta_{\text{Huntingtons}} - \Delta_{\text{Control}} \neq 0 
-$$
-
 
 `r qbegin(9)`
 
@@ -550,15 +523,15 @@ Make reference to the interaction plot and regression table.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntingtons patients in comparison to controls was significant and indicated a difference of $\hat \beta_5 = 40$ points in explicit vs implicit memory performance: $t(24) = 3.41, p = .002$.
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntingtons patients in comparison to controls was significant and indicated a difference of 40 points in explicit vs implicit memory performance ($t(24) = 3.41, p = .002$).
 
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be $\hat \beta_4 = -10$ points but it is not found to be significantly different from 0: $t(24) = -0.85, p = .40$.
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be -10 points but it was not found to be significantly different from 0 ($t(24) = -0.85, p = .40$).
 
-This indicates that the researchers' hypothesis that the difference in performance between explicit and implicit memory tasks does not differ significantly between amnesic and control patients, while it does differ significantly between Huntington and control patients.
+In relation to the researchers' hypotheses that the difference in performance between explicit and implicit memory tasks did not differ significantly between amnesic and control patients, whilst it did differ significantly between Huntington and control patients.
 
-Compared to controls, amnesiac patients will have a significant deficit in explicit memory (as measured by the recognition task), but not on implicit memory (as measured by the grammar task).
+Compared to controls, amnesiac patients had a significant deficit in explicit memory (as measured by the recognition task), but not on implicit memory (as measured by the grammar task).
 
-Compared to controls, Huntingtons patients will have a significant deficit in implicit memory (as measured by the grammar task) but not in explicit memory (as measured by the recognition task).
+Compared to controls, Huntingtons patients had a significant deficit in implicit memory (as measured by the grammar task) but not in explicit memory (as measured by the recognition task).
 
 
 `r solend()`
