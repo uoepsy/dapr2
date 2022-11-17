@@ -1,5 +1,5 @@
 ---
-title: "Categorical Predictors & Block 1 Recap"
+title: "Write Up Example & Block 2 Recap"
 link-citations: yes
 params: 
     SHOW_SOLS: TRUE
@@ -42,359 +42,350 @@ For this lab, you will need to load the following package(s):
 * **sjPlot**
 
 ### <i class="fa fa-file"></i> Lab Data
-You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing.csv. 
+You can download the data required for this lab [here](https://uoepsy.github.io/data/scs_study.csv) or read it in via this link https://uoepsy.github.io/data/scs_study.csv. 
 
-**Note**:  this is the same data as Lab 3 & 4.
+**Note**:  this is the same data as [Lab 8](https://uoepsy.github.io/dapr2/2223/labs/1_08_int2_nn.html).
 
 :::
 
-# Section A: X
+# Section A: Write-Up
+
+In this lab you will be presented with the output from a statistical analysis, and your job will be to write-up and present the results. We're going to use an example analysis using one of the datasets we have worked with on a number of exercises in previous labs concerning personality traits, social comparison, depression, and anxiety.  
+
+The aim in writing should be that a reader is able to more or less replicate your analyses **without** referring to your R code. This requires detailing all of the steps you took in conducting the analysis.  
+The point of using RMarkdown is that you can pull your results **directly** from the code. If your analysis changes, so does your report!  
+
+Make sure that your final report doesn't show any R functions or code. Remember you are interpreting and reporting your results in text, tables, or plots, targeting a generic reader who may use different software or may not know R at all.
+
 
 ## Study Overview 
 
 > **Research Question** 
 >
-> Is there an assocation between well-being and time spent outdoors *after* taking into account the assocation between well-being and _having a routine_?
+> Controlling for other personality traits, does neuroticism moderate effects of social comparison on symptoms of depression, anxiety and stress?
 
-`r optbegin("Wellbeing data codebook.", olabel=FALSE)`  
+
+Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this association. 
+
+To investigate whether the effect of social comparison on symptoms of depression, anxiety and stress varies depending on level of Neuroticism, we will need to fit a multiple regression model with an interaction term and control for other personality traits.
+
+`r optbegin("Social Comparison Study data codebook", olabel=FALSE,toggle=params$TOGGLE)`  
 
 __Description__
 
-Researchers interviewed 32 participants, selected at random from the population of residents of Edinburgh & Lothians. They used the Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+Data from 656 participants containing information on scores on each trait of a Big 5 personality measure, their perception of their own social rank, and their scores on a measure of depression.  
 
-The researchers also asked participants to estimate the average number of hours they spend outdoors each week, the average number of social interactions they have each week (whether on-line or in-person), and whether they believe that they stick to a routine throughout the week (Yes/No).  
+The data in `scs_study.csv` contain seven attributes collected from a random sample of $n=656$ participants: 
 
-The data in `wellbeing.csv` contain five attributes collected from a random sample of $n=32$ hypothetical residents over Edinburgh & Lothians, and include:
-
-- `wellbeing`: Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
-- `outdoor_time`: Self report estimated number of hours per week spent outdoors  
-- `social_int`: Self report estimated number of social interactions per week (both online and in-person)
-- `routine`: Binary Yes/No response to the question "Do you follow a daily routine throughout the week?"
-- `location`: Location of primary residence (City, Suburb, Rural)
+- `zo`: Openness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `zc`: Conscientiousness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `ze`: Extraversion (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `za`: Agreeableness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `zn`: Neuroticism (Z-scored), measured on the Big-5 Aspects Scale (BFAS)
+- `scs`: Social Comparison Scale - An 11-item scale that measures an individual’s perception of their social rank, attractiveness and belonging relative to others. The scale is scored as a sum of the 11 items (each measured on a 5-point scale), with higher scores indicating more favourable perceptions of social rank.
+- `dass`: Depression Anxiety and Stress Scale - The DASS-21 includes 21 items, each measured on a 4-point scale. The score is derived from the sum of all 21 items, with higher scores indicating higher a severity of symptoms.  
 
 __Preview__
 
 The first six rows of the data are:
 
 ```{r echo=FALSE, message=FALSE}
-read_csv('https://uoepsy.github.io/data/wellbeing.csv') %>% head %>% gt::gt()
+read_csv('https://uoepsy.github.io/data/scs_study.csv') %>%  head %>% round(2) %>% gt::gt()
 ```
-  
+
 `r optend()`
 
-# Setup
+`r optbegin("Provided Analysis Code", olabel=FALSE,toggle=params$TOGGLE)`  
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse) # for all things!
+library(psych) # good for descriptive stats
+library(kableExtra) # useful for creating nice tables
+library(car) # for assumption tests
+library(sjPlot) # for plotting models
+
+scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+
+# standardise scs score
+scs_study <- 
+  scs_study %>% 
+    mutate(
+      zscs = (scs-mean(scs))/sd(scs)
+    )
+#alternatively, you could do zscs = scale(scs, center = TRUE, scale = TRUE)
+
+# the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
+describe(scs_study) %>% 
+    kable(digits = 2) %>%
+    kable_styling(full_width = FALSE)
+
+```
+
+
+```{r, out.width="90%"}
+dass_mdl <- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study)
+par(mfrow=c(2,2))
+plot(dass_mdl)
+# 35 seems to be a very influential point, lets remove it and re-run the model
+```
+
+```{r, out.width="90%"}
+dass_mdl2 <- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study[-35, ])
+
+# check assumptions for updated model
+par(mfrow=c(2,2))
+plot(dass_mdl2)
+par(mfrow=c(1,1))
+
+# N.B. we cannot use crPlots for interactions
+```
+
+```{r, out.width="90%"}
+# Additional diagnostic plots for independence and homoscedasticity
+
+# checking for independence
+plot(resid(dass_mdl2))
+
+# alternative check for equal variances (Homoscedasticity) - 
+residualPlots(dass_mdl2)
+
+# multicollinearity
+vif(dass_mdl2)
+```
+
+```{r}
+# model output
+summary(dass_mdl2)
+```
+
+`r optend()`
+
+
+### Setup
 
 `r qbegin("Setup", qlabel = FALSE)`  
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
-4. Check coding of variables (e.g., make sure that catgorical variables are coded as factors)
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-You will need to use the `as_factor()` function here. Note that this function creates levels from the order in which they appear in your dataset (e.g., routine is in the first row of our mwdata, so would be assigned as the reference group).
-
-:::
+3. Read the scs dataset into R, assigning it to an object named `scs_study`
 
 `r qend()`
 
 `r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 ```{r message=FALSE}
-#Loading the required package(s)
 library(tidyverse)
-library(patchwork)
+library(psych) 
+library(kableExtra)
+library(car)
 library(sjPlot)
-
-# Reading in data and storing to an object named 'mwdata'
-mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
-```
-
-
-```{r message=FALSE}
-#check coding of routine variable - should be a factor - check by running `is.factor()`
-is.factor(mwdata$routine) #result = false, so need to make routine a factor
-
-#designate routine as factor and check using above code if change has been applied by re-running line (should now be TRUE)
-mwdata$routine <- as_factor(mwdata$routine)
 ```
 
 `r solend()`
 
-<br>
+### The 3-Act Structure
+
+We need to present our report in three clear sections - think of your sections like the 3 key parts of a play or story - we need to (1) provide some background and scene setting for the reader, (2) and present our results in our attempt to answer the research question we've been presented with, and (3) present a resolution to our story - relate our findings back to the question we were asked and provide our answer. 
+
+#### The First Act - Analysis Strategy
 
 `r qbegin(1)`
 
-Produce visualisations of:  
-
-1. the distribution of the `routine` variable
-2. the association between `routine` and `wellbeing`. 
-
-Provide interpretation of these figures. 
-
-
-:::{.callout-note}
-
-We cannot visualise the distribution of `routine` as a density curve or boxplot, because it is a _categorical_ variable (observations can only take one of a set of discrete response values). Revise the [DAPR1 materials](https://uoepsy.github.io/dapr1/2122/labs/1_01_data_types.html#Types_of_data) for a recap of data types.
-
-:::
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint 
-
-Consider using `geom_bar()` and/or `geom_boxplot()`. The [DAPR1 categorical data lab](https://uoepsy.github.io/dapr1/2122/labs/1_02_categorical.html) might provide a useful starting point if needed.
-
-:::
+Attempt to draft a discussion section based on the above research question and analysis provided.
 
 `r qend()`
 
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+:::{.callout-tip appearance="simple" collapse="true"}
 
-`geom_bar()` will count the number of observations falling into each unique level of the routine variable:
-```{r}
-#| label: fig-dist-routine
-#| fig-cap: "Marginal distribution plots of Routine (y/n)"
+### Analysis Strategy - What To Include
 
-p1 <- ggplot(data = mwdata, aes(x = routine)) +
-  geom_bar()+
-  labs(x = "Routine", y = "Frequency")
-p1
-```
+Your analysis strategy will contain a number of different elements detailing plans and changes to your plan. Remember, your analysis strategy should **not** contain any results. You may wish to include the following sections:  
 
-We might plot the association between routine and wellbeing as two boxplots:
+-  Very brief data and design description:
+     - Give the reader some background on the context of your write-up. For example, you may wish to describe the data source, data collection strategy, study design, number of observational units.
+     - Specify the variables of interest in relation to the research question, including their unit of measurement, the allowed range (for Likert scales), how they are scored, and if they are factors make sure to list the order of the levels.
 
-```{r wbroutine}
-#| label: fig-relation-wboutine
-#| fig-cap: "Relationship between wellbeing and presence of routine"
+-  Data management:  
+     - Describe any data cleaning and/or recoding.
+     - Are there any observations that have been excluded based on pre-defined criteria? How/why, and how many? 
+     - \* Describe any transformations performed to aid your interpretation (i.e., log transformation, mean centering, standardisation, etc.)
 
-p2 <- ggplot(data = mwdata, aes(x = routine, y = wellbeing)) +
-  geom_boxplot()+
-  labs(x = "Routine", y = "Wellbeing score (WEMWBS)")
-p2
-```
+-  Model specification:  
+     -  Clearly state your hypotheses and specify your chosen significance level.
+     -  What type of statistical analysis do you plan to use to answer the research question? (e.g., t-test, simple linear regression, multiple linear regression, etc.)
+     - In some cases, you may wish to include some visualisations and descriptive tables to motivate your model specification. 
+     -  Specify the model(s) to be fitted to answer your given research question and analysis structure. Clearly specify the response and explanatory variables included in your model(s) and remember to describe the coding of categorical variables (i.e., factors) so the reader is aware of any reference levels. 
+     -  Detail the steps that you will undertake to ensure that your model(s) do not violate the appropriate assumptions.
+     -  If applicable, detail any required changes/modifications to the model specification to satisfy assumptions. Consider the following: Was there anything you had to do differently than planned during the analysis? Did the modelling highlight issues in your data? Did you have to do anything (e.g., transform any variables, exclude any observations) in order to meet assumptions?
+
+:::frame
+
+Note that the * used on occasion in the above indicates that you may/should in some cases repeat these steps if you decide to make any modifications to your data (e.g., removing outliers, etc.).
+
+:::
+
+As noted and encouraged throughout the course, one of the main benefits of using RMarkdown is the ability to include inline R code in your document. Try to incorporate this in your write up so you can automatically pull the specified values from your code. If you need a reminder on how to do this, see [Lesson 4 of the Rmd Bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
+
+:::
+
+`r optbegin("Example Write-Up of Analysis Strategy Section", olabel=FALSE, toggle = params$TOGGLE)`
+
+Data was obtained from https://uoepsy.github.io/data/scs_study.csv: a dataset containing information on `r nrow(scs_study)` participants, including $Z$-scores on the 5 personality traits assessed by the Big-Five Aspects Scale (BFAS) (Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism). Participants were also assessed on the Social Comparison Scale (SCS), which is an 11-item scale measuring self-perception (relative to others) of social rank, attractiveness and belonging, and the Depression Anxiety and Stress Scale (DASS-21) - a 21 item measure with higher scores indicating higher severity of symptoms. For both of these measures, only total scores are available. Items in the SCS are measured on a 5-point scale, giving minimum and maximum possible scores of 11 and 55 respectively. Items in the DASS-21 are measured on a 4-point scale, meaning that scores can range from a possible 21 to 84. 
+  
+All participant data was complete (no missing values), with scores on the SCS and the DASS-21 all within possible ranges. 
+
+To investigate whether, when controlling for other personality traits, neuroticism moderates the effect of social comparison on symptoms of depression, anxiety and stress, total scores on the DASS-21 were modelled using multiple linear regression. The Z-scored measures on each of the big-five personality traits were included as predictors, along with scores on the SCS (Z-scored) and its interaction with the measure of Neuroticism. Effects were considered statistically significant at $\alpha = 0.05$.  
+
+The following model specification was be used:
+$$
+\text{DASS-21} 
+= \beta_0 + \beta_1 \text{O} + \beta_2 \text{C} + \beta_3 \text{E} + \beta_4 \text{A} 
++ \beta_5 \text{N} + \beta_6 \text{SCS} + \beta_7 (\text{SCS} \cdot \text{N}) 
++ \epsilon  \\ \\
+\begin{align}
+\text{where} \qquad
+& \text{O = Openness, z-scored} \\
+& \text{C = Conscientiousness, z-scored} \\
+& \text{E = Extraversion, z-scored} \\
+& \text{A = Agreeableness, z-scored} \\
+& \text{N = Neuroticism, z-scored} \\
+& \text{SCS = Social Comparison Scale, z-scored} \\
+\end{align}
+$$
+
+To address the research question of whether neuroticism moderated the effect of social comparison on depression and anxiety, we tested whether the interaction between SCS and Neuroticism was significant. Formally, this corresponded to testing whether the interaction coefficient was equal to zero:
+
+$$
+H_0: \beta_7 = 0 \\
+\\
+H_1: \beta_7 \neq 0
+$$
 
 
-```{r}
-#place plots adjacent to one another
-p1 | p2
-```
+For the final model we visually assessed the following assumptions using diagnostic plots: linearity (via plot of residuals vs fitted values), independence (with the previous plot and a plot of residuals vs index), equal variances (via a scale-location plot), and normality (via a qqplot of the residuals). We also checked if there was any evidence of multicollinearity by checking VIF values, where values > 5 were considered to indicate moderate multicollinearity, and values > 10 severe.
 
-From @fig-dist-routine, we can see that there are more individuals that do not have a routine than those who do. 
+`r optend()`
 
-From @fig-relation-wboutine, we can see that individuals with a routine tend to have higher wellbeing scores than those who do not. 
-
-`r solend()`  
-
-<br>
+#### The Second Act - Results
 
 `r qbegin(2)`
 
-1. Formally state:
-
-+ your chosen significance level 
-+ the null and alternative hypotheses
-
-2. Fit the multiple regression model below using `lm()`, and assign it to an object named `mdl2`. 
-
-$$
-Wellbeing = \beta_0 + \beta_1 \cdot Routine_{No Routine} + \beta_2 \cdot OutdoorTime + \epsilon
-$$
-
-Examine the `summary()` output of the model. 
-
-$\hat \beta_0$ (the intercept) is the estimated average wellbeing score associated with zero hours of weekly outdoor time and zero in the routine variable. What group is the intercept the estimated wellbeing score for when they have zero hours of outdoor time? Why (think about what zero in the routine variable means)?  
+Attempt to draft a results section based on your detailed analysis strategy and the analysis provided.
 
 `r qend()`
 
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+:::{.callout-tip appearance="simple" collapse="true"}
 
-Effects will be considered statistically significant at $\alpha=.05$
+### Results - What To Include
 
-$H_0: \beta_2 = 0$
+The results section should follow from your analysis strategy. This is where you would present the evidence and results that will be used to answer the research questions and can support your conclusions. Make sure that you address all aspects of the approach you outlined in the analysis strategy. 
 
-There is no association between well-being and time spent outdoors after taking into account the relationship between well-being and routine
+In this section, it is useful to include tables and plots to clearly present your findings to your reader. It is important, however, to carefully select what is the key information that should be presented. You don't want to overload the reader with unnecessary information, and you also want to save space in case there is a page limit. Make use of figures with multiple panels where you can.
 
-$H_1: \beta_2 \neq 0$
+As a broad guideline, you want to start with the results of an exploratory data analysis, presenting tables of summary statistics and exploratory plots. You may also want to visualise relationships between variables and report covariances or correlations. Then, you should move on to the results from your model.
+Remember that in the main part of the report you should only interpret and report for models that **do not violate** the assumptions.
+You should also interpret all of the results presented, and remember to make reference to and comment on your assumption and diagnostic checks for key models.
 
-There is an association between well-being and time spent outdoors after taking into account the relationship between well-being and routine
+:::
 
+`r optbegin("Example Write-Up of Results Section", olabel=FALSE, toggle = params$TOGGLE)`
 
-```{r}
-mdl2 <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
-summary(mdl2)
+One observation (unit 35) was judged to be too influential on the model (Cook's Distance = `r round(cooks.distance(dass_mdl)[35],2)`) and as such was excluded from the final analysis, leaving 655 observations.
+
+Descriptive statistics are displayed in @tab-scsdasstab. Bivariate correlations show a moderate negative relationship between DASS-21 and SCS scores; a moderate positive relationship between DASS-21 and Neuroticism, and a weak positive correlation between SCS and Neuroticism. Additionally, a strong positive relationship is evident between Extraversion and Agreeableness (see @fig-splom)). 
+
+```{r scsdasstab, echo = FALSE}
+# the kable() function makes tables nice for html:
+describe(scs_study %>% select(scs, dass))[,c(2:4,8:9)] %>% round(2) %>%
+  knitr::kable(., caption = "SCS and DASS-21 descriptive statistics") %>%
+  kableExtra::kable_styling()
 ```
 
-As you can see in the output of the model, we have a coefficient called `routineNo Routine`. This is the parameter estimate for a dummy variable which has been inputted into the model. The `lm()` function will automatically name the dummy variables (and therefore the coefficients) according to what level is identified by the 1. It names them `<variable><Level>`, so we can tell that `routineNo Routine` is 1 for "No Routine" and 0 for "Routine".  
+```{r splom, echo=FALSE, fig.cap="Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21"}
+# scatterplot matrix of dataset without the zscs variable
+pairs.panels(scs_study %>% select(-zscs))
+```
 
-The intercept is therefore the estimated wellbeing score for those with a Routine and zero hours of outdoor time.   
+```{r diagplots, echo = FALSE, out.width="90%", fig.cap = "Diagnostic plots."}
+par(mfrow = c(2,2))
+plot(dass_mdl2)
+par(mfrow = c(1,1))
+```
 
-`r solend()`
+The model met assumptions of linearity and independence (see top left panel of  @fig-diagplots), homoscedasticity (see bottom left panel of @fig-diagplots), and normality (see top right panel of @fig-diagplots) where QQplot shows very little deviation from the diagonal line.
+
+```{r echo=FALSE}
+fres <- summary(dass_mdl2)$fstatistic
+fres <- round(fres,2)
+```
+
+Full regression results including 95\% Confidence Intervals are shown in @tab-tabmodel. The interaction between social comparison and neuroticism in predicting depression and anxiety is visually presented in Figure \@ref(fig:intplot). The F-test for model utility was significant (F(`r fres[2]`,`r fres[3]`) = `r fres[1]`, p<.001), and the model explained approximately `r round(summary(dass_mdl2)$adj.r.squared * 100, 1)`% of the variability in DASS-21 Scores. 
 
 <br>
+<center>
+```{r tabmodel, echo=FALSE}
+tab_model(dass_mdl2,
+          dv.labels = c("DASS-21"),
+          pred.labels = c("zscs"="Social Comparison Scale", 
+                          "zn"="Neuroticism", 
+                          "zo"="Openness", 
+                          "zc"="Conscientiousness",
+                          "ze"="Extraversion",
+                          "za"="Agreeableness",
+                          "zscs:zn"="Social Comparison Scale : Neutoricism"),
+          title = "(\\#tab:tabmodel) Regression table for DASS-21 model. Outcome variable is raw total score on DASS-21, all predictors are Z-scored")
+```
+</center>
+<br> 
+
+Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores ($\beta$ = -1.94, SE = 0.23, p < .001), suggesting that for those at the mean level of neuroticism, scores on the DASS-21 decrease by 1.94 for every 1 standard deviation increase in SCS scores. A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores ($\beta$ = 1.42, SE = 0.23,, p<.001), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by 1.42 for every 1 standard deviation increase in neuroticism. 
+
+Crucially, the association between social comparison and symptoms of depression and anxiety was found to be dependent upon the level of neuroticism, with a greater negative association between the two for those with high levels of neuroticism ($\beta$ = -2.77, SE = 0.24, p<.001). This interaction is visually presented in @fig-intplot.
+
+```{r intplot, echo=FALSE, out.width="90%", fig.cap="Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism", fig.align = "center"}
+plot_model(dass_mdl2, type="pred", terms = c("zscs","zn [-1,1]")) +
+  labs(title="Neuroticism moderating the effect of\nsocial comparison on depression and anxiety", 
+       x = "Social Comparison Scale (Z-scored)",
+       y = "DASS-21")+
+  scale_color_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
+                     values = c("dodgerblue","tomato1")) + 
+  scale_fill_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
+                     values = c("dodgerblue","tomato1"))
+```
+
+<br> 
+
+The results presented here indicated that the association between social comparison and depression and anxiety does depend upon individuals' levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. 
+
+`r optend()`
+
+
+#### The Third Act - Discussion
+
 
 `r qbegin(3)`
 
-The researchers have decided that they would prefer 'no routine' to be considered the reference level for the "routine" variable instead of 'routine'. Apply this change to the variable and re-run your model.
+Attempt to draft a discussion section based on your results and the analysis provided.
+
+`r qend()`
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
-### Hint 
+### Discussion - What To Include
 
-You will need to use the `relevel()` function here. 
+In the discussion section, you should summarise the key findings from the results section and provide the reader with take-home sentences drawing the analysis together and relating it back to the original question. 
 
-:::
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-Now we are fitting the below model:
-
-$$
-Wellbeing = \beta_0 + \beta_1 \cdot Routine_{Routine} + \beta_2 \cdot OutdoorTime + \epsilon
-$$
-So we will need to change our reference group before re-running out model:
-
-```{r}
-#re-order so that no routine is reference level
-mwdata$routine <- relevel(mwdata$routine, 'No Routine')
-
-#re-run model and check summary
-mdl2_reorder <- lm(wellbeing ~  routine + outdoor_time, data = mwdata)
-summary(mdl2_reorder)
-
-```
-
-You should now see that our routine variable is now showing  `routineRoutine` instead of `routineNo Routine`. This means that 1 is now for "Routine" and 0 for "No Routine".
-
-`r solend()`
-
-
-<br>
-
-`r qbegin(4)`
-
-We can visualise the model below as two lines.
-
-$\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Routine_{Routine} + \hat \beta_2 \cdot OutdoorTime$ 
-
-Each line represents the model predicted values for wellbeing scores across the range of weekly outdoor time, with one line for those who report having "Routine" and one for those with "No Routine".  
-
-Get a pen and paper, and sketch out the plot shown in @fig-annotate.  
-
-```{r plot-annotate, echo=FALSE, message=FALSE}
-#| label: fig-annotate
-#| fig-cap: "Multiple regression model: Wellbeing ~ Routine + Outdoor Time"
-
-sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
-  scale_fill_manual(NULL, values=c(NA,NA))
-```
-
-Annotate your plot with labels for each of parameter estimates from your model: 
-
-| Parameter Estimate   |      Model Coefficient    |  Estimate                  |
-|----------------------|:-------------------------:|---------------------------:|
-| $\hat \beta_0$       | `(Intercept)`             | `r round(coef(mdl2_reorder)[1],2)` |
-| $\hat \beta_1$       | `routineRoutine`          | `r round(coef(mdl2_reorder)[2],2)` |
-| $\hat \beta_2$       | `outdoor_time`            | `r round(coef(mdl2_reorder)[3],2)` |
-
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint 
-
-Below you can see where to add the labels, but we have not said which is which. 
-
-```{r echo=FALSE, message=FALSE}
-sjPlot::plot_model(mdl2, type="pred", terms=c("outdoor_time","routine"), show.data=FALSE)+
-  scale_fill_manual(NULL, values=c(NA,NA))+
-  geom_vline(xintercept = 0) +
-  geom_segment(aes(x=1,xend=0,
-                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-1,
-                   yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))),
-               col="black",lwd=.2)+
-  geom_label(aes(x=2,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=0))-3), 
-             label="B", col="black")+
-  geom_segment(aes(x=20,xend=20,
-                   y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=20)),
-                   yend=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))),
-               col="black",lwd=.2,
-               arrow = arrow(length = unit(3, "mm")))+
-  geom_label(aes(x=21,y=predict(mdl2,newdata=data.frame(routine="Routine",outdoor_time=20))-5),
-               label="A", col="black")+
-  geom_segment(aes(x=10,xend=11,
-                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
-                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
-             col="black",lwd=.2)+
-  geom_segment(aes(x=11,xend=11,
-                 y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10)),
-                 yend=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=11))),
-             col="black",lwd=.2)+
-  geom_label(aes(x=12,y=predict(mdl2,newdata=data.frame(routine="No Routine",outdoor_time=10))),
-                 label="C",col="black")+
-  NULL -> plot_annotate
-
-plot_annotate
-
-```
-
-+ A is the vertical distance between the red and blue lines (the lines are parallel, so this distance is the same wherever you cut it on the x-axis).  
-+ B is the point at which the blue line cuts the y-axis.  
-+ C is the vertical increase (increase on the y-axis) for the blue line associated with a 1 unit increase on the x-axis (the lines are parallel, so this is the same for the red line).  
+The discussion should be relatively brief, and should not include any statistical analysis - instead think of the discussion as a conclusion, providing an answer to the research question(s).
 
 :::
 
-`r qend()`
+`r optbegin("Example Write-Up of Discussion Section", olabel=FALSE, toggle=params$TOGGLE)`
 
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We investigated if neuroticism moderated effects of social comparison on symptoms of depression, anxiety, and stress after controlling for other personality traits. 
 
-+ A = $\hat \beta_2$ = `routineRoutine` coefficient = `r round(coef(mdl2_reorder)[2],2)`
-+ B = $\hat \beta_0$ = `(Intercept)` coefficient  = `r round(coef(mdl2_reorder)[1],2)`
-+ C = $\hat \beta_1$ = `outdoor_time` coefficient = `r round(coef(mdl2_reorder)[3],2)` 
+Our results led us to reject the null hypothesis that the interaction coefficient was equal to zero, as the results indicated that the association between social comparison and depression and anxiety may depend upon individuals' levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data based on significance alone - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.
 
-```{r echo=FALSE}
-plot_annotate
-```
-
-`r solend()`
-
-<br>
-
-`r qbegin(5)`
-
-Interpret your results in the context of the research question and report your model in full. 
-
-Provide key model results in a formatted table.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-#| label: tbl-modresults
-#| tbl-cap: Regression Table for Wellbeing Model
-#create table for results
-tab_model(mdl2_reorder,
-          dv.labels = "Wellbeing (WEMWBS Scores)",
-          pred.labels = c("routineRoutine" = "Has Routine",
-                          "outdoor_time" = "Outdoor Time (hours per week)"),
-          title = "Regression Table for Wellbeing Model")
-```
-
-And now lets write our results up:
-
-::: {.callout-important icon=false appearance="minimal"}
-
-Full regression results including 95% Confidence Intervals are shown in @tbl-modresults. The $F$-test for model utility was significant $(F(2,29) = 11.21, p<.001)$, and the model explained approximately 39.72% of the variability in wellbeing scores.
-
-After controlling for routine, there was a significant association between wellbeing scores and outdoor time $(\beta = 0.92, SE = 0.24, p < .001)$. This suggested that for every additional hour of outdoor time, wellbeing scores, on average, were higher by 0.92 points ($CI_{95}[0.43 - 1.40]$). Therefore, we have evidence to reject the null hypothesis (that there was no association between well-being and time spent outdoors after taking into account the relationship between well-being and routine).
-
-:::
- 
-`r solend()`
+`r optend()`
 
 # Section B: Weeks 6 - 11 Recap
 
@@ -514,53 +505,157 @@ See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and
 `r optend()`
 
 
-`r optbegin("Partitioning Variation: Sum of Squares", olabel=FALSE,toggle=params$TOGGLE)`
-`r optend()`
+`r optbegin("Assumptions: Linearity", olabel=FALSE,toggle=params$TOGGLE)`
 
+### Simple Linear Regression
+In simple linear regression (SLR) with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. If this assumption was met, the residuals would appear to be randomly scattered around zero.  
+The rationale for this is that, once you remove from the data the linear trend, what's left over in the residuals should not have any trend, i.e. have a mean of zero.
 
-`r optbegin("F-test & F-ratio", olabel=FALSE,toggle=params$TOGGLE)`
-`r optend()`
+### Multiple Regression
+In multiple regression, however, it becomes more necessary to rely on diagnostic plots of the model residuals. This is because we need to know whether the relations are linear between the outcome and each predictor _after accounting for the other predictors in the model._  
 
+In order to assess this, we use **partial-residual plots** (also known as 'component-residual plots'). This is a plot with each explanatory variable $x_j$ on the x-axis, and **partial residuals** on the y-axis.
 
-`r optbegin("R-squared and Adjusted R-squared", olabel=FALSE,toggle=params$TOGGLE)`
-`r optend()`
+Partial residuals for a predictor $x_j$ are calculated as:
+$$
+\hat \epsilon + \hat \beta_j x_j
+$$
 
+:::blue
 
-`r optbegin("Binary Variables", olabel=FALSE,toggle=params$TOGGLE)`
-`r optend()`
-
-
-`r optbegin("Categorical Predictors with k levels", olabel=FALSE,toggle=params$TOGGLE)`
-
-:::{.callout-note}
-
-See Week 5 lectures for further details, examples, and to revise these concepts further.
+In **R**, we can easily create these plots for all predictors in the model by using the `crPlots()` function from the `car` package.  
 
 :::
 
 `r optend()`
 
-`r optbegin("Steps Involved in Modelling", olabel=FALSE,toggle=params$TOGGLE)`
+
+`r optbegin("Assumptions: Equal Variances (Homoscedasticity)", olabel=FALSE,toggle=params$TOGGLE)`
+
+The equal variances assumption is that the error variance $\sigma^2$ is constant across values of the predictor(s) $x_1, \dots,  x_k$, and across values of the fitted values $\hat y$. This sometimes gets termed "Constant" vs "Non-constant" variance. Figures \@ref(fig:ncv1) & \@ref(fig:ncv2) shows what these look like visually. 
+
+```{r ncv1, echo=FALSE, fig.cap="Non-constant variance for numeric and categorical x", fig.width = 8, out.width = '90%'}
+library(patchwork)
+n=1000
+x <- runif(n, min = 0, max = 100)
+y.increasing <- 3 + 0.2 * x + (1 + x / 25) * rnorm(n, sd = 3)
+y.good <- 3 + 0.1 * x + rnorm(n, sd = 3)
 
 
-You can think of the sequence of steps involved in statistical modeling as:  
-$$
-\text{Choose} \rightarrow \text{Fit} \rightarrow \text{Assess} \rightarrow \text{Use}
-$$
+lm.good <- lm(y.good ~ x)
+lm.bad <-lm(y.increasing~x)
 
-:::frame
-**A general rule**  
-<br>
-<center> Do not use (draw inferences or predictions from) a model before you have **assessed** whether the model satisfies the underlying assumptions</center>
+p1<-ggplot(NULL, aes(x=fitted(lm.bad), y=resid(lm.bad)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p2<-ggplot(NULL, aes(x=fitted(lm.good), y=resid(lm.good)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p3<-ggplot(NULL, aes(x=fitted(lm.bad)<mean(fitted(lm.bad)), y=resid(lm.bad)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+
+(p1 | p3 ) + plot_annotation(title = "Non-constant variance")
+```
+
+```{r ncv2, echo=FALSE, fig.cap="Constant variance for numeric and categorical x", fig.width = 8, out.width = '90%'}
+(p2 | p4) + plot_annotation(title = "Constant variance")
+```
+
+:::blue
+
+In **R**, we can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the `car` package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test").  
+
 :::
 
+`r optend()`
+
+
+`r optbegin("Assumptions: Independence (of errors)", olabel=FALSE,toggle=params$TOGGLE)`
+
+The 'independence of errors' assumption is the condition that the errors do not have some underlying relationship which is causing them to influence one another. 
 <br>
-Throughout this block, we have completed the first three steps (**Choose**, **Fit**, and **Use**) in that we have:  
 
-1. Explored/visualised our data and specified our model
-2. Fitted the model in `R`  
-3. Interpreted our parameter estimates
+There are many sources of possible dependence, and often these are issues of study design. For example, we may have groups of observations in our data which we would expect to be related (e.g., multiple trials from the same participant). Our modelling strategy would need to take this into account.
+<br>
 
-Please note that when conducting real analyses, it would be inappropriate to complete these steps without also **assessing** whether a regression model meets the assumptions. You will learn how to do this in Block 2 of Semester 1 for linear regression models.  
+One form of dependence is **autocorrelation** - this is when observations influence those adjacent to them. It is common in data for which *time* is a variable of interest (e.g, the humidity today is dependent upon the rainfall yesterday).  
+
+`r optend()`
+
+
+`r optbegin("Assumptions: Normality (of errors)", olabel=FALSE,toggle=params$TOGGLE)`
+
+The normality assumption is the condition that the errors $\epsilon$ are normally distributed in the population.  
+
+We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.   
+
+`r optend()`
+
+
+`r optbegin("Assumptions: Multicollinearity", olabel=FALSE,toggle=params$TOGGLE)`
+
+
+For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
+
+We can assess multicollinearity using the **variance inflation factor (VIF)**, which for a given predictor $x_j$ is calculated as:  
+$$
+VIF_j = \frac{1}{1-R_j^2} \\
+$$
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values larger than 5 as moderate multicollinearity and values larger than 10 as severe multicollinearity.    
+
+:::blue
+
+In **R**, the `vif()` function from the `car` package will provide VIF values for each predictor in your model. 
+
+:::
+
+`r optend()`
+
+`r optbegin("Assumptions: Individual Case Diagnostics", olabel=FALSE,toggle=params$TOGGLE)`
+
+We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:
+
++ **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
+    + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
+    + **Studentised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `rstudent()` function will give you these.
++ **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
+    + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
++ **High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
+    + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence. In R, the `cooks.distance()` function will provide these. 
+Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
++ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
++ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  
++ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
++ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors.
+
+:::blue
+
+In **R**, we can get lots of these measures with the `influence.measures()` function:
+
+
++ `influence.measures(my_model)` will give you out a dataframe of the various measures.
++ `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
+
+:::
+`r optend()`
+
+`r optbegin("Assumptions: Interactions", olabel=FALSE,toggle=params$TOGGLE)`
+
+A few points to note when assessing the assumptions of an interaction model:
+
++  When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
++  Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
 
 `r optend()`
