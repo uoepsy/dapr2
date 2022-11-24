@@ -17,6 +17,8 @@ library(DT)
 library(pander)
 library(sjPlot)
 library(tidyverse)
+library(sandwich)
+library(interactions)
 ```
 
 :::lo
@@ -24,8 +26,7 @@ library(tidyverse)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. X
-2. X
+1. Understand how to write-up and provide interpretation of a linear model with multiple predictors.
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -40,6 +41,9 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **patchwork**
 * **sjPlot**
+* **sandwich**
+* **interactions**
+
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/scs_study.csv) or read it in via this link https://uoepsy.github.io/data/scs_study.csv. 
@@ -103,7 +107,8 @@ library(tidyverse) # for all things!
 library(psych) # good for descriptive stats
 library(kableExtra) # useful for creating nice tables
 library(car) # for assumption tests
-library(sjPlot) # for plotting models
+library(sandwich)
+library(interactions) # for plotting models
 
 scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 
@@ -168,7 +173,7 @@ summary(dass_mdl2)
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read the scs dataset into R, assigning it to an object named `scs_study`
+3. Read the scs dataset into R, assigning it to an object named `scs`
 
 `r qend()`
 
@@ -179,15 +184,17 @@ library(psych)
 library(kableExtra)
 library(car)
 library(sjPlot)
+
+scs <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
 ```
 
 `r solend()`
 
 ### The 3-Act Structure
 
-We need to present our report in three clear sections - think of your sections like the 3 key parts of a play or story - we need to (1) provide some background and scene setting for the reader, (2) and present our results in our attempt to answer the research question we've been presented with, and (3) present a resolution to our story - relate our findings back to the question we were asked and provide our answer. 
+We need to present our report in three clear sections - think of your sections like the 3 key parts of a play or story - we need to (1) provide some background and scene setting for the reader, (2) present our results in the context of the research question, and (3) present a resolution to our story - relate our findings back to the question we were asked and provide our answer. 
 
-#### The First Act - Analysis Strategy
+#### Act I: Analysis Strategy
 
 `r qbegin(1)`
 
@@ -197,7 +204,7 @@ Attempt to draft a discussion section based on the above research question and a
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
-### Analysis Strategy - What To Include
+### Analysis Strategy - What to Include
 
 Your analysis strategy will contain a number of different elements detailing plans and changes to your plan. Remember, your analysis strategy should **not** contain any results. You may wish to include the following sections:  
 
@@ -238,27 +245,31 @@ To investigate whether, when controlling for other personality traits, neurotici
 
 The following model specification was be used:
 $$
+\begin{aligned}
 \text{DASS-21} 
 = \beta_0 + \beta_1 \text{O} + \beta_2 \text{C} + \beta_3 \text{E} + \beta_4 \text{A} 
 + \beta_5 \text{N} + \beta_6 \text{SCS} + \beta_7 (\text{SCS} \cdot \text{N}) 
-+ \epsilon  \\ \\
-\begin{align}
-\text{where} \qquad
++ \epsilon  \\
+\end{aligned}
+\\
+\begin{aligned}
+\text{where} \\
 & \text{O = Openness, z-scored} \\
 & \text{C = Conscientiousness, z-scored} \\
 & \text{E = Extraversion, z-scored} \\
 & \text{A = Agreeableness, z-scored} \\
 & \text{N = Neuroticism, z-scored} \\
 & \text{SCS = Social Comparison Scale, z-scored} \\
-\end{align}
+\end{aligned}
 $$
 
 To address the research question of whether neuroticism moderated the effect of social comparison on depression and anxiety, we tested whether the interaction between SCS and Neuroticism was significant. Formally, this corresponded to testing whether the interaction coefficient was equal to zero:
 
 $$
-H_0: \beta_7 = 0 \\
-\\
-H_1: \beta_7 \neq 0
+\begin{aligned}
+H_0: \beta_7 = 0  \\  
+H_1: \beta_7 \neq 0  \\
+\end{aligned}
 $$
 
 
@@ -266,7 +277,7 @@ For the final model we visually assessed the following assumptions using diagnos
 
 `r optend()`
 
-#### The Second Act - Results
+#### Act II: Results
 
 `r qbegin(2)`
 
@@ -306,7 +317,9 @@ describe(scs_study %>% select(scs, dass))[,c(2:4,8:9)] %>% round(2) %>%
 pairs.panels(scs_study %>% select(-zscs))
 ```
 
-```{r diagplots, echo = FALSE, out.width="90%", fig.cap = "Diagnostic plots."}
+```{r, echo = FALSE, out.width="90%"}
+#| label: fig-diagplots
+#| fig-cap: Diagnostic Plots
 par(mfrow = c(2,2))
 plot(dass_mdl2)
 par(mfrow = c(1,1))
@@ -319,38 +332,51 @@ fres <- summary(dass_mdl2)$fstatistic
 fres <- round(fres,2)
 ```
 
-Full regression results including 95\% Confidence Intervals are shown in @tab-tabmodel. The interaction between social comparison and neuroticism in predicting depression and anxiety is visually presented in Figure \@ref(fig:intplot). The F-test for model utility was significant (F(`r fres[2]`,`r fres[3]`) = `r fres[1]`, p<.001), and the model explained approximately `r round(summary(dass_mdl2)$adj.r.squared * 100, 1)`% of the variability in DASS-21 Scores. 
+Full regression results including 95\% Confidence Intervals are shown in @tbl-dass-modresults. The F-test for model utility was significant (F(`r fres[2]`,`r fres[3]`) = `r fres[1]`, p<.001), and the model explained approximately `r round(summary(dass_mdl2)$adj.r.squared * 100, 2)`% of the variability in DASS-21 Scores. 
 
 <br>
 <center>
-```{r tabmodel, echo=FALSE}
+```{r echo=FALSE}
+#| label: tbl-dass-modresults
+#| tbl-cap: Regression table for DASS-21 model
+
+#create table for results
 tab_model(dass_mdl2,
-          dv.labels = c("DASS-21"),
-          pred.labels = c("zscs"="Social Comparison Scale", 
-                          "zn"="Neuroticism", 
-                          "zo"="Openness", 
-                          "zc"="Conscientiousness",
-                          "ze"="Extraversion",
-                          "za"="Agreeableness",
-                          "zscs:zn"="Social Comparison Scale : Neutoricism"),
-          title = "(\\#tab:tabmodel) Regression table for DASS-21 model. Outcome variable is raw total score on DASS-21, all predictors are Z-scored")
+          dv.labels = c("DASS-21 Scores"),
+          pred.labels = c("zscs"="Social Comparison Scale (Z-scored)", 
+                          "zn"="Neuroticism (Z-scored)", 
+                          "zo"="Openness (Z-scored)", 
+                          "zc"="Conscientiousness (Z-scored)",
+                          "ze"="Extraversion (Z-scored)",
+                          "za"="Agreeableness (Z-scored)",
+                          "zscs:zn"="Social Comparison Scale (Z-scored): Neutoricism (Z-scored)"),
+          title = "Regression table for DASS-21 model")
 ```
 </center>
 <br> 
 
-Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores ($\beta$ = -1.94, SE = 0.23, p < .001), suggesting that for those at the mean level of neuroticism, scores on the DASS-21 decrease by 1.94 for every 1 standard deviation increase in SCS scores. A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores ($\beta$ = 1.42, SE = 0.23,, p<.001), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by 1.42 for every 1 standard deviation increase in neuroticism. 
+Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores ($\beta$ = -1.94, $SE$ = 0.23, $p$ < .001), which suggested that for those at the mean level of Neuroticism, scores on the DASS-21 decreased by 1.94 for every 1 standard deviation increase in SCS scores. A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores ($\beta$ = 1.42, $SE$ = 0.23,, $p$ <.001), which suggested that for those with average scores on the SCS, scores on the DASS-21 increased by 1.42 for every 1 standard deviation increase in Neuroticism. 
 
 Crucially, the association between social comparison and symptoms of depression and anxiety was found to be dependent upon the level of neuroticism, with a greater negative association between the two for those with high levels of neuroticism ($\beta$ = -2.77, SE = 0.24, p<.001). This interaction is visually presented in @fig-intplot.
 
-```{r intplot, echo=FALSE, out.width="90%", fig.cap="Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism", fig.align = "center"}
-plot_model(dass_mdl2, type="pred", terms = c("zscs","zn [-1,1]")) +
-  labs(title="Neuroticism moderating the effect of\nsocial comparison on depression and anxiety", 
-       x = "Social Comparison Scale (Z-scored)",
-       y = "DASS-21")+
-  scale_color_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
-                     values = c("dodgerblue","tomato1")) + 
-  scale_fill_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
-                     values = c("dodgerblue","tomato1"))
+```{r warning=FALSE, message=FALSE, echo = FALSE}
+plt_scs_mdl <- probe_interaction(model = dass_mdl2, 
+                  pred = zscs, 
+                  modx = zn, 
+                  cond.int = T,
+                  interval = T, 
+                  jnplot = T,
+                  main.title = "Neuroticism moderating the effect of\nsocial comparison on depression and anxiety",
+                  x.label = "Social Comparison Scale (Z-scored)",
+                  y.label = "DASS-21 Scores",
+                  legend.main = "Neuroticism (Z-scored)")
+```
+
+```{r echo = FALSE}
+#| label: fig-intplot
+#| fig-cap: "Interaction Plot"
+
+plt_scs_mdl$interactplot
 ```
 
 <br> 
@@ -360,7 +386,7 @@ The results presented here indicated that the association between social compari
 `r optend()`
 
 
-#### The Third Act - Discussion
+#### Act III: Discussion
 
 
 `r qbegin(3)`
@@ -381,15 +407,15 @@ The discussion should be relatively brief, and should not include any statistica
 
 `r optbegin("Example Write-Up of Discussion Section", olabel=FALSE, toggle=params$TOGGLE)`
 
-Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We investigated if neuroticism moderated effects of social comparison on symptoms of depression, anxiety, and stress after controlling for other personality traits. 
+Previous research had identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We investigated if Neuroticism moderated effects of social comparison on symptoms of depression, anxiety, and stress after controlling for other personality traits. 
 
-Our results led us to reject the null hypothesis that the interaction coefficient was equal to zero, as the results indicated that the association between social comparison and depression and anxiety may depend upon individuals' levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data based on significance alone - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.
+Our results led us to reject the null hypothesis that the interaction coefficient was equal to zero, as the results indicated that the association between social comparison and depression and anxiety may depend upon individuals' levels of Neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data based on significance alone - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.
 
 `r optend()`
 
 # Section B: Weeks 6 - 11 Recap
 
-In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4 weeks. 
+In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4/5 weeks. 
 
 :::red
 
@@ -397,12 +423,7 @@ Before you expand each of the boxes below, think about how comfortable you feel 
 
 :::
 
-
-`r optbegin("Null & Alternative Hypotheses", olabel=FALSE,toggle=params$TOGGLE)`
-`r optend()`
-
-
-`r optbegin("Interaction Model", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Specifying Interaction Models", olabel=FALSE,toggle=params$TOGGLE)`
 
 **Formula:**  
 
@@ -431,19 +452,23 @@ model_name <- lm(DV ~ IV1*IV2, data = data_name)
 model_name <- lm(data_name$DV ~ data_name$IV1 + data_name$IV2 + data_name$IV1:data_name$IV2)
 ```
 
+**OR**
+
+```{r eval=FALSE}
+model_name <- lm(data_name$DV ~ data_name$IV1 + data_name$IV2 + data_name$IV1*data_name$IV2)
+```
+
 :::
 
 :::{.callout-note}
 
-See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+See Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_06_interactions1#1) for further details, examples, and to revise these concepts further.
 
 :::
 
 `r optend()`
 
-`r optbegin("Types of Models: Deterministic vs Statistical", olabel=FALSE,toggle=params$TOGGLE)`
-
-#### __Interpreting Coefficients__
+`r optbegin("Interpreting Coefficients", olabel=FALSE,toggle=params$TOGGLE)`
 
 __Interpreting coefficients for A and B in the presence of an interaction A:B__   
 
@@ -483,7 +508,7 @@ The estimate $\hat \beta_3$ is the adjustment to the slope $\hat \beta_1$ to be 
 
 :::{.callout-note}
 
-See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+See Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_06_interactions1#1) for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -498,12 +523,11 @@ Mean centering a variable involves subtracting the mean of that variable from ev
 
 :::{.callout-note}
 
-See [Week 7 lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and lectures for further details, examples, and to revise these concepts further.
+See Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_07_int1_nc.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_06_interactions1#1), and Week 8 [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_07_interactions2#1) for further details, examples, and to revise these concepts further.
 
 :::
 
 `r optend()`
-
 
 `r optbegin("Assumptions: Linearity", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -524,6 +548,12 @@ $$
 :::blue
 
 In **R**, we can easily create these plots for all predictors in the model by using the `crPlots()` function from the `car` package.  
+
+:::
+
+:::{.callout-note}
+
+See Week 10 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_10_assump_diag.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_09_assumptions_diagnostics#1) for further details, examples, and to revise these concepts further.
 
 :::
 
@@ -579,6 +609,12 @@ In **R**, we can create plots of the _Pearson residuals_ against the predicted v
 
 :::
 
+:::{.callout-note}
+
+See Week 10 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_10_assump_diag.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_09_assumptions_diagnostics#1) for further details, examples, and to revise these concepts further.
+
+:::
+
 `r optend()`
 
 
@@ -601,10 +637,24 @@ The normality assumption is the condition that the errors $\epsilon$ are normall
 
 We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.   
 
+:::{.callout-note}
+
+See Week 10 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_10_assump_diag.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_09_assumptions_diagnostics#1) for further details, examples, and to revise these concepts further.
+
+:::
+
 `r optend()`
 
+`r optbegin("Assumptions: Interactions", olabel=FALSE,toggle=params$TOGGLE)`
 
-`r optbegin("Assumptions: Multicollinearity", olabel=FALSE,toggle=params$TOGGLE)`
+A few points to note when assessing the assumptions of an interaction model:
+
++  When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
++  Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
+
+`r optend()`
+
+`r optbegin("Multicollinearity", olabel=FALSE,toggle=params$TOGGLE)`
 
 
 For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
@@ -613,7 +663,7 @@ We can assess multicollinearity using the **variance inflation factor (VIF)**, w
 $$
 VIF_j = \frac{1}{1-R_j^2} \\
 $$
-Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values larger than 5 as moderate multicollinearity and values larger than 10 as severe multicollinearity.    
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values >5 as moderate multicollinearity and values >10 as severe multicollinearity.    
 
 :::blue
 
@@ -621,9 +671,15 @@ In **R**, the `vif()` function from the `car` package will provide VIF values fo
 
 :::
 
+:::{.callout-note}
+
+See Week 10 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_10_assump_diag.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_09_assumptions_diagnostics#1) for further details, examples, and to revise these concepts further.
+
+:::
+
 `r optend()`
 
-`r optbegin("Assumptions: Individual Case Diagnostics", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Individual Case Diagnostics", olabel=FALSE,toggle=params$TOGGLE)`
 
 We have seen in the case of the simple linear regression that individual cases in our data can influence our model more than others. We know about:
 
@@ -633,7 +689,7 @@ We have seen in the case of the simple linear regression that individual cases i
 + **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
     + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
 + **High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
-    + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence. In R, the `cooks.distance()` function will provide these. 
+    + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence: $D_i = \text{Outlyingness} \times \text{Leverage}$. Cook's distance refers to the average distance the $\hat{y}$ values will move if a given case is removed. In `R`, the `cooks.distance()` function will provide these values. 
 Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
 + **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
 + **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  
@@ -649,13 +705,63 @@ In **R**, we can get lots of these measures with the `influence.measures()` func
 + `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
 
 :::
-`r optend()`
 
-`r optbegin("Assumptions: Interactions", olabel=FALSE,toggle=params$TOGGLE)`
+:::{.callout-note}
 
-A few points to note when assessing the assumptions of an interaction model:
+See Week 10 [lab](https://uoepsy.github.io/dapr2/2223/labs/1_10_assump_diag.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_09_assumptions_diagnostics#1) for further details, examples, and to revise these concepts further.
 
-+  When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot like we saw in the guided exercises above.  
-+  Interaction terms often result in multicollinearity, because these terms are made up of the product of some 'main effects'. Mean-centering the variables like we have here will reduce this source of structural multicollinearity ("structural" here refers to the fact that multicollinearity is due to our model specification, rather than the data itself)  
+:::
 
 `r optend()`
+
+# Section C: Mock Exam Questions
+
+In the exam, there will be 3 sections containing different types of questions, as outlined below:
+
+* Section A: You will answer with multiple choice questions (see Question 1 for an example)
+* Section B: You will solve by-hand calculation problems (see Question 2 for an example)
+* Section C: You will be asked questions about basic R-code and to interpret results of analyses (see Question 3 for an example)
+
+Below there is a mock question from each section described above - note that solutions are **not** provided. These are just to give you an example of the types of questions you will be presented with. If you have questions about these, ask your tutor or come to office hours to discuss. 
+
+`r qbegin(1)`
+Which assumption is being checked in the following line of code:
+
+`residualPlots(model1)`
+
+* A: Linearity
+* B: Normality
+* C: Independence
+* D: Equal variances / Homoscedasticity
+
+`r qend()`
+
+<br>
+
+`r qbegin(2)`
+
+Using the values below, calculate both $R^2$ and Adjusted $R^2$.
+
+* SS~Model~ = 70
+* SS~Residual~ = 56
+* SS~Total~ = 126
+
+`r qend()`
+
+<br>
+
+`r qbegin(3)`
+
+Researchers have a sample of 100 people, and they have measured their resting heart rate (`rhr`) and their caffeine consumption (`caffeine`). They were interested in estimating how caffeine consumption was associated with differences in resting heart rate, after controlling for age (`age`; since heart rate increases with advancing age and because they thought that older people tend to drink less caffeine).
+
+From the following output (see @fig-mock_q3), write out and interpret the regression equation for the model following APA guidelines.
+
+```{r}
+#| label: fig-mock_q3
+#| fig-cap: "Caffeinated Heart Rates"
+#| echo: false
+knitr::include_graphics("images/mock_q3.png")
+```
+
+`r qend()`
+
