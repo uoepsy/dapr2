@@ -121,10 +121,16 @@ scs_study <-
 #alternatively, you could do zscs = scale(scs, center = TRUE, scale = TRUE)
 
 # the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
-describe(scs_study) %>% 
-    kable(digits = 2) %>%
-    kable_styling(full_width = FALSE)
+describe(scs_study %>% 
+        select(dass, scs, zn))[,c(2:4,8:9)] %>% 
+        kable(., caption = "DASS-21, SCS, and Neuroticism Descriptive Statistics", digits = 2) %>%
+        kable_styling()
 
+```
+
+```{r}
+# scatterplot matrix of dataset without the zscs and other personality variables
+pairs.panels(scs_study %>% select(c(-zscs, -za, -ze, -zc, -zo)))
 ```
 
 
@@ -162,6 +168,40 @@ vif(dass_mdl2)
 ```{r}
 # model output
 summary(dass_mdl2)
+```
+
+```{r}
+#create table for results
+tab_model(dass_mdl2,
+          dv.labels = c("DASS-21 Scores"),
+          pred.labels = c("zscs"="Social Comparison Scale (Z-scored)", 
+                          "zn"="Neuroticism (Z-scored)", 
+                          "zo"="Openness (Z-scored)", 
+                          "zc"="Conscientiousness (Z-scored)",
+                          "ze"="Extraversion (Z-scored)",
+                          "za"="Agreeableness (Z-scored)",
+                          "zscs:zn"="Social Comparison Scale (Z-scored): Neutoricism (Z-scored)"),
+          title = "Regression table for DASS-21 model")
+```
+
+
+```{r}
+#interaction plot and simple slopes:
+plt_scs_mdl <- probe_interaction(model = dass_mdl2, 
+                  pred = zscs, 
+                  modx = zn, 
+                  cond.int = T,
+                  interval = T, 
+                  jnplot = T,
+                  main.title = "Neuroticism moderating the effect of\nsocial comparison on depression and anxiety",
+                  x.label = "Social Comparison Scale (Z-scored)",
+                  y.label = "DASS-21 Scores",
+                  legend.main = "Neuroticism (Z-scored)")
+
+plt_scs_mdl$interactplot
+
+plt_scs_mdl$simslopes
+
 ```
 
 `r optend()`
@@ -379,13 +419,16 @@ plt_scs_mdl <- probe_interaction(model = dass_mdl2,
 ```{r echo = FALSE}
 #| label: fig-intplot
 #| fig-cap: "Interaction Plot"
-
 plt_scs_mdl$interactplot
 ```
 
-<br> 
+The results presented here indicated that the association between social comparison and depression and anxiety did depend upon individuals' levels of Neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. The Johnson-Neyman technique (see @fig-simpslope) indicated that the association between DASS-21 scores and SCS was significant when Neuroticism scores were less than 0.93 standard deviations below the mean or more than -0.52 standard deviations above the mean.
 
-The results presented here indicated that the association between social comparison and depression and anxiety did depend upon individuals' levels of Neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. 
+```{r echo = FALSE}
+#| label: fig-simpslope
+#| fig-cap: "Simple Slopes"
+plt_scs_mdl$simslopes$jnplot
+```
 
 `r optend()`
 
@@ -767,7 +810,7 @@ Which assumption is being checked in the following line of code:
 
 `r qbegin(2)`
 
-Using the values below, calculate both $R^2$ and Adjusted $R^2$.
+Using the values below, calculate both $R^2$ and Adjusted-$R^2$.
 
 * SS~Model~ = 70
 * SS~Residual~ = 56
