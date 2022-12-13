@@ -1,0 +1,646 @@
+---
+title: "Effects Coding"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE, eval=FALSE, echo=FALSE}
+source('assets/setup.R')
+
+set.seed(3)
+
+library(DT)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand how to specify dummy and effects coding
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from [Week 1](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html)
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych** 
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/RestaurantSpending.csv) or read it in via this link https://uoepsy.github.io/data/RestaurantSpending.csv
+
+:::
+
+# Study Overview
+
+> **Research Question** 
+>
+> Do you think the type of background music playing in a restaurant influences the amount of money that diners spend on their meal?
+
+A group of researchers wanted to test the claims reported in [@North2003] on whether the type of background music playing in a restaurant influences the average amount of money spent by diners on their meal.
+
+The group researchers got in touch with a restaurant and asked to alternate silence, popular music, and classical music on successive nights over 18 days. On those nights they recorded the mean spend per head for each table.
+
+`r optbegin("Cognitive Exp 3x2 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+The following variables were collected:
+
+- `id`: Identifier for each diner
+- `type`: type of music played ("Classical Music", "Pop Music", "No Music")
+- `amount`: restaurant spending per person (in pounds - £)
+
+__Preview__
+
+The first ten rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/RestaurantSpending.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the Restaurant Spending dataset into R, assigning it to an object named `rest_spend` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(psych)
+
+#Reading in data and storing in object named 'rest_spend'
+rest_spend <- read_csv('https://uoepsy.github.io/data/RestaurantSpending.csv')
+```
+
+`r solend()`
+
+# Exercises
+
+`r qbegin(1)`
+
+Examine the dataset, and perform any necessary and appropriate data management steps.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's have a look at the data to see what we're working with:
+```{r}
+#first look at dataset structure
+str(rest_spend)
+
+#now lets look at top 6 rows (or the head) of the dataset
+head(rest_spend)
+```
+
+Music type is a categorical variable but it is encoded as a character (`<chr>`) variable rather than a factor (`<fctr>`). Let's fix this, and rename 'type' to 'Music' whilst we're at it:
+
+
+```{r}
+rest_spend <- rest_spend %>%
+    mutate(
+        type = factor(type, 
+                           levels = c("No Music", "Pop Music", "Classical Music"),
+                           labels = c("None", "Pop", "Classical"))) %>%
+        rename(music = type)
+```
+
+
+```{r}
+#re-examine the top 6 rows of the dataset
+head(rest_spend)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Formally state:
+
++ a linear model to investigate whether there are differences in types of memory deficits for those experiencing different cognitive impairment(s)
++ your chosen significance level
++ the null and alternative hypotheses
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Provide a table of descriptive statistics and visualise your data (remember to interpret your plot in the context of the study).
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here. 
+
+2. When visualising the data, consider using `geom_boxplot()` to visually explore the association between restaurant spending and music type. 
+
+3. Make sure to comment on any observed differences among the sample means of the three background music types.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+First, lets look at our descriptive statistics and present in a well formatted table:
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-music-descript
+#| tbl-cap: Descriptive Statistics
+music_desc <- rest_spend %>% 
+            group_by(music) %>%
+            summarise(n = n(),
+                      Mean = mean(amount),
+                      SD = sd(amount),
+                      Min = min(amount),
+                      Max = max(amount)) %>% 
+            kable(caption = "Descriptive Statistics", digits = 2) %>%
+            kable_styling()
+
+music_desc
+```
+
+Now, lets visualise the association between restaurant spending and music type using a boxplot:
+
+```{r}
+#| label: fig-music-desc
+#| fig-cap: "Associations among Spending and Music Type"
+p1 <- ggplot(data = rest_spend, aes(x = music, y = amount, fill = music)) +
+  geom_boxplot() +
+  labs(x = 'Background music type', y = 'Restaurant spending (in GBP)')
+
+p1 
+```
+
++ There are three types of music groups ($g = 3$), where there is one group for each music type: “Classical Music,” “No Music,” “Pop Music". Each group has 120 observations. 
++ It seems that customers without background music or pop music had a similar average restaurant spending
++ The average restaurant spending seems to be higher for those who had a classical music background compared to the customers either without music or with a pop music background.
+
+
+`r solend()`
+
+<br>
+
+## Levels of Variable & Side Constraints
+
+### Levels of variable
+
+`R` by default orders the levels of a categorical variable in alphabetical order:
+
+```{r}
+levels(rest_spend$music)
+```
+
+If we follow the same approach and order the groups by alphabetical ordering, we can represent the data as follows:
+
+| Population Name | Population ID | Sample observations  | Population mean |
+|:---------------:|:-------------:|:--------------------:|:---------------:|
+| Classical Music | 1 | $y_{1,1}, y_{1,2}, ..., y_{1,n}$ | $\mu_{1}$ |
+| No Music        | 2 | $y_{2,1}, y_{2,2}, ..., y_{2,n}$ | $\mu_{2}$ |
+| Pop Music       | 3 | $y_{3,1}, y_{3,2}, ..., y_{3,n}$ | $\mu_{3}$ |
+
+
+:::frame 
+#### Sum to zero constraint - effects coding
+
+Under the constraint $\beta_1 + \beta_2 + \beta_3 = 0$, the model coefficients are interpreted as follows:
+
+- $\beta_0 = \mu$ is interpreted as the overall or global mean --- that is, the population mean when all the groups are combined;
+- $\beta_i = \mu_i - \mu$ is interpreted as the effect of group $i$ --- that is, the difference between the population mean for group $i$, $\mu_i$, and the global population mean, $\mu$.
+
+
+We can fit the linear regression model:
+
+$$
+y 
+= b_0 
++ b_1 \ \text{EffectLevel1} 
++ b_2 \ \text{EffectLevel2} 
++ \epsilon
+$$
+where
+
+$$
+\text{EffectLevel1} = \begin{cases}
+1  & \text{if observation is from category 1} \\
+0  & \text{if observation is from category 2} \\
+-1 & \text{otherwise}
+\end{cases}
+\\
+\text{EffectLevel2} = \begin{cases}
+0  & \text{if observation is from category 1} \\
+1  & \text{if observation is from category 2} \\
+-1 & \text{otherwise}
+\end{cases}
+$$
+
+Schematically,
+
+$$
+\begin{matrix}
+\textbf{Level}  & \textbf{EffectLevel1} & \textbf{EffectLevel2} \\
+\hline
+\text{Classical Music} & 1   & 0    \\
+\text{No Music}        & 0   & 1    \\
+\text{Pop Music}       & -1  & -1
+\end{matrix}
+$$
+
+:::blue
+In **R** this is simply done by saying:
+
+```{r}
+contrasts(rest_spend$type) <- "contr.sum"
+mdl_sum <- lm(amount ~ type, data = rest_spend)
+coef(mdl_sum)
+```
+
+where `type` is a factor. In such case R will automatically create the two variables `EffectLevel1` and `EffectLevel2` for you!
+
+The `summary(mdl)` will return 3 estimated coefficients:
+
+- $b_0 = 22.74$ is estimated overall mean
+- $b_1 = 1.44$ is the effect of Classical Music
+- $b_2 = -0.6$ is the effect of No Music
+- **NOTE**: The effect of Pop Music is not shown by `summary` as it is found via the side-constraint as $b_3 = -(b_1 + b_2) = -0.84$!
+:::
+:::
+
+
+:::frame
+#### Reference group constraint - dummy coding
+
+Under the constraint $\beta_1 = 0$, meaning that the first factor level is the reference group,
+
+- $\beta_0$ is interpreted as $\mu_1$, the mean response for the reference group (group 1);
+- $\beta_i$ is interpreted as the difference between the mean response for group $i$ and the reference group.
+
+We can fit the linear regression model:
+
+$$
+y 
+= b_0 
++ b_1 \ \text{IsTypeNoMusic} 
++ b_2 \ \text{IsTypePopMusic} 
++\epsilon
+$$
+where
+
+$$
+\text{IsTypeNoMusic} = \begin{cases}
+1 & \text{if observation is from the No Music category} \\
+0 & \text{otherwise}
+\end{cases}
+\\
+\text{IsTypePopMusic} = \begin{cases}
+1 & \text{if observation is from the Pop Music category} \\
+0 & \text{otherwise}
+\end{cases}
+$$
+
+Schematically,
+
+$$
+\begin{matrix}
+\textbf{Level}  & \textbf{IsTypeNoMusic} & \textbf{IsTypePopMusic} \\
+\hline
+\text{Classical Music} & 0   & 0   \\
+\text{No Music}        & 1   & 0   \\
+\text{Pop Music}       & 0   & 1
+\end{matrix}
+$$
+
+:::blue
+In **R** this is simply done by saying:
+
+```{r}
+contrasts(rest_spend$type) <- "contr.treatment"
+mdl_trt <- lm(amount ~ type, data = rest_spend)
+coef(mdl_trt)
+```
+
+where `type` is a factor. In such case R will automatically create the two dummy variables `IsTypeNoMusic` and `IsTypePopMusic` for you!
+
+The `summary(mdl)` will return 3 estimated coefficients:
+
+- $b_0 = 24.17$ is the mean of the base level (level 1)
+- $b_1 = -2.03$ is the effect of No Music
+- $b_2 = -2.28$ is the effect of Pop Music
+- **NOTE**: The effect of Classical Music is not shown as it is equal to zero by the constraint!
+:::
+:::
+
+### Side Contraints
+
+Possible side-constraints on the parameters are:
+
+|       Name      |             Constraint            |             Meaning of $\beta_0$            |         R         |
+|:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
+| Sum to zero (Effects Coding) | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
+| Reference group (Dummy Coding) |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
+
+
+:::yellow
+**IMPORTANT**
+
+- By default R uses the reference group constraint
+
+- If your factor has $g$ levels, your regression model will have $g-1$ dummy variables (R creates them for you)
+:::
+
+
+
+# ANOVA F-test
+
+Since R uses the reference group constraint, in this section and the next one, we will not specify any side-constraints, meaning that $\beta_1 = 0$.
+
+`r qbegin(4)`
+Fit a linear model to the data, having `amount` as response variable and the factor `type` as predictor. Call the fitted model `mdl_rg` (for reference group constraint)
+
+Identify the relevant pieces of information from the commands `anova(mdl_rg)` and `summary(mdl_rg)` that can be used to conduct an ANOVA F-test against the null hypothesis that all population means are equal.
+
+Interpret the F-test results in the context of the ANOVA null hypothesis.
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+mdl_rg <- lm(amount ~ music, data = rest_spend)
+mdl_rg
+
+summary(mdl_rg)
+
+anova(mdl_rg)
+```
+
+The model summary returns the F-test of model utility which, in this case, corresponds to the ANOVA F-test against the null hypothesis of equal population means.
+
+The relevant line from `summary()` is:
+```
+F-statistic: 23.21 on 2 and 357 DF,  p-value: 3.335e-10
+```
+
+The relevant parts from `anova()` are:
+
+- `F value` of `23.211`
+- The `Df` column giving `2` and `357` degrees of freedom
+- The p-value of the test, reported under `Pr(>F)` as `3.335e-10 ***`.
+
+We can write this up as follows:
+
+:::int
+We performed an analysis of variance against the null hypothesis of equal population mean spending across three types of background music, $F(2, 357) = 23.21$, $p < .001$.
+
+The large observed F statistic leads to a very small *p*-value, meaning that such a large observed variability among the mean restaurant spending across the different music types, compared to the variability in the residuals, is very unlikely to happen by chance alone if the population means where all the same.
+
+For this reason, at the 5\% significance level we reject the null hypothesis as there is strong evidence that at least two population means differ.
+:::
+`r solend()`
+
+
+# Reference group (dummy) constraint
+
+`r qbegin(5)`
+Examine and investigate the meaning of the coefficients in the output of `summary(mdl_rg)`. Next, obtain the estimated (or predicted) group means for the "Classical Music", "No Music", and "Pop Music" groups by using the `predict(mdl_rg, newdata = ...)` function.
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+Let's recall the model summary:
+```{r}
+summary(mdl_rg)
+```
+
+The interpretation is as follows
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  24.1741 | $\hat \beta_0 = \hat \mu_1$ |
+| typeNo Music  | -2.0328  | $\hat \beta_2 = \hat \mu_2 - \hat \beta_0 = \hat \mu_2 - \hat \mu_1$ |
+| typePop Music | -2.2752  | $\hat \beta_3 = \hat \mu_3 - \hat \beta_0 = \hat \mu_3 - \hat \mu_1$ |
+
+The estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu_1 = 24.17$. The estimated average spending for those having a classical music background is approximately £24.2.
+
+The next estimate corresponds to `typeNo Music` and is $\hat \beta_2 = -2.033$. The difference in mean spending between `No Music` and `Classical Music` is estimated to be $-2.033$. In other words, people with a silent background seem to spend approximately £2 less than those having a classical music background.
+
+The estimate corresponding to `typePop Music` is $\hat \beta_3 = -2.275$. This is the estimated difference in mean spending between `Pop Music` and `Classical Music`. People with a pop music background seem to spend approximately £2.3 less than those with a classical music background.
+
+Hence, for all levels except the reference group we see differences to the reference group while the estimate of the reference level can be found next to `(Intercept)`.
+
+It is also important to notice how the coefficients names are written. They are a combination of `factor name` and `level name`, such as `typeNo Music`.
+The only coefficient that is missing is `typeClassical Music`, the one corresponding to the reference category `Classical Music`.
+
+To use `preditct`, you first need to define a data frame with a column having the same name as the factor in the fitted model. Then, specify all the groups (= levels) for which you would like the predicted mean.
+```{r}
+query_groups <- tibble(type = c("Classical Music", "No Music", "Pop Music"))
+query_groups
+```
+
+Pass the data frame to the predict function using the `newdata =` argument. The predict function will match the column named `type` with the predictor called `type` in the fitted model `mdl_rg`.
+
+```{r}
+predict(mdl_rg, newdata = query_groups)
+```
+
+Or:
+```{r}
+query_groups %>%
+  mutate(pred = predict(mdl_rg, newdata = .))
+```
+
+
+Hence,
+
+- $\hat \mu_\text{Classical Music} = \hat \mu_1 = 24.17$
+- $\hat \mu_\text{No Music} = \hat \mu_2 = 22.14$
+- $\hat \mu_\text{Pop Music} = \hat \mu_3 = 21.90$
+
+`r solend()`
+
+`r qbegin(6)`
+It actually makes more sense to have "No Music" as reference group.
+
+Open the help page of the function `fct_relevel()`, and look at the examples.
+
+Within the `rest_sped` data, reorder the levels of the factor `type` so that your reference group is "No Music".
+
+:::yellow
+**NOTE**
+
+Because you reordered the levels, now 
+
+- $\mu_1$ = mean of no music group
+- $\mu_2$ = mean of classical music group
+- $\mu_3$ = mean of pop music group
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+Check the help page:
+```{r eval=FALSE}
+?fct_relevel
+```
+
+Select "No Music" to be the first level:
+```{r}
+rest_spend$type <- fct_relevel(rest_spend$type, "No Music")
+```
+
+Check that the factor levels are now in the correct order:
+```{r}
+levels(rest_spend$type)
+```
+
+`r solend()`
+
+`r qbegin(7)`
+
+Refit the linear model, and inspect the model summary once more.
+
+Do you notice any change in the estimated coefficients? Do you notice any change in the F-test for model utility?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+mdl_rg <- lm(amount ~ type, data = rest_spend)
+summary(mdl_rg)
+```
+The displayed coefficients have changed as now the (Intercept) represents the new reference group, which is "No Music".
+
+However, by checking the calculations, this model is equivalent to the previous one as the predicted group means are the same.
+
+- Predicted mean of "No Music" $\hat \mu_\text{No Music}$ = 22.1414
+- Predicted mean of "Classical Music" $\hat \mu_\text{Classical Music}$ = 22.1414 + 2.0328 = 24.1742
+- Predicted mean of "Pop Music" = $\hat \mu_\text{Pop Music}$ = 22.1414 - 0.2424 = 21.899
+
+The `predict` function returns the same output:
+```{r}
+query_groups <- tibble(type = levels(rest_spend$type))
+query_groups
+
+query_groups %>% 
+  mutate(pred = predict(mdl_rg, newdata = .))
+```
+
+`r solend()`
+
+
+# Sum-to-zero (effects) constraint
+
+Let's now change the side-constraint from the R default (the reference group or `contr.treatment` constraint) to the sum-to-zero constraint using `contr.sum`.
+
+Recall that under this constraint the interpretation of the coefficients becomes:
+
+- $\beta_0$ represents the global mean
+- $\beta_i$ the effect due to group $i$ --- that is, the mean response in group $i$ minus the global mean
+
+
+`r qbegin(8)`
+Set the sum to zero constraint for the factor `type` of background music.
+
+Fit again the linear model using `amount` as response variable and `type` as predictor. Call the fitted model using the sum to zero constraint `mdl_stz` (for sum to zero).
+
+Examine the output of the `summary(mdl_stz)` function:
+
+- Do the displayed coefficients change? What do they represent now?
+- Do the predicted group means change?
+- Is the model utility F-test still the same? Why do you think it's the case?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Set the sum to zero contrast to the `type` factor:
+```{r}
+contrasts(rest_spend$type) <- "contr.sum"
+```
+
+Re-fit the model and inspect the summary output:
+```{r}
+mdl_stz <- lm(amount ~ type, data = rest_spend)
+summary(mdl_stz)
+```
+
+With the new side-constraint, we get different values for the model coefficients because the meaning of the parameters has changed. If we closely inspect the output, we can also notice that a slightly different naming has been used.
+
+Instead of `factor name` and `level name` (such as `typeNo Music`), we get `factor name` and `level number` (e.g. `type1`). 
+Here, `type1` simply means the first level of the factor `type`, while `type2` means the second level of the factor `type`.
+
+```{r}
+levels(rest_spend$type)
+```
+
+The first level is "No Music", while the second level is "Classical Music".
+
+- The estimate for `(Intercept)` is now the *global mean* of the data.
+- The estimate for `type1` is now the difference of the first group ("No Music") to the global mean
+- The estimate for `type2` is now the difference of the second group ("Classical Music") to the global mean
+
+The estimate for `type3`, representing the difference of "Pop Music" to the global mean is not shown. Because of the side-constraint, we know it must be $\beta_3 = - (\beta_1 + \beta_2) = - (-0.5968 + 1.4360) =  -0.8392$.
+
+Underneath we see the group effects that need to be added to the global mean to obtain the predicted group means.
+
+Compute the predicted group means:
+```{r}
+query_groups %>%
+  mutate(pred = predict(mdl_stz, newdata = .))
+```
+
+We notice that we get the same predicted group means independently of the side-constraint.
+
+The predicted means do _not_ depend on the side-constraint that we apply. However, the side-constraint influences the meaning of the parameters in the model.
+
+`r solend()`
+
+
+:::blue
+__In **R**, we can switch back to the default reference group constraint by either of these__
+
+```{r}
+# Option 1
+contrasts(rest_spend$type) <- NULL
+# Option 2
+contrasts(rest_spend$type) <- "contr.treatment"
+```
+:::
+
+
+
+
+
+
+
+
+
+

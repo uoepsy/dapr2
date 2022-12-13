@@ -1,0 +1,442 @@
+---
+title: "Model Comparisons"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand measures of model fit using F.  
+2. Understand the principles of model selection and how to compare models via F tests.
+3. Understand AIC and BIC.
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from Semester 1
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych** 
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv
+
+:::
+
+# Study Overview
+
+> **Research Question** 
+>
+> Are there differences in types of memory deficits for those experiencing different cognitive impairment(s)?
+
+A group of researchers wants to test a hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls. On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
+
+`r optbegin("Cognitive Exp 3x2 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+The researchers designed a study yielding a 3 by 2 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
+
+- 1 denotes amnesic patients;
+- 2 denotes Huntingtons patients; and
+- 3 denotes a control group of individuals with no known neurological disorder.
+
+The second factor, "Task", tells us to which of two tasks each study participant was randomly assigned to:
+
+- 1 = grammar task, which consists of classifying letter sequences as either following or not following grammatical rules; and
+- 2 = recognition task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
+
+Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on both tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
+
+The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.
+
+__Preview__
+
+The first ten rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the cognitive_experiment_3_by_2 dataset into R, assigning it to an object named `cog` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(psych)
+
+#Reading in data and storing in object named 'cog'
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+```
+
+`r solend()`
+
+# Exercises
+
+`r qbegin(1)`
+Run the code below. It reads in the wellbeing/rurality study data, and creates a new binary variable which specifies whether or not each participant lives in a rural location.  
+
+```{r}
+library(tidyverse)
+mwdata2<-read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+mwdata2 <- 
+  mwdata2 %>% mutate(
+  isRural = ifelse(location=="rural","rural","notrural")
+)
+```
+
+
+Fit the following model, and assign it the name "wb_mdl1".
+
+$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$  
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wb_mdl1 <- lm(wellbeing ~ social_int + isRural, data=mwdata2)
+summary(wb_mdl1)
+```
+
+
+```{r echo=FALSE}
+mdl1<-wb_mdl1
+```
+
+`r solend()`
+
+<br>
+
+
+`r qbegin(2)`
+Use the code below to fit the null model. 
+
+Then, use the `anova()` function to perform a model comparison between your earlier model (wb_mdl1) and the null model. Remember that the null model tests the null hypothesis that all beta coefficients are zero. By comparing *null_model* to *wb_mdl1*, we can test whether we should include the two IVs of social_int and isRural.
+
+Check that the F-statistic and the *p*-value are the the same as that which is given at the bottom of `summary(wb_mdl1)`. 
+
+```{r}
+null_model <- lm(wellbeing ~ 1, data = mwdata2)
+```
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+# fit the null model
+null_model <- lm(wellbeing ~ 1, data = mwdata2)
+
+# model comparison null vs wb_mdl1
+anova(null_model, wb_mdl1)
+
+# extract f statistic from summary of wb_mdl1
+summary(wb_mdl1)$fstatistic
+# we can retrieve the p-value:
+fstat = summary(wb_mdl1)$fstatistic[1]
+df_1 = summary(wb_mdl1)$fstatistic[2]
+df_2 = summary(wb_mdl1)$fstatistic[3]
+pf(fstat, df_1, df_2, lower.tail = FALSE)
+```
+`r solend()`
+
+<br> 
+
+`r qbegin(3)`
+Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural)?  
+
+Provide an answer to this question by fitting and comparing two models (one of them you may already have fitted in an earlier question). 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+We can compare the following models which predict wellbeing scores from weekly social interactions and location, with and without weekly outdoor time.  
+
++ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$ 
++ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \beta_3 \cdot \text{Outdoor time} +  \epsilon$ 
+
+We have already fitted the first model and assigned it the name `wb_mdl1`. 
+
+We need to fit the second:
+```{r}
+wb_mdl2 <- lm(wellbeing ~ 1 + social_int + isRural + outdoor_time, data=mwdata2)
+```
+
+Let's look at the amount of variation in wellbeing scores explained by each model. Recall from semester 1 that this means looking at our R^2 value:
+```{r}
+summary(wb_mdl1)$adj.r.squared
+summary(wb_mdl2)$adj.r.squared
+```
+
+The model *with* weekly outdoor time as a predictor explains 30\% of the variance, and the model *without* explains 25\%. But, from only looking at the proportion of variance accounted for in each model, we cannot determine which model is statistically a better fit. To answer the question 'Does including weekly outdoor time as a predictor provide a significantly better fit of the data?' we need to compare **wb_mdl2** to **wb_mdl1**.
+
+```{r}
+anova(wb_mdl1, wb_mdl2)
+```
+```{r include=FALSE}
+mc <- anova(wb_mdl1, wb_mdl2)
+names(mc)[6]<-"p"
+```
+
+:::int
+Weekly outdoor time was found to explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural).  
+$F$(`r paste(mc$Df[2],mc$Res.df[2],collapse=",")`)=`r round(mc$F[2],2)`, p`r map_chr(mc$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`.
+:::
+
+`r solend()`
+
+<br> 
+
+
+`r qbegin(4)`
+Recall the data on Big 5 Personality traits, perceptions of social ranks, and depression and anxiety scale scores: 
+
+```{r}
+scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+summary(scs_study)
+```
+
+
+> **Research questions**   
+> 
+> + Part 1: Beyond Neuroticism and its interaction with social comparison, does Openness predict symptoms of depression, anxiety and stress? 
+>   
+> + Part 2: Beyond Neuroticism and its interaction with social comparison, do other personality traits predict symptoms of depression, anxiety and stress? 
+> 
+
+Construct and compare multiple regression models to answer these two question. Remember to check that your models meet assumptions (for this exercises, a quick eyeball of the diagnostic plots will suffice. Were this an actual research project, you would want to provide a more thorough check, for instance conducting formal tests of the assumptions).  
+<br>
+Although the solutions are available immediately for this question, we strongly advocate that you attempt it yourself before looking at them. 
+`r qend()`
+`r solbegin(show=TRUE, toggle=params$TOGGLE)`
+
+First let us mean-center our social comparison scale scores, as we did in the previous labs.
+```{r}
+scs_study <- 
+  scs_study %>%
+  mutate(
+    scs_mc = scs - mean(scs)
+  )
+```
+
+
+
+```{r echo=FALSE}
+par(mfrow=c(2,2))
+```
+
+The first question is asking whether Openness improves model fit beyond a model with just Neuoriticism, social comparison score and their interaction.  
+
+Notice how our initial model has one very influential point, which we will remove:
+```{r eval=FALSE}
+dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study)
+plot(dass_mod1)
+```
+```{r echo=FALSE}
+dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study)
+par(mfrow=c(2,2))
+plot(dass_mod1)
+par(mfrow=c(1,1))
+```
+
+```{r eval=FALSE}
+dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study[-35, ])
+plot(dass_mod)
+```
+```{r echo=FALSE}
+dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study[-35, ])
+par(mfrow=c(2,2))
+plot(dass_mod1)
+par(mfrow=c(1,1))
+```
+
+And our model with the Openness included:
+```{r eval=FALSE}
+dass_mod2 <- lm(dass ~ scs_mc * zn + zo, data = scs_study[-35, ])
+plot(dass_mod2)
+```
+```{r echo=FALSE}
+dass_mod2 <- lm(dass ~ scs_mc * zn + zo, data = scs_study[-35, ])
+par(mfrow=c(2,2))
+plot(dass_mod2)
+par(mfrow=c(1,1))
+```
+
+Look at the summary of Model 2 - Openness is not a significant predictor of DASS scores (*p* = .18).
+```{r}
+summary(dass_mod2)
+```
+
+Lets compare the two models: 
+```{r}
+anova(dass_mod1, dass_mod2)
+```
+
+```{r include=FALSE}
+mdass <- anova(dass_mod1, dass_mod2)
+names(mdass)[6]<-"p"
+```
+
+:::int
+Openness did not explain a significant amount of variance in depression, anxiety and stress scores over and above Neuroticism and its interaction with social comparison.  
+$F$(`r paste(mdass$Df[2],mdass$Res.df[2],collapse=",")`)=`r round(mdass$F[2],2)`, p = `r round(mdass$p[2], 3)`.
+:::
+
+
+The second question is asking whether including a group of predictors (the O, C, E, A personality traits) improves model fit beyond a model with just Neuoriticism, social comparison score and their interaction. We will need to compare this model (dass_mod3) to dass_mod1.
+
+```{r}
+dass_mod3 <- lm(dass ~ scs_mc * zn + zo + zc + ze + za, data = scs_study[-35, ])
+par(mfrow=c(2,2))
+plot(dass_mod3)
+par(mfrow=c(1,1))
+```
+
+We can explore the individual coefficients of our full model, and we notice that none of the other personality variables (`zo`, `zc`, `ze`, `za`) significantly predict DASS-21 scores:
+
+```{r}
+summary(dass_mod3)
+```
+
+However, when we compare the two models, we find that including these predictors does significantly improve model fit. 
+```{r}
+anova(dass_mod1, dass_mod3)
+```
+
+
+```{r include=FALSE}
+mdass2 <- anova(dass_mod1, dass_mod3)
+names(mdass2)[6]<-"p"
+```
+
+
+:::int
+Whilst the other individual personality traits did not significantly predict DASS-21 scores, the model including these traits was significantly better fitting than the model including only Neuroticism and its interaction with social comparison.
+$F$(`r paste(mdass2$Df[2],mdass2$Res.df[2],collapse=",")`)=`r round(mdass2$F[2],2)`, p = `r round(mdass2$p[2], 3)`.
+:::
+
+
+### Stop & Think
+This conclusion may be a bit confusing - are we saying that none of Openness, Conscientiousness, Agreeableness, or Extraversion significantly predict DASS-21 scores, but collectively they do? This sort of discrepancy can often be the result of multicollinearity. Note that there may be some correlation between the personality variables - you could explore this by checking `vif()`. It could also be that one variable is _masking_ the effect of the other. Check what happens when you remove one of the personality variables 
+```{r}
+library(car)
+vif(dass_mod3)
+lm(dass ~ scs_mc * zn + zo + zc + ze, data = scs_study[-35, ]) %>% summary
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Lets compare the AIC and BIC values of two models, each looking at the associations of DASS scores and two personality traits. Fit the following models, and compare using `AIC()` and `BIC()`. Report which model you think best fits the data. 
+
++ $\text{DASS} = \beta_0 + \beta_1 \cdot \text{Neuroticism} + \beta_2 \cdot \text{Extraversion} +  \epsilon$
+
++ $\text{DASS} = \beta_0 + \beta_1 \cdot \text{Openness} + \beta_2 \cdot \text{Agreeableness} +\epsilon$
+
+`r qend()`
+
+`r solbegin(show=TRUE, toggle=params$TOGGLE)`
+
+
+```{r}
+dassNE <- lm(dass ~ zn + ze, data = scs_study[-35, ])
+dassOA <- lm(dass ~ zo + za, data = scs_study[-35, ])
+
+AIC(dassNE, dassOA)
+BIC(dassNE, dassOA)
+```
+
+:::int
+We used AIC and BIC model selection to distinguish between two possible models describing the relationship between several personality factors and DASS-21 scores. Our model with Neuroticism and Extroversion (AIC = 4324.77) included as predictors was better fitting than the alternative model with Openness and Agreeableness (AIC = 4348.89). Based on the BIC value of the dassNE model (BIC = 4342.71) we concluded that it was substantively better fitting than the alternative model (BIC = 4366.83). 
+:::
+
+`r solend()`
+
+## Choosing the Right Model Comparison Approach
+
+`r qbegin(10)`
+
+The code below fits 5 different models:
+
+```{r eval=FALSE}
+model1 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata2)
+model2 <- lm(wellbeing ~ social_int + outdoor_time + age, data = mwdata2)
+model3 <- lm(wellbeing ~ social_int + outdoor_time + routine, data = mwdata2)
+model4 <- lm(wellbeing ~ social_int + outdoor_time + routine + age, data = mwdata2)
+model5 <- lm(wellbeing ~ social_int + outdoor_time + routine + steps_k, data = mwdata2)
+```
+
+For each of the below pairs of models, what methods are/are not available for us to use for comparison and why?  
+
++ `model1` vs `model2`
++ `model2` vs `model3`
++ `model1` vs `model4`
++ `model3` vs `model5`
+
+This flowchart might help you to reach your decision:
+
+
+```{r comparisons_chart, echo=FALSE, fig.align = 'left', out.width = "100%"}
+knitr::include_graphics("images/comparisons_chart.png")
+```
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
++ `model1` vs `model2`  
+  These models are nested - `model2` contains all the variables of `model1` and they are fitted on the same dataset.  
+  We can therefore use an $F$-test or AIC and BIC.  
+    
++ `model2` vs `model3`  
+  These models are __not__ nested, but they are fitted on the same dataset.  
+  We can therefore use AIC or BIC, but we cannot use an $F$-test.  
+    
++ `model1` vs `model4`
+  These models are nested - `model4` contains all the variables of `model1` and they are fitted on the same dataset.  
+  We can therefore use an $F$-test or AIC and BIC.  
+    
++ `model3` vs `model5`  
+  These models are __not__ nested, and they are __not__ fitted on the same dataset. The "steps_k" variable contains missing values, and so these whole rows are excluded from `model5` (but they are included in `model3`). We cannot compare these models.   
+
+`r solend()`
+
+--- 
+
+Extra reading: [Joshua Loftus' Blog: Model selection bias invalidates significance tests](https://joshualoftus.com/posts/2020-12-22-model-selection-bias-invalidates-significance-tests/)
