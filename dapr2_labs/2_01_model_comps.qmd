@@ -38,49 +38,12 @@ Remember to load all packages within a code chunk at the start of your RMarkdown
 For this lab, you will need to load the following package(s):
 
 * **tidyverse** 
-* **psych** 
+* **stargazer**
 
 ### <i class="fa fa-file"></i> Lab Data
-You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv
 
 :::
-
-# Study Overview
-
-> **Research Question** 
->
-> Are there differences in types of memory deficits for those experiencing different cognitive impairment(s)?
-
-A group of researchers wants to test a hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls. On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
-
-`r optbegin("Cognitive Exp 3x2 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
-
-__Description__
-
-The researchers designed a study yielding a 3 by 2 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
-
-- 1 denotes amnesic patients;
-- 2 denotes Huntingtons patients; and
-- 3 denotes a control group of individuals with no known neurological disorder.
-
-The second factor, "Task", tells us to which of two tasks each study participant was randomly assigned to:
-
-- 1 = grammar task, which consists of classifying letter sequences as either following or not following grammatical rules; and
-- 2 = recognition task, which consists of recognising particular stimuli as stimuli that have previously been presented during the task.
-
-Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on both tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
-
-The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.
-
-__Preview__
-
-The first ten rows of the data are:
-
-```{r echo=FALSE, message=FALSE}
-read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% head %>% gt::gt()
-```
-
-`r optend()`
 
 # Setup
 
@@ -88,7 +51,7 @@ read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% he
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read the cognitive_experiment_3_by_2 dataset into R, assigning it to an object named `cog` 
+3. Read the wellbeing_rural dataset into R, assigning it to an object named `wrdata` 
  
 `r qend()`
 
@@ -97,310 +60,454 @@ read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% he
 ```{r message=FALSE}
 #Loading the required package(s)
 library(tidyverse)
-library(psych)
+library(stargazer)
 
-#Reading in data and storing in object named 'cog'
-cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+#Reading in data and storing in object named 'wrdata'
+wrdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
 ```
 
 `r solend()`
 
+> **Research Questions** 
+>
+> + RQ1: Is there an overall effect of the number of social interactions on wellbeing scores?
+> + RQ2: Does the association between number of social interactions and wellbeing differ between rural and non-rural residents?
+> + RQ3: Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above the interaction between weekly social interactions and location (rural vs not-rural)?
+
+`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+The data in `wellbeing.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include:  
+
+- `wellbeing`: Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70.  
+- `outdoor_time`: Self report estimated number of hours per week spent outdoors  
+- `social_int`: Self report estimated number of social interactions per week (both online and in-person)
+- `routine`: Binary 1=Yes/0=No response to the question "Do you follow a daily routine throughout the week?"
+- `location`: Location of primary residence (City, Suburb, Rural)
+- `steps_k`: Average weekly number of steps in thousands (as given by activity tracker if available)
+- `age`: Age in years of respondent
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+ 
+`r optend()`
+
 # Exercises
 
 `r qbegin(1)`
-Run the code below. It reads in the wellbeing/rurality study data, and creates a new binary variable which specifies whether or not each participant lives in a rural location.  
 
-```{r}
-library(tidyverse)
-mwdata2<-read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
-mwdata2 <- 
-  mwdata2 %>% mutate(
-  isRural = ifelse(location=="rural","rural","notrural")
-)
-```
+Check coding of variables (e.g., that categorical variables are coded as factors), and create a new binary variable which specifies whether or not each participant lives in a rural location.
 
+:::{.callout-tip appearance="simple" collapse="true"}
 
-Fit the following model, and assign it the name "wb_mdl1".
+### Hint 
 
-$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$  
+You will need to use two functions - firstly `mutate()`, and then `ifelse()` when creating your new variable (which should also be coded as a factor). 
+
+:::
 
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-wb_mdl1 <- lm(wellbeing ~ social_int + isRural, data=mwdata2)
-summary(wb_mdl1)
-```
-
-
-```{r echo=FALSE}
-mdl1<-wb_mdl1
+wrdata <-  wrdata %>% 
+    mutate(
+        routine = factor(routine,
+                         levels = c(0,1),
+                         labels = c("No", "Yes")),
+        isRural = factor(ifelse(location == "rural","rural","not rural"))
+    )
 ```
 
 `r solend()`
 
 <br>
 
+`r qbegin(9)`
 
-`r qbegin(2)`
-Use the code below to fit the null model. 
+Using `fct_relevel()`, specify ‘not rural’ as your reference group for your newly created variable (i.e., the isRural variable).
 
-Then, use the `anova()` function to perform a model comparison between your earlier model (wb_mdl1) and the null model. Remember that the null model tests the null hypothesis that all beta coefficients are zero. By comparing *null_model* to *wb_mdl1*, we can test whether we should include the two IVs of social_int and isRural.
 
-Check that the F-statistic and the *p*-value are the the same as that which is given at the bottom of `summary(wb_mdl1)`. 
+`r qend()`
+
+`r solbegin(show=TRUE, toggle=params$TOGGLE)`
 
 ```{r}
-null_model <- lm(wellbeing ~ 1, data = mwdata2)
+wrdata$isRural <- fct_relevel(wrdata$isRural, "not rural")
 ```
+
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Fit the below 5 models required to address the three research questions stated above. Note down which model(s) will be used to address each research question, and examine the results of each model. 
+
+Name the models as follows: "wb_mdl0", "wb_mdl1", "wb_mdl2", "wb_mdl3", and "wb_mdl4".
+
+<br>
+$$
+\text{Wellbeing} = \beta_0  + \epsilon
+$$
+<br>
+$$
+\text{Wellbeing} = \beta_0  + \beta_1 \cdot Social Interactions + \epsilon
+$$
+<br>
+$$
+\text{Wellbeing} = \beta_0  + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural} + \epsilon
+$$
+<br>
+$$
+\begin{split}
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural} \\+ \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \epsilon
+\end{split}
+$$
+<br>
+$$
+\begin{split}
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social Interactions + \beta_2 \cdot Location_{Rural} \\+ \beta_3 \cdot (Social Interactions \cdot Location_{Rural}) + \beta_4 \cdot \text{Outdoor Time} + \epsilon
+\end{split}
+$$
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+The `summary()` function will be useful to examine the model output. 
+
+:::
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-# fit the null model
-null_model <- lm(wellbeing ~ 1, data = mwdata2)
+#null/intercept only model
+wb_mdl0 <- lm(wellbeing ~ 1, data = wrdata)
+summary(wb_mdl0)
 
-# model comparison null vs wb_mdl1
-anova(null_model, wb_mdl1)
+#model with social interactions
+wb_mdl1 <- lm(wellbeing ~ social_int, data = wrdata)
+summary(wb_mdl1)
+
+#model with social interactions and location (rural vs non-rural)
+wb_mdl2 <- lm(wellbeing ~ social_int + isRural, data = wrdata)
+summary(wb_mdl2)
+
+#model with social interactions and location (rural vs non-rural) interaction term
+wb_mdl3 <- lm(wellbeing ~ social_int*isRural, data = wrdata)
+summary(wb_mdl3)
+
+#model with social interactions and location (rural vs non-rural) term, and outdoor time
+wb_mdl4 <- lm(wellbeing ~ social_int*isRural + outdoor_time, data= wrdata)
+summary(wb_mdl4)
+```
+
+
+The models required to address each research question (RQ) are as follows:
+- RQ1: Models wb_mdl0 and wb_mdl1 
+- RQ2: Models wb_mdl2 and wb_mdl3
+- RQ3: Models wb_mdl3 and wb_mdl4
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Provide key model results from the two models required to address RQ1 - whether there is an overall effect of the number of social interactions on wellbeing scores - in a single formatted table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You will need to use a new package to do this - **stargazer**. 
+
+Like `tab_model()` that you have used in many previous labs, `stargazer()` can take lots of different arguments to customize and build a table. You may want to consider specifying the below (and remember you can use the helper function via `?stargazer()` for further information about the functionality of the package):
+
+- `title = ` - specify the title of your table
+- `dep.var.labels =` - specify the name of your dependent variable(s)
+- `covariate.labels =` - specify the names of your covariates (or independent) variables
+- `type = ` - specify whether you want 'html' (use when knitting to HTML), 'latex' (use when knitting to PDF), or 'text' (use when knitting to Word)
+- `digits = ` - specify rounding (remember APA standard is, in most cases, 2 decimal places) 
+- `intercept.bottom = ` - specify if you want the intercept (or 'constant') value to be printed at the bottom (TRUE) or top (FALSE) of the output
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r, results = 'asis', message = FALSE}
+stargazer(wb_mdl0, wb_mdl1,
+          title="Regression Model Results for RQ1",
+          dep.var.labels=c("Wellbeing Score"),
+          covariate.labels=c("Intercept", "Number of Social Interactions"), 
+          type = "html", 
+          digits = 2,
+          single.row=TRUE, 
+          align=TRUE,
+          intercept.bottom = FALSE)
+```
+
+`r solend()`
+
+
+<br> 
+
+`r qbegin(5)`
+
+Is there a main effect of social interactions?
+
+Check that the $F$-statistic and the $p$-value are the the same as that which is given at the bottom of `summary(wb_mdl1)`. 
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use the `anova()` function to perform a model comparison between your model with social interactions (wb_mdl1) to the null model (wb_mdl0). 
+
+Remember that the null model tests the null hypothesis that all beta coefficients are zero. By comparing *wb_mdl0* to *wb_mdl1*, we can test whether we should include the IV of social_int.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+# model comparison wb_mdl0 vs wb_mdl1
+anova(wb_mdl0, wb_mdl1)
 
 # extract f statistic from summary of wb_mdl1
 summary(wb_mdl1)$fstatistic
+
 # we can retrieve the p-value:
 fstat = summary(wb_mdl1)$fstatistic[1]
 df_1 = summary(wb_mdl1)$fstatistic[2]
 df_2 = summary(wb_mdl1)$fstatistic[3]
 pf(fstat, df_1, df_2, lower.tail = FALSE)
 ```
+
+
+```{r include=FALSE}
+mc_1 <- anova(wb_mdl0, wb_mdl1)
+names(mc_1)[6]<-"p"
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The number of social interactions was found to explain a significant amount of variance in wellbeing scores ($F$(`r paste(mc_1$Df[2],mc_1$Res.df[2],collapse=",")`)=`r round(mc_1$F[2],2)`, $p$`r map_chr(mc_1$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`). There was a main effect of social interactions. 
+
+:::
+
 `r solend()`
 
-<br> 
+<br>
 
-`r qbegin(3)`
-Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural)?  
+`r qbegin(6)`
 
-Provide an answer to this question by fitting and comparing two models (one of them you may already have fitted in an earlier question). 
+Does the association between number of social interactions and wellbeing differ between rural and non-rural residents?
+
+Provide key model results from the two models in a single formatted table, and report the results of the model comparison in APA format.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+To address RQ2, you need to compare "wb_mdl2" and "wb_mdl3"
+
+:::
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-We can compare the following models which predict wellbeing scores from weekly social interactions and location, with and without weekly outdoor time.  
 
-+ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \epsilon$ 
-+ $\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{IsRural} + \beta_3 \cdot \text{Outdoor time} +  \epsilon$ 
-
-We have already fitted the first model and assigned it the name `wb_mdl1`. 
-
-We need to fit the second:
-```{r}
-wb_mdl2 <- lm(wellbeing ~ 1 + social_int + isRural + outdoor_time, data=mwdata2)
+```{r, results = 'asis', message = FALSE}
+stargazer(wb_mdl2, wb_mdl3,
+          title="Regression Model Results for RQ2",
+          dep.var.labels=c("Wellbeing Score"),
+          covariate.labels=c("Intercept", "Number of Social Interactions", "Location - Rural", "Number of Social Interactions * Location - Rural"), 
+          type = "html", 
+          digits = 2,
+          single.row=TRUE, 
+          align=TRUE,
+          intercept.bottom = FALSE)
 ```
 
-Let's look at the amount of variation in wellbeing scores explained by each model. Recall from semester 1 that this means looking at our R^2 value:
 ```{r}
-summary(wb_mdl1)$adj.r.squared
-summary(wb_mdl2)$adj.r.squared
+# model comparison wb_mdl0 vs wb_mdl1
+anova(wb_mdl2, wb_mdl3)
 ```
 
-The model *with* weekly outdoor time as a predictor explains 30\% of the variance, and the model *without* explains 25\%. But, from only looking at the proportion of variance accounted for in each model, we cannot determine which model is statistically a better fit. To answer the question 'Does including weekly outdoor time as a predictor provide a significantly better fit of the data?' we need to compare **wb_mdl2** to **wb_mdl1**.
-
-```{r}
-anova(wb_mdl1, wb_mdl2)
-```
 ```{r include=FALSE}
-mc <- anova(wb_mdl1, wb_mdl2)
-names(mc)[6]<-"p"
+mc_2 <- anova(wb_mdl2, wb_mdl3)
+names(mc_2)[6]<-"p"
 ```
 
-:::int
-Weekly outdoor time was found to explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location (rural vs not-rural).  
-$F$(`r paste(mc$Df[2],mc$Res.df[2],collapse=",")`)=`r round(mc$F[2],2)`, p`r map_chr(mc$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`.
+::: {.callout-important icon=false appearance="minimal"}
+
+There was a significant interaction between the number of social interactions and location (rural vs non-rural) ($F$(`r paste(mc_2$Df[2],mc_2$Res.df[2],collapse=",")`)=`r round(mc_2$F[2],2)`, $p$`r map_chr(mc_2$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`).
+
 :::
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Look at the amount of variation in wellbeing scores explained by models "wb_mdl3" and "wb_mdl4". 
+
+From this, can we answer the third research question of whether weekly outdoor time explains a significant amount of variance in wellbeing scores over and above the interaction between weekly social interactions and location (rural vs not-rural)?  
+
+Provide justification/rationale for your answer. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Recall from Semester 1 that to determine how much variation is explained by a model, we need to look at our $R^2$ values (specifically the adjusted $R^2$ value in this case since the models have multiple predictors. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's look at the amount of variance explained by each model:
+```{r}
+summary(wb_mdl3)$adj.r.squared
+summary(wb_mdl4)$adj.r.squared
+```
+
+The model *with* weekly outdoor time as a predictor explains 34\% of the variance, and the model *without* explains 29\%. But, from only looking at the proportion of variance accounted for in each model, we cannot determine which model is statistically a better fit. To answer the question 'Does including weekly outdoor time as a predictor provide a significantly better fit of the data?' we need to **statistically compare** wb_mdl3 to wb_mdl4.
 
 `r solend()`
 
 <br> 
 
+`r qbegin(8)`
 
-`r qbegin(4)`
-Recall the data on Big 5 Personality traits, perceptions of social ranks, and depression and anxiety scale scores: 
+Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above the interaction between weekly social interactions and location (rural vs not-rural)?
 
-```{r}
-scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
-summary(scs_study)
-```
+Provide key model results from the two models in a single formatted table, and report the results of the model comparison in APA format.
 
+:::{.callout-tip appearance="simple" collapse="true"}
 
-> **Research questions**   
-> 
-> + Part 1: Beyond Neuroticism and its interaction with social comparison, does Openness predict symptoms of depression, anxiety and stress? 
->   
-> + Part 2: Beyond Neuroticism and its interaction with social comparison, do other personality traits predict symptoms of depression, anxiety and stress? 
-> 
+### Hint 
 
-Construct and compare multiple regression models to answer these two question. Remember to check that your models meet assumptions (for this exercises, a quick eyeball of the diagnostic plots will suffice. Were this an actual research project, you would want to provide a more thorough check, for instance conducting formal tests of the assumptions).  
-<br>
-Although the solutions are available immediately for this question, we strongly advocate that you attempt it yourself before looking at them. 
+To address RQ3, you need to compare "wb_mdl3" and "wb_mdl4"
+
+:::
+
 `r qend()`
-`r solbegin(show=TRUE, toggle=params$TOGGLE)`
 
-First let us mean-center our social comparison scale scores, as we did in the previous labs.
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r, results = 'asis', message = FALSE}
+stargazer(wb_mdl3, wb_mdl4,
+          title="Regression Model Results for RQ1",
+          dep.var.labels=c("Wellbeing Score"),
+          covariate.labels=c("Intercept", "Number of Social Interactions", "Location - Rural", "Outdoor Time (Hours)", "Number of Social Interactions * Location - Rural"), 
+          type = "html", 
+          digits = 2,
+          single.row=TRUE, 
+          align=TRUE,
+          intercept.bottom = FALSE)
+```
+
 ```{r}
-scs_study <- 
-  scs_study %>%
-  mutate(
-    scs_mc = scs - mean(scs)
-  )
-```
-
-
-
-```{r echo=FALSE}
-par(mfrow=c(2,2))
-```
-
-The first question is asking whether Openness improves model fit beyond a model with just Neuoriticism, social comparison score and their interaction.  
-
-Notice how our initial model has one very influential point, which we will remove:
-```{r eval=FALSE}
-dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study)
-plot(dass_mod1)
-```
-```{r echo=FALSE}
-dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study)
-par(mfrow=c(2,2))
-plot(dass_mod1)
-par(mfrow=c(1,1))
-```
-
-```{r eval=FALSE}
-dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study[-35, ])
-plot(dass_mod)
-```
-```{r echo=FALSE}
-dass_mod1 <- lm(dass ~ scs_mc * zn, data = scs_study[-35, ])
-par(mfrow=c(2,2))
-plot(dass_mod1)
-par(mfrow=c(1,1))
-```
-
-And our model with the Openness included:
-```{r eval=FALSE}
-dass_mod2 <- lm(dass ~ scs_mc * zn + zo, data = scs_study[-35, ])
-plot(dass_mod2)
-```
-```{r echo=FALSE}
-dass_mod2 <- lm(dass ~ scs_mc * zn + zo, data = scs_study[-35, ])
-par(mfrow=c(2,2))
-plot(dass_mod2)
-par(mfrow=c(1,1))
-```
-
-Look at the summary of Model 2 - Openness is not a significant predictor of DASS scores (*p* = .18).
-```{r}
-summary(dass_mod2)
-```
-
-Lets compare the two models: 
-```{r}
-anova(dass_mod1, dass_mod2)
+anova(wb_mdl3, wb_mdl4)
 ```
 
 ```{r include=FALSE}
-mdass <- anova(dass_mod1, dass_mod2)
-names(mdass)[6]<-"p"
+mc_3 <- anova(wb_mdl3, wb_mdl4)
+names(mc_3)[6]<-"p"
 ```
 
-:::int
-Openness did not explain a significant amount of variance in depression, anxiety and stress scores over and above Neuroticism and its interaction with social comparison.  
-$F$(`r paste(mdass$Df[2],mdass$Res.df[2],collapse=",")`)=`r round(mdass$F[2],2)`, p = `r round(mdass$p[2], 3)`.
+::: {.callout-important icon=false appearance="minimal"}
+
+Weekly outdoor time was found to explain a significant amount of variance in wellbeing scores over and above weekly social interactions and location ($F$(`r paste(mc_3$Df[2],mc_3$Res.df[2],collapse=",")`)=`r round(mc_3$F[2],2)`, $p$`r map_chr(mc_3$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`).
+
 :::
-
-
-The second question is asking whether including a group of predictors (the O, C, E, A personality traits) improves model fit beyond a model with just Neuoriticism, social comparison score and their interaction. We will need to compare this model (dass_mod3) to dass_mod1.
-
-```{r}
-dass_mod3 <- lm(dass ~ scs_mc * zn + zo + zc + ze + za, data = scs_study[-35, ])
-par(mfrow=c(2,2))
-plot(dass_mod3)
-par(mfrow=c(1,1))
-```
-
-We can explore the individual coefficients of our full model, and we notice that none of the other personality variables (`zo`, `zc`, `ze`, `za`) significantly predict DASS-21 scores:
-
-```{r}
-summary(dass_mod3)
-```
-
-However, when we compare the two models, we find that including these predictors does significantly improve model fit. 
-```{r}
-anova(dass_mod1, dass_mod3)
-```
-
-
-```{r include=FALSE}
-mdass2 <- anova(dass_mod1, dass_mod3)
-names(mdass2)[6]<-"p"
-```
-
-
-:::int
-Whilst the other individual personality traits did not significantly predict DASS-21 scores, the model including these traits was significantly better fitting than the model including only Neuroticism and its interaction with social comparison.
-$F$(`r paste(mdass2$Df[2],mdass2$Res.df[2],collapse=",")`)=`r round(mdass2$F[2],2)`, p = `r round(mdass2$p[2], 3)`.
-:::
-
-
-### Stop & Think
-This conclusion may be a bit confusing - are we saying that none of Openness, Conscientiousness, Agreeableness, or Extraversion significantly predict DASS-21 scores, but collectively they do? This sort of discrepancy can often be the result of multicollinearity. Note that there may be some correlation between the personality variables - you could explore this by checking `vif()`. It could also be that one variable is _masking_ the effect of the other. Check what happens when you remove one of the personality variables 
-```{r}
-library(car)
-vif(dass_mod3)
-lm(dass ~ scs_mc * zn + zo + zc + ze, data = scs_study[-35, ]) %>% summary
-```
 
 `r solend()`
 
 <br>
 
-`r qbegin(5)`
+`r qbegin(9)`
 
-Lets compare the AIC and BIC values of two models, each looking at the associations of DASS scores and two personality traits. Fit the following models, and compare using `AIC()` and `BIC()`. Report which model you think best fits the data. 
+Compare the two following models, each looking at the associations of Wellbeing scores and two different predictor variables. 
 
-+ $\text{DASS} = \beta_0 + \beta_1 \cdot \text{Neuroticism} + \beta_2 \cdot \text{Extraversion} +  \epsilon$
+$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{Age} + \epsilon$  
 
-+ $\text{DASS} = \beta_0 + \beta_1 \cdot \text{Openness} + \beta_2 \cdot \text{Agreeableness} +\epsilon$
+$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Outdoor Time} + \beta_2 \cdot \text{Routine} + \epsilon$ 
+
+In APA format, report which model you think best fits the data. 
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Compare using `AIC()` and `BIC()` since the models are non-nested.
+
+:::
 
 `r qend()`
 
 `r solbegin(show=TRUE, toggle=params$TOGGLE)`
 
-
 ```{r}
-dassNE <- lm(dass ~ zn + ze, data = scs_study[-35, ])
-dassOA <- lm(dass ~ zo + za, data = scs_study[-35, ])
-
-AIC(dassNE, dassOA)
-BIC(dassNE, dassOA)
+#fit models
+wb_socint_age <- lm(wellbeing ~ social_int + age, data = wrdata)
+wb_outdoor_routine <- lm(wellbeing ~ outdoor_time + routine, data = wrdata)
 ```
 
-:::int
-We used AIC and BIC model selection to distinguish between two possible models describing the relationship between several personality factors and DASS-21 scores. Our model with Neuroticism and Extroversion (AIC = 4324.77) included as predictors was better fitting than the alternative model with Openness and Agreeableness (AIC = 4348.89). Based on the BIC value of the dassNE model (BIC = 4342.71) we concluded that it was substantively better fitting than the alternative model (BIC = 4366.83). 
+```{r}
+#AIC values
+AIC(wb_socint_age, wb_outdoor_routine)
+
+#BIC values
+BIC(wb_socint_age, wb_outdoor_routine)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We used AIC and BIC model selection to distinguish between two possible models describing the association between several personal factors and wellbeing scores. The model with  outdoor time and routine included as predictors was better fitting (AIC = 1220.91) the alternative model with  weekly number of social interactions and age (AIC = 1236.58). Based on the BIC value of the former model (BIC = 1234.11) we concluded that it was substantively better fitting than the alternative, latter model (BIC = 1249.77). 
+
 :::
 
 `r solend()`
 
-## Choosing the Right Model Comparison Approach
+<br>
 
 `r qbegin(10)`
 
-The code below fits 5 different models:
+The code below fits 5 different models based on our `wrdata`:
 
 ```{r eval=FALSE}
-model1 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata2)
-model2 <- lm(wellbeing ~ social_int + outdoor_time + age, data = mwdata2)
-model3 <- lm(wellbeing ~ social_int + outdoor_time + routine, data = mwdata2)
-model4 <- lm(wellbeing ~ social_int + outdoor_time + routine + age, data = mwdata2)
-model5 <- lm(wellbeing ~ social_int + outdoor_time + routine + steps_k, data = mwdata2)
+model1 <- lm(wellbeing ~ social_int + outdoor_time, data = wrdata)
+model2 <- lm(wellbeing ~ social_int + outdoor_time + age, data = wrdata)
+model3 <- lm(wellbeing ~ social_int + outdoor_time + routine, data = wrdata)
+model4 <- lm(wellbeing ~ social_int + outdoor_time + routine + age, data = wrdata)
+model5 <- lm(wellbeing ~ social_int + outdoor_time + routine + steps_k, data = wrdata)
 ```
 
 For each of the below pairs of models, what methods are/are not available for us to use for comparison and why?  
@@ -412,12 +519,20 @@ For each of the below pairs of models, what methods are/are not available for us
 
 This flowchart might help you to reach your decision:
 
-
 ```{r comparisons_chart, echo=FALSE, fig.align = 'left', out.width = "100%"}
 knitr::include_graphics("images/comparisons_chart.png")
 ```
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You may need to examine the dataset, and check for accuracy (e.g., are there any impossible / out of range values?) and completeness (e.g., are there any missing values?). 
+
+:::
+
 `r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 + `model1` vs `model2`  
@@ -433,7 +548,7 @@ knitr::include_graphics("images/comparisons_chart.png")
   We can therefore use an $F$-test or AIC and BIC.  
     
 + `model3` vs `model5`  
-  These models are __not__ nested, and they are __not__ fitted on the same dataset. The "steps_k" variable contains missing values, and so these whole rows are excluded from `model5` (but they are included in `model3`). We cannot compare these models.   
+  These models are __not__ nested, and they are __not__ fitted on the same dataset. The "steps_k" variable contains missing values (over 30% of the data is missing for this variable), and so these whole rows are excluded from `model5` (but they are included in `model3`). We cannot compare these models.   
 
 `r solend()`
 
