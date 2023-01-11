@@ -1,0 +1,493 @@
+---
+title: "<b> Analyzing Experiments </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(emmeans)
+```
+
+# Week's Learning Objectives
+1. Understand the different types of experimental design and the data that results from them.
+2. Be able to link experimental designs to linear model specifications
+3. Understand the distinction between simple, main and interaction effects.
+4. Be able to test main effects (via F-tests)
+5. Interpret interactions with effects coding.
+
+---
+# Experimental Design: manipulation
++ A key feature of experimental designs is that we actively manipulate our predictor (IV).
+
++ The intention is that changing the predictor will result in changes in the outcome (DV).
+
++ That is our manipulation will lead to variation in the outcome.
+
++ Our experiments can fail because we design these manipulations poorly.
+
++ The predictors in an experiment are (primarily) experimental conditions.
+
+---
+# Conditions/Factors & levels
++ **Conditions**: 
+  + Are part of our experimental designs.
+  + They are what is manipulated.
+  
++ **Factors**
+  + The resultant variables in our data set that code the experimental conditions are typically called factors.
+  + Generally the terms conditions and factors are used interchangeably.
+  + But it is useful to differentiate the design (conditions) and the data that represents aspects of the design (factors)
+
++ Factors can have **levels**
+  + These are the number of ways we vary or manipulate the condition
+
+
+---
+# Models and Experiments
++ Our linear model can be simply stated as:
+
+$$outcome = model + error$$ 
+
++ When we have an experiment:
+
+$$outcome = design + error$$ 
+
++ The design is simply sets of categorical variables.
+
+$$y = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Conditin1}} + \underbrace{b_3E_3}_{\text{Condition2}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \underbrace{\epsilon_{i}}_{\text{error}}$$
+
++ So to analyse an experiment, we are simply analysing a linear model with categorical predictors.
+
+---
+# Example
++ We will keep with out hospital example so we have familiar data and can make easy links and comparisons to previous weeks.
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying. 
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+---
+# Our model and coefficients
+
++ Remember whichever coding scheme we use, we have $k$-1 variables representing the condition.
+  + So for `Treatment` we have 2 predictors (E1 & E2)
+  + And for `Hospital` we have 1 predictor (E3)
+  
++ We can write the linear model more explicitly as:
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+---
+# Hypotheses we test in experimental studies
+
++ One-way designs:
+  + **Main effect**: Tests overall effect of a condition  ( $F$-tests)
+  + **Contrasts**: Tests differences between specific group means (based on coding schemes and associated $\beta$ )
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
+
+
+---
+# The data
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %>%
+  slice(1:10)
+```
+
+
+---
+# Table of means
+
+.pull-left[
+
+```{r}
+mean(hosp_tbl$SWB)
+```
+
+
+
+```{r}
+aggregate(SWB ~ Treatment + Hospital, 
+  hosp_tbl, mean)
+```
+
+]
+
+.pull-right[
+```{r}
+aggregate(SWB ~ Hospital, 
+  hosp_tbl, mean)
+```
+
+```{r}
+aggregate(SWB ~ Treatment, 
+  hosp_tbl, mean)
+```
+
+]
+
+---
+# Table of means
+
++ All of the above gives us a full table of means
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+
++ We are going to start with loking at the testing of main effects using $F$-tests.
+  + i.e. exactly what we have done before.
+
+---
+# One way main effects
+
++ As we have an experiment, we typically use effects coding:
+```{r}
+contrasts(hosp_tbl$Treatment) <- contr.sum
+contrasts(hosp_tbl$Hospital) <- contr.sum
+```
+
++ Run the model:
+```{r}
+m1 <- lm(SWB ~ Treatment, data = hosp_tbl)
+anova(m1)
+```
+
+---
+# One way main effects
+```{r}
+summary(m1)
+```
+
+---
+# Table of means
+
+.pull-left[
+
+```{r}
+mean(hosp_tbl$SWB)
+```
+
+```{r}
+aggregate(SWB ~ Treatment, 
+  hosp_tbl, mean)
+```
+
+]
+
+.pull-right[
+
+```{r}
+m1$coefficients
+```
+
+
+]
+
+
+
+---
+# Hypotheses we test in experimental studies
+
++ Factorial designs:
+  + Main effects & Contrasts
+  + **Interactions**: Categorical*categorical and usually based on effects (sum to zero) coding ( $F$-tests & $\beta$ )
+  + **Simple contrasts/effects**: Effects of one level in one condition, across levels of another condition. 
+
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
++ Interactions (categorical*categorical)
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  
++ Simple contrasts/effects
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+
+
+
+
+---
+# For effects coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+
+
+
+
+---
+# Factorial main effects and interaction
+
++ Run the model:
+
+```{r}
+m2 <- lm(SWB ~ Treatment*Hospital, data = hosp_tbl)
+anova(m2)
+```
+
+---
+# Using model comparisons
+
++ The $F$-test table can be thought of as containing the results of a set of model comparisons between the following models:
+
+```{r}
+comp1 <- lm(SWB ~ Treatment, data = hosp_tbl)
+comp2 <- lm(SWB ~ Hospital, data = hosp_tbl)
+comp3 <- lm(SWB ~ Treatment + Hospital, data = hosp_tbl)
+comp4 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+
+---
+# Testing the overall effects
+
++ For the effect of `Treatment`:
+
+```{r}
+anova(comp2,comp3)
+```
+
++ An effect of Treatment
+
+---
+# Testing the overall effects
+
++ For the effect of `Hospital`:
+
+```{r}
+anova(comp1, comp3)
+```
+
++ No effect of hospital
+
+---
+# Testing the overall effects
+
++ For the effect of interaction:
+
+```{r}
+anova(comp3, comp4)
+```
+
++ An interaction
+
+---
+# Testing the overall effects
++ You may have noted using `anova()` for a single model, and for the model comparison approach yeild slightly different results.
+  + Sums of squares difference is the same
+  + Degrees of freedom are the same
+  + $F$ is slightly different for `Treatment` and `Hospital` (and therefore so is $p$-value)
+
++ Note the main concluions do not change.
+
++ This difference relates to differences in the degrees of freedom associated with the $F$-test.
+
+
+---
+class: center, middle
+# Time for a break
+**In the next section we will use interaction plots for effects coded variables. Please read the Handout on LEARN before watching the next video** 
+
+---
+class: center, middle
+# Welcome back!
+**Interpreting an interaction with effects codes**
+
+---
+# Recap categorical interactions
++ When the effects of one predictor on the outcome differ across levels of another predictor.
+
++ Categorical*categorical interaction:
+	+ There is a difference in the differences between groups across levels of a second factor.
+
+---
+# Our results
+```{r, echo=FALSE}
+m2sum <- summary(m2)
+summary(m2)
+```
+
+---
+# Visualizing the interaction
+
+```{r, echo=FALSE, warning=FALSE}
+emmip(m2, Hospital~Treatment)
+```
+
+---
+# Interpretation with effects coding
+```{r, echo=FALSE}
+round(m2sum$coefficients,2)
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Interpretation with effects coding
+.pull-left[
+```{r, echo=FALSE}
+round(m2sum$coefficients,2)[,1:2]
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+]
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Our results
+```{r}
+m2sum <- summary(m2)
+round(m2sum$coefficients,2)
+```
+
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, echo=FALSE, warning=FALSE}
+emmip(m2, Hospital~Treatment)
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+]
+
+
+
+
+---
+# Summary
+
++ This week we had a good amount of material.
+
++ We reviewed experimental designs, and linked this linear models with categorical predictors.
+
++ We defined main effects, simple effects, and interactions in the context of an experiment.
+
++ We used F-tests to explore main effects
+
++ We looked at interactions with effects coding
+
++ Next time we will look more closely at simple effects
+
+---
+class: center, middle
+# Thanks for listening!
