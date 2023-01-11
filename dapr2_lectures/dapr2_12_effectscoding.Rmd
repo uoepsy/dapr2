@@ -1,0 +1,636 @@
+---
+title: "<b> Categorical Predictors: Effects (sum to zero) coding </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(car)
+library(patchwork)
+library(kableExtra)
+```
+
+# Weeks Learning Objectives
+1. Understand the difference between dummy and sum-to-zero coding.
+
+2. Understand the core principle of different coding schemes.
+
+3. Interpret the output from a model using sum-to-zero coding.
+
+
+---
+# Overview of next 3 weeks
++ The next few weeks will focus on how we can work with linear models with categorical predictors to test different questions.
+
++ In particular, we will look at the type of questions typically asked as part of experiments.
+
++ We will see that the tools we saw in discussing model comparisons will be important.
+
++ As well the principles of categorical data coding discussed when talking about binary and dummy variables.
+  + We are going to generalise some of these concepts, and then show how we can use the general principles to test questions.
+
+
+---
+# Recap on dummy coding (reference group)
++ Create $k$-1 dummy variables/contrasts
+  + where $k$ is the number of levels of the categorical predictor. 
+
++ Assign reference group 0 on all dummies.
+
++ Assign 1 to the focal group for a particular dummy.
+
++ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
+
+---
+# `Hospital` & `Treatment` data
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hospital` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (`SWB`)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+---
+# The data
+```{r}
+hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
+hosp_tbl %>%
+  slice(1:10)
+```
+
+
+---
+class: center, middle
+# General Principle 1
+**We need to apply a constraint in order to test models with categorical data**
+
+
+---
+# Why do we need a reference group?
++ Consider our example and dummy coding.
+
++ We have three groups each given a specific Treatment A, B or C
+
++ We want a model that represents our data (observations), but all we "know" is what group an observation belongs to. So;
+
+$$y_{ij} = \mu_i + \epsilon_{ij}$$
+
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\mu_i$ is the mean of group $i$ and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+
+???
++ And this hopefully makes sense.
+  + Given we know someone's group, our best guess is the mean
+  + But people wont all score the mean, so there is some deviation for every person.
+
+
+---
+# Why do we need a reference group?
++ An alternative way to present this idea looks much more like our linear model:
+
+$$y_{ij} = \beta_0 + \underbrace{(\mu_{i} - \beta_0)}_{\beta_i} + \epsilon_{ij}$$
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\beta_0$ is an estimate of reference/overall average
+  + $\mu_i$ is the mean of group $i$ 
+  + $\beta_1$ is the difference between the reference and the mean of group $i$, and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+---
+# Why do we need a reference group?
++ We can write this equation more generally as:
+
+$$\mu_i = \beta_0 + \beta_i $$
+
++ or for the specific groups (in our case 3):
+
+$$\mu_{treatmentA} = \beta_0 + \beta_{1A}$$
+
+$$\mu_{treatmentB} = \beta_0 + \beta_{2B}$$
+
+$$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$
+
++ **The problem**: we have four parameters ( $\beta_0$ , $\beta_{1A}$ , $\beta_{2B}$ , $\beta_{3C}$ ) to model three group means ( $\mu_{TreatmentA}$ , $\mu_{TreatmentB}$ , $\mu_{TreatmentC}$ )
+
++ We are trying to estimate too much with too little.
+    + This is referred to as under-identification.
+    + We need to estimate at least 1 parameter less
+
+---
+# Constraints fix identification
++ Consider dummy coding.
+
++ Suppose we make Treatment A the reference. Then, 
+
+$$\mu_{treatmentA} = \beta_0$$
+
+$$\mu_{treatmentB} = \beta_0 + \beta_{2B}$$
+
+$$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$
++ Fixed! 
+
++ We now only have three parameters ( $\beta_0$ , $\beta_{2B}$ , $\beta_{3C}$ ) for the three group means ( $\mu_{TreatmentA}$ , $\mu_{TreatmentB}$ , $\mu_{TreatmentC}$ ). 
+
+
+---
+# Group Means
+
+```{r}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB),3),
+    sd = round(sd(SWB),1),
+    N = n()
+  )
+```
+
+---
+# Dummy (reference) model
+
+```{r}
+summary(lm(SWB ~ Treatment, data = hosp_tbl))
+```
+
+---
+# Dummy (reference) model
+
+.pull-left[
+
+```{r, echo=FALSE}
+dres <- summary(lm(SWB ~ Treatment, data = hosp_tbl))
+round(dres$coefficients[,1],3)
+```
+
++ Recall the equations for the group means:
+
+$$\mu_{treatmentA} = \beta_0$$
+$$\mu_{treatmentB} = \beta_0 + \beta_1$$ 
+
+$$\mu_{treatmentC} = \beta_0 + \beta_2$$
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB),3)
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+
+```
+
+]
+
+
+
+---
+class: center, middle
+# Any questions?
+
+---
+# Why not always use dummy coding?
+
++ We might not always want to compare against a reference group.
+
++ We might want to compare to:
+  + The overall or grand mean
+  + Group 1 vs groups 2, 3, 4 combined
+  + and on we go!
+
++ Let's consider the example of the grand mean... 
+
+---
+# Effects coding (sum to zero coding)
+
+```{r, echo=FALSE, message=FALSE}
+set.seed(1)
+gpM <- hosp_tbl %>%
+  group_by(Treatment) %>%
+  summarise(
+    SWB = round(mean(SWB))
+  ) %>%
+  mutate(
+    GM = c(rep(mean(SWB),3))
+  )
+
+hosp_tbl %>%
+  ggplot(., aes(x=Treatment, y=SWB, colour = Treatment, shape = Treatment)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = mean(hosp_tbl$SWB), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
+```
+
+---
+# Sum to zero constraint
+
++ With dummy coding we had a reference group constraint, and the mean of that group was equal to the value of $\beta_0$, or 
+
+$$\mu_{reference} = \beta_0$$ 
+
++ Alternately, we can apply what is referred to as the sum to zero constraint (again using example of three levels).
+
+$$\beta_1 + \beta_2 + \beta_3 = 0$$
+
++ This constraints leads to the following interpretations:
+
++ $\beta_0$ is the grand mean (mean of all observations)
+
+$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3}$$
+
++ $\beta_i$ are the differences between the coded group and the grand mean:
+
+$$\beta_i = \mu_i - \mu$$
+
+---
+# Sum to zero constraint
+
++ Finally, we can get back to our group means from the coefficients as follows: 
+
+$$\mu_1 = \beta_0 + \beta_1$$
+
+$$\mu_2 = \beta_0 + \beta_2$$
+
+$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+
+---
+# OK, but how do we apply the constraint?
+
++ Answer, in the same way as we did with dummy coding.
+
++ We can create a set of sum to zero (sometimes called effect, or deviation) variables
+  + Or the equivalent contrast matrix.
+  
++ For effect code variables we:
+  + Create $k-1$ variables
+  + For observations in the focal group, assign 1
+  + For observations in the last group, assign -1
+  + For all other groups assign 0
+
+
+---
+# Comparing coding matrices
+
+.pull-left[
+```{r echo = FALSE}
+tibble(
+  Level = c("Treatment A", "Treatment B", "Treatment C"),
+  D1 = c(0,1,0),
+  D2 = c(0,0,1)
+) %>%
+  kable(.)%>%
+  kable_styling(., full_width = F)
+```
+
+$$y_{ij} = \beta_0 + \beta_1D_1 + \beta_2D_2 + \epsilon_{ij}$$
+
+]
+
+
+.pull-right[
+
+```{r echo = FALSE}
+tibble(
+  Level = c("Treatment A", "Treatment B", "Treatment C"),
+  E1 = c(1,0,-1),
+  E2 = c(0,1,-1)
+) %>%
+  kable(.)%>%
+  kable_styling(., full_width = F)
+```
+
+$$y_{ij} = \beta_0 + \beta_1E_1 + \beta_2E_2 + \epsilon_{ij}$$
+
+]
+
+---
+# Sum to zero/effects for group means
+
+.pull-left[
+```{r echo = FALSE}
+tibble(
+  Level = c("Treatment A", "Treatment B", "Treatment C"),
+  E1 = c(1,0,-1),
+  E2 = c(0,1,-1)
+) %>%
+  kable(.)%>%
+  kable_styling(., full_width = F)
+```
+
+$$\mu_1 = \beta_0 + \beta_1$$
+
+$$\mu_2 = \beta_0 + \beta_2$$
+
+$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+]
+
+.pull-right[
+$$\mu_1 = \beta_0 + 1*\beta_1 + 0*\beta_2 = \beta_0 + \beta_1$$
+
+$$\mu_2 = \beta_0 + 0*\beta_1 + 1*\beta_2 = \beta_0 + \beta_2$$
+
+$$\mu_3 = \beta_0 -1*\beta_1 -1*\beta_2 = \beta_0 - \beta_1 -\beta_2$$
+
++ Now we will look practically at the implementation and differences
+
+]
+
+
+---
+# Group Means
+
+```{r}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB),3),
+    sd = round(sd(SWB),1),
+    N = n()
+  )
+```
+
+
+---
+# Effects (sum to zero) model
+
++ We need to change the contrast scheme from default.
+
+```{r}
+contrasts(hosp_tbl$Treatment) <- contr.sum 
+contrasts(hosp_tbl$Treatment)
+```
+
+---
+# Effects (sum to zero) model
+```{r}
+summary(lm(SWB ~ Treatment, data = hosp_tbl))
+```
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+```{r, echo=FALSE}
+Eres <- summary(lm(SWB ~ Treatment, data = hosp_tbl))
+round(Eres$coefficients[,1],3)
+```
+
++ Coefficients from group means
+
+
+$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3}$$ 
+
+$$\beta_1 = \mu_1 - \mu$$
+
+$$\beta_2 = \mu_2 - \mu$$
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB),3)
+  ) %>%
+  mutate(
+    Gmean = round(mean(mean),3)
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+```{r, echo=FALSE}
+Eres <- summary(lm(SWB ~ Treatment, data = hosp_tbl))
+round(Eres$coefficients[,1],3)
+```
+
++ Group means from coefficients:
+
+$$\mu_1 = \beta_0 + \beta_1$$
+
+$$\mu_2 = \beta_0 + \beta_2$$
+
+$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+hosp_tbl %>%
+  select(1:2) %>%
+  group_by(Treatment) %>%
+  summarise(
+    mean = round(mean(SWB),3)
+  ) %>%
+  mutate(
+    Gmean = round(mean(mean),3)
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+]
+
+
+---
+# The wide world of contrasts 
++ We have now seen two examples of coding schemes (dummy and effect).
+
++ There are **lots** of different coding schemes we can use for categorical variables to make different comparisons.
+  + If you are interested, see the excellent resource on [UCLA website](https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
+
++ But always remember...
+
+**The data is the same, the tested contrast differs**
+
+---
+class: center, middle
+# Questions
+
+---
+class: center, middle
+# General Principle 2
+**The data is the same, the tested contrasts differ**
+
+
+---
+# The data is the same, the tested contrasts differ
+
++ Run both models:
+
+```{r}
+contrasts(hosp_tbl$Treatment) <- contr.treatment
+m_dummy <- lm(SWB ~ Treatment, data = hosp_tbl)
+
+# Change the contrasts and run again
+contrasts(hosp_tbl$Treatment) <- contr.sum
+m_zero <- lm(SWB ~ Treatment, data = hosp_tbl)
+
+```
+
++ Create a small data set:
+
+```{r}
+treat <- tibble(Treatment = c("TreatA", "TreatB", "TreatC"))
+```
+
+---
+# The data is the same, the tested contrasts differ
+
++ Add the predicted values from our models
+
+```{r}
+treat %>%
+  mutate(
+    pred_dummy = predict(m_dummy, newdata = .),
+    pred_zero = predict(m_zero, newdata = .)
+  )
+```
+
++ No matter what coding or contrasts we use, we are still modelling the group means!
+
+---
+class: center, middle
+# Questions
+
+
+---
+class: center, middle
+# Questions...
+**Next we will look at how we interpret the hospital model in full with effects coding**
+
+
+---
+# For effects coding
+
+```{r, eval = FALSE}
+lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+
+---
+# Run model with effects coding
+```{r}
+contrasts(hosp_tbl$Treatment) <- contr.sum
+contrasts(hosp_tbl$Hospital) <- contr.sum
+m2 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+```
+
+---
+# Run model with effects coding
+```{r, echo=FALSE}
+summary(m2)
+```
+
+---
+# Interpretation with effects coding
+```{r, echo=FALSE}
+m4asum <- summary(m2)
+m4asum$coefficients
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+
+---
+# Summary of today
+
++ We have considered different ways in which we can code categorical predictors.
+
++ Take home:
+  + Use of coding matrices allows us to compare groups (or levels) in lots of ways.
+  + Our $\beta$'s will represent differences in group means.
+  + The scheme we use determines which group or combination of groups we are comparing.
+  + **In all cases the underlying data is unchanged.**
+
++ This makes coding schemes a very flexible tool for testing hypotheses.
+
+
+---
+class: center, middle
+# Thanks for listening!
