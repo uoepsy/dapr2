@@ -64,17 +64,6 @@ library(kableExtra)
 
 
 ---
-# Recap on dummy coding (reference group)
-+ Create $k$-1 dummy variables/contrasts
-  + where $k$ is the number of levels of the categorical predictor. 
-
-+ Assign reference group 0 on all dummies.
-
-+ Assign 1 to the focal group for a particular dummy.
-
-+ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
-
----
 # `Hospital` & `Treatment` data
 
 + **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
@@ -88,19 +77,31 @@ library(kableExtra)
   + An average of multiple raters (the patient, a member of their family, and a friend). 
   + SWB score ranged from 0 to 20.
 
----
-# The data
-```{r}
+```{r, echo = FALSE}
 hosp_tbl <- read_csv("hospital.csv", col_types = "dff")
-hosp_tbl %>%
-  slice(1:10)
 ```
 
 
 ---
+# Recap on dummy coding (reference group)
++ Create $k$-1 dummy variables/contrasts
+  + where $k$ is the number of levels of the categorical predictor. 
+
++ Assign reference group 0 on all dummies.
+
++ Assign 1 to the focal group for a particular dummy.
+
++ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
+
+---
+# Model results
+```{r}
+summary(lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl))
+```
+
+---
 class: center, middle
-# General Principle 1
-**We need to apply a constraint in order to test models with categorical data**
+# Principle behind model constraints
 
 
 ---
@@ -165,12 +166,12 @@ $$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$
 
 $$\mu_{treatmentA} = \beta_0$$
 
-$$\mu_{treatmentB} = \beta_0 + \beta_{2B}$$
+$$\mu_{treatmentB} = \beta_0 + \beta_{1B}$$
 
-$$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$
+$$\mu_{treatmentC} = \beta_0 + \beta_{2C}$$
 + **Fixed** ! 
 
-+ We now only have three parameters ( $\beta_0$ , $\beta_{2B}$ , $\beta_{3C}$ ) for the three group means ( $\mu_{TreatmentA}$ , $\mu_{TreatmentB}$ , $\mu_{TreatmentC}$ ). 
++ We now only have three parameters ( $\beta_0$ , $\beta_{1B}$ , $\beta_{2C}$ ) for the three group means ( $\mu_{TreatmentA}$ , $\mu_{TreatmentB}$ , $\mu_{TreatmentC}$ ). 
 
 
 > So when we code categorical variables, we need a constraint so that we can estimate our models.
@@ -195,6 +196,7 @@ class: center, middle
 ---
 # Effects coding (sum to zero coding)
 
+.pull-left[
 ```{r, echo=FALSE, message=FALSE}
 set.seed(1)
 gpM <- hosp_tbl %>%
@@ -213,27 +215,63 @@ hosp_tbl %>%
   theme_classic() +
   geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
 ```
+]
+
+.pull-right[
+
++ The coloured points represent the individual SWB values for the 30 individuals in each group.
+
++ The solid coloured lines are the group means.
+
++ The dashed grey line is the grand mean (the mean of all the observations)
+
+]
+
+---
+# Model with the grand mean
++ If we write our model including the grand mean, we get:
+
+$$y_{ij} = \mu + \beta_j + \epsilon_{ij}$$
++ where
+  + $y_{ij}$ is the score for a given individual ($i$) in a given group ($j$)
+  + $\mu$ is the grand mean
+  + $\beta_j$ is a group specific effect
+  + $\epsilon_{ij}$ is the individual deviation from the group mean
+
+---
+# Model with the grand mean
++ This means that each group mean is:
+
+$$\mu_{TreatmentA} = \mu + \beta_{TreatmentA}$$
+
+$$\mu_{TreatmentB} = \mu + \beta_{TreatmentB}$$
+
+$$\mu_{TreatmentC} = \mu + \beta_{TreatmentC}$$
+
++ And as with dummy coding, this means we have 4 things to estimate, but only 3 group means.
 
 ---
 # Sum to zero constraint
 
-+ With dummy coding we had a reference group constraint, and the mean of that group was equal to the value of $\beta_0$, or 
++ In sum to zero coding, we fix this with the following constraint:
 
-$$\mu_{reference} = \beta_0$$ 
+$$\sum_{j=1}^m \beta_j = 0$$
 
-+ Alternately, we can apply what is referred to as the sum to zero constraint (again using example of three levels).
++ Or alternatively written for the 3 group case:
 
 $$\beta_1 + \beta_2 + \beta_3 = 0$$
 
+---
+# Sum to zero constraint
 + This constraints leads to the following interpretations:
 
 + $\beta_0$ is the grand mean (mean of all observations) or $\mu$
 
 $$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$$
 
-+ $\beta_i$ are the differences between the coded group and the grand mean:
++ $\beta_j$ are the differences between the coded group and the grand mean:
 
-$$\beta_i = \mu_i - \mu$$
+$$\beta_j = \mu_j - \mu$$
 
 ---
 # Sum to zero constraint
@@ -245,6 +283,11 @@ $$\mu_1 = \beta_0 + \beta_1$$
 $$\mu_2 = \beta_0 + \beta_2$$
 
 $$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+
+---
+class: center, middle
+# Pause for breath...
+
 
 ---
 # OK, but how do we apply the constraint?
@@ -342,7 +385,7 @@ hosp_tbl %>%
     N = n()
   )
 ```
-+ ADD THE GRAND MEAN, PRESENT LIKE A SINGLE ROW CROSS-TAB
+
 
 ---
 # Effects (sum to zero) model
@@ -392,13 +435,12 @@ hosp_tbl %>%
     mean = round(mean(SWB),3)
   ) %>%
   mutate(
-    Gmean = round(mean(mean),3)
+    Gmean = round(mean(mean),3),
+    Coefficients = mean - Gmean
   ) %>%
   kable(.) %>%
   kable_styling(., full_width = F)
 ```
-
-+ CHANGE THIS TO SAME TABLE AS ABOVE
 
 ]
 
@@ -438,7 +480,18 @@ hosp_tbl %>%
   kable_styling(., full_width = F)
 ```
 
-+ CHANGE THIS TO SAME TABLE AS ABOVE
+```{r}
+9.881 + -.554
+```
+
+```{r}
+9.881 + 1.393
+```
+
+```{r}
+9.881 - (-.554 + 1.393)
+```
+
 
 ]
 
@@ -457,12 +510,6 @@ hosp_tbl %>%
 ---
 class: center, middle
 # Questions
-
----
-class: center, middle
-# General Principle 2
-**The data is the same, the tested contrasts differ**
-
 
 ---
 # The data is the same, the tested contrasts differ

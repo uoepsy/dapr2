@@ -57,17 +57,6 @@ class: center, middle, inverse, title-slide
 
 
 ---
-# Recap on dummy coding (reference group)
-+ Create `\(k\)`-1 dummy variables/contrasts
-  + where `\(k\)` is the number of levels of the categorical predictor. 
-
-+ Assign reference group 0 on all dummies.
-
-+ Assign 1 to the focal group for a particular dummy.
-
-+ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
-
----
 # `Hospital` &amp; `Treatment` data
 
 + **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
@@ -81,36 +70,56 @@ class: center, middle, inverse, title-slide
   + An average of multiple raters (the patient, a member of their family, and a friend). 
   + SWB score ranged from 0 to 20.
 
+
+
+
 ---
-# The data
+# Recap on dummy coding (reference group)
++ Create `\(k\)`-1 dummy variables/contrasts
+  + where `\(k\)` is the number of levels of the categorical predictor. 
+
++ Assign reference group 0 on all dummies.
+
++ Assign 1 to the focal group for a particular dummy.
+
++ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
+
+---
+# Model results
 
 ```r
-hosp_tbl &lt;- read_csv("hospital.csv", col_types = "dff")
-hosp_tbl %&gt;%
-  slice(1:10)
+summary(lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl))
 ```
 
 ```
-## # A tibble: 10 × 3
-##      SWB Treatment Hospital
-##    &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
-##  1   6.2 TreatA    Hosp1   
-##  2  15.9 TreatA    Hosp1   
-##  3   7.2 TreatA    Hosp1   
-##  4  11.3 TreatA    Hosp1   
-##  5  11.2 TreatA    Hosp1   
-##  6   9   TreatA    Hosp1   
-##  7  14.5 TreatA    Hosp1   
-##  8   7.3 TreatA    Hosp1   
-##  9  13.7 TreatA    Hosp1   
-## 10  12.6 TreatA    Hosp1
+## 
+## Call:
+## lm(formula = SWB ~ Treatment + Hospital + Treatment * Hospital, 
+##     data = hosp_tbl)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -6.6000 -1.2533  0.1083  1.2650  5.7000 
+## 
+## Coefficients:
+##                               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                    10.8000     0.3699  29.195  &lt; 2e-16 ***
+## TreatmentTreatB                -1.3700     0.5232  -2.619   0.0096 ** 
+## TreatmentTreatC                -0.6967     0.5232  -1.332   0.1847    
+## HospitalHosp2                  -2.9467     0.5232  -5.632 7.02e-08 ***
+## TreatmentTreatB:HospitalHosp2   6.6333     0.7399   8.966 4.74e-16 ***
+## TreatmentTreatC:HospitalHosp2   0.8233     0.7399   1.113   0.2673    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.026 on 174 degrees of freedom
+## Multiple R-squared:  0.4476,	Adjusted R-squared:  0.4317 
+## F-statistic:  28.2 on 5 and 174 DF,  p-value: &lt; 2.2e-16
 ```
-
 
 ---
 class: center, middle
-# General Principle 1
-**We need to apply a constraint in order to test models with categorical data**
+# Principle behind model constraints
 
 
 ---
@@ -175,12 +184,12 @@ $$\mu_i = \beta_0 + \beta_i $$
 
 `$$\mu_{treatmentA} = \beta_0$$`
 
-`$$\mu_{treatmentB} = \beta_0 + \beta_{2B}$$`
+`$$\mu_{treatmentB} = \beta_0 + \beta_{1B}$$`
 
-`$$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$`
+`$$\mu_{treatmentC} = \beta_0 + \beta_{2C}$$`
 + **Fixed** ! 
 
-+ We now only have three parameters ( `\(\beta_0\)` , `\(\beta_{2B}\)` , `\(\beta_{3C}\)` ) for the three group means ( `\(\mu_{TreatmentA}\)` , `\(\mu_{TreatmentB}\)` , `\(\mu_{TreatmentC}\)` ). 
++ We now only have three parameters ( `\(\beta_0\)` , `\(\beta_{1B}\)` , `\(\beta_{2C}\)` ) for the three group means ( `\(\mu_{TreatmentA}\)` , `\(\mu_{TreatmentB}\)` , `\(\mu_{TreatmentC}\)` ). 
 
 
 &gt; So when we code categorical variables, we need a constraint so that we can estimate our models.
@@ -205,28 +214,65 @@ class: center, middle
 ---
 # Effects coding (sum to zero coding)
 
-![](dapr2_12_effectscoding_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+.pull-left[
+![](dapr2_12_effectscoding_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
++ The coloured points represent the individual SWB values for the 30 individuals in each group.
+
++ The solid coloured lines are the group means.
+
++ The dashed grey line is the grand mean (the mean of all the observations)
+
+]
+
+---
+# Model with the grand mean
++ If we write our model including the grand mean, we get:
+
+`$$y_{ij} = \mu + \beta_j + \epsilon_{ij}$$`
++ where
+  + `\(y_{ij}\)` is the score for a given individual ($i$) in a given group ($j$)
+  + `\(\mu\)` is the grand mean
+  + `\(\beta_j\)` is a group specific effect
+  + `\(\epsilon_{ij}\)` is the individual deviation from the group mean
+
+---
+# Model with the grand mean
++ This means that each group mean is:
+
+`$$\mu_{TreatmentA} = \mu + \beta_{TreatmentA}$$`
+
+`$$\mu_{TreatmentB} = \mu + \beta_{TreatmentB}$$`
+
+`$$\mu_{TreatmentC} = \mu + \beta_{TreatmentC}$$`
+
++ And as with dummy coding, this means we have 4 things to estimate, but only 3 group means.
 
 ---
 # Sum to zero constraint
 
-+ With dummy coding we had a reference group constraint, and the mean of that group was equal to the value of `\(\beta_0\)`, or 
++ In sum to zero coding, we fix this with the following constraint:
 
-`$$\mu_{reference} = \beta_0$$` 
+`$$\sum_{j=1}^m \beta_j = 0$$`
 
-+ Alternately, we can apply what is referred to as the sum to zero constraint (again using example of three levels).
++ Or alternatively written for the 3 group case:
 
 `$$\beta_1 + \beta_2 + \beta_3 = 0$$`
 
+---
+# Sum to zero constraint
 + This constraints leads to the following interpretations:
 
 + `\(\beta_0\)` is the grand mean (mean of all observations) or `\(\mu\)`
 
 `$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$$`
 
-+ `\(\beta_i\)` are the differences between the coded group and the grand mean:
++ `\(\beta_j\)` are the differences between the coded group and the grand mean:
 
-`$$\beta_i = \mu_i - \mu$$`
+`$$\beta_j = \mu_j - \mu$$`
 
 ---
 # Sum to zero constraint
@@ -238,6 +284,11 @@ class: center, middle
 `$$\mu_2 = \beta_0 + \beta_2$$`
 
 `$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+
+---
+class: center, middle
+# Pause for breath...
+
 
 ---
 # OK, but how do we apply the constraint?
@@ -396,7 +447,7 @@ hosp_tbl %&gt;%
 ## 2 TreatB    11.3    2.5    60
 ## 3 TreatC     9.04   2      60
 ```
-+ ADD THE GRAND MEAN, PRESENT LIKE A SINGLE ROW CROSS-TAB
+
 
 ---
 # Effects (sum to zero) model
@@ -476,6 +527,7 @@ summary(lm(SWB ~ Treatment, data = hosp_tbl))
    &lt;th style="text-align:left;"&gt; Treatment &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
    &lt;th style="text-align:right;"&gt; Gmean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Coefficients &lt;/th&gt;
   &lt;/tr&gt;
  &lt;/thead&gt;
 &lt;tbody&gt;
@@ -483,21 +535,22 @@ summary(lm(SWB ~ Treatment, data = hosp_tbl))
    &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 9.327 &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.554 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 11.273 &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.392 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 9.042 &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.839 &lt;/td&gt;
   &lt;/tr&gt;
 &lt;/tbody&gt;
 &lt;/table&gt;
-
-+ CHANGE THIS TO SAME TABLE AS ABOVE
 
 ]
 
@@ -551,7 +604,33 @@ summary(lm(SWB ~ Treatment, data = hosp_tbl))
 &lt;/tbody&gt;
 &lt;/table&gt;
 
-+ CHANGE THIS TO SAME TABLE AS ABOVE
+
+```r
+9.881 + -.554
+```
+
+```
+## [1] 9.327
+```
+
+
+```r
+9.881 + 1.393
+```
+
+```
+## [1] 11.274
+```
+
+
+```r
+9.881 - (-.554 + 1.393)
+```
+
+```
+## [1] 9.042
+```
+
 
 ]
 
@@ -570,12 +649,6 @@ summary(lm(SWB ~ Treatment, data = hosp_tbl))
 ---
 class: center, middle
 # Questions
-
----
-class: center, middle
-# General Principle 2
-**The data is the same, the tested contrasts differ**
-
 
 ---
 # The data is the same, the tested contrasts differ
