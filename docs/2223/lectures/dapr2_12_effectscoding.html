@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Categorical Predictors: Effects (sum to zero) coding </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <b> Categorical Predictors: Effects (sum to zero) coding </b>
+## Data Analysis for Psychology in R 2<br><br>
+### dapR2 Team
+### Department of Psychology<br>The University of Edinburgh
+
+---
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Understand the difference between dummy and sum-to-zero coding.
+
+2. Understand the core principle of different coding schemes.
+
+3. Interpret the output from a model using sum-to-zero coding.
+
+
+---
+# Overview of next 3 weeks
++ The next few weeks will focus on how we can work with linear models with categorical predictors to test different questions.
+
++ In particular, we will look at the type of questions typically asked as part of experiments.
+
++ We will see that the tools we saw in discussing model comparisons will be important.
+
++ As well the principles of categorical data coding discussed when talking about binary and dummy variables.
+  + We are going to generalise some of these concepts, and then show how we can use the general principles to test questions.
+
+
+---
+# `Hospital` &amp; `Treatment` data
+
++ **Condition 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Condition 2**: `Hospital` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups).
+  + Between person design. 
+
++ **Outcome**: Subjective well-being (`SWB`)
+  + An average of multiple raters (the patient, a member of their family, and a friend). 
+  + SWB score ranged from 0 to 20.
+
+
+
+
+---
+# Recap on dummy coding (reference group)
++ Create `\(k\)`-1 dummy variables/contrasts
+  + where `\(k\)` is the number of levels of the categorical predictor. 
+
++ Assign reference group 0 on all dummies.
+
++ Assign 1 to the focal group for a particular dummy.
+
++ Enter the dummies into the linear model and they code the difference in means between the focal group/level and the reference.
+
+---
+# Model results
+
+```r
+summary(lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl))
+```
+
+```
+## 
+## Call:
+## lm(formula = SWB ~ Treatment + Hospital + Treatment * Hospital, 
+##     data = hosp_tbl)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -6.6000 -1.2533  0.1083  1.2650  5.7000 
+## 
+## Coefficients:
+##                               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)                    10.8000     0.3699  29.195  &lt; 2e-16 ***
+## TreatmentTreatB                -1.3700     0.5232  -2.619   0.0096 ** 
+## TreatmentTreatC                -0.6967     0.5232  -1.332   0.1847    
+## HospitalHosp2                  -2.9467     0.5232  -5.632 7.02e-08 ***
+## TreatmentTreatB:HospitalHosp2   6.6333     0.7399   8.966 4.74e-16 ***
+## TreatmentTreatC:HospitalHosp2   0.8233     0.7399   1.113   0.2673    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.026 on 174 degrees of freedom
+## Multiple R-squared:  0.4476,	Adjusted R-squared:  0.4317 
+## F-statistic:  28.2 on 5 and 174 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+class: center, middle
+# Principle behind model constraints
+
+
+---
+# Why do we need a reference group?
++ Consider our example and dummy coding.
+
++ We have three groups each given a specific Treatment A, B or C
+
++ We want a model that represents our data (observations), but all we "know" is what group an observation belongs to. So;
+
+`$$y_{ij} = \mu_i + \epsilon_{ij}$$`
+
++ Where 
+  + `\(y_{ij}\)` are the individual observations
+  + `\(\mu_i\)` is the mean of group `\(i\)` and
+  + `\(\epsilon_{ij}\)` is the individual deviation from that mean.
+
+
+???
++ And this hopefully makes sense.
+  + Given we know someone's group, our best guess is the mean
+  + But people wont all score the mean, so there is some deviation for every person.
+
+
+---
+# Why do we need a reference group?
++ An alternative way to present this idea looks much more like our linear model:
+
+`$$y_{ij} = \beta_0 + \underbrace{(\mu_{i} - \beta_0)}_{\beta_i} + \epsilon_{ij}$$`
++ Where 
+  + `\(y_{ij}\)` are the individual observations
+  + `\(\beta_0\)` is an estimate of reference/overall average
+  + `\(\mu_i\)` is the mean of group `\(i\)` 
+  + `\(\beta_1\)` is the difference between the reference and the mean of group `\(i\)`, and
+  + `\(\epsilon_{ij}\)` is the individual deviation from that mean.
+
+---
+# Why do we need a reference group?
++ We can write this equation more generally as:
+
+$$\mu_i = \beta_0 + \beta_i $$
+
++ or for the specific groups (in our case 3):
+
+`$$\mu_{treatmentA} = \beta_0 + \beta_{1A}$$`
+
+`$$\mu_{treatmentB} = \beta_0 + \beta_{2B}$$`
+
+`$$\mu_{treatmentC} = \beta_0 + \beta_{3C}$$`
+
++ **The problem**: we have four parameters ( `\(\beta_0\)` , `\(\beta_{1A}\)` , `\(\beta_{2B}\)` , `\(\beta_{3C}\)` ) to model three group means ( `\(\mu_{TreatmentA}\)` , `\(\mu_{TreatmentB}\)` , `\(\mu_{TreatmentC}\)` )
+
++ We are trying to estimate too much with too little.
+    + This is referred to as under-identification.
+    + We need to estimate at least 1 parameter less
+
+---
+# Constraints fix identification
++ Consider dummy coding.
+
++ Suppose we make Treatment A the reference. Then, 
+
+`$$\mu_{treatmentA} = \beta_0$$`
+
+`$$\mu_{treatmentB} = \beta_0 + \beta_{1B}$$`
+
+`$$\mu_{treatmentC} = \beta_0 + \beta_{2C}$$`
++ **Fixed** ! 
+
++ We now only have three parameters ( `\(\beta_0\)` , `\(\beta_{1B}\)` , `\(\beta_{2C}\)` ) for the three group means ( `\(\mu_{TreatmentA}\)` , `\(\mu_{TreatmentB}\)` , `\(\mu_{TreatmentC}\)` ). 
+
+
+&gt; So when we code categorical variables, we need a constraint so that we can estimate our models.
+
+
+---
+class: center, middle
+# Any questions?
+
+---
+# Why not always use dummy coding?
+
++ We might not always want to compare against a reference group.
+
++ We might want to compare to:
+  + The overall or grand mean
+  + Group 1 vs groups 2, 3, 4 combined
+  + and on we go!
+
++ Let's consider the example of the grand mean... 
+
+---
+# Effects coding (sum to zero coding)
+
+.pull-left[
+![](dapr2_12_effectscoding_files/figure-html/unnamed-chunk-4-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
++ The coloured points represent the individual SWB values for the 30 individuals in each group.
+
++ The solid coloured lines are the group means.
+
++ The dashed grey line is the grand mean (the mean of all the observations)
+
+]
+
+---
+# Model with the grand mean
++ If we write our model including the grand mean, we get:
+
+`$$y_{ij} = \mu + \beta_j + \epsilon_{ij}$$`
++ where
+  + `\(y_{ij}\)` is the score for a given individual ( `\(i\)` ) in a given group ( `\(j\)` )
+  + `\(\mu\)` is the grand mean
+  + `\(\beta_j\)` is a group specific effect
+  + `\(\epsilon_{ij}\)` is the individual deviation from the group mean
+
+---
+# Model with the grand mean
++ This means that each group mean is:
+
+`$$\mu_{TreatmentA} = \mu + \beta_{TreatmentA}$$`
+
+`$$\mu_{TreatmentB} = \mu + \beta_{TreatmentB}$$`
+
+`$$\mu_{TreatmentC} = \mu + \beta_{TreatmentC}$$`
+
++ And as with dummy coding, this means we have 4 things to estimate, but only 3 group means.
+
+---
+# Sum to zero constraint
+
++ In sum to zero coding, we fix this with the following constraint:
+
+`$$\sum_{j=1}^m \beta_j = 0$$`
+
++ Or alternatively written for the 3 group case:
+
+`$$\beta_1 + \beta_2 + \beta_3 = 0$$`
+
+---
+# Sum to zero constraint
++ This constraints leads to the following interpretations:
+
++ `\(\beta_0\)` is the grand mean (mean of all observations) or `\(\mu\)`
+
+`$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$$`
+
++ `\(\beta_j\)` are the differences between the coded group and the grand mean:
+
+`$$\beta_j = \mu_j - \mu$$`
+
+---
+# Sum to zero constraint
+
++ Finally, we can get back to our group means from the coefficients as follows: 
+
+`$$\mu_1 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+
+---
+class: center, middle
+# Pause for breath...
+
+
+---
+# OK, but how do we apply the constraint?
+
++ Answer, in the same way as we did with dummy coding.
+
++ We can create a set of sum to zero (sometimes called effect, or deviation) variables
+  + Or the equivalent contrast matrix.
+  
++ For effect code variables we:
+  + Create `\(k-1\)` variables
+  + For observations in the focal group, assign 1
+  + For observations in the last group, assign -1
+  + For all other groups assign 0
+
+
+---
+# Comparing coding matrices
+
+.pull-left[
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Level &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; D1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; D2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment A &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment B &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment C &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+`$$y_{ij} = \beta_0 + \beta_1D_1 + \beta_2D_2 + \epsilon_{ij}$$`
+
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Level &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; E1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; E2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment A &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment B &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment C &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+`$$y_{ij} = \beta_0 + \beta_1E_1 + \beta_2E_2 + \epsilon_{ij}$$`
+
+]
+
+---
+# Sum to zero/effects for group means
+
+.pull-left[
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Level &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; E1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; E2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment A &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment B &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Treatment C &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+`$$\mu_1 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+]
+
+.pull-right[
+`$$\mu_1 = \beta_0 + 1*\beta_1 + 0*\beta_2 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + 0*\beta_1 + 1*\beta_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 -1*\beta_1 -1*\beta_2 = \beta_0 - \beta_1 -\beta_2$$`
+
++ Now we will look practically at the implementation and differences
+
+]
+
+
+---
+# Group Means
+
+
+```r
+hosp_tbl %&gt;%
+  select(1:2) %&gt;%
+  group_by(Treatment) %&gt;%
+  summarise(
+    mean = round(mean(SWB),3),
+    sd = round(sd(SWB),1),
+    N = n()
+  )
+```
+
+```
+## # A tibble: 3 x 4
+##   Treatment  mean    sd     N
+##   &lt;fct&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt;
+## 1 TreatA     9.33   2.9    60
+## 2 TreatB    11.3    2.5    60
+## 3 TreatC     9.04   2      60
+```
+
+
+---
+# Effects (sum to zero) model
+
++ We need to change the contrast scheme from default.
+
+
+```r
+contrasts(hosp_tbl$Treatment) &lt;- contr.sum 
+contrasts(hosp_tbl$Treatment)
+```
+
+```
+##        [,1] [,2]
+## TreatA    1    0
+## TreatB    0    1
+## TreatC   -1   -1
+```
+
+---
+# Effects (sum to zero) model
+
+```r
+summary(lm(SWB ~ Treatment, data = hosp_tbl))
+```
+
+```
+## 
+## Call:
+## lm(formula = SWB ~ Treatment, data = hosp_tbl)
+## 
+## Residuals:
+##    Min     1Q Median     3Q    Max 
+## -5.373 -1.987 -0.300  1.838  7.173 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   9.8806     0.1872  52.791  &lt; 2e-16 ***
+## Treatment1   -0.5539     0.2647  -2.093   0.0378 *  
+## Treatment2    1.3928     0.2647   5.262 4.09e-07 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.511 on 177 degrees of freedom
+## Multiple R-squared:  0.1369,	Adjusted R-squared:  0.1271 
+## F-statistic: 14.04 on 2 and 177 DF,  p-value: 2.196e-06
+```
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+
+```
+## (Intercept)  Treatment1  Treatment2 
+##       9.881      -0.554       1.393
+```
+
++ Coefficients from group means
+
+
+`$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3}$$` 
+
+`$$\beta_1 = \mu_1 - \mu$$`
+
+`$$\beta_2 = \mu_2 - \mu$$`
+
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Treatment &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Gmean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Coefficients &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.327 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.554 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.273 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.392 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.042 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.839 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+
+```
+## (Intercept)  Treatment1  Treatment2 
+##       9.881      -0.554       1.393
+```
+
++ Group means from coefficients:
+
+`$$\mu_1 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Treatment &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Gmean &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.327 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.273 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.042 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.881 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+```r
+9.881 + -.554
+```
+
+```
+## [1] 9.327
+```
+
+
+```r
+9.881 + 1.393
+```
+
+```
+## [1] 11.274
+```
+
+
+```r
+9.881 - (-.554 + 1.393)
+```
+
+```
+## [1] 9.042
+```
+
+
+]
+
+
+---
+# The wide world of contrasts 
++ We have now seen two examples of coding schemes (dummy and effect).
+
++ There are **lots** of different coding schemes we can use for categorical variables to make different comparisons.
+  + If you are interested, see the excellent resource on [UCLA website](https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
+
++ But always remember...
+
+**The data is the same, the tested contrast differs**
+
+---
+class: center, middle
+# Questions
+
+---
+# The data is the same, the tested contrasts differ
+
++ Run both models:
+
+
+```r
+contrasts(hosp_tbl$Treatment) &lt;- contr.treatment
+m_dummy &lt;- lm(SWB ~ Treatment, data = hosp_tbl)
+
+# Change the contrasts and run again
+contrasts(hosp_tbl$Treatment) &lt;- contr.sum
+m_zero &lt;- lm(SWB ~ Treatment, data = hosp_tbl)
+```
+
++ Create a small data set:
+
+
+```r
+treat &lt;- tibble(Treatment = c("TreatA", "TreatB", "TreatC"))
+```
+
+---
+# The data is the same, the tested contrasts differ
+
++ Add the predicted values from our models
+
+
+```r
+treat %&gt;%
+  mutate(
+    pred_dummy = predict(m_dummy, newdata = .),
+    pred_zero = predict(m_zero, newdata = .)
+  )
+```
+
+```
+## # A tibble: 3 x 3
+##   Treatment pred_dummy pred_zero
+##   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;
+## 1 TreatA          9.33      9.33
+## 2 TreatB         11.3      11.3 
+## 3 TreatC          9.04      9.04
+```
+
++ No matter what coding or contrasts we use, we are still modelling the group means!
+
+
+
+---
+# Summary of today
+
++ We have considered different ways in which we can code categorical predictors.
+
++ Take home:
+  + Use of coding matrices allows us to compare groups (or levels) in lots of ways.
+  + Our `\(\beta\)`'s will represent differences in group means.
+  + The scheme we use determines which group or combination of groups we are comparing.
+  + **In all cases the underlying data is unchanged.**
+
++ This makes coding schemes a very flexible tool for testing hypotheses.
+
+
+---
+class: center, middle
+# Thanks for listening! Any questions?
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
