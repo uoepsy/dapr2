@@ -40,6 +40,7 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **psych** 
 * **kableExtra**
+* **stargazer**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment.csv. Note, you have already worked with *some* of this data before - see [Semester 1 week 8 lab](https://uoepsy.github.io/dapr2/labs/1_08_int_cc.html), but we now have a third Task condition - Classification. 
@@ -64,7 +65,9 @@ In this week's exercises, we will further explore questions such as:
 
 __Description__
 
-The researchers designed a study yielding a 3 by 2 factorial design to test this theory. The first factor, "Diagnosis", classifies the three types of individuals:
+The researchers designed a study yielding a $3 \times 3$ factorial design to test whether there are differences in types of memory deficits for those experiencing different cognitive impairment(s).
+
+ The first factor, "Diagnosis", classifies the three types of individuals:
 
 - 1 denotes amnesic patients;
 - 2 denotes Huntingtons patients; and
@@ -106,9 +109,7 @@ df %>%
     add_header_above(c(" " = 1, "Task" = 3))
 ```
 
-
 The five observations are assumed to come from a population having a specific mean. The population means corresponding to each combination of factor levels can be schematically written as:
-
 
 $$
 \begin{matrix}
@@ -119,33 +120,55 @@ $$
                    & (i=3)\text{ huntingtons} & \mu_{3,1} & \mu_{3,2} & \mu_{3,3}
 \end{matrix}
 $$
+`r optend()`
 
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the cognitive_experiment dataset into R, assigning it to an object named `cog` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#load packages
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(emmeans)
+library(stargazer)
+
+#read in data
+cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
+```
+
+`r solend()`
+
+<br>
 
 `r qbegin(1)`
-Repeat the steps outlined in the Semester 1 Week 8 lab, but using the new dataset.
 
-- Read the cognitive experiment data into R. 
-- Convert categorical variables into factors, and assign more informative labels to the factor levels according to the data description provided above.
-- Relevel the `Diagnosis` factor to have 'Control' as the reference group.
-- Relevel the `Task` factor to have 'Recognition' as the reference group. 
-- Rename the response variable from `Y` to `Score`.
-- Describe the data.
-- Visualise the interaction between Diagnosis and Task.
+Firstly, examine the dataset, and perform any necessary and appropriate data management steps.
+
+Secondly, set an appropriate reference group based on the research question. 
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Load the tidyverse library and read the data into R:
+First step is to always look at the data we are working with - `str()` or `head()` are a good place to start
 
 ```{r}
-cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
-head(cog)
+str(cog)
 ```
 
-We will now convert `Diagnosis` and `Task` into factors, making the labels of each factor level more meaningful. 
+Convert `Diagnosis` and `Task` into factors, making the labels of each factor level more meaningful. 
 
-According to the data description, the encoding of the factor `Diagnosis` is: 1 = amnesic patients, 2 = Huntingtons patients, and 3 are control patients.The encoding for the factor `Task` is: 1 = grammar task, 2 = classification task, and 3 = recognition task.
+According to the data description, the encoding of the factor `Diagnosis` is: 1 = amnesic patients, 2 = Huntingtons patients, and 3 are control patients. The encoding for the factor `Task` is: 1 = grammar task, 2 = classification task, and 3 = recognition task.
 
 ```{r}
 cog$Diagnosis <- factor(cog$Diagnosis, 
@@ -156,205 +179,129 @@ cog$Task <- factor(cog$Task,
                    ordered = FALSE)
 ```
 
-Relevel the `Diagnosis` factor so that the reference group is "Control":
-
-```{r}
-cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
-cog$Task <- fct_relevel(cog$Task, "recognition")
-```
-
-Rename the response:
+Rename the response so that we have a more meaningful name than "Y":
 
 ```{r}
 cog <- cog %>%
     rename(Score = Y)
 ```
 
-Look at the data:
+Re-examine the data:
 
 ```{r}
 head(cog)
 ```
 
-Describe data:
+Check for NAs:
 ```{r}
+#check for NAs - there are none - all FALSE
+table(is.na(cog))
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Provide a table of descriptive statistics and visualise your data.
+
+Remember to interpret your plot in the context of the study (i.e., comment on any observed differences among treatment groups). 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.
+2. Recall that when visualising categorical variables, `geom_boxplot()` may be most appropriate to use.
+3. Make sure to comment on any observed differences among the sample means of the four treatment conditions.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's first produce a descriptive statistics table:
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-cog-descript
+#| tbl-cap: Descriptive Statistics
 cog_stats <- cog %>% 
     group_by(Diagnosis, Task) %>%
     summarise(
         Avg_Score = mean(Score), 
         SD = sd(Score),
-        SE = sd(Score) / sqrt(n())
-        )
+        SE = sd(Score) / sqrt(n()),
+        Min = min(Score),
+        Max = max(Score)) %>%
+    kable(caption = "Descriptive Statistics", digits = 2) %>%
+    kable_styling()
 
 cog_stats
 ```
 
-Since we have not yet fitted our model, we cannot use the `emmip` function from `emmeans` or `plot_model` from `sjPlot`. We can however use a simple `ggplot` and use our summary scores from above:
+Since we have a continuous outcome and 2 categorical predictors - a boxplot would be most appropriate for visualisations:
 
 ```{r}
-ggplot(data = cog_stats, aes(x = Task, y = Avg_Score, color = Diagnosis)) +
-    geom_point(size = 3) +
-    geom_line(aes(x = as.numeric(Task)))
+#| label: fig-cog-desc
+#| fig-cap: "Association between Task Condition, Diagnosis, and Average Score"
+cog_plt <- ggplot(data = cog, aes(x = Diagnosis, y = Score, color = Task)) +
+  geom_boxplot() +
+  labs(x = 'Diagnosis', y = 'Average Score')
+cog_plt
 ```
 
-:::int
+::: {.callout-important icon=false appearance="minimal"}
 
-Control patients consistently perform best across all tasks. They don't seem to differ substantially in their scores between grammar and classification tasks, but they clearly perform better in the recognition task than the grammar and classification ones.
++ Control patients consistently perform best across all tasks. They don't seem to differ substantially in their scores between grammar and classification tasks, but they clearly perform better in the recognition task than the grammar and classification ones.
 
-Amnesic patients appear to perform better than Huntingtons patients in grammar an classification tasks (reflecting intrinsic memory processes) and perform worse than Huntingtons patients in the recognition task (reflecting extrinsic memory processes).
++ Amnesic patients appear to perform better than Huntingtons patients in grammar an classification tasks (reflecting intrinsic memory processes) and perform worse than Huntingtons patients in the recognition task (reflecting extrinsic memory processes).
 
 :::
 
 `r solend()`
 
-`r qbegin(2)`
+<br>
 
-The model with interaction is:
+`r qbegin(3)`
 
-$$
-\begin{aligned}
-Score &= \beta_0 \\
-      &+ \beta_1 D_\text{Control} + \beta_2 D_\text{Amnesic}   \\
-      &+ \beta_3 T_\text{Recognition}  + \beta_4 D_\text{Grammar} \\
-      &+ \beta_5 (D_\text{Control} * T_\text{Recognition}) + \beta_6 (D_\text{Amnesic} * T_\text{Recognition})  \\
-      &+ \beta_7 (D_\text{Control} * T_\text{Grammar}) + \beta_8 (D_\text{Amnesic} * T_\text{Grammar})  \\
-      &+ \epsilon 
-\end{aligned}
-$$
+What would be the most appropriate coding constraint to apply in order to best address the research question - i.e., are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the global/grand mean?
 
-Fit the above model, and set the the sum to zero constraint for `Diagnosis` of 'Control' and `Task` of 'Recognition'.
-
-Applying the sum to zero constraint, we would have:
-
-$$
-\begin{aligned}
-\text{Intercept (global mean)} &= \beta_0 \frac{\mu_{1,1} + \mu_{1,2} + \cdots + \mu_{3,3}}{9} \\
-\beta_{Huntingtons} &= -(\beta_1 + \beta_2) \\
-\beta_{Classification} &= -(\beta_3 + \beta_4) \\
-\beta_{Huntingtons:Classification} &= -(\beta_5 + \beta_6 + \beta_7 + \beta_8)
-\end{aligned}
-$$
+Make any appropriate changes to reference levels if required based on your decision above. 
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-The fitted model should be:
+Since we are interested in comparing groups, we should use dummy coding. By default, `R` uses dummy coding, so we do not need to make any changes to the coding constraint. 
+
+In terms of reference groups, we should re-level the `Diagnosis` factor so that the reference group is "Control", and the reference group for `Task` is "Recognition". 
 
 ```{r}
-contrasts(cog$Diagnosis) <- "contr.sum"
-contrasts(cog$Task) <- "contr.sum"
-mdl_int1 <- lm(Score ~ Diagnosis * Task, data = cog)
-summary(mdl_int1)
-anova(mdl_int1)
-```
-
-Next week, we will explore the `summary()` and `anova()` output in detail. If you have time, note down what you think these estimates might be telling us. Remember, the interpretation of the estimates is now *different* from what you had in Semester 1 Week 8 - now each beta coefficient is the difference between a group mean and the **overall** mean. 
-
-`r solend()`
-
-
-# Recap
-
-You have (hopefully) already made a head start on this weeks exercises if you completed the Factorial ANOVA section of [last week's lab](https://uoepsy.github.io/dapr2/labs/2_03_cont_design_factanova.html#Factorial_ANOVA). If you haven't yet completed these two questions, do so before reading any further. 
-
-
-
-## Research question and data
-
-As a reminder, we are working with data from a study yielding a $3 \times 3$ factorial design to test whether there are differences in types of memory deficits for those experiencing different cognitive impairment(s).
-
-```{r echo=FALSE}
-library(tidyverse)
-cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
-# head(df)
-
-cog$Diagnosis <- factor(cog$Diagnosis, 
-                       labels = c("amnesic", "huntingtons", "control"),
-                       ordered = FALSE)
-
-cog$Task <- factor(cog$Task, 
-                  labels = c("grammar", "classification", "recognition"), 
-                  ordered = FALSE)
-
 cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
 cog$Task <- fct_relevel(cog$Task, "recognition")
-
-cog <- cog %>%
-    rename(Score = Y)
-
-library(kableExtra)
-
-cog %>% 
-    pivot_wider(names_from = 'Task', values_from = 'Score') %>% 
-    kable() %>%
-    kable_styling(full_width = FALSE) %>%
-    add_header_above(c(" " = 1, "Task" = 3))
 ```
 
+`r solend()`
 
-# Interaction Model
+<br>
 
-`r qbegin(1)`
-Let's look at the `summary()` and `anova()` output in detail from the model you should have previously fitted with the sum to zero constraint. As a reminder, the model with interaction is:
+`r qbegin(4)`
 
-$$
-\begin{aligned}
-Score &= \beta_0 \\
-      &+ \beta_1 D_\text{Control} + \beta_2 D_\text{Amnesic}   \\
-      &+ \beta_3 T_\text{Recognition}  + \beta_4 T_\text{Grammar} \\
-      &+ \beta_5 (D_\text{Control} * T_\text{Recognition}) + \beta_6 (D_\text{Amnesic} * T_\text{Recognition})  \\
-      &+ \beta_7 (D_\text{Control} * T_\text{Grammar}) + \beta_8 (D_\text{Amnesic} * T_\text{Grammar})  \\
-      &+ \epsilon 
-\end{aligned}
-$$
+Formally state:
 
-Applying the sum to zero constraint (for `Diagnosis` of 'Control' and `Task` of 'Recognition'), we would have:
-
-$$
-\begin{aligned}
-\text{Intercept (global mean)} &= \beta_0 \frac{\mu_{1,1} + \mu_{1,2} + \cdots + \mu_{3,3}}{9} \\
-\beta_{Huntingtons} &= -(\beta_1 + \beta_2) \\
-\beta_{Classification} &= -(\beta_3 + \beta_4) \\
-\beta_{Huntingtons:Classification} &= -(\beta_5 + \beta_6 + \beta_7 + \beta_8)
-\end{aligned}
-$$
++ the linear model(s) to investigate whether there are differences in Score based on Diagnosis and Task conditions
++ your chosen significance level
++ the null and alternative hypotheses
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Let's look at the `anova()` and `summary()` output:
-```{r}
-contrasts(cog$Diagnosis) <- "contr.sum"
-contrasts(cog$Task) <- "contr.sum"
-mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
-anova(mdl_int)
-```
+Based on previous plotting, it does seem that there is a clear interaction between diagnosis and task. However, we have not **statistically compared our interaction model to an additive model** (same model but without the interaction). This is what the RQ warrants, and until we make this comparison, we cannot confidently progress on the *assumption* that the interaction model is the most suitable for answering the research question. Thus, we need to fit both models:
 
-:::int
-Scores significantly differed by both Diagnosis ($F(2, 36)=16.63, p < .001$) and by Task ($F(2, 36)=16.63, p < .001$). The interaction between Diagnosis and Task was significant ($F(4, 36)=7.92, p < 0.001$). This provides evidence against the null hypothesis that effect of Task is constant across the different levels of Diagnosis.
-:::
-
-```{r}
-summary(mdl_int)
-```
-
-:::int
-The F-test for model utility is again significant at the 5\% level: $F(8,36) = 12.28, p < .001$. An F-statistic this large or larger occurring by chance only is very small. In the presence of a significant interaction we **do not** interpret the main effects as their interpretation changes with the level of the other factor.
-:::
-
-`r solend()`
-
-`r qbegin(2)`
-Based on previous plotting, it does seem that there is a clear interaction between diagnosis and task (as well as from our output above). However, we have not statistically compared our interaction model to an additive model (same model but without the interaction). Until we do so, we cannot confidently progress on the *assumption* that the interaction model is the most suitable for answering the research question.
-
-We also want to consider the best coding constraint to apply in order to best answer the research question  - are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the overall group mean? 
-
-
-Since we are interested in comparing groups, we should reset to dummy coding, and thus should re-run our interaction model. Next, we need to perform a model comparison between the additive model and the interaction model using the `anova()` function. 
-
-After re-running your model with dummy coding, interpret the result of the model comparison.
+First our additive model:
 
 $$
 \begin{aligned}
@@ -365,6 +312,7 @@ Additive Model: Score &= \beta_0 \\
 \end{aligned}
 $$
 
+Interaction model:
 $$
 \begin{aligned}
 Interaction Model: Score &= \beta_0 \\
@@ -375,56 +323,80 @@ Interaction Model: Score &= \beta_0 \\
       &+ \epsilon 
 \end{aligned}
 $$
+
+Effects will be considered statistically significant at $\alpha=.05$
+
+Our hypotheses are:
+
+$H_0: \beta_1 = \beta_2 = \beta_3$
+
+There are no differences in WPM based on caffeine treatment conditions. 
+
+$H_1: \beta_1 \neq \beta_2 \neq \beta_3$
+
+There are differences in WPM based on caffeine treatment conditions. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Fit the specified models, and assign them the names "mdl_add" and "mdl_int" as appropriate. 
+
+Provide key model results from the two models in a single formatted table, and report the results of the model comparison in APA format.
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Switch back to dummy coding:
-```{r}
-contrasts(cog$Diagnosis) <- "contr.treatment"
-contrasts(cog$Task) <- "contr.treatment"
-```
+Let's first fit our two models, and compare via `anova()`:
 
-Build additive model and re-run interaction model:
 ```{r}
+#Additive Model
 mdl_add <- lm(Score ~ Diagnosis + Task, data = cog)
+summary(mdl_add)
+
+#Interaction Model
 mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
-```
+summary(mdl_int)
 
-
-The relevant function is `anova()` with the two models as inputs to conduct a model comparison:
-```{r}
+#Compare models using anova
 anova(mdl_add, mdl_int)
 ```
 
-:::int
-We performed an F-test to compare two nested models: an additive two-factor ANOVA against a two-factor model with interaction. The test results are $F(4, 36) = 7.92, p < .001$.
+Use the **stargazer** package to create table:
 
-At the 5\% significance level, the probability of obtaining an F-statistic as large as 7.92 or larger is <.001. 
-
-Hence, the comparison of nested models provides evidence against the additive effects model, suggesting that we should use the interaction model as each factor has a different effect on the response depending the level of the other factor.
-:::
-`r solend()`
-
-
-`r qbegin(3)`
-Using `plot_model()` (note that this function is from `sjPlot` package - make sure that you load this), generate a plot showing the predicted mean scores for each combination of levels of the diagnosis and task factors.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-To visualize the interaction between Diagnosis and Task, we will use `plot_model()`, and ask for a plot of predicted values by specifying `type = "pred"`. Because the interaction involves the two variables, we need to specify a list of the `terms` (or names) from the model that should be plotted.
-
-```{r}
-library(sjPlot)
-plot_model(mdl_int, type = "pred", terms = c("Diagnosis", "Task"))
+```{r, results = 'asis', message = FALSE}
+stargazer(mdl_add, mdl_int,
+          title="Regression Model Results for RQ1",
+          dep.var.labels=c("Wellbeing Score"),
+          covariate.labels=c("Intercept", "Number of Social Interactions"), 
+          type = "html", 
+          digits = 2,
+          single.row=TRUE, 
+          align=TRUE,
+          intercept.bottom = FALSE)
 ```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We performed an $F$-test to compare two nested models: an additive two-factor model against a two-factor model with interaction. The test results are $F(4, 36) = 7.92, p < .001$.
+
+At the 5\% significance level, the probability of obtaining an $F$-statistic as large as 7.92 or larger is <.001. 
+
+Hence, the comparison of nested models provided evidence against the additive effects model, suggesting that we should use the interaction model as each factor has a different effect on the response depending the level of the other factor.
+
+:::
+
 `r solend()`
 
-# Contrast analysis
+## Contrast analysis
 
-We will begin by looking at each factor separately. 
+We will now begin by looking at each factor separately. 
+
+
+`r qbegin(6)`
 
 In terms of the diagnostic groups, recall that we want to compare the amnesiacs to the Huntington individuals. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
 
@@ -436,7 +408,17 @@ When we are in presence of a significant interaction, the coefficients for a con
 knitr::include_graphics('images/contr_interaction.png')
 ```
 
-This can be done in R using:
+Specify the contrast weights in `R`, and state the null hypothesis of your contrast analysis. 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+This can be done in `R` using:
+
+::: {.panel-tabset}
+
+## Option 1
 
 ```{r}
 diag_coef  <- c('control' = 0, 'amnesic' = 1, 'huntingtons' = -1)
@@ -444,6 +426,17 @@ task_coef  <- c('grammar' = 0.5, 'classification' = 0.5, 'recognition' = -1)
 contr_coef <- outer(diag_coef, task_coef)   # or: diag_coef %o% task_coef
 contr_coef
 ```
+
+## Option 2
+
+```{r}
+diag_coef  <- c('control' = 0, 'amnesic' = 1, 'huntingtons' = -1)
+task_coef  <- c('grammar' = 0.5, 'classification' = 0.5, 'recognition' = -1)
+contr_coef <- diag_coef %o% task_coef
+contr_coef
+```
+
+:::
 
 The above coefficients correspond to testing the null hypothesis
 
@@ -459,10 +452,20 @@ $$
 
 which says that, in the population, the difference between the mean implicit memory and the explicit memory score is the same for amnesic patients and Huntingtons individuals. Note that the scores for the grammar and classification tasks have been averaged to obtain a single measure of 'implicit memory' score.
 
+`r solend()`
 
-Now that we have the coefficients, let's call the `emmeans` function (this is helpful to look at the ordering of the groups):
+<br>
+
+`r qbegin(6)`
+
+Run contrast analysis, and interpret output. 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Now that we have the coefficients, let's firstly call the `emmeans` function (this is helpful to look at the ordering of the groups):
 ```{r}
-library(emmeans)
 emm <- emmeans(mdl_int, ~ Diagnosis*Task)
 emm
 ```
@@ -473,24 +476,30 @@ We also give a name to this contrast, such as 'Research Hyp'.
 
 ```{r}
 comp_res <- contrast(emm, method = list('Research Hyp' = c(0, -1, 1, 0, 0.5, -0.5, 0, 0.5, -0.5)))
-comp_res
-confint(comp_res)
+
 
 ```
 
-or:
+Next, let's look at the output via one of two ways:
+
+::: {.panel-tabset}
+
+## Option 1
+
+```{r}
+comp_res
+confint(comp_res)
+```
+
+## Option 2
 
 ```{r}
 summary(comp_res, infer = TRUE)
 ```
 
-`r qbegin(4)`
+:::
 
-Interpret the results of the contrast analysis.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+::: {.callout-important icon=false appearance="minimal"}
 
 The contrast analysis yielded a $t$-value of 5.4 and a corresponding $p$-value < .001. Thus, there is evidence that the contrast is not zero in the population. In other words, Amnesics and Huntingtons patients differ in the difference between implicit and explicit recognition memory tasks. 
 
@@ -502,12 +511,9 @@ The contrast analysis shows that the 95\% confidence interval for our contrast s
 
 By considering the simple effects, we can identify at which levels of the interacting condition we see different effects. 
 
-`r qbegin(5)`
-
-Since we have a significant interaction, we should also look at the simple main effects. Simple effects are the effect of one factor (e.g., Task) at each level of another factor (e.g., Diagnosis - Control, Huntingtons, and Amnesic).
+`r qbegin(7)`
 
 Examine the simple effects for Task at each level of Diagnosis; and then the simple effects for Diagnosis at each level of Task. 
-
 
 `r qend()`
 
@@ -525,7 +531,10 @@ From `mdl_int_simple1` we can see the differences between between tasks for each
 
 `r solend()`
 
-`r qbegin(6)`
+<br>
+
+`r qbegin(8)`
+
 There are various ways we can create an interaction plot, for instance, try this code: 
 ```{r eval=F}
 emmip(mdl_int, Diagnosis ~ Task, CIs = TRUE)
