@@ -41,6 +41,7 @@ For this lab, you will need to load the following package(s):
 * **psych** 
 * **kableExtra**
 * **stargazer**
+* **patchwork**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/cognitive_experiment.csv) or read it in via this link https://uoepsy.github.io/data/cognitive_experiment.csv. Note, you have already worked with *some* of this data before - see [Semester 1 week 8 lab](https://uoepsy.github.io/dapr2/labs/1_08_int_cc.html), but we now have a third Task condition - Classification. 
@@ -141,6 +142,7 @@ library(psych)
 library(kableExtra)
 library(emmeans)
 library(stargazer)
+library(patchwork)
 
 #read in data
 cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
@@ -154,7 +156,9 @@ cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
 
 Firstly, examine the dataset, and perform any necessary and appropriate data management steps.
 
-Secondly, set an appropriate reference group based on the research question. 
+Next, consider would be the most appropriate coding constraint to apply in order to best address the research question - i.e., are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the global/grand mean?
+
+Make any appropriate changes to reference levels if required based on your decision above. 
 
 `r qend()`
 
@@ -197,6 +201,16 @@ Check for NAs:
 #check for NAs - there are none - all FALSE
 table(is.na(cog))
 ```
+
+Since we are interested in comparing groups, we should use dummy coding. By default, `R` uses dummy coding, so we do not need to make any changes to the coding constraint. 
+
+In terms of reference groups, we should re-level the `Diagnosis` factor so that the reference group is "Control", and the reference group for `Task` is "Recognition". 
+
+```{r}
+cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
+cog$Task <- fct_relevel(cog$Task, "recognition")
+```
+
 
 `r solend()`
 
@@ -266,29 +280,6 @@ cog_plt
 
 `r qbegin(3)`
 
-What would be the most appropriate coding constraint to apply in order to best address the research question - i.e., are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the global/grand mean?
-
-Make any appropriate changes to reference levels if required based on your decision above. 
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-Since we are interested in comparing groups, we should use dummy coding. By default, `R` uses dummy coding, so we do not need to make any changes to the coding constraint. 
-
-In terms of reference groups, we should re-level the `Diagnosis` factor so that the reference group is "Control", and the reference group for `Task` is "Recognition". 
-
-```{r}
-cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
-cog$Task <- fct_relevel(cog$Task, "recognition")
-```
-
-`r solend()`
-
-<br>
-
-`r qbegin(4)`
-
 Formally state:
 
 + the linear model(s) to investigate whether there are differences in Score based on Diagnosis and Task conditions
@@ -340,7 +331,7 @@ There are differences in WPM based on caffeine treatment conditions.
 
 <br>
 
-`r qbegin(5)`
+`r qbegin(4)`
 
 Fit the specified models, and assign them the names "mdl_add" and "mdl_int" as appropriate. 
 
@@ -396,7 +387,7 @@ Hence, the comparison of nested models provided evidence against the additive ef
 We will now begin by looking at each factor separately. 
 
 
-`r qbegin(6)`
+`r qbegin(5)`
 
 In terms of the diagnostic groups, recall that we want to compare the amnesiacs to the Huntington individuals. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
 
@@ -423,7 +414,7 @@ This can be done in `R` using:
 ```{r}
 diag_coef  <- c('control' = 0, 'amnesic' = 1, 'huntingtons' = -1)
 task_coef  <- c('grammar' = 0.5, 'classification' = 0.5, 'recognition' = -1)
-contr_coef <- outer(diag_coef, task_coef)   # or: diag_coef %o% task_coef
+contr_coef <- outer(diag_coef, task_coef)
 contr_coef
 ```
 
@@ -475,9 +466,9 @@ Next, from `contr_coef`, insert the coefficients following the order specified b
 We also give a name to this contrast, such as 'Research Hyp'.
 
 ```{r}
-comp_res <- contrast(emm, method = list('Research Hyp' = c(0, -1, 1, 0, 0.5, -0.5, 0, 0.5, -0.5)))
-
-
+comp_res <- contrast(emm, 
+                     method = list('Research Hyp' = c(0, -1, 1, 0, 0.5, -0.5, 0, 0.5, -0.5))
+                     )
 ```
 
 Next, let's look at the output via one of two ways:
@@ -505,9 +496,11 @@ The contrast analysis yielded a $t$-value of 5.4 and a corresponding $p$-value <
 
 The contrast analysis shows that the 95\% confidence interval for our contrast stretches from 32.8 to 72.2. This interval does not contain zero. Thus, we can be 95\% confident that the task difference is not the same for amnesiacs as for Huntingtons, which is why we can reject the null hypothesis that the difference in differences is zero. 
 
+:::
+
 `r solend()`
 
-# Simple Effects
+## Simple Effects
 
 By considering the simple effects, we can identify at which levels of the interacting condition we see different effects. 
 
@@ -535,54 +528,54 @@ From `mdl_int_simple1` we can see the differences between between tasks for each
 
 `r qbegin(8)`
 
-There are various ways we can create an interaction plot, for instance, try this code: 
-```{r eval=F}
-emmip(mdl_int, Diagnosis ~ Task, CIs = TRUE)
-```
-Considering the simple effects that we just saw in Question 5, identify the significant effects and match them to the parts of an interaction plot. 
+Visualise the interaction, displaying two plots - one with Diagnosis on the x-axis, and the other with Task on the x-axis.
 
-`r optbegin("Optional: You can change what is plotted on the x-axis", olabel=F,toggle=params$TOGGLE)`
-We can switch what is on the x-axis pretty easily: 
-```{r, eval=F, out.width="90%"}
-library(patchwork) #loading this package so that I can display plots in a grid
+Considering the simple effects that we just saw above, identify the significant effects and match them to the parts of your interaction plot.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall that the **patchwork** package allows us to arrange multiple plots using either `/` or `|`
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+First create our plots:
+```{r}
 plt_1 <- emmip(mdl_int, Diagnosis ~ Task, CIs = TRUE)
 plt_2 <- emmip(mdl_int, Task ~ Diagnosis, CIs = TRUE)
 plt_1 / plt_2
 ```
-`r optend()`
-`r qend()`
 
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-For the simple effects of Task, the significant differences (those for which $p<.05$) are only seen in the Huntingtons group, between recognition & grammar and recognition & classification tasks.   
-In the plot below, we can see this is the left-most blue point compared to the middle blue point, and then compared to the right-most blue point.  
-```{r}
-emmip(mdl_int, Diagnosis ~ Task, CIs = TRUE)
-```
+* Simple Effects of Task
 
-<hr> 
+For the simple effects of task (see `plt_1`), we saw the significant differences (those for which $p<.05$):
 
-For the simple effects of Diagnosis, we saw significant differences
+  * Only in the Huntingtons group, between recognition & grammar and recognition & classification tasks
+  (top plot: left-most blue point compared to the middle blue point, and then compared to the right-most blue point)
 
-- in the recognition task, between control & amnesic   
-  (in the plot below: left-most red point to middle red-point)  
-- in the recognition task, between amnesic & huntingtons   
-  (in the plot below: middle red-point to right-most red point)  
-- in the grammar task, between control & huntingtons   
-  (in the plot below: left-most green point to right-most green point)
-- in the classification task, between control & huntingtons   
-  (in the plot below: left-most blue point to right-most blue point)
+* Simple Effects of Diagnosis
 
-```{r}
-emmip(mdl_int, Task ~ Diagnosis, CIs = TRUE)
-```
+For the simple effects of Diagnosis (see `plt_2`), we saw significant differences: 
 
+  * in the recognition task, between control & amnesic   
+  (bottom plot: left-most red point to middle red-point)  
+  * in the recognition task, between amnesic & huntingtons   
+  (bottom plot: middle red-point to right-most red point)  
+  * in the grammar task, between control & huntingtons   
+  (bottom plot: left-most green point to right-most green point)
+  * in the classification task, between control & huntingtons   
+  (bottom plot: left-most blue point to right-most blue point)
 
 `r solend()`
 
+## Pairwise Comparisons
 
-# Pairwise Comparisons
-
-`r qbegin(7)`
+`r qbegin(9)`
 
 Conduct exploratory pairwise comparisons to compare all levels of Diagnosis with all levels of Task.
 
