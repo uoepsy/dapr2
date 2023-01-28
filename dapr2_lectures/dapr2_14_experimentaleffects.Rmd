@@ -1,0 +1,555 @@
+---
+title: "<b> Analyzing Experiments </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(emmeans)
+
+hosp_tbl <- read_csv("./hospital.csv", col_types = "dff")
+
+```
+
+# Week's Learning Objectives
+1. Interpretation of interactions with effects coded variables.
+2. Distinguish between main effects, simple effects and interactions.
+3. Use contrasts to code specific interaction hypotheses
+4. Apply pairwise tests and corrections
+
+
+
+---
+# Our model and coefficients
+
++ Remember whichever coding scheme we use, we have $k$-1 variables representing the condition.
+  + So for `Treatment` we have 2 predictors (E1 & E2)
+  + And for `Hospital` we have 1 predictor (E3)
+  
++ We can write the linear model more explicitly as:
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+---
+# Hypotheses we test in experimental studies
+
++ Factorial designs:
+  + Main effects & Contrasts
+  + **Interactions**: Categorical*categorical and usually based on effects (sum to zero) coding ( $F$-tests & $\beta$ )
+  + **Simple contrasts/effects**: Effects of one level in one condition, across levels of another condition. 
+
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
++ Interactions (categorical*categorical)
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  
++ Simple contrasts/effects
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+
+---
+# Table of means
+
+.pull-left[
+
+```{r}
+mean(hosp_tbl$SWB)
+```
+
+
+
+```{r}
+aggregate(SWB ~ Treatment + Hospital, 
+  hosp_tbl, mean)
+```
+
+]
+
+.pull-right[
+```{r}
+aggregate(SWB ~ Hospital, 
+  hosp_tbl, mean)
+```
+
+```{r}
+aggregate(SWB ~ Treatment, 
+  hosp_tbl, mean)
+```
+
+]
+
+---
+# Table of means
+
++ All of the above gives us a full table of means
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+
++ We are going to start with looking at the testing of main effects using $F$-tests.
+  + i.e. exactly what we have done before.
+
+
+---
+# Full model with effects coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+
+
+
+---
+class: center, middle
+# Questions....
+
+
+---
+# Recap categorical interactions
++ When the effects of one predictor on the outcome differ across levels of another predictor.
+
++ Categorical*categorical interaction:
+	+ There is a difference in the differences between groups across levels of a second factor.
+
+---
+# Our results
+```{r, echo=FALSE}
+m2sum <- summary(m2)
+summary(m2)
+```
+
+---
+# Visualizing the interaction
+
+```{r, echo=FALSE, warning=FALSE}
+emmip(m2, Hospital~Treatment)
+```
+
+---
+# Interpretation with effects coding
+```{r, echo=FALSE}
+round(m2sum$coefficients,2)
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Interpretation with effects coding
+.pull-left[
+```{r, echo=FALSE}
+round(m2sum$coefficients,2)[,1:2]
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+]
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+
+
+---
+# Our results
+```{r}
+m2sum <- summary(m2)
+round(m2sum$coefficients,2)
+```
+
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, echo=FALSE, warning=FALSE}
+emmip(m2, Hospital~Treatment)
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
++ $b_0$ = Grand mean.
++ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
+]
+
+
+
+---
+class: center, middle
+# Questions....
+
+
+---
+# Simple Effects
++ We noted previously that simple contrasts/effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+
++ We also know an interaction is defined as the change in the effect of one variable given the value of another.
+  + So here, value = a specific level.
+  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m2_emm <- emmeans(m2, ~Treatment*Hospital)
+m2_simple1 <- pairs(m2_emm, simple = "Hospital")
+m2_simple1
+```
+
+---
+# Simple Effects with `emmeans`
+
+```{r}
+m2_simple2 <- pairs(m2_emm, simple = "Treatment")
+m2_simple2
+```
+
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m2, Treatment ~ Hospital)
+```
+
+]
+
+.pull-right[
+```{r}
+m2_simple1
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r}
+m2_simple2
+```
+
+]
+
+.pull-right[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m2, Hospital ~ Treatment)
+```
+
+]
+
+
+
+
+---
+class: center, middle
+# Time for a break
+
+---
+class: center, middle
+# Welcome Back!
+**One more step in exploration**
+
+---
+# Pairwise comparisons
++ So far we have been discussing tests which move from the very general to the specific:
+  + Overall model F
+  + Incremental F/ F per condition
+  + Contrasts and codes
+  + Simple effects
+  
++ But we have one more layer that more closely aligns to looking at the $\beta$ coefficients, namely a fully exploratory pairwise analysis.
+
+---
+# Pairwise comparisons
++ As the name suggests, pairwise comparisons compare all levels of a given predictor variable with all levels of the other.
+
+```{r}
+pairs_res <- pairs(m2_emm)
+```
+
+---
+# Pairwise comparisons
+
+```{r, echo=FALSE}
+pairs_res
+```
+
+
+
+---
+# Why do pairwise comparisons?
+
++ Sometimes we do not have a concrete hypothesis to test.
+
++ Sometimes we do, but the exploratory analysis is still useful information for the field.
+
++ Pairwise comparisons throws up a statistical issue, namely the problem of multiple comparisons.
+  + When we do lots and lots of tests, the chances of Type I error (false-positives) increase.
+
++ We will move on to how we can adjust our inferences to deal with this next week, along with a quick revisit of assumption checks.
+
+---
+# Types of errors
+
++ Type I error = False Positive
+  + Reject the null when the null is true. 
+  + $\alpha = P(\text{Type I Error})$
+
++ Type II error = False negative
+  + Fail to reject the null when the null is false. 
+  + $\beta = P(\text{Type II Error})$
+  
+---
+# A single test
++ If we perform a single test, our Type I error rate is $\alpha$.
+  + So if we set $\alpha = 0.05$, the probability of a false positive is 0.05
+
++ However, what if we do multiple tests ( $m$ ) each with the same $\alpha$ level?
+
++ What is the probability of a false positive among $m$ tests?
+
+---
+# Multiple tests
+
+$$P(\text{Type I error}) = \alpha$$
+$$P(\text{not making a Type I error}) = 1 - \alpha$$
+
+$$P(\text{Not making a Type I error in m tests}) = (1 - \alpha)^m$$
+
+$$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$
+
+---
+# P(Making a Type I error in m tests)
+
++ Suppose $m=2$ and $\alpha = 0.05$
+
+```{r}
+1 - ((1-0.05)^2)
+```
+
++ Suppose $m=5$ and $\alpha = 0.05$
+
+```{r}
+1 - ((1-0.05)^5)
+```
+
++ Suppose $m=10$ and $\alpha = 0.05$
+
+```{r}
+1 - ((1-0.05)^10)
+```
+
+---
+# Why does this matter?
+
++ The $P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$ is referred to as the family-wise error rate. 
+
++ A "family" is a set of related tests. 
+
++ When we analyse an experimental design, and we look at lots of specific comparisons, we can think of all these tests as a "family". 
+
++ The larger the family, the more likely we are to find a false positive (see previous slide). 
+
+---
+# Corrections
++ There are various methods designed to control for the number of tests.
+  + Here control means to keep the Type I Error rate at an intended $\alpha$. 
+
++ Many options. Some of most common:
+  + Bonferroni
+  + Sidak
+  + Tukey
+  + Scheffe
+
++ Others you may see:
+  + Holm's step-down
+  + Hochberg's step-up
+
+
+---
+# Bonferroni & Sidak
++ Both are considered "conservative" adjustments.
+
++ Each treats individual tests within the family as if they are independent.
+  + Consider an $\alpha = 0.05$ and $m=\text{number of tests}=15$
+
++ **Bonferroni**: $\alpha_{Bonferroni} = \frac{\alpha}{m}$
+
+```{r}
+0.05/15
+```
+
+
++ **Sidak**: $\alpha_{Sidak} = 1 - (1- \alpha)^{\frac{1}{m}}$
+
+```{r}
+1-((1-0.05)^(1/15))
+```
+
+---
+# No adjustments
+
+```{r, warning = FALSE, eval=TRUE}
+pairs(m2_emm, adjust="none")
+```
+
+---
+# Bonferroni in action: `emmeans`
+
+```{r, echo=TRUE}
+pairs(m2_emm, adjust="bonferroni")
+```
+
+---
+# Sidak with `emmeans`
+
+```{r}
+pairs(m2_emm, adjust = "sidak")
+```
+
+---
+# What about if there were less tests?
+
+```{r}
+pairs(m2_emm, simple="Treatment", adjust="bonferroni")
+```
+
+
+---
+# Tukey & Scheffe
++ **Scheffe procedure** involves an adjustment to the critical value of $F$.
+  + The adjustment relates to the number of comparisons being made.
+  + And makes the critical value of $F$ larger for a fixed $\alpha$. 
+  + The more tests, the larger $F$. 
+
++ The square-root of the adjusted F provides and adjusted $t$. 
+
+--
+
++ **Tukey's HSD** (Honest significant Differences)
+  + Compares all pairwise group means. 
+  + Each difference is divided by the $SE$ of the sum of means. 
+  + This produces a $q$ statistic for each comparison. 
+  + And is compared against a studentized range distribution. 
+
+
+---
+# With `emmeans`
+
+```{r}
+pairs(m2_emm, adjust = "tukey")
+```
+
+
+---
+# With `emmeans`
+
+```{r}
+pairs(m2_emm, adjust = "scheffe")
+```
+
+
+---
+# Summary
+
+
+
+---
+class: center, middle
+# Thanks for listening!
