@@ -199,7 +199,7 @@ emmip(m1, Hospital~Treatment) +
 ## Treatment2:Hospital1    -2.07       0.21   -9.71     0.00
 ```
 
-+ `\(b_0\)` = Grand mean.
++ `\(b_0\)` (`Intercept`) = Grand mean.
 + `\(b_1\)` (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
 + `\(b_2\)` (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
 + `\(b_3\)` (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
@@ -261,7 +261,7 @@ emmip(m1, Hospital~Treatment) +
 &lt;/table&gt;
 ]
 
-+ `\(b_0\)` = Grand mean.
++ `\(b_0\)` (`Intercept`) = Grand mean.
 + `\(b_1\)` (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
 + `\(b_2\)` (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
 + `\(b_3\)` (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
@@ -270,58 +270,96 @@ emmip(m1, Hospital~Treatment) +
 
 
 ---
-# Visualizing the interaction
+class: center, middle
+# Questions....
 
-.pull-left[
-![](dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-11-1.png)&lt;!-- --&gt;
-]
+---
+# Interacting manual contrasts
++ Last week we spoke about creating manual contrasts. 
 
-.pull-right[
-&lt;table&gt;
- &lt;thead&gt;
-  &lt;tr&gt;
-   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
-   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
-   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
-   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
-  &lt;/tr&gt;
- &lt;/thead&gt;
-&lt;tbody&gt;
-  &lt;tr&gt;
-   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
-  &lt;/tr&gt;
-  &lt;tr&gt;
-   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
-  &lt;/tr&gt;
-  &lt;tr&gt;
-   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
-  &lt;/tr&gt;
-  &lt;tr&gt;
-   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
-  &lt;/tr&gt;
-&lt;/tbody&gt;
-&lt;/table&gt;
++ We can create an interaction based on these contrasts.
 
-+ `\(b_0\)` = Grand mean.
-+ `\(b_1\)` = Difference between row marginal for treatment A and the grand mean. 
-+ `\(b_2\)` = Difference between row marginal for treatment B and the grand mean.
-+ `\(b_3\)` = Difference between column marginal for Hospital 1 and the grand mean.
-+ `\(b_4\)` = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
-+ `\(b_5\)` = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
-]
++ Suppose we wanted to test whether there is a difference between TreatmentA vs TreatmentB and TreatmentC across hospitals.
 
++ Steps:
+  + Define the contrasts for each factor
+  + Calculate the product (remember all interactions are products)
+  + Create the contrast code
+  + Run the contrast
+  
+---
+# Interacting manual contrasts in R
+
++ Step 1: Individual contrasts
+
+
+```r
+treat_con &lt;- c("TreatA" = 1, "TreatB" = -1/2, "TreatC" = -1/2)
+hosp_con &lt;- c("Hops1" = 1, "Hosp2" = -1)
+```
+
++ Step 2: Product
+
+
+```r
+contr_prod &lt;- outer(treat_con, hosp_con)
+contr_prod
+```
+
+```
+##        Hops1 Hosp2
+## TreatA   1.0  -1.0
+## TreatB  -0.5   0.5
+## TreatC  -0.5   0.5
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 3: Create the contrast
+
+
+```r
+m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
+m1_emm
+```
+
+```
+##  Treatment Hospital emmean   SE  df lower.CL upper.CL
+##  TreatA    Hosp1     10.80 0.37 174    10.07    11.53
+##  TreatB    Hosp1      9.43 0.37 174     8.70    10.16
+##  TreatC    Hosp1     10.10 0.37 174     9.37    10.83
+##  TreatA    Hosp2      7.85 0.37 174     7.12     8.58
+##  TreatB    Hosp2     13.12 0.37 174    12.39    13.85
+##  TreatC    Hosp2      7.98 0.37 174     7.25     8.71
+## 
+## Confidence level used: 0.95
+```
+
+
+
+```r
+int_comp &lt;- list("TreatA vs B and C across hospital" = 
+                   c(1, -1/2, -1/2, -1, 1/2, 1/2))
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 4: Run
+
+
+```r
+int_comp_test &lt;- contrast(m1_emm, int_comp)
+int_comp_test
+```
+
+```
+##  contrast                          estimate    SE  df t.ratio p.value
+##  TreatA vs B and C across hospital     3.73 0.641 174   5.819  &lt;.0001
+```
 
 
 ---
@@ -329,11 +367,12 @@ class: center, middle
 # Questions....
 
 
+
 ---
 # Simple Effects
-+ We noted previously that simple contrasts/effects consider the effect of one condition at a specific level of the other.
++ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
   + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
-  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A
 
 + We also know an interaction is defined as the change in the effect of one variable given the value of another.
   + So here, value = a specific level.
@@ -393,7 +432,7 @@ m1_simple2
 # Simple effects with plots
 
 .pull-left[
-&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-15-1.png" width="90%" /&gt;
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-18-1.png" width="90%" /&gt;
 
 ]
 
@@ -447,7 +486,7 @@ m1_simple2
 ]
 
 .pull-right[
-&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-18-1.png" width="90%" /&gt;
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-21-1.png" width="90%" /&gt;
 
 ]
 
