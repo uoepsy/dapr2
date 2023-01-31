@@ -52,28 +52,6 @@ hosp_tbl <- read_csv("./hospital.csv", col_types = "dff")
 4. Apply pairwise tests and corrections
 
 
-
----
-# Our model and coefficients
-
-+ Remember whichever coding scheme we use, we have $k$-1 variables representing the condition.
-  + So for `Treatment` we have 2 predictors (E1 & E2)
-  + And for `Hospital` we have 1 predictor (E3)
-  
-+ We can write the linear model more explicitly as:
-
-$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
-
-
----
-# Hypotheses we test in experimental studies
-
-+ Factorial designs:
-  + Main effects & Contrasts
-  + **Interactions**: Categorical*categorical and usually based on effects (sum to zero) coding ( $F$-tests & $\beta$ )
-  + **Simple contrasts/effects**: Effects of one level in one condition, across levels of another condition. 
-
-
 ---
 # Hypotheses we test in Factorial Designs
 + Main effects
@@ -81,70 +59,22 @@ $$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrac
   + Is there an effect of `Treatment` averaged over `Hospital`? 
   + Is there an effect of `Hospital` averaged over `Treatment`? 
 
-+ Interactions (categorical*categorical)
++ **Interactions (categorical-categorical)**
   + A change in the effect of some condition as a function of another.
   + Does the effect of `Treatment` differ by `Hospital`? 
   
-+ Simple contrasts/effects
++ **Simple contrasts/effects**
   + An effect of one condition at a specific level of another.
   + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
 
----
-# Table of means
-
-.pull-left[
-
-```{r}
-mean(hosp_tbl$SWB)
-```
-
-
-
-```{r}
-aggregate(SWB ~ Treatment + Hospital, 
-  hosp_tbl, mean)
-```
-
-]
-
-.pull-right[
-```{r}
-aggregate(SWB ~ Hospital, 
-  hosp_tbl, mean)
-```
-
-```{r}
-aggregate(SWB ~ Treatment, 
-  hosp_tbl, mean)
-```
-
-]
 
 ---
-# Table of means
+# Our model and coefficients
 
-+ All of the above gives us a full table of means
-
-```{r, echo=FALSE}
-knitr::kable(tibble::tribble(
-   ~V1, ~V2, ~V3, ~V4,
-  "TreatA", "10.80",  "7.85", "9.33",
-  "TreatB", "9.43",  "13.11", "11.27",
-  "TreatC", "10.10",  "7.98", "9.04", 
-  "Marginal","10.11", "9.65", "9.88"
-  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
-```
-
-
-+ We are going to start with looking at the testing of main effects using $F$-tests.
-  + i.e. exactly what we have done before.
-
-
----
-# Full model with effects coding
++ Remember our effects coded model:
 
 $$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
-
++ Where the variables represent the following comparisons: 
 
 ```{r, echo=FALSE}
 tibble(
@@ -158,12 +88,32 @@ tibble(
 )
 ```
 
+---
+# Our model and coefficients
 
++ And our model in R:
+
+```{r}
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, 
+                          Hospital = contr.sum)) # you can code contrasts within lm
+```
 
 
 ---
-class: center, middle
-# Questions....
+# Table of means
+
++ Useful to keep in mind the group means:
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
 
 
 ---
@@ -176,36 +126,46 @@ class: center, middle
 ---
 # Our results
 ```{r, echo=FALSE}
-m2sum <- summary(m2)
-summary(m2)
+m1sum <- summary(m1)
+summary(m1)
 ```
 
 ---
 # Visualizing the interaction
 
+.pull-left[
 ```{r, echo=FALSE, warning=FALSE}
-emmip(m2, Hospital~Treatment)
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
 ```
+]
+
+.pull-right[
+```{r, eval=FALSE, warning=FALSE}
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
+```
+]
 
 ---
 # Interpretation with effects coding
 ```{r, echo=FALSE}
-round(m2sum$coefficients,2)
+round(m1sum$coefficients,2)
 ```
 
-+ $b_0$ = Grand mean.
-+ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
-+ $b_2$ = Difference between row marginal for treatment B and the grand mean.
-+ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
-+ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
-+ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
++ $b_0$ (`Intercept`) = Grand mean.
++ $b_1$ (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ (`Treatment1:Hospital1`) = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ (`Treatment2:Hospital1`) = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
 
 
 ---
 # Interpretation with effects coding
 .pull-left[
 ```{r, echo=FALSE}
-round(m2sum$coefficients,2)[,1:2]
+round(m1sum$coefficients,2)[,1:2]
 ```
 ]
 
@@ -221,27 +181,21 @@ knitr::kable(tibble::tribble(
 ```
 ]
 
-+ $b_0$ = Grand mean.
-+ $b_1$ = Difference between row marginal for treatment A and the grand mean. 
-+ $b_2$ = Difference between row marginal for treatment B and the grand mean.
-+ $b_3$ = Difference between column marginal for Hospital 1 and the grand mean.
-+ $b_4$ = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
-+ $b_5$ = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
++ $b_0$ (`Intercept`) = Grand mean.
++ $b_1$ (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
++ $b_4$ (`Treatment1:Hospital1`) = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2
++ $b_5$ (`Treatment2:Hospital1`) = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2
 
-
----
-# Our results
-```{r}
-m2sum <- summary(m2)
-round(m2sum$coefficients,2)
-```
 
 ---
 # Visualizing the interaction
 
 .pull-left[
 ```{r, echo=FALSE, warning=FALSE}
-emmip(m2, Hospital~Treatment)
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
 ```
 ]
 
@@ -273,9 +227,9 @@ class: center, middle
 
 ---
 # Simple Effects
-+ We noted previously that simple contrasts/effects consider the effect of one condition at a specific level of the other.
++ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
   + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
-  + Or, put another way, is there a difference in SWB between Hospitals 1 and 2 for people receiving Treatment A
+  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A
 
 + We also know an interaction is defined as the change in the effect of one variable given the value of another.
   + So here, value = a specific level.
@@ -285,17 +239,17 @@ class: center, middle
 # Simple Effects with `emmeans`
 
 ```{r}
-m2_emm <- emmeans(m2, ~Treatment*Hospital)
-m2_simple1 <- pairs(m2_emm, simple = "Hospital")
-m2_simple1
+m1_emm <- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 <- pairs(m1_emm, simple = "Hospital")
+m1_simple1
 ```
 
 ---
 # Simple Effects with `emmeans`
 
 ```{r}
-m2_simple2 <- pairs(m2_emm, simple = "Treatment")
-m2_simple2
+m1_simple2 <- pairs(m1_emm, simple = "Treatment")
+m1_simple2
 ```
 
 
@@ -304,14 +258,14 @@ m2_simple2
 
 .pull-left[
 ```{r, echo=FALSE, out.width="90%"}
-emmip(m2, Treatment ~ Hospital)
+emmip(m1, Treatment ~ Hospital)
 ```
 
 ]
 
 .pull-right[
 ```{r}
-m2_simple1
+m1_simple1
 ```
 
 ]
@@ -321,14 +275,14 @@ m2_simple1
 
 .pull-left[
 ```{r}
-m2_simple2
+m1_simple2
 ```
 
 ]
 
 .pull-right[
 ```{r, echo=FALSE, out.width="90%"}
-emmip(m2, Hospital ~ Treatment)
+emmip(m1, Hospital ~ Treatment)
 ```
 
 ]
@@ -360,7 +314,7 @@ class: center, middle
 + As the name suggests, pairwise comparisons compare all levels of a given predictor variable with all levels of the other.
 
 ```{r}
-pairs_res <- pairs(m2_emm)
+pairs_res <- pairs(m1_emm)
 ```
 
 ---
@@ -486,28 +440,28 @@ $$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$
 # No adjustments
 
 ```{r, warning = FALSE, eval=TRUE}
-pairs(m2_emm, adjust="none")
+pairs(m1_emm, adjust="none")
 ```
 
 ---
 # Bonferroni in action: `emmeans`
 
 ```{r, echo=TRUE}
-pairs(m2_emm, adjust="bonferroni")
+pairs(m1_emm, adjust="bonferroni")
 ```
 
 ---
 # Sidak with `emmeans`
 
 ```{r}
-pairs(m2_emm, adjust = "sidak")
+pairs(m1_emm, adjust = "sidak")
 ```
 
 ---
 # What about if there were less tests?
 
 ```{r}
-pairs(m2_emm, simple="Treatment", adjust="bonferroni")
+pairs(m1_emm, simple="Treatment", adjust="bonferroni")
 ```
 
 
@@ -533,7 +487,7 @@ pairs(m2_emm, simple="Treatment", adjust="bonferroni")
 # With `emmeans`
 
 ```{r}
-pairs(m2_emm, adjust = "tukey")
+pairs(m1_emm, adjust = "tukey")
 ```
 
 
@@ -541,7 +495,7 @@ pairs(m2_emm, adjust = "tukey")
 # With `emmeans`
 
 ```{r}
-pairs(m2_emm, adjust = "scheffe")
+pairs(m1_emm, adjust = "scheffe")
 ```
 
 
