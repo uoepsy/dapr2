@@ -30,7 +30,7 @@ At the end of this lab, you will:
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
 1. Be up to date with lectures
-2. Have completed previous lab exercises from Semester 1
+2. Have completed previous lab exercises from [Week 1](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html), [Week 2](https://uoepsy.github.io/dapr2/2223/labs/2_02_effects.html), and [Week 3](https://uoepsy.github.io/dapr2/2223/labs/2_03_contrasts.html)
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -60,8 +60,6 @@ In this week's exercises, we will further explore questions such as:
 - Does level $j$ of the second factor have an effect on the response?
 - Is there a combined effect of level $i$ of the first factor and level $j$ of the second factor on the response? In other words, is there interaction of the two factors so that the combined effect is not simply the additive effect of level $i$ of the first factor plus the effect of level $j$ of the second factor?
 
-## Factorial ANOVA
-
 `r optbegin("Cognitive Exp 3x3 Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
 
 __Description__
@@ -88,7 +86,7 @@ We have data from the 45 participants (15 amnesiacs, 15 Huntington individuals, 
 
 The first ten rows of the data are:
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=FALSE}
 library(tidyverse)
 df <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
 # head(df)
@@ -204,13 +202,18 @@ table(is.na(cog))
 
 Since we are interested in comparing groups, we should use dummy coding. By default, `R` uses dummy coding, so we do not need to make any changes to the coding constraint. 
 
-In terms of reference groups, we should re-level the `Diagnosis` factor so that the reference group is "Control", and the reference group for `Task` is "Recognition". 
-
 ```{r}
 cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
 cog$Task <- fct_relevel(cog$Task, "recognition")
 ```
 
+Now, let's summarise our data checks and cleaning: 
+
+::: {.callout-important icon=false appearance="minimal"}
+
+All participant data was complete, and categorical variables were coded as factors. In terms of reference groups, we re-leveled the `Diagnosis` factor so that the reference group was Control (since the other two groups have some form of cognitive impairment), and the `Task` factor to have Recognition as the reference group (since it measures explicit memory whilst the other two task types implicit). 
+
+:::
 
 `r solend()`
 
@@ -292,8 +295,6 @@ Formally state:
 
 Based on previous plotting, it does seem that there is a clear interaction between diagnosis and task. However, we have not **statistically compared our interaction model to an additive model** (same model but without the interaction). This is what the RQ warrants, and until we make this comparison, we cannot confidently progress on the *assumption* that the interaction model is the most suitable for answering the research question. Thus, we need to fit both models:
 
-First our additive model:
-
 $$
 \begin{aligned}
 Additive Model: Score &= \beta_0 \\
@@ -303,7 +304,6 @@ Additive Model: Score &= \beta_0 \\
 \end{aligned}
 $$
 
-Interaction model:
 $$
 \begin{aligned}
 Interaction Model: Score &= \beta_0 \\
@@ -319,13 +319,15 @@ Effects will be considered statistically significant at $\alpha=.05$
 
 Our hypotheses are:
 
-$H_0: \beta_1 = \beta_2 = \beta_3$
+$H_0:$ All $\beta_j = 0$ (for $j = 5, 6, 7, 8$)
 
-There are no differences in WPM based on caffeine treatment conditions. 
+There are no significant differences in performance between explicit and implicit memory tasks for patients different cognitive impairment(s). 
 
-$H_1: \beta_1 \neq \beta_2 \neq \beta_3$
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 5, 6, 7, 8$)
 
-There are differences in WPM based on caffeine treatment conditions. 
+There are significant differences in performance between explicit and implicit memory tasks for patients different cognitive impairment(s). 
+
+We will statistically compare the additive and interaction model using `anova()` in order to determine which model best explains our data (i.e., the assocation between memory deficits and different cognitive impairments)
 
 `r solend()`
 
@@ -356,7 +358,7 @@ summary(mdl_int)
 anova(mdl_add, mdl_int)
 ```
 
-Use the **stargazer** package to create table:
+Use the **stargazer** package to create table (note, you can also use `tab_model()` if you prefer:
 
 ```{r, results = 'asis', message = FALSE}
 stargazer(mdl_add, mdl_int,
@@ -386,10 +388,9 @@ Hence, the comparison of nested models provided evidence against the additive ef
 
 We will now begin by looking at each factor separately. 
 
-
 `r qbegin(5)`
 
-In terms of the diagnostic groups, recall that we want to compare the amnesiacs to the Huntington individuals. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
+In terms of the diagnostic groups, we want to compare the amnesiacs to the Huntington individuals. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
 
 Similarly, in terms of the tasks, we want to compare the average of the two implicit memory tasks with the explicit memory task. This corresponds to a contrast with coefficients of 0.5, 0.5, and −1 for the three tasks. 
 
@@ -449,7 +450,7 @@ which says that, in the population, the difference between the mean implicit mem
 
 `r qbegin(6)`
 
-Run contrast analysis, and interpret output. 
+Run contrast analysis, and interpret your output in the context of the research question. 
 
 `r qend()`
 
@@ -530,11 +531,13 @@ From `mdl_int_simple1` we can see the differences between between tasks for each
 
 Visualise the interaction, displaying two plots - one with Diagnosis on the x-axis, and the other with Task on the x-axis.
 
-Considering the simple effects that we just saw above, identify the significant effects and match them to the parts of your interaction plot.
+Considering the simple effects that we noted above, identify the significant effects and match them to the parts of your interaction plot.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint
+
+To visualise the interaction, you can use `emmip()`.
 
 Recall that the **patchwork** package allows us to arrange multiple plots using either `/` or `|`
 
@@ -577,32 +580,9 @@ For the simple effects of Diagnosis (see `plt_2`), we saw significant difference
 
 `r qbegin(9)`
 
-Conduct exploratory pairwise comparisons to compare all levels of Diagnosis with all levels of Task.
+Conduct exploratory pairwise comparisons to compare all levels of Diagnosis with all levels of Task, applying no correction (note that Tukey will be automatically applied since we are comparing groups of means, so you will need to overwrite this).
 
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-pairs_res <- pairs(emm)
-pairs_res
-
-#can also plot if you'd like:
-plot(pairs_res)
-```
-
-From the above, we can see comparisons for all different possible pairs of diagnosis-task combinations. As well as recapping assumption checks, next week we will also explore how we can adjust our pairwise comparisons (*think* about how many comparisons were conducted above - without adjusting our $\alpha$ (or $p$-value), why might any inferences drawn be problematic?)
-
-
-`r solend()`
-
-<br>
-
-`r qbegin(10)`
-
-First, use the Bonferroni method to adjust for multiple comparisons, and then obtain confidence intervals.
-
-Next, remove the adjustment, and comment on how these $p$-values differ from those obtained via the Bonferroni correction. 
+Without adjusting our $\alpha$ (or $p$-value), why might any inferences drawn from your output be problematic?
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -622,230 +602,59 @@ You can specify the adjustment using `adjust = " `. Possible options include:
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-There are 9 tests being performed, but there are 3 in each 'family' (each `Task`). In the lecture, we talked about adjusting the $\alpha$ level (i.e., instead of determining significance at $p < .05$, we might adjust and determine a result to be statistically significant if $p < .005$, depending on how many tests are in our family of tests).  
-
-Note what the functions in `R` do is adjust the $p$-value, rather than the $\alpha$. The Bonferroni method simply multiplies the 'raw' $p$-value by the number of the tests. 
-
-In terms of differences in $p$-values, they are thus 1/3 of the size.
-
-`r qend()`
-
-# Multiple Comparisons  
-
-`r optbegin("36? how do we know there are 36?", olabel=FALSE, toggle=params$TOGGLE)`
-There are 3 diagnosis groups, and 3 tasks, meaning there are 9 different group means. All possible pairwise comparisons would is all different possible combinations of 2 from a set of 9.  We can work this out using the rule: 
-
-$$
-_nC_r = \frac{n!}{r!(n-r)!} \\
-\begin{align} \\
-& \text{Where:} \\
-& n = \text{total number in the set} \\
-& r = \text{number chosen} \\
-& _nC_r = \text{number of combinations of r from n} \\
-\end{align}
-$$
-
-In **R**:
 ```{r}
-factorial(9)/(factorial(2)*(factorial(9-2)))
+pairs_res <- pairs(emm, adjust = "none")
+pairs_res
+
+#can also plot if you'd like:
+plot(pairs_res)
 ```
 
-Or, easier still:
+From the above, we can see comparisons for all different possible pairs of diagnosis-task combinations. 
 
-```{r}
-dim(combn(9, 2))
-```
-`r optend()`
-
-## Why does the number of tests matter?  
-
-`r optbegin("refresher on making errors in hypothesis tests", olabel=FALSE,toggle=params$TOGGLE)`  
-Think back to ["Type 1 errors" from DAPR1](https://uoe-psychology.github.io/uoe_psystats/dapr1/book/chap-typeerror.html) - when we conduct an hypothesis test, and we set $\alpha=0.05$, we will reject the null hypothesis $H_0$ when we find a $p < .05$. Now remember what a $p$-value represents - it is the chance of observing a statistic at least as extreme as the one we do have, assuming the null hypothesis to be true. This means that *if* $H_0$ **is** true, then we will still observe a $p < .05$ 5\% of the time. So our chance of making this error = the threshold ($\alpha$) at which below a p-value results in us rejecting $H_0$. 
-`r optend()` 
-
-But this error-rate applies to each statistical hypothesis we test. So if we conduct an experiment in which we plan on conducting lots of tests of different comparisons, the chance of an error being made increases substantially. Across the family of tests performed that chance will be much higher than 5\%.^[what defines a 'family' of tests is debateable.]
-
-Each test conducted at $\alpha = 0.05$ has a 0.05 (or 5%) probability of Type I error (wrongly rejecting the null hypothesis). If we do 9 tests, that experimentwise error rate is $\alpha_{ew} \leq 9 \times 0.05$, where 9 is the number of comparisons made as part of the experiment.
-
-Thus, if nine **independent** comparisons were made at the $\alpha = 0.05$ level, the experimentwise Type I error rate $\alpha_{ew}$ would be at most $9 \times 0.05 = 0.45$. That is, we could wrongly reject the null hypothesis on average 45 times out of 100. 
-To make this more confusing, many of the tests in a family are not **independent** (see the lecture slides for the calculation of error rate for dependent tests).  
-
-Here, we go through some of the different options available to us to control, or 'correct' for this problem. 
-
-# Corrections
-
-## Bonferroni
-
-`r qbegin(2)`
-
-Load the data from last week, and re-acquaint yourself with it. 
-
-Provide a plot of the Diagnosis*Task group mean scores.  
-
-The data is at https://uoepsy.github.io/data/cognitive_experiment.csv. 
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r eval=FALSE}
-cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
-# head(df)
-
-cog$Diagnosis <- factor(cog$Diagnosis, 
-                       labels = c("amnesic", "huntingtons", "control"),
-                       ordered = FALSE)
-
-cog$Task <- factor(cog$Task, 
-                  labels = c("grammar", "classification", "recognition"), 
-                  ordered = FALSE)
-
-cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
-cog$Task <- fct_relevel(cog$Task, "recognition")
-
-cog <- cog %>%
-    rename(Score = Y)
-```
-`r solend()`
-
-`r qbegin(3)`
-
-Fit the interaction model, using `lm()`. 
-Pass your model to the `anova()` function, to remind yourself that there is a significant interaction present.  
-
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-mdl_int <- lm(Score ~ Task*Diagnosis, data = cog)
-anova(mdl_int)
-```
-`r solend()`
-
-`r qbegin(4)`
-There are various ways to make nice tables in RMarkdown.  
-Some of the most well known are:
-
-- The **knitr** package has `kable()`  
-- The **pander** package has `pander()`  
-
-Pick one (or find go googling and find a package you like the look of), install the package (if you don't already have it), then try to create a nice pretty ANOVA table rather than the one given by `anova(model)`.  
-
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-library(knitr)
-kable(anova(mdl_int))
-
-library(pander)
-pander(anova(mdl_int))
-```
+There are 9 tests being performed, but there are 3 in each 'family' (each `Task`) - this means that 36 comparisons are being conducted. By not adjusting our $p$-value, we are increasing the experimentwise Type I error rate - we could wrongly reject the null hypothesis at a much higher rate than 5/100 (or 1/20 as is assumed when $\alpha = .05$). To overcome this, we might adjust and determine a result to be statistically significant if $p < .005$, as opposed to $p < .05$, depending on how many tests are in our family of tests).  
 
 `r solend()`
 
-`r qbegin(5)`
-As in the previous week's exercises, let us suppose that we are specifically interested in comparisons of the mean score *across the different diagnosis groups for a given task*.  
+<br>
 
-Edit the code below to obtain the pairwise comparisons of diagnosis groups for each task. Use the Bonferroni method to adjust for multiple comparisons, and then obtain confidence intervals.  
+`r qbegin(10)`
 
-```{r eval=FALSE}
-library(emmeans)
-emm_task <- emmeans(mdl_int, ? )
-contr_task <- contrast(emm_task, method = ?, adjust = ? )
-```
+Select an appropriate method to adjust for multiple comparisons, and then obtain confidence intervals.
 
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-emm_task <- emmeans(mdl_int, ~ Diagnosis | Task)
-contr_task <- contrast(emm_task, method = "pairwise", adjust="bonferroni")
-contr_task
-confint(contr_task)
-```
-`r solend()`
-
-:::frame
-**adjusting $\alpha$, adjusting p**
-
-
-
-:::
-
-
-`r qbegin(6)`
-In question 4 above, there are 9 tests being performed, but there are 3 in each 'family' (each `Task`). 
-
-Try changing your answer to question 4 to use `adjust = "none"`, rather than `"bonferroni"`, and confirm that the p-values are 1/3 of the size. 
-  
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-The first Bonferroni adjusted p-value is 0.0492. 
-
-```{r}
-0.0492/3
-```
-
-Let's check that this is the raw p-value:
-```{r}
-contrast(emm_task, method = "pairwise", adjust="none")
-```
-
-`r solend()`
-
-## Šídák
-
-`r qbegin(7)`
-The Sidak approach is slightly less conservative than the Bonferroni adjustment. Doing this with the **emmeans** package is easy, can you figure out how?  
-
-**Hint:** you just have to change the `adjust` argument in `contrast()` function. 
-
-`r qend()`
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-contrast(emm_task, method = "pairwise", adjust = "sidak")
-```
-
-`r solend()`
-
-
-## Tukey
-
-`r qbegin(8)`
-
-Like with Šídák, in R we can easily change to Tukey. Conduct pairwise comparisons of the scores of different Diagnosis groups on different Task types (i.e., the interaction), and use the Tukey adjustment.
+Comment on how these $p$-values differ from your raw (i.e., unadjusted) $p$-values.
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Note what the functions in `R` do is adjust the $p$-value, rather than the $\alpha$. 
+
+Out of interest, let's apply both the Tukey and Bonferroni adjustment - the former since we are interested in all pairwise comparisons, and the latter to explore how our adjusted $p$-value differs from our non-adjusted (note, in practice you would only apply one correction and justify this choice based on your design - we are only applying two to note how they differ!):
+
+Let's start with Tukey:
+
 ```{r}
-emm_task <- emmeans(mdl_int, ~ Diagnosis*Task)
-contr_task <- contrast(emm_task, method = "pairwise", adjust="tukey")
-contr_task
+contrast(emm, method = "pairwise", adjust="Tukey")
 ```
 
-We can also use the following, which doesn't require the **emmeans** package. You might see this when you look online for resources. The `aov()` function is fitting an ANOVA model, and then `TukeyHSD()` compares between Diagnosis group; between Task type; and between Diagnosis*Task.  
+NEED TO ADD COMMENT HERE
 
-Run the code below yourself to see the output. 
 
-```{r eval=FALSE}
-TukeyHSD(aov(Score ~ Diagnosis * Task, data = cog))
-```
+Next, lets look at Bonferroni:
 
-`r solend()`
-
-## Scheffe  
-
-`r qbegin(9)`
-
-Run the same pairwise comparison as above, but this time with the Scheffe adjustment.
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 ```{r}
-emm_task <- emmeans(mdl_int, ~ Diagnosis * Task)
-contr_task <- contrast(emm_task, method = "pairwise", adjust="scheffe")
-contr_task
+contrast(emm, method = "pairwise", adjust="bonferroni")
 ```
+
+The first Bonferroni adjusted $p$-value is 0.0207. The Bonferroni method simply multiplies the 'raw' $p$-value by the number of the tests. 
+```{r}
+#for comparison, raw p-value (i.e., unadjusted) was 0.0069
+
+#does Bonferroni give us the same? Yes. 
+0.0207/3
+```
+
+In terms of differences in Bonferroni to raw $p$-values, they are thus 1/3 of the size.
 
 `r solend()`
