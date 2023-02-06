@@ -11,10 +11,18 @@
     <textarea id="source">
 class: center, middle, inverse, title-slide
 
+.title[
 # <b> Analyzing Experiments </b>
+]
+.subtitle[
 ## Data Analysis for Psychology in R 2<br><br>
+]
+.author[
 ### dapR2 Team
+]
+.institute[
 ### Department of Psychology<br>The University of Edinburgh
+]
 
 ---
 
@@ -40,14 +48,16 @@ class: center, middle, inverse, title-slide
   + Is there an effect of `Treatment` averaged over `Hospital`? 
   + Is there an effect of `Hospital` averaged over `Treatment`? 
 
-+ **Interactions (categorical-categorical)**
-  + A change in the effect of some condition as a function of another.
-  + Does the effect of `Treatment` differ by `Hospital`? 
-  
+
 + **Simple contrasts/effects**
   + An effect of one condition at a specific level of another.
   + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
-
+  
++ **Interactions (categorical-categorical)**
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  + With effects coding, we can also think of this as a difference in simple effects.
+  
 
 ---
 # Our model and coefficients
@@ -59,7 +69,7 @@ class: center, middle, inverse, title-slide
 
 
 ```
-## # A tibble: 6 x 7
+## # A tibble: 6 × 7
 ##   Treatment Hospital    E1    E2    E3   E13   E23
 ##   &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
 ## 1 A         Hosp1        1     0     1     1     0
@@ -127,12 +137,228 @@ m1 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
 
 
 ---
+# Simple Effects
++ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A
+
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+
+```r
+m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 &lt;- pairs(m1_emm, 
+                    simple = "Hospital")
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+
+```r
+m1_simple2 &lt;- pairs(m1_emm, 
+                    simple = "Treatment")
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-9-1.png" width="90%" /&gt;
+
+]
+
+.pull-right[
+
+```r
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+
+```r
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+]
+
+.pull-right[
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-12-1.png" width="90%" /&gt;
+
+]
+
+
+
+
+---
+class: center, middle
+# Questions....
+
+
+---
 # Recap categorical interactions
 + When the effects of one predictor on the outcome differ across levels of another predictor.
 
 + Categorical*categorical interaction:
 	+ There is a difference in the differences between groups across levels of a second factor.
 
++ We have just seen that the simple effects are giving us tests of the difference **within** a level of a second predictor
+  + So then the interactions here can be though of as the difference in the simple effects. 
+  + This also means the simple effects help us understand an interaction between effects coded variables. 
+  
 ---
 # Our results
 
@@ -167,7 +393,7 @@ m1 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
 # Visualizing the interaction
 
 .pull-left[
-![](dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-6-1.png)&lt;!-- --&gt;
+![](dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
 ]
 
 .pull-right[
@@ -357,141 +583,6 @@ int_comp_test
 ---
 class: center, middle
 # Questions....
-
-
-
----
-# Simple Effects
-+ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
-  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
-  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A
-
-+ We also know an interaction is defined as the change in the effect of one variable given the value of another.
-  + So here, value = a specific level.
-  + So by considering the simple effects, we can identify at which levels of the interacting condition we see different effects.
-
----
-# Simple Effects with `emmeans`
-
-
-```r
-m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
-m1_simple1 &lt;- pairs(m1_emm, simple = "Hospital")
-m1_simple1
-```
-
-```
-## Treatment = TreatA:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
-## 
-## Treatment = TreatB:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
-## 
-## Treatment = TreatC:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
-```
-
----
-# Simple Effects with `emmeans`
-
-
-```r
-m1_simple2 &lt;- pairs(m1_emm, simple = "Treatment")
-m1_simple2
-```
-
-```
-## Hospital = Hosp1:
-##  contrast        estimate    SE  df t.ratio p.value
-##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
-##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
-##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
-## 
-## Hospital = Hosp2:
-##  contrast        estimate    SE  df t.ratio p.value
-##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
-##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
-##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
-## 
-## P value adjustment: tukey method for comparing a family of 3 estimates
-```
-
-
----
-# Simple effects with plots
-
-.pull-left[
-&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-18-1.png" width="90%" /&gt;
-
-]
-
-.pull-right[
-
-```r
-m1_simple1
-```
-
-```
-## Treatment = TreatA:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
-## 
-## Treatment = TreatB:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
-## 
-## Treatment = TreatC:
-##  contrast      estimate    SE  df t.ratio p.value
-##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
-```
-
-]
-
----
-# Simple effects with plots
-
-.pull-left[
-
-```r
-m1_simple2
-```
-
-```
-## Hospital = Hosp1:
-##  contrast        estimate    SE  df t.ratio p.value
-##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
-##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
-##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
-## 
-## Hospital = Hosp2:
-##  contrast        estimate    SE  df t.ratio p.value
-##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
-##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
-##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
-## 
-## P value adjustment: tukey method for comparing a family of 3 estimates
-```
-
-]
-
-.pull-right[
-&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-21-1.png" width="90%" /&gt;
-
-]
-
-
-
-
----
-class: center, middle
-# Time for a break
-
----
-class: center, middle
-# Welcome Back!
 **One more step in exploration**
 
 ---
@@ -928,6 +1019,19 @@ if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
     deleted = true;
   });
 })();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
 (function() {
   "use strict"
   // Replace <script> tags in slides area to make them executable
