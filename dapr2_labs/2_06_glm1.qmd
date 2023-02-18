@@ -17,6 +17,7 @@ library(DT)
 library(pander)
 library(sjPlot)
 library(tidyverse)
+library(car)
 
 ```
 
@@ -25,7 +26,7 @@ library(tidyverse)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. 1. Understand when to use a logistic model
+1. Understand when to use a logistic model
 2. Understand how to fit and interpret a logistic model
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
@@ -41,8 +42,8 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **patchwork**
 * **kableExtra**
-* **emmeans**
 * **pander**
+* **sjPlot**
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/drunkdoor.csv) or read it in via this link https://uoepsy.github.io/data/drunkdoor.csv. 
@@ -65,7 +66,7 @@ Watch the following video:
 
 You may well have already heard of these series of experiments, or have seen similar things on [Netflix](https://www.netflix.com/gb/title/80190510).
 
-`r optbegin("Cognitive Exp 3x3 Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+`r optbegin("Drunk Door Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
 
 __Description__
 
@@ -76,6 +77,7 @@ The perceptual load of the experiment was manipulated via a) the presentation of
 
 **Measures**   
 After experimenters A and C had successfully swapped positions, the participant was asked (now by C) to complete small number of questions taking approximately 1 minute. Either after this set of questions, or if the participant made an indication that they had noticed the swap, the experimenters regrouped and the participant was explicitly asked whether they had noticed the swap.   
+
 Immediately after this, participants were breathalysed, and their blood alcohol content was recorded.  
 
 __Preview__
@@ -83,7 +85,7 @@ __Preview__
 The first six rows of the data are:
 
 ```{r echo=FALSE, message=FALSE}
-read_csv('https://uoepsy.github.io/data/drunkdoor.csv') %>%  head %>% gt::gt()
+read_csv('https://uoepsy.github.io/data/drunkdoor.csv') %>% head %>% gt::gt()
 ```
 
 `r optend()`
@@ -107,6 +109,7 @@ library(psych)
 library(kableExtra)
 library(ggmosaic)
 library(patchwork)
+library(sjPlot)
 
 #read in data
 drunkdoor <- read_csv("https://uoepsy.github.io/data/drunkdoor.csv")
@@ -131,11 +134,9 @@ str(drunkdoor)
 #check for NAs - there are none - all FALSE
 table(is.na(drunkdoor))
 
-#re-assign categorical variables as factors
+#re-assign categorical IVs as factors
 drunkdoor$condition <- factor(drunkdoor$condition,
                               labels = c("High", "Low"))
-drunkdoor$notice <- factor(drunkdoor$notice,
-                              labels = c("No", "Yes"))
 ```
 
 `r solend()`
@@ -186,28 +187,28 @@ door_stats <- drunkdoor %>%
 door_stats
 ```
 
-Since we have a continuous outcome and 2 categorical predictors - a boxplot would be most appropriate for visualisations:
+We can explore each of the IVs associations with our DV individually:
 
 ```{r}
 #| label: fig-cog-desc
 #| fig-cap: "Association between Task Condition, Diagnosis, and Average Score"
 
-door_plt1 <- ggplot(data = drunkdoor, aes(x=notice, fill = notice)) +
+door_plt1 <- ggplot(data = drunkdoor, aes(x=as_factor(notice), fill = as_factor(notice))) +
   geom_bar() +
   xlab("Notice")
 door_plt1
 
 door_plt2 <- ggplot(data = drunkdoor) +
-  geom_mosaic(aes(x = product(notice, condition), fill = notice)) +
+  geom_mosaic(aes(x = product(as_factor(notice), condition), fill = as_factor(notice))) +
   xlab("Condition")
 door_plt2
 
-door_plt3 <- ggplot(data = drunkdoor, aes(x=age, fill=notice)) +
+door_plt3 <- ggplot(data = drunkdoor, aes(x=age, fill=as_factor(notice))) +
   geom_density() +
   xlab("Age")
 door_plt3 
 
-door_plt4 <- ggplot(data = drunkdoor, aes(x=bac, fill=notice)) +
+door_plt4 <- ggplot(data = drunkdoor, aes(x=bac, fill=as_factor(notice))) +
   geom_density() +
   xlab("BAC")
 door_plt4 
@@ -227,7 +228,7 @@ What does this value mean?
 ```{r echo = FALSE}
 ggplot(drunkdoor, aes(x=age, y=notice))+
   geom_point()+
-  geom_smooth(method="lm")
+   geom_smooth(method = "lm")
 ```
 
 `r qend()`
@@ -278,7 +279,7 @@ Fit your model using `glm()`, and assign it as an object with the name "changebl
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-changeblind_mdl <- glm(notice ~ age + bac100 + condition, data = drunkdoor, family = "binomial")
+changeblind_mdl <- glm(notice ~ age_mc + bac100 + condition, data = drunkdoor, family = "binomial")
 summary(changeblind_mdl)
 ```
 
@@ -298,10 +299,11 @@ The opposite of the natural logarithm is the exponential (see here for more deta
 
 Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. Thus, we want to exponentiate the coefficients from our model in order to translate them back from log-odds.
 
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
 
 
 ```{r}
@@ -322,17 +324,35 @@ exp(coefficients(changeblind_mdl))
 
 `r solend()`
 
-
-
-
-
-
-
+<br>
 
 `r qbegin(7)`
 
-Provide key model results in a formatted table.
+Plot the predicted data, using the original data points. 
 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+library(ggeffects)
+plt_glm <- plot(ggpredict(changeblind_mdl,c("age_mc","bac100", "condition")))
+plt_glm
+```
+
+```{r}
+ggplot(drunkdoor, aes(x=age_mc, y=notice, fill = condition))+
+  geom_point(aes(colour = bac100))+
+   geom_smooth(method = "glm", method.args = list(family = "binomial"))
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+Provide key model results in a formatted table.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -364,11 +384,9 @@ tab_model(changeblind_mdl,
 
 <br>
 
-`r qbegin(8)`
+`r qbegin(9)`
 
 Interpret your results in the context of the research question and report your model in full.
-
-Make reference to the interaction plot and regression table.
 
 `r qend()`
 
@@ -378,17 +396,81 @@ Make sure to write your results up following [APA guidelines](https://apastyle.a
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Whether or not participants noticed the swap mid-conversation (binary 0 vs 1) is modelled using logistic regression, with blood alcohol content, perceptual load condition (low load vs high load, with low as the reference level), and age (in years).
 
-In keeping with previous research, age was associated with susceptibility to change-blindness, as indicated by a decreased odds of noting the mid-conversation swap (), after accounting for differences in blood alcohol levels and perceptual load. In contrary to what might be expected, change-blindness appeared to decrease with alcohol intoxication, with the odds of noticing the swap increasing 1.42 times () for every 1/100th of a percentage increase in blood alcohol content, holding age and perceptual load constant. After accounting for age and blood alcohol levels, the odds of noticing the swap were significantly different depending upon the perceptual load, with higher perceptual load associated with 0.2 () times the odds of noticing the change. Full results including 95% Confidence Intervals are shown in @tbl-notice-modresults. 
+```{r}
+#| include: false
+res <- exp(car::Confint(changeblind_mdl))
+res <- round(res,2)
+```
 
-Results corroborate previous findings of age increasing the susceptibility to changeblindness. Increased perceptual load was also found to increase the chances of people being blind to change, in keeping with the intuition that we have a finite capacity for attention, which is taken up more by more distracting objects. Surprisingly, levels of alcohol intoxication appeared to be associated with a greater chance of noticing change. Further work could investigate possible explanations for this association.
+
+Whether or not participants noticed the swap mid-conversation (binary 0 vs 1) was modelled using logistic regression, with blood alcohol content (BAC; measured in 100th of percentages blood content), perceptual load condition (low load vs high load, with low as the reference level), and age (in years). See @tbl-notice-modresults for full model results.
+
+In keeping with previous research, age was found to be associated with susceptibility to change-blindness, as indicated by decreased odds of noting the mid-conversation swap ($OR = `r res[2,1]`,\,\, 95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$), after accounting for differences in blood alcohol levels and perceptual load. 
+
+In contrary to what might have been expected, change-blindness appeared to decrease with higher alcohol intoxication, with the odds of noticing the swap increasing `r res[3,1]` times ($[`r paste(res[3,2:3],collapse=", ")`]$) for every 1/100th of a percentage increase in blood alcohol content, holding age and perceptual load constant. 
+
+After accounting for age and blood alcohol levels, the odds of noticing the swap were significantly different depending upon the perceptual load, with higher perceptual load associated with `r res[4,1]` ($[`r paste(res[4,2:3],collapse=", ")`]$) times the odds of noticing the change. 
+
+In summary, older age increased the susceptibility to change blindness. Increased perceptual load was also found to increase the chances of people being blind to change, in keeping with the intuition that we have a finite capacity for attention, which is taken up more by more distracting objects. Surprisingly, levels of alcohol intoxication appeared to be associated with a greater chance of noticing change. 
 
 :::
 
 `r solend()`
 
+<br>
 
+`r qbegin(10)`
 
+Create a confusion matrix (i.e., a table of predicted outcome vs observed outcome, as displayed in @fig-confmat), and state what percentage of the 120 observations were correctly classified by our model, when the threshold is set at 0.5?
 
+```{r confmat, echo=FALSE, fig.cap="Confusion Matrix"}
+knitr::include_graphics("images/glm/cmat.png")
+```
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. Add new column to the drunkdoor dataset which contains the predicted probability of the outcome for each observation.
+2. Using `ifelse()`, add another column which is these predicted probabilities translated into the predicted binary outcome (0 or 1) based on whether the probability is greater than > .5.
+3. Create a two-way contingency table of the predicted outcome and the observed outcome.
+
+Note: You don’t need the `newdata = ` argument for `predict()` if you want to use the original data the model was fitted on.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Another way to think about how our model is fitted is that it aims to maximise (TP + TN)/n, or, put another way, to minimise (FP+FN)/n.
+This is equivalent to the good old idea of minimising sums of squares (where we minimise the extend to which the predicted values differ from the observed values).
+
+```{r}
+# add predicted probability (predprobs) column
+# add pred binary outcome (predclass) column
+drunkdoor <-
+  drunkdoor %>%
+  mutate(
+    predprobs = predict(changeblind_mdl, type="response"),
+    predclass = ifelse(predprobs > 0.5, 1, 0)
+  )
+
+# create contingency table 
+drunkdoor %>%
+  select(notice, predclass) %>%
+  table()
+```
+
+Let's calculate how many observations were correctly classified:
+
+```{r}
+#correctly classified
+
+sum(drunkdoor$predclass == drunkdoor$notice) / nrow(drunkdoor)
+```
+
+The model correctly classifies 67.5% of the observations.
+
+`r solend()`
