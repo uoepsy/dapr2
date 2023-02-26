@@ -168,24 +168,26 @@ Let's first produce a descriptive statistics table:
 ```{r message=FALSE, warning=FALSE}
 #| label: tbl-cog-descript
 #| tbl-cap: Descriptive Statistics
-smoke_stats <- smoke %>% 
-    group_by(Intention) %>%
-    summarise(
-        Avg_Age = mean(age), 
-        SD_Age = sd(age),
-        SE_Age = sd(age) / sqrt(n()),
-        Min_Age = min(age),
-        Max_Age = max(age),        
-        Avg_BAC = mean(bac), 
-        SD_BAC = sd(bac),
-        SE_BAC = sd(bac) / sqrt(n()),
-        Min_BAC = min(bac),
-        Max_BAC = max(bac)) %>%
-    kable(caption = "Descriptive Statistics", digits = 2) %>%
+smoke_stats <- smoke %>%
+    select(Intention, Quitting) %>%
+    table() %>%
+    kable(caption = "Descriptive Statistics") %>%
     kable_styling()
 
-door_stats
+smoke_stats
 ```
+
+Our view as proportions: 
+```{r}
+smoke %>%
+  group_by(Intention, Quitting) %>%
+  summarise(
+    n = n()) %>%
+  mutate(
+    Prop = round(n/sum(n),2)
+  )
+```
+
 
 We can explore the association between the two categorical variables as follows:
 
@@ -193,7 +195,7 @@ We can explore the association between the two categorical variables as follows:
 #| label: fig-smoke-desc
 #| fig-cap: "Association between Intention and Quitting Attempt"
 smoke_plt1 <- ggplot(data = smoke, aes(x=Intention, fill=as_factor(Quitting))) +
-  geom_bar() +
+  geom_bar(position = "dodge") +
   labs(fill = 'Attempted Quitting?', xlab = "Intention")
 smoke_plt1
 ```
@@ -259,7 +261,43 @@ exp(coefficients(smoke_mdl1))
 
 <br>
 
-`r qbegin(5)`
+`r qbegin(7)`
+
+Investigate whether or not:
+
++ the studentized deviance residuals raise any concerns about outliers
++ there are influential observations
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+
+::: {.panel-tabset}
+
+## Outliers
+```{r}
+plot(rstudent(smoke_mdl1), ylab = "Studentized Deviance Residuals")
+
+plot(fitted(smoke_mdl1), rstudent(smoke_mdl1),
+     xlab = "Fitted values", ylab = "Studentized Deviance Residuals")
+
+arm::binnedplot(fitted(smoke_mdl1), rstudent(smoke_mdl1),
+                ylab = "Average Studentized Deviance Residuals")
+```
+
+## Influential Observations
+```{r}
+plot(cooks.distance(smoke_mdl1), ylab = "Cook's Distance")
+```
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
 
 Perform a Deviance goodness-of-fit test to compare your fitted model to the null. 
 
@@ -278,7 +316,7 @@ Report which model you think best fits the data.
 
 Consider whether or not your models are nested. The flowchart in [Question 10 of the Semester 2 Week 1 lab](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html) may be helpful to revisit. 
 
-
+:::
 
 `r qend()`
 
@@ -286,7 +324,7 @@ Consider whether or not your models are nested. The flowchart in [Question 10 of
 
 First, let's fit the null model:
 ```{r}
-smoke_mdl0 <- glm(Quitting ~ 1, data = qa, family = "binomial")
+smoke_mdl0 <- glm(Quitting ~ 1, data = smoke, family = "binomial")
 summary(smoke_mdl0)
 ```
 
@@ -297,12 +335,60 @@ anova(smoke_mdl0, smoke_mdl1, test = 'Chisq')
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-At the \5% significance level, the addition of the information about the subjects’ intentions to quit resulted in a significant decrease in model deviance (12). Comparing this with a chi-squared with 3 degrees of freedom results in a $p$=.007
-.
+At the \5% significance level, the addition of the information about the subjects’ intentions to quit resulted in a significant decrease in model deviance (12). Comparing this with a chi-squared with 3 degrees of freedom results in a $p$=.007.
 
 Hence, we have strong evidence that the model the subjects’ intention to quit are helpful predictors of whether or not they will attempt quitting in the future.
 
 :::
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Check the AIC and BIC values for smoke_mdl0 and smoke_mdl1 - which model should we prefer?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#AIC
+AIC(smoke_mdl0, smoke_mdl1)
+
+#BIC
+BIC(smoke_mdl0, smoke_mdl1)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+Plot the predicted model estimates. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Here you will need to use `plot_model()` from the __sjPlot__ package like you did back in Semester 1. To get your estimates, you will need to specify `type = "est"`. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`plot_model()` with `type = "est"` gives a nice way of visualising the model odds ratios and confidence intervals: 
+
+```{r}
+#| label: fig-notice-modest
+#| fig-cap: Model Estimates
+plot_model(smoke_mdl1,
+           type = "est")
+```
 
 `r solend()`
 
@@ -346,8 +432,6 @@ tab_model(smoke_mdl1,
 
 Interpret your results in the context of the research question and report your model in full.
 
-Make reference to the interaction plot and regression table.
-
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -364,7 +448,7 @@ res <- round(res,2)
 ```
 
 
-Whether or not participants made an attempt to quit using tobacco products (binary 0 vs 1; 0 no attempt to quit, 1 attempted to quit) was modelled using logistic regression, with intention to quit ('never intend to quit', 'may intend to quit but not in the next 6 months', 'intend to quit in the next 6 months', 'intend to quit in the next 30 days', with 'never intend to quit' as the reference level) as the only predictor. See @tbl-smoke-modresults for full model results.
+Whether or not participants made an attempt to quit using tobacco products (binary 0 vs 1; 0 no attempt to quit, 1 attempted to quit) was modeled using logistic regression, with intention to quit ('never intend to quit', 'may intend to quit but not in the next 6 months', 'intend to quit in the next 6 months', 'intend to quit in the next 30 days', with 'never intend to quit' as the reference level) as the only predictor. See @tbl-smoke-modresults for full model results.
 
 Intention to quit was found to be associated with attempt to quit, as indicated by decreased odds of noting the mid-conversation swap ($OR = `r res[2,1]`,\,\, 95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$), after accounting for differences in blood alcohol levels and perceptual load. 
 
