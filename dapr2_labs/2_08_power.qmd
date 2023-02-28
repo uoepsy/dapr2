@@ -1,0 +1,358 @@
+---
+title: "Sample Size and Power Analysis"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+library(car)
+
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand differences between Type I and Type II errors
+1. Understand how varying factors can influence power
+1. Be able to conduct power analyses using the `pwr` package
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from [Week 6](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html)
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **patchwork**
+* **kableExtra**
+* **psych**
+* **sjPlot**
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/QuitAttempts.csv) or read it in via this link https://uoepsy.github.io/data/QuitAttempts.csv. 
+
+:::
+
+
+# Study Overview
+
+> **Research Question**
+>
+> Does intervention type influence recall?
+
+`r optbegin("Smoking Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+A sample of 200 individuals aged 18-75 years old was randomly allocated to either take a free-recall test after an intervention. There were two types of intervention - exciting (1-hour long roller-coaster session; group = 0) or relaxing (1-hour long meditation session; group = 1). 
+
+__Data Dictionary__
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+recdata <- read_csv("https://uoepsy.github.io/data/QuitAttempts.csv")
+tibble(
+variable = names(recdata),
+description = c("Percentage Recall - the percentage of correctly recalled items","Group - whether the individual was assigned to the roller-coaster (group = 0) or the meditation (group = 1) intervention condition", "Age - individual's age (in years)")
+) %>% gt::gt()
+```
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/recall_med_coast.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read in the recall_med_coast dataset into R, assigning it to an object named `recdata` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#load packages
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(patchwork)
+library(sjPlot)
+
+#read in data
+recdata <- read_csv("https://uoepsy.github.io/data/recall_med_coast.csv")
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(1)`
+
+Examine the dataset, and perform any necessary and appropriate data management steps.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#look at structure of data:
+str(recdata)
+
+#check for NAs - there are none - all FALSE:
+table(is.na(recdata))
+
+#Group should be a factor:
+recdata$group <- factor(recdata$group, 
+                        levels = c(0, 1), 
+                        labels = c('rollercoaster', 'meditation'))
+
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Provide a table of descriptive statistics and visualise your data.
+
+Remember to interpret your plot in the context of the study. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.
+2. Recall that when visualising a continuous outcome across groups, `geom_boxplot()` may be most appropriate to use.
+3. Make sure to comment on any observed differences among the sample means of the four treatment conditions.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's first produce a descriptive statistics table:
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-cog-descript
+#| tbl-cap: Descriptive Statistics
+recall_stats <- recdata %>%
+    group_by(group) %>%
+    summarise(
+       n = n(),
+       Avg_recall = mean(perc_recall)) %>%
+    kable(caption = "Descriptive Statistics") %>%
+    kable_styling()
+
+recall_stats
+```
+
+We can explore the association between our variables as follows:
+
+```{r}
+#| label: fig-recall-desc1
+#| fig-cap: "Association between Age, Intervention, and Recall"
+recall_plt1 <- ggplot(data = recdata, aes(x = age, y = perc_recall, fill = group)) +
+    geom_boxplot() + 
+    labs(x = "Age (in years", y = "Recall (%)", title = "Association between Age, Intervention, and Recall")
+recall_plt1
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+Using a significance level of .05, what sample size ($n$) would you require to check whether any of the predictors (and interaction) influences recall scores with a 90% chance?
+
+Because you do not know the effect size, assume Cohen's guideline for linear regression and, to be on the safe side, consider the "Small" value.
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+k <- 3
+f2 <- 0.02
+pwr.f2.test(u = k, f2 = f2, sig.level = 0.05, power = 0.9)
+```
+
+The required sample size is $n = \text v + k + 1 = 709 + 3 + 1 = 713$.
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Using the same $\alpha$ (.05) and power, what would be the sample size if you assumed effect size to be medium?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+k <- 3
+f2 <- 0.15
+pwr.f2.test(u = k, f2 = f2, sig.level = 0.05, power = 0.9)
+```
+
+The required sample size is $n = \text v + k + 1 = 95 + 3 + 1 = 99$ or $100$ (to be on the safe side).
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Using the same $\alpha$ and power, what would be the sample size if you assumed effect size to be large?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+k <- 3
+f2 <- 0.35
+pwr.f2.test(u = k, f2 = f2, sig.level = 0.05, power = 0.9)
+```
+
+The required sample size is $n = \text v + k + 1 = 41 + 3 + 1 = 45$.
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+Fit the following model using `lm()`, and assign it as an object with the name "recall_mdl1".
+
+$$
+\text{Recall} = \beta_0 + \beta_1 \cdot Age  + \epsilon \\
+$$
+What is the R-squared?
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+recall_mdl1 <- summary(lm(perc_recall ~ age, data = recdata))
+recall_mdl1
+
+recall_mdl1$r.squared
+recall_mdl1$adj.r.squared
+```
+
+We can use either, for multiple linear regression, you might want to use the adjusted R-squared: $R^2 = 0.16$.
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+Use a scatterplot to visualise the assocation between recall and age by group. Is there any evidence of an interaction between age and group?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+consider using `geom_smooth()` to superimpose the best-fitting line describing the association of interest for each intervention group. 
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r, message = FALSE}
+#| label: fig-recall-desc2
+#| fig-cap: "Scatterplot displaying the association between age, intervention group, and recall"
+recall_plt2 <- ggplot(data = recdata, aes(x = age, y = perc_recall, color = group)) +
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE) + 
+    labs(x = "Age (in years)", y = "Recall (%)", title = "Scatterplot displaying the association between age, intervention group, and recall")
+recall_plt2
+```
+
+The slope appears to be stepper in the roller coaster intervention group than the meditation group, so we should investigate whether the interaction is significant.
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+Imagine you found the $R$-squared that you computed above (Q6) in a paper, and you are using that to base your next study.
+
+A researcher believes that the inclusion of intervention group and its interaction with age should explain an extra 50% of the variation in recall scores.
+
+Using a significance level of 5%, what sample size should you use for your next data collection in order to discover that effect with a power of 0.9?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+# smaller model m
+k <- 1
+R2m <- 0.16
+
+# larger model M
+K <- 3
+R2M <- 0.16 + 0.5
+
+# effect size
+f2 <- (R2M - R2m) / (1 - R2M)
+pwr.f2.test(u = K - k, f2 = f2, sig.level = 0.05, power = 0.9)
+```
+
+The sample size should be $n = \text v + K + 1 = 10 + 3 + 1 = 14$.
+
+With such a big effect size, don't be surprised it's so small. When the effect size is much smaller, that will be harder to detect and you will require a bigger sample size.
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Suppose that the addition of intervention group and its interaction with age, to the $R$-squared from the literature, was thought to explain only 5% more of the variability in recall scores.
+
+Using a significance level of 5%, what sample size should you use for your next data collection in order to discover that effect with a power of 0.9?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+# smaller model m
+k <- 1
+R2m <- 0.16
+
+# larger model M
+K <- 3
+R2M <- 0.16 + 0.05
+
+# effect size
+f2 <- (R2M - R2m) / (1 - R2M)
+pwr.f2.test(u = K - k, f2 = f2, sig.level = 0.05, power = 0.9)
+```
+
+The sample size should be $n = \text v + K + 1 = 200 + 3 + 1 = 204$.
+
+With such a small effect size, we need a bigger sample size for us to detect it with high confidence.
+
+`r solend()`
