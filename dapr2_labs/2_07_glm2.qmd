@@ -26,14 +26,14 @@ library(car)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Understand how to fit and interpret a logistic model
-2. Understand the difference between Pearson residuals and Deviance residuals
+1. Understand when to use a logistic model
+2. Understand how to fit and interpret a logistic model
 3. Understand how to evaluate model fit
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
 1. Be up to date with lectures
-2. Have completed Lab 6
+2. Have completed previous lab exercises from [Week 6](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html)
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -43,7 +43,7 @@ For this lab, you will need to load the following package(s):
 * **tidyverse** 
 * **patchwork**
 * **kableExtra**
-* **pander**
+* **psych**
 * **sjPlot**
 
 ### <i class="fa fa-file"></i> Lab Data
@@ -56,23 +56,22 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 
 > **Research Question**
 >
-> Does the probability of having senility symptoms change as a function of the WAIS score?
+> Is attempting to quit tobacco products associated with an individuals intentions?
 
-Kalkhoran et al. (2015) [^1] investigated predictors of dual use of cigarettes and smokeless tobacco products. Although their original sample size was large ($n$ = 1324), they were interested in running separate logistic regression analyses within subgroups. Most of the sample used only cigarettes. One of the smaller subgroups contained subjects who used both cigarettes and smokeless tobacco products ($n$=61). For this problem we focus on this smaller subgroup of dual cigarette and smokeless tobacco users. The dependent variable, Q, is whether the subject made an attempt to quit using tobacco products (0 = no attempt to quit; 1 = attempted to quit). There is one multi-category independent variable, intention to quit, I, with four levels: never intend to quit, may intend to quit but not in the next 6 months, intend to quit in the next 6 months, intend to quit in the next 30 days.  
-
-`r optbegin("Senility Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+`r optbegin("Smoking Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
 
 __Description__
 
-**Method**  
-Researchers conducted a study in which they approached 120 people, recruited from within the vicinity of a number of establishments with licenses to sell alcohol to be consumed on-premises. Initially, experimenter A approached participants and asked if they were interested in participating in a short study, and obtained their written consent. While experimenter A subsequently talked each participant through a set of questions on multiple pieces of paper (with the pretense of explaining what the participant was required to do), experimenters B and C carrying a door passed between the participant and experimenter A, with experimenter C replacing A (as can be viewed in the video). 
+Kalkhoran et al. (2015)[^1] investigated predictors of dual use of cigarettes and smokeless tobacco products. Although their original sample size was large ($n$ = 1324), they were interested in running separate logistic regression analyses within subgroups. Most of the sample used only cigarettes. One of the smaller subgroups contained subjects who used both cigarettes and smokeless tobacco products ($n$=61). For this problem, we focus on this smaller subgroup of dual cigarette and smokeless tobacco users.
 
-The perceptual load of the experiment was manipulated via a) the presentation of the door and b) the papers held by the experimenters. For 60 of these participants, the door was painted with some detailed graffiti and had a variety of pieces of paper and notices attached to the side facing the participants. Additionally, for these participants, the experimenters handled a disorganised pile of 30 papers, with the top pages covered in drawings around the printed text. For the remaining 60, the door was a standard MDF construction painted a neutral grey, and the experimenters handled only 2 sheets of paper which had minimal printed text on them and nothing else. 
-
-**Measures**   
-After experimenters A and C had successfully swapped positions, the participant was asked (now by C) to complete small number of questions taking approximately 1 minute. Either after this set of questions, or if the participant made an indication that they had noticed the swap, the experimenters regrouped and the participant was explicitly asked whether they had noticed the swap.   
-
-Immediately after this, participants were breathalysed, and their blood alcohol content was recorded.  
+__Data Dictionary__
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+smoke <- read_csv("https://uoepsy.github.io/data/QuitAttempts.csv")
+tibble(
+variable = names(smoke),
+description = c("Subject","Quit Attempt, Wheter the subject made an attempt to quit using tobacco products (0 = no attempt to quit; 1 = attempted to quit).", "Intention to Quit, with four levels: 1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days")
+) %>% gt::gt()
+```
 
 __Preview__
 
@@ -90,7 +89,7 @@ read_csv('https://uoepsy.github.io/data/QuitAttempts.csv') %>% head %>% gt::gt()
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read in the 'SenilityWAIS' dataset into R, assigning it to an object named `sen` 
+3. Read in the QuitAttempts dataset into R, assigning it to an object named `smoke` 
  
 `r qend()`
 
@@ -101,7 +100,6 @@ read_csv('https://uoepsy.github.io/data/QuitAttempts.csv') %>% head %>% gt::gt()
 library(tidyverse)
 library(psych)
 library(kableExtra)
-library(ggmosaic)
 library(patchwork)
 library(sjPlot)
 
@@ -131,7 +129,7 @@ table(is.na(smoke))
 #re-name variables to improve clarity:
 smoke <- smoke %>%
     rename(PID = S,
-           Quitting = Q,
+           Quit_Attempt = Q,
            Intention = I)
 
 #designate intention as a factor:
@@ -169,7 +167,7 @@ Let's first produce a descriptive statistics table:
 #| label: tbl-cog-descript
 #| tbl-cap: Descriptive Statistics
 smoke_stats <- smoke %>%
-    select(Intention, Quitting) %>%
+    select(Intention, Quit_Attempt) %>%
     table() %>%
     kable(caption = "Descriptive Statistics") %>%
     kable_styling()
@@ -177,10 +175,10 @@ smoke_stats <- smoke %>%
 smoke_stats
 ```
 
-Our view as proportions: 
+Or view as proportions: 
 ```{r}
 smoke %>%
-  group_by(Intention, Quitting) %>%
+  group_by(Intention, Quit_Attempt) %>%
   summarise(
     n = n()) %>%
   mutate(
@@ -188,15 +186,14 @@ smoke %>%
   )
 ```
 
-
 We can explore the association between the two categorical variables as follows:
 
 ```{r}
 #| label: fig-smoke-desc
 #| fig-cap: "Association between Intention and Quitting Attempt"
-smoke_plt1 <- ggplot(data = smoke, aes(x=Intention, fill=as_factor(Quitting))) +
+smoke_plt1 <- ggplot(data = smoke, aes(x=as_factor(Quit_Attempt), fill=Intention)) +
   geom_bar(position = "dodge") +
-  labs(fill = 'Attempted Quitting?', xlab = "Intention")
+  labs(fill = 'Intention', xlab = "Attempted Quitting?")
 smoke_plt1
 ```
 
@@ -213,10 +210,9 @@ Fit your model using `glm()`, and assign it as an object with the name "smoke_md
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-smoke_mdl1 <- glm(Quitting ~ Intention, data = smoke, family = binomial)
+smoke_mdl1 <- glm(Quit_Attempt ~ Intention, data = smoke, family = "binomial")
 summary(smoke_mdl1)
 ```
-
 
 `r solend()`
 
@@ -246,13 +242,13 @@ exp(coefficients(smoke_mdl1))
 ```
 
 + $\beta_0$ = `(Intercept)` = `r round(coef(smoke_mdl1)[1],2)`
-    - For a participant who reported that they “never intend to quit,” the odds of attempting to quit was 0.14. That is, for those who reportedly “never intend to quit,” the probability that they attempted quitting was 0.14 times the probability that they didn’t.
+    - For a participant who reported that they “never intend to quit", the probability that they did not attempt quitting was 0.14 times the probability that they did.
 
 + $\beta_1$ = `Intention2` = `r round(coef(smoke_mdl1)[2],2)`
-    - Relative to those who "never intend to quit", reporting an "intention to quit but not in the next 6 months" meant that an individuals odds of quitting increased by a factor of 13.2.
+    - Relative to those who "never intend to quit", reporting an "intention to quit but not in the next 6 months" meant that an individuals odds of attempting to quit increased by a factor of 13.2.
     
 + $\beta_2$ = `Intention3` = `r round(coef(smoke_mdl1)[3],2)`
-    - Relative to those who "never intend to quit", reporting an "intention to quit in the next 6 months" increased the odds of quitting by a factor of 25.2.
+    - Relative to those who "never intend to quit", reporting an "intention to quit in the next 6 months" increased the odds of attempting to quit by a factor of 25.2.
 
 + $\beta_3$ `Intention4` = `r round(coef(smoke_mdl1)[4],2)`
     - Relative to those who "never intend to quit", reporting an "intention to quit in the next 30 days" was associated with an increase in the odds of attempting to quit by a factor of 28.
@@ -261,34 +257,72 @@ exp(coefficients(smoke_mdl1))
 
 <br>
 
-`r qbegin(7)`
+`r qbegin(5)`
 
 Investigate whether or not:
 
-+ the studentized deviance residuals raise any concerns about outliers
++ the deviance residuals raise any concerns about outliers
 + there are influential observations
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+*Deviance Residuals* 
+Because logistic regression models don't have the same expected error distribution (we don't expect residuals to be normally distributed around the mean, with constant variance), checking the assumptions of logistic regression is a little different.  
+
+Typically, we look at the "deviance residuals". But we __don't__ examine plots for patterns, we simply examine them for potentially outlying observations. If we use a standardised residual, it makes it easier to explore extreme values as we expect most residuals to be within -2, 2 or -3, 3 (depending on how strict we feel).  
+
+There are three ways we can get out deviance residuals, each scaled differently:
+
+- $i$th residual = measure of deviance contributed from the $i$th observation
+- $i$th standardized residual = residual / SD(residual)
+- $i$th studentized residual = residual / SD(residual from model fitted without observation $i$)
+
+We get these in `R` using:  
+```{r, eval=FALSE}
+# deviance residuals
+residuals(mdl, type = 'deviance')
+# studentised residuals
+rstudent(mdl, type = 'deviance')
+# standardised residuals
+rstandard(mdl, type = 'deviance')
+```
+
+We can check whether any residuals are larger than 2 or 3 in absolute value by plotting these values, for example:
+```{r, eval=FALSE}
+plot(rstudent(mdl, type = 'deviance'), ylab = 'Studentized Deviance Residuals')
+```
+
+_*Warning:* Don't inspect this plot for patterns!_  
+
+*Cook's Distance*
+To check for influential observations, we can use `cooks.distance()`, and plot this using `plot()`. 
+
+:::
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-
 ::: {.panel-tabset}
 
-## Outliers
+## Outliers - studentized Pearson Residuals against their index
 ```{r}
 plot(rstudent(smoke_mdl1), ylab = "Studentized Deviance Residuals")
+```
 
+## Outliers - studentized  Pearson residuals against the fitted values
+
+```{r}
 plot(fitted(smoke_mdl1), rstudent(smoke_mdl1),
      xlab = "Fitted values", ylab = "Studentized Deviance Residuals")
-
-arm::binnedplot(fitted(smoke_mdl1), rstudent(smoke_mdl1),
-                ylab = "Average Studentized Deviance Residuals")
 ```
 
 ## Influential Observations
 ```{r}
 plot(cooks.distance(smoke_mdl1), ylab = "Cook's Distance")
+plot(smoke_mdl1, which = 4)
 ```
 
 :::
@@ -324,7 +358,7 @@ Consider whether or not your models are nested. The flowchart in [Question 10 of
 
 First, let's fit the null model:
 ```{r}
-smoke_mdl0 <- glm(Quitting ~ 1, data = smoke, family = "binomial")
+smoke_mdl0 <- glm(Quit_Attempt ~ 1, data = smoke, family = "binomial")
 summary(smoke_mdl0)
 ```
 
@@ -335,9 +369,9 @@ anova(smoke_mdl0, smoke_mdl1, test = 'Chisq')
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-At the \5% significance level, the addition of the information about the subjects’ intentions to quit resulted in a significant decrease in model deviance (12). Comparing this with a chi-squared with 3 degrees of freedom results in a $p$=.007.
+At the 5% significance level, the addition of information about the participants’ intention to quit resulted in a significant decrease in model deviance $\chi^2(3) = 11.99, p = .007$.
 
-Hence, we have strong evidence that the model the subjects’ intention to quit are helpful predictors of whether or not they will attempt quitting in the future.
+Hence, we have strong evidence that the model the subjects’ intention to quit is a helpful predictor of whether or not they will attempt quitting in the future.
 
 :::
 
@@ -360,6 +394,12 @@ AIC(smoke_mdl0, smoke_mdl1)
 #BIC
 BIC(smoke_mdl0, smoke_mdl1)
 ```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We used AIC and BIC model selection to distinguish between two possible models describing the association between attempting to quit and intentions. Our model with with intentions included as a predictor (AIC = 76.66) was better fitting than the null model (AIC = 82.65). However, the BIC values suggested that the model including intentions (BIC = 85.17) was a poorer fit than the null (BIC = 84.77). Based on the weight of evidence from both the Deviance goodness-of-fit test alongside the AIC and BIC values, we would conclude that the model with intentions was better fitting than the null.
+
+:::
 
 `r solend()`
 
@@ -384,7 +424,7 @@ Here you will need to use `plot_model()` from the __sjPlot__ package like you di
 `plot_model()` with `type = "est"` gives a nice way of visualising the model odds ratios and confidence intervals: 
 
 ```{r}
-#| label: fig-notice-modest
+#| label: fig-smoke-modest
 #| fig-cap: Model Estimates
 plot_model(smoke_mdl1,
            type = "est")
@@ -414,14 +454,14 @@ Remember that you can rename your DV and IV labels by specifying `dv.labels` and
 
 ```{r}
 #| label: tbl-smoke-modresults
-#| tbl-cap: Regression table for Qotice model
+#| tbl-cap: Regression table for Smoking Model
 #create table for results
 tab_model(smoke_mdl1,
           dv.labels = "Attempt to quit using tobacco products",
           pred.labels = c("Intention2" = "Intend to quit but not in the next 6 months",
                           "Intention3" = "Intend to quit in the next 6 months",
                           "Intention4" = "Intend to quit in the next 30 days"),
-          title = "Regression table for Quit Model")
+          title = "Regression table for Smoking Model")
 ```
 
 `r solend()`
@@ -447,16 +487,17 @@ res <- exp(car::Confint(smoke_mdl1))
 res <- round(res,2)
 ```
 
+Whether or not participants made an attempt to quit using tobacco products (binary 0 vs 1; 0 no attempt to quit, 1 attempted to quit) was modeled using logistic regression, with intention to quit ('never intend to quit', 'may intend to quit but not in the next 6 months', 'intend to quit in the next 6 months', 'intend to quit in the next 30 days', with 'never intend to quit' as the reference level) as the only predictor. See @tbl-smoke-modresults for full model results, and @fig-smoke-modest for a visualisation of the model estimates and confidence intervals.
 
-Whether or not participants made an attempt to quit using tobacco products (binary 0 vs 1; 0 no attempt to quit, 1 attempted to quit) was modeled using logistic regression, with intention to quit ('never intend to quit', 'may intend to quit but not in the next 6 months', 'intend to quit in the next 6 months', 'intend to quit in the next 30 days', with 'never intend to quit' as the reference level) as the only predictor. See @tbl-smoke-modresults for full model results.
+Having no intention to quit was found to be associated with attempting to quit ($OR = `r res[1,1]`,\,\, 95\%\, CI\, [`r paste(res[1,2:3],collapse=", ")`]$), where the probability that they did not attempt to quit was 0.14 times the probability that they did. 
 
-Intention to quit was found to be associated with attempt to quit, as indicated by decreased odds of noting the mid-conversation swap ($OR = `r res[2,1]`,\,\, 95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$), after accounting for differences in blood alcohol levels and perceptual load. 
+Relative to those who never intend to quit, individuals who may intend to quit but not in the next six months had increased odds of attempting to quit ($OR = `r res[2,1]`,\,\, 95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$). 
 
-In contrary to what might have been expected, change-blindness appeared to decrease with higher alcohol intoxication, with the odds of noticing the swap increasing `r res[3,1]` times ($[`r paste(res[3,2:3],collapse=", ")`]$) for every 1/100th of a percentage increase in blood alcohol content, holding age and perceptual load constant. 
+In comparison to those with no intention to quit, those who intended to quit in the next six months had their the odds of quitting increased by a factor of `r res[3,1]` ($95\%\, CI\, [`r paste(res[3,2:3],collapse=", ")`]$)
 
-After accounting for age and blood alcohol levels, the odds of noticing the swap were significantly different depending upon the perceptual load, with higher perceptual load associated with `r res[4,1]` ($[`r paste(res[4,2:3],collapse=", ")`]$) times the odds of noticing the change. 
+Finally, intending to quit in the next 30 days was associated with an increase in the odds of attempting to quit by a factor of `r res[4,1]` ($[`r paste(res[4,2:3],collapse=", ")`]$) in comparison to those who never intended to quit.
 
-In summary, older age increased the susceptibility to change blindness. Increased perceptual load was also found to increase the chances of people being blind to change, in keeping with the intuition that we have a finite capacity for attention, which is taken up more by more distracting objects. Surprisingly, levels of alcohol intoxication appeared to be associated with a greater chance of noticing change. 
+In summary, the closer in the future someone intended to quit smoking, the higher their odds of attempting to quit using tobacco topics.
 
 :::
 
