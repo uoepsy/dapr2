@@ -1,0 +1,659 @@
+---
+title: "Write Up Example & Block 4 Recap"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+
+```
+
+::: lo
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+
+At the end of this lab, you will:
+
+1.  Understand how to write-up and provide interpretation of a binary logistic regression model
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1.  Be up to date with lectures
+2.  Have completed Labs 7-9
+
+### <i class="fab fa-r-project"></i> Required R Packages
+
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs).
+
+For this lab, you will need to load the following package(s):
+
+-   **tidyverse**
+-   **psych**
+-   **kableExtra**
+-   **sjPlot**
+
+### <i class="fa fa-file"></i> Lab Data
+
+You can download the data required for this lab [here](https://uoepsy.github.io/data/SenilityWAIS.csv) or read it in via this link https://uoepsy.github.io/data/SenilityWAIS.csv.
+:::
+
+# Section A: Write-Up
+
+In this section of the lab you will be be presented with a research question, and tasked with writing up and presenting your analyses.
+
+The aim in writing should be that a reader is able to more or less replicate your analyses **without** referring to your `R` code. This requires detailing all of the steps you took in conducting the analysis. The point of using RMarkdown is that you can pull your results **directly** from the code. If your analysis changes, so does your report!
+
+Make sure that your final report doesn't show any R functions or code. Remember you are interpreting and reporting your results in text, tables, or plots, targeting a generic reader who may use different software or may not know R at all. If you need a reminder on how to hide code, format tables, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
+
+::: callout-note
+## Important - Write-Up Examples & Plagiarism
+
+The example write-up sections included below are not **perfect** - they instead should give you a good example of what information you should include within each section, and how to structure this. For example, some information is missing (e.g., interpretation of descriptive statistics, what type of interaction is present), some information could be presented more clearly (e.g., variable names in tables, table/figure titles/captions, and rationales for choices), and writing could be more concise in places (e.g., discussion section is quite long).
+
+Further, **you must not copy any of the write-up included below for future reports** - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+:::
+
+## Study Overview
+
+> **Research Question**
+>
+> Does the probability of having senility symptoms change as a function of the WAIS score?
+
+`r optbegin("Senility: Data Codebook", olabel=FALSE, toggle=params$TOGGLE)`
+
+**Description**
+
+A sample of elderly people was given a psychiatric examination to determine if symptoms of senility were present. Other measurements taken at the same time included the score on a subset of the Wechsler Adult Intelligent Scale (WAIS). The data represent symptoms of senility (senility = 1 if symptoms are present and senility= 0 otherwise) and WAIS scores (wais) for n=54 people.
+
+The data in `SenilityWAIS.csv` contain seven attributes collected from a sample of $n=54$ participants:
+
+-   `wais`: Score on WAIS
+-   `senility`: Whether symptoms of senility were (`senility = 1`) or were not (`senility = 0`) present
+
+**Preview**
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/SenilityWAIS.csv') %>%  head %>% gt::gt()
+```
+
+`r optend()`
+
+### Setup
+
+`r qbegin("Setup", qlabel = FALSE)`
+
+1.  Create a new RMarkdown file
+2.  Load the required package(s)
+3.  Read the SenilityWAIS dataset into R, assigning it to an object named `sen`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r message=FALSE}
+library(tidyverse)
+library(psych) 
+library(kableExtra)
+library(sjPlot)
+
+#read in data
+sen <- read_csv("https://uoepsy.github.io/data/SenilityWAIS.csv")
+```
+
+`r solend()`
+
+### Analysis Code
+
+Try to answer the research question above without referring to the provided analysis code below, and then check how your script matches up - is there anything you missed or done differently? If so, discuss the differences with a tutor - there are lots of ways to code to the same solution!
+
+`r optbegin("Provided Analysis Code", olabel=FALSE,toggle=params$TOGGLE)`
+
+```{r}
+######Step 1 is always to read in the data, then to explore, check, describe, and visualise it.
+
+#check coding of variables - are they coded as they should be?
+str(sen)
+head(sen)
+#both variables currently coded as should be - no changes needed. 
+
+#create descriptives table
+descript <- sen %>% 
+    group_by(senility) %>%
+   summarise(
+       Mean_WAIS = mean(wais),
+       SD_WAIS = sd(wais),
+       Min_WAIS = min(wais),
+       Max_WAIS = max(wais)) %>%
+  kable(caption = "Descriptive Statistics", digits = 2) %>%
+  kable_styling()
+descript
+
+#bar plot - senility presence
+sen_plt1 <- ggplot(data = sen, aes(x = as_factor(senility), fill = as_factor(senility))) + 
+  geom_bar() + 
+    labs(x = "Senility Symptoms Present (0 = No, 1 = Yes)", fill = "Senility Symptoms Present (0 = No, 1 = Yes)", y = "Frequency")
+sen_plt1
+
+#density plot - senility & WAIS
+sen_plt2 <- ggplot(data = sen, aes(x = wais, fill = as_factor(senility))) + 
+  geom_density() + 
+    labs(x = "WAIS Score", fill = "Senility Symptoms Present (0 = No, 1 = Yes)")
+sen_plt2
+
+
+######Step 2 is to run your model(s) of interest to answer your research question, and make sure that the data meet the assumptions of your chosen test
+
+#build model & examine output
+sen_mdl1 <- glm(senility ~ wais, family = "binomial", data = sen)
+summary(sen_mdl1)
+exp(coefficients(sen_mdl1))
+
+#check assumptions
+plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised Deviance Residuals")
+plot(cooks.distance(sen_mdl1), ylab = "Cook's Distance")
+
+#compare to null - conduct model comparison
+#fit null
+sen_mdl0 <- glm(senility ~ 1, family = "binomial", data = sen)
+#compare models - models are nested
+anova(sen_mdl0, sen_mdl1, test = "Chisq")
+AIC(sen_mdl0, sen_mdl1)
+BIC(sen_mdl0, sen_mdl1)
+
+#plot model
+plt_mdl1 <- plot_model(sen_mdl1, type = "eff") 
+plt_mdl1
+
+#results in formatted table
+tab_model(sen_mdl1)
+```
+
+`r optend()`
+
+### The 3-Act Structure: Analysis Strategy, Results, & Discussion
+
+Recall that we need to present our report in three clear sections - think of your sections like the 3 key parts of a play or story - we need to (1) provide some background and scene setting for the reader, (2) present our results in the context of the research question, and (3) present a resolution to our story - relate our findings back to the question we were asked and provide our answer.
+
+If you need a reminder of what to include within each section, refer to [Semester 1 Lab 11](https://uoepsy.github.io/dapr2/2223/labs/1_11_writeup_recap.html), and read through the 'what to include' sections for Analysis Strategy, Results, and Discussion.
+
+#### Act I: Analysis Strategy
+
+`r qbegin(1)`
+
+Attempt to draft a discussion section based on the above research question and analysis provided.
+
+`r qend()`
+
+`r optbegin("Example Write-Up of Analysis Strategy Section", olabel=FALSE, toggle = params$TOGGLE)`
+
+The `SenilityWAIS` dataset contained information on 54 participants who took part in a study concerning the presence of senility symptoms (scored dichotomously as present (1) or not present (0). The sample of older adults also completed the Wechsler Adult Intelligent Scale (WAIS), and scores were available for a subset of these items.
+
+To investigate whether the probability of having senility symptoms change as a function of WAIS score, a binary logistic regression model was used. Effects were considered statistically significant at $\alpha = 0.05$. The following model specification was used:
+
+$$
+\begin{aligned}
+\text{Senility} &= \beta_0 \\
+&+ \beta_1 A_\text{AudioVideo} + \beta_2 T_\text{Trained} \\
+&+ \beta_3 (A_\text{AudioVideo} * T_\text{Trained}) \\
+&+ \epsilon
+\end{aligned}
+$$
+
+To address the research question of whether the probability of having senility symptoms change as a function of WAIS score, this formally corresponded to testing whether the WAIS coefficient was equal to zero:
+
+$$
+H_0: \beta_1 = 0
+$$
+
+$$
+H_1: \beta_1 \neq 0
+$$
+
+To assess model fit, we visually assessed the standardized deviance residuals and Cook's Distance. We expected the former to identify outliers (or extreme values), and we expected residuals to fall within the range of -2 to 2. We used the latter to check for influential observations, and visually assessed if any of our 54 observations had a Cook's distance > than 0.5 (moderately influential) or > 1 (highly influential).
+
+`r optend()`
+
+#### Act II: Results
+
+`r qbegin(2)`
+
+Attempt to draft a results section based on your detailed analysis strategy and the analysis provided.
+
+`r qend()`
+
+`r optbegin("Example Write-Up of Results Section", olabel=FALSE, toggle = params$TOGGLE)`
+
+Descriptive statistics are displayed in @tbl-descript.
+
+```{r descript, echo = FALSE, message = FALSE, caption = "Descriptives Table"}
+#| label: tbl-descript
+#| tbl-cap: "Descriptive Statistics"
+# the kable() function makes tables nice for html:
+sen %>% 
+    group_by(senility) %>%
+   summarise(
+       Mean_WAIS = mean(wais),
+       SD_WAIS = sd(wais),
+       Min_WAIS = min(wais),
+       Max_WAIS = max(wais)) %>%
+  kable(caption = "Descriptive Statistics", digits = 2) %>%
+  kable_styling()
+```
+
+It appeared that there those without senility symptoms present had higher WAIS scores than those with symptoms (see @fig-senwais-plot).
+
+```{r lieplot, echo = FALSE, fig.cap = "", fig.align = "center"}
+#| label: fig-senwais-plot
+#| fig-cap: "Association between Senility Symotom Presence and WAIS "
+ggplot(data = sen, aes(x = wais, fill = as_factor(senility))) + 
+  geom_density() + 
+    labs(x = "WAIS Score", fill = "Senility Symptoms Present (0 = No, 1 = Yes)")
+```
+
+A binary logistic regression model was fitted to determine whether the probability of having senility symptoms change as a function of WAIS score.
+
+Our model did not raise any concerns regarding fit. Though there appeared to be a few residuals with a value slightly larger than 2 in absolute value (see left-hand plot in @fig-assumpt), they were not influential points (see right-hand plot in @fig-assumpt), since none of our observations had a Cook's distance value > 0.5.
+
+```{r assumpt, echo = FALSE, fig.cap = "Assumption Checks", fig.align = "center"}
+#| label: fig-assumpt
+#| fig-cap: "Model Fit Plots"
+par(mfrow=c(2,2))
+plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised Deviance Residuals")
+plot(cooks.distance(sen_mdl1), ylab = "Cook's Distance")
+par(mfrow=c(1,1))
+```
+
+WAIS scores were a significant predictor of whether or not individuals experienced senility symptoms (see @tbl-res).
+
+```{r tableres, echo = FALSE, message = FALSE, caption = "Model Results"}
+#| label: tbl-res
+#| tbl-cap: "Regression Table for Senility Model"
+tab_model(sen_mdl1,
+          dv.labels = "Senility Symptoms",
+          pred.labels = c("wais" = "WAIS"),
+          title = "Regression Table for Senility Model")
+```
+
+
+```{r figureres, echo = FALSE, caption = "ANOVA Output"}
+#| label: fig-sen-out
+#| fig-cap: "Model Results"
+ plot_model(sen_mdl1, type = "eff") 
+```
+
+Results suggested that for every additional point scored on the WAIS, the odds of having senility symptoms decreased by a factor of 0.72 (see @fig-sen-out).
+
+`r optend()`
+
+#### Act III: Discussion
+
+`r qbegin(3)`
+
+Attempt to draft a discussion section based on your results and the analysis provided.
+
+`r qend()`
+
+`r optbegin("Example Write-Up of Discussion Section", olabel=FALSE, toggle = params$TOGGLE)`
+
+The findings indicated that, whether or not participants had symptoms of senility was influenced by WAIS score, where the presence of senility symptoms varied as a function of WAIS score - those with senility symptoms had lower WAIS scores (Mean = 8.93, SD = 3.17) than those who did not (Mean = 12.50, SD = 3.46). Our results led us to reject the null hypothesis. The direction of this association was clear - lower WAIS scores increased the chances of senility symptoms.
+
+`r optend()`
+
+# Section B: Weeks 1-5 Recap
+
+In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4/5 weeks.
+
+::: red
+Before you expand each of the boxes below, think about how comfortable you feel with each concept.
+:::
+
+`r optbegin("Probability, Odds, Log-Odds", olabel=FALSE,toggle=params$TOGGLE)`
+
+-   The **probability** $p$ ranges from 0 to 1.
+
+-   The **odds** $\frac{p}{1-p}$ ranges from 0 to $\infty$.
+
+-   The **log-odds** $\log \left( \frac{p}{1-p} \right)$ ranges from $-\infty$ to $\infty$.
+
+```{r plodd, echo=FALSE, out.width = '95%', fig.cap="Probability, Odds and Log-odds"}
+knitr::include_graphics("images/glm/plo.png")
+```
+
+In order to understand the connections among these concepts, lets work with an example where the *probability* of an event occurring is 0.2:
+
+-   Odds of event occurring:
+
+$$
+\text{odds} = (\frac{0.2}{0.8}) = 0.25
+$$
+
+-   Log-odds of the event occurring:
+
+$$
+log(\frac{0.2}{0.8}) = -1.3863 \\ \ \\
+\text{OR} \\ \ \\ 
+log(0.25) = -1.3863
+$$
+
+-   Probability can be reconstructed as:
+
+$$
+(\frac{odds}{1+odds}) = (\frac{0.25}{1+0.25}) = 0.2 \\ \ \\
+\text{OR} \\ \ \\ 
+(\frac{exp(log(odds))}{1+exp(log(odds))}) = (\frac{exp(-1.3863)}{1+exp(-1.3683)}) = (\frac{0.25}{1.25}) = 0.2
+$$
+
+::: blue
+In **R**:
+
+-   obtain the odds
+
+    `odds <- 0.2 / (1 - 0.2)`
+
+-   obtain the log-odds for a given probability
+
+    `log_odds <- log(0.25)`
+
+    **OR**
+
+    `log_odds <- qlogis(0.2)`
+
+-   obtain the probability from the odds
+
+    `prob_O <- odds / (1 + odds)`
+
+-   obtain the probability from the log-odds
+
+    `prob_LO <- exp(log_odds) / (1 + exp(log_odds))`
+
+    **OR**
+
+    `prob_LO <- plogis(log_odds)`
+:::
+
+::: callout-note
+See S2 Week 3 [lecture](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_11_modelcomparison#1) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Generalized Linear Models", olabel=FALSE,toggle=params$TOGGLE)`
+
+Generalized linear models can be fitted in R using the `glm` function, which is similar to the `lm` function for fitting linear models. However, we also need to specify the family (i.e., link) function. There are three key components to consider:
+
+-   Random component / probability distribution - The distribution of the response/outcome variable. Can be from any family of distributions as listed below.
+-   Systematic component / linear predictor - the explanatory/predictor variable(s) (can be continuous or discrete).
+-   Link function - specifies the link between a random and systematic components.
+
+**Formula:**
+
+$y_i = \beta_0 + \beta_1 x_i + + \beta_2 x_i + \epsilon_i$
+
+::: blue
+**In R:**
+
+```{r, eval=FALSE}
+glm(y ~ x1 + x2, data = data, family = <INSERT_FAMILY>)
+```
+
+
+:::
+
+`r optend()`
+
+`r optbegin("Family Argument", olabel=FALSE,toggle=params$TOGGLE)`
+
+The family argument takes (the name of) a family function which specifies the link function and variance function (as well as a few other arguments not entirely relevant to the purpose of this course).
+
+The exponential family functions available in **R** are:
+
+-   `binomial` (link = "logit")
+-   `gaussian` (link = "identity")
+-   `poisson` (link = "log")
+-   `Gamma` (link = "inverse")
+-   `inverse.gaussian` (link = "1/mu2")
+
+See `?glm` for other modeling options. See `?family` for other allowable link functions for each family.
+
+`r optend()`
+
+`r optbegin("Binary Logistic Regression", olabel=FALSE,toggle=params$TOGGLE)`
+
+When a response (y) is binary coded (e.g., 0/1; failure/success; no/yes; fail/pass; unemployed/employed) we must use logistic regression. The predictors can either be continuous or categorical.
+
+$$
+{\log(\frac{p_i}{1-p_i})} = \beta_0 + \beta_1 \ x_{i1} 
+$$
+
+::: blue
+**In R:**
+```{r, eval=FALSE}
+glm(y ~ x1 + x2, data = data, family = binomial)
+```
+
+
+:::
+
+`r optend()`
+
+`r optbegin("Interpreting Coefficients", olabel=FALSE,toggle=params$TOGGLE)` To translate log-odds to odds in order to aid interpretation, you must exponentiate (i.e., by using `exp()`) the coefficients from your model.
+
+::: blue
+**In R:**
+
+`exp(coef(modelname))`
+
+We can also use R to extract predicted probabilities for us from our models.
+
+-   Calculate the predicted log-odds (probabilities on the logit scale): `predict(model, type="link")`
+-   Calculate the predicted probabilities: `predict(model, type="response")`
+:::
+
+`r optend()`
+
+`r optbegin("Drop-in-deviance test to compare nested models",olabel=FALSE,toggle=params$TOGGLE)`
+
+When moving from linear regression to more advanced and flexible models, testing of goodness of fit is more often done by comparing a model of interest to a simpler one.
+
+The only caveat is that the two models need to be **nested**, i.e. one model needs to be a simplification of the other, and all predictors of one model needs to be within the other.
+
+We want to compare the model we previously fitted against a model where all slopes are 0, i.e. a baseline model: 
+
+$$
+\begin{aligned}
+M_1 : \qquad\log \left( \frac{p}{1 - p} \right) &= \beta_0 \\
+M_2 : \qquad \log \left( \frac{p}{1 - p} \right) &= \beta_0 + \beta_1 x
+\end{aligned}
+$$ 
+
+:::blue 
+
+**In R:**
+We do the comparison as follows:
+
+```{r, eval = FALSE}
+mdl_reduced <- glm(DV ~ 1, family = "binomial", data = dataset)
+mdl_main <- glm(DV ~ IV1 + IV2 ... + IV4, family = "binomial", data = dataset)
+
+anova(mdl_red, mdl_main, test = 'Chisq')
+```
+
+In the output we can see the residual deviance of each model. Remember the deviance is the equivalent of residual sum of squares in linear regression.
+
+:::
+
+`r optend()`
+
+`r optbegin("Akaike and Bayesian Information Criteria",olabel=FALSE,toggle=params$TOGGLE)`
+
+Deviance measures lack of fit, and it can be reduced to zero by making the model more and more complex, effectively estimating the value at each single data point. However, this involves adding more and more predictors, which makes the model more complex (and less interpretable).
+
+Typically, simpler model are preferred when they still explain the data almost as well. This is why information criteria were devised, exactly to account for both the model misfit but also its complexity.
+
+$$
+\text{Information Criterion} = \text{Deviance} + \text{Penalty for model complexity}
+$$
+
+Depending on the chosen penalty, you get different criteria. Two common ones are the Akaike and Bayesian Information Criteria, AIC and BIC respectively: 
+
+$$
+\begin{aligned}
+\text{AIC} &= \text{Deviance} + 2 p \\
+\text{BIC} &= \text{Deviance} + p \log(n)
+\end{aligned}
+$$
+
+where $n$ is the sample size and $p$ is the number of regression coefficients in the model. **Models that produce smaller values of these fitting criteria should be preferred.**
+
+AIC and BIC differ in their degrees of penalization for number of regression coefficients, with BIC usually favouring models with fewer terms.
+
+`r optend()`
+
+`r optbegin("Exploratory vs Confirmatory Analyses",olabel=FALSE,toggle=params$TOGGLE)`
+
+*Exploratory* analyses are conducted when either (1) you have a hypothesis but no clear analysis plan/strategy; (2) you have lots of variables that might be associated with an outcome variable, but you're not sure which or in what ways i.e., no clear predictions. It also provides tools for hypothesis generation - particularly via visualisation of data.
+
+*Confirmatory* analyses are conducted when you have a specific research question to test. You can think of this type of analysis as putting your hypotheses to trial - does your data support or fail to support your argument?
+
+`r optend()`
+
+`r optbegin("Steps in Exploratory Analyses",olabel=FALSE,toggle=params$TOGGLE)` There are a number of steps involved in exploratory analyses:
+
+-   Step 1: Check coding of data and visualise variables of interest
+-   Step 2: Compare models of interest to find if your variables of interest are good predictors of your outcome variable
+-   Step 3: Compute the k-fold cross validation MSE for each of your models
+-   Step 4: Identify best fitting model `r optend()`
+
+`r optbegin("Power",olabel=FALSE,toggle=params$TOGGLE)`
+
+**Power for regression**
+
+In linear regression, the relevant function in **R** is:
+
+```{r, eval=FALSE}
+library(pwr)
+pwr.f2.test(u = , v = , f2 = , sig.level = , power = )
+```
+
+where
+
+-   `u` = numerator degrees of freedom
+-   `v` = denominator degrees of freedom
+-   `f2` = effect size
+
+##  {.unnumbered .tabset}
+
+The formula for the effect size $f^2$ is different depending on your goal.
+
+### Goal 1. Test on all slopes
+
+Here you have one model, 
+
+$$
+y = \beta_0 + \beta_1 x_1 + \dots + \beta_k x_k + \epsilon
+$$
+
+and you wish to find the minimum sample size required to answer the following test of hypothesis with a given power: 
+
+$$
+\begin{aligned}
+H_0 &: \beta_1 = \beta_2 = \dots = \beta_k = 0 \\
+H_1 &: \text{At least one } \beta_i \neq 0
+\end{aligned}
+$$
+
+The appropriate formula for the effect size is: 
+
+$$
+f^2 = \frac{R^2}{1 - R^2}
+$$
+
+And the numerator degrees of freedom are $\texttt u = k$, the number of predictors in the model.
+
+The denominator degrees of freedom returned by the function will give you: 
+
+$$
+\texttt v = n - (k + 1) = n - k - 1
+$$
+
+From which you can infer the sample size as 
+
+$$
+n = \texttt v + k + 1
+$$
+
+### Goal 2. Test on a subset of slopes
+
+In this case you would have a smaller model $m$ with $k$ predictors and a larger model $M$ with $K$ predictors: 
+
+$$
+\begin{aligned}
+m &: \quad y = \beta_0 + \beta_1 x_1 + \dots + \beta_{k} x_k 
++ \epsilon \\
+M &: \quad y = \beta_0 + \beta_1 x_1 + \dots + \beta_{k} x_k 
++ \underbrace{\beta_{k + 1} x_{k+1} + \dots + \beta_{K} x_K}_{\text{extra predictors}}
++ \epsilon
+\end{aligned}
+$$
+
+This case is when you wish to find the minimum sample size required to answer the following test of hypothesis: 
+
+$$
+\begin{aligned}
+H_0 &: \beta_{k+1} = \beta_{k+2} = \dots = \beta_K = 0 \\
+H_1 &: \text{At least one of the above } \beta \neq 0
+\end{aligned}
+$$
+
+You need to use the R-squared from the larger model $R^2_M$ and the R-squared from the smaller model $R^2_m$. The appropriate formula for the effect size is: 
+
+$$
+f^2 = \frac{R^2_{M} - R^2_{m}}{1 - R^2_M}
+$$
+
+Here, the numerator degrees of freedom are the extra predictors: $\texttt u = K - k$.
+
+The denominator degrees of freedom returned by the function will give you (here you use $K$ the number of all predictors in the larger model): 
+
+$$
+\texttt v = n - (K + 1) = n - K - 1
+$$
+
+From which you can infer the sample size as 
+
+$$
+n = \texttt v + K + 1
+$$
+
+### 3. Generic guidelines
+
+But what can you do if you have no clue what effect size to expect in a given study? Cohen (1988) [^1] provided guidelines for what a small, medium, or large effect typically is in the behavioural sciences.
+
+[^1]: Cohen, J. (1988) *Statistical Power Analysis for the Behavioral Sciences*, 2nd ed. Hillsdale, NJ: Lawrence Erlbaum.
+
+| Type of test      | Small | Medium | Large |     |
+|:------------------|:-----:|:------:|:-----:|:---:|
+| $t$-test          | 0.20  |  0.50  | 0.80  |     |
+| ANOVA             | 0.10  |  0.25  | 0.40  |     |
+| Linear regression | 0.02  |  0.15  | 0.35  |     |
+
+For more information, please refer to Cohen J. (1992). [^2]
+
+[^2]: Cohen J. (1992) A power primer, *Psychological Bulletin, 112*(1): 155--159. PDF available via the University of Edinburgh library at [this link.](https://discovered.ed.ac.uk/permalink/f/1s15qcp/TN_cdi_proquest_journals_614317877)
+
+##  {.unnumbered}
+
+`r optend()`
