@@ -26,7 +26,6 @@ library(car)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Understand differences between Type I and Type II errors
 1. Understand how varying factors can influence power
 1. Be able to conduct power analyses using the `pwr` package
 
@@ -163,7 +162,7 @@ recall_stats <- recdata %>%
     summarise(
        n = n(),
        Avg_recall = mean(perc_recall)) %>%
-    kable(caption = "Descriptive Statistics") %>%
+    kable(caption = "Descriptive Statistics", digits = 2) %>%
     kable_styling()
 
 recall_stats
@@ -173,12 +172,18 @@ We can explore the association between our variables as follows:
 
 ```{r}
 #| label: fig-recall-desc1
-#| fig-cap: "Association between Age, Intervention, and Recall"
+#| fig-cap: "Association between Recall, Age, and Intervention"
 recall_plt1 <- ggplot(data = recdata, aes(x = age, y = perc_recall, fill = group)) +
     geom_boxplot() + 
     labs(x = "Age (in years)", y = "Recall (%)", title = "Association between Age, Intervention, and Recall")
 recall_plt1
 ```
+
+From @tbl-cog-descript and @fig-recall-desc1, we can see:
+
+- there were more participants in the rollercoaster condition than meditation
+- participants in the meditation condition had higher recall scores than those in the rollercoaster condition
+- there was less variability in scores in the meditation condition in comparison to the rollercoaster condition
 
 `r solend()`
 
@@ -202,7 +207,7 @@ Where:
 
 - `u` = numerator degrees of freedom = number predictors in the model ($k$)
 - `v` = denominator degrees of freedom = $v = n-k-1$
-- `f2` = effect size. Cohen suggests `f2` values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
+- `f2` = effect size. Cohen suggests effect size cut-off values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
 - `sig.level` = significance level
 - `power` = level of power
 
@@ -225,6 +230,8 @@ The required sample size is $n = \text v + k + 1 = 709 + 3 + 1 = 713$.
 
 `r qbegin(4)`
 
+Using the same $\alpha$ (.05) and power, what would be the sample size if you assumed effect size to be medium?
+
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint
@@ -238,13 +245,11 @@ Where:
 
 - `u` = numerator degrees of freedom = number predictors in the model ($k$)
 - `v` = denominator degrees of freedom = $v = n-k-1$
-- `f2` = effect size. Cohen suggests `f2` values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
+- `f2` = effect size. Cohen suggests effect size cut-off values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
 - `sig.level` = significance level
 - `power` = level of power
 
 :::
-
-Using the same $\alpha$ (.05) and power, what would be the sample size if you assumed effect size to be medium?
 
 `r qend()`
 
@@ -277,7 +282,7 @@ Where:
 
 - `u` = numerator degrees of freedom = number predictors in the model ($k$)
 - `v` = denominator degrees of freedom = $v = n-k-1$
-- `f2` = effect size. Cohen suggests `f2` values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
+- `f2` = effect size. Cohen suggests effect size cut-off values of $.02$ (small), $.15$ (moderate), and $.35$ (large)
 - `sig.level` = significance level
 - `power` = level of power
 
@@ -313,14 +318,11 @@ How much variance in recall scores does the model explain?
 ```{r}
 recall_mdl1 <- lm(perc_recall ~ age, data = recdata)
 summary(recall_mdl1)
-
-recall_mdl1$r.squared
-recall_mdl1$adj.r.squared
 ```
 
-We can use either R-squared or Adjusted R Squared since we only have a single predictor. To be conservative, we might want to use the adjusted R-squared: $R^2 = 0.16$.
+We can see both the R-squared or Adjusted R Squared from the model `summary()` output. We can use either since we only have a single predictor. To be conservative, we might want to use the adjusted R-squared (0.16).
 
-The model explains 16% of the variance in recall scores.
+The model, with Age as a single predictor, explained approximately 16% of the variance in recall scores.
 
 `r solend()`
 
@@ -335,7 +337,7 @@ Is there any evidence of an interaction between age and group?
 
 ### Hint
 
-consider using `geom_smooth()` to superimpose the best-fitting line describing the association of interest for each intervention group. 
+Consider using `geom_smooth()` to superimpose the best-fitting line describing the association of interest for each intervention group. 
 :::
 
 `r qend()`
@@ -426,53 +428,48 @@ With such a small effect size, we need a bigger sample size for us to detect it 
 
 `r qbegin(10)`
 
-Visualise the joint relationship between sample size and effect size in Q9 by producing a power curve.
+A colleague produces a visualisation of the joint relationship between sample size and effect size via a power curve (with coloured lines representing large, medium, and small effect sizes).
 
-To do so, apply the following computation:
+Based on this, what feedback/comments might you share with them regarding sample size for their prospective study, and its relation to effect size?  
 
-```{r, eval = FALSE}
-map_dbl(es, 
-        ~ pwr.f2.test(u = , f2 = .x, sig.level = 0.05, power = 0.9)$v)
+```{r, echo= FALSE}
+#| label: fig-pcurve
+#| fig-cap: "Linear Regression with power = 0.90 and alpha = 0.05"
+## step 1: create a tibble containing a sequence seq of effect sizes to investigate, and apply computation
+es_curve <- tibble(
+    es = seq(.1, .9, .01),
+    v = map_dbl(es, 
+                ~ pwr.f2.test(u = 4, f2 = .x, sig.level = 0.05, power = 0.9)$v)
+)
+
+## step 2: Now, we want to compute n from v, using n−K−1=v so that n=v+K+1
+es_curve <- es_curve %>%
+    mutate(n = v + 4 + 1)
+
+## step 3: visualise the sample size required to find each effect size
+pwr_plt <- ggplot(es_curve, aes(n, es)) +
+    geom_line(linewidth = 1.25) +
+    ylim(0,1) + 
+    geom_hline(yintercept=0.35, color = "#D55E00", linewidth = 0.75) + 
+    annotate("text", x=155, y=0.40, label="Large", size=5, color="#D55E00") +
+    geom_hline(yintercept=0.15, color = "#56B4E9", linewidth = 0.75) + 
+    annotate("text", x=155, y=0.20, label="Medium", size=5, color="#56B4E9") +
+    geom_hline(yintercept=0.02, color = "#009E73", linewidth = 0.75) + 
+    annotate("text", x=155, y=0.06, label="Small", size=5, color="#009E73") +
+    labs(x = "Sample Size",
+         y = "Effect Size",
+         title = "Linear regression with power = 0.90 and alpha = 0.05")
+pwr_plt
 ```
-
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-There are a number of steps we need to take to produce a power curve:
-
-- First, we create a tibble containing a sequence `seq` of effect sizes to investigate, ranging for example from 0.1 to 0.9 in steps of 0.01: `es = seq(.1, .9, .01)`.
-- Then, for each value in that sequence, we want to apply the computation given to us above. This takes each element of `es`, one at a time, and then passes it to the computation specified afterwards, into the slot `.x`. Then, function `pwr.f2.test` is applied and we want to extract the value of `v`.
-- Next, we want to compute $n$ from `v`, using $n - K - 1 = \text v$ so that $n = \text v + K + 1$
-- Lastly we can use `ggplot()` to visualise the sample size required to find each effect size with sample size on our x-axis, and effect size on the y-axis
-
-:::
 
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-```{r}
-## step 1: create a tibble containing a sequence seq of effect sizes to investigate, and apply computation
-es_curve <- tibble(
-    es = seq(.1, .9, .01),
-    v = map_dbl(es, 
-                ~ pwr.f2.test(u =  K - k, f2 = .x, sig.level = 0.05, power = 0.9)$v)
-)
-es_curve
+From @fig-pcurve, to detect a large effect size (red line), they should aim to recruit ~50 participants, for a medium effect size ~100 (blue line). It is impossible to judge how many participants would be required to detect a small effect size (green line) - we would suggest that they conduct their own power calculation as it is too difficult to judge based on the figure alone. 
 
-## step 2: Now, we want to compute n from v, using n−K−1=v so that n=v+K+1
-es_curve <- es_curve %>%
-    mutate(n = v + K + 1)
-es_curve
+Generally, if they want to be able to detect a medium-large effect with 90% power using $\alpha = .05$, it appears that there is little gain in recruiting a sample size > ~110. However, if they want to be able to detect a small effect with 90% power using $\alpha = .05$, they are likely going to require a very large sample size. 
 
-## step 3: visualise the sample size required to find each effect size
-ggplot(es_curve, aes(n, es)) +
-    geom_line() +
-    labs(x = "Sample Size",
-         y = "Effect Size",
-         title = "Linear regression with power = 0.90 and alpha = 0.05")
-```
+To summarise the association between effect size and sample size, it appears that the smaller the effect you are trying to detect, the larger the sample size you will require.
 
 `r solend()`
-
