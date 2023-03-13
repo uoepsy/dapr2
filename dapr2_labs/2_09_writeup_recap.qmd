@@ -74,9 +74,9 @@ Further, **you must not copy any of the write-up included below for future repor
 
 **Description**
 
-A sample of elderly people was given a psychiatric examination to determine if symptoms of senility were present. Other measurements taken at the same time included the score on a subset of the Wechsler Adult Intelligent Scale (WAIS). The data represent symptoms of senility (senility = 1 if symptoms are present and senility= 0 otherwise) and WAIS scores (wais) for n=54 people.
+A sample of elderly people was given a psychiatric examination to determine if symptoms of senility were present. Other measurements taken at the same time included the score on a subset of the Wechsler Adult Intelligence Scale (WAIS).
 
-The data in `SenilityWAIS.csv` contain seven attributes collected from a sample of $n=54$ participants:
+The data in `SenilityWAIS.csv` contain two attributes collected from a sample of $n=54$ participants:
 
 -   `wais`: Score on WAIS
 -   `senility`: Whether symptoms of senility were (`senility = 1`) or were not (`senility = 0`) present
@@ -161,7 +161,7 @@ sen_mdl1 <- glm(senility ~ wais, family = "binomial", data = sen)
 summary(sen_mdl1)
 exp(coefficients(sen_mdl1))
 
-#check assumptions
+#check model fit
 plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised Deviance Residuals")
 plot(cooks.distance(sen_mdl1), ylab = "Cook's Distance")
 
@@ -178,7 +178,10 @@ plt_mdl1 <- plot_model(sen_mdl1, type = "eff")
 plt_mdl1
 
 #results in formatted table
-tab_model(sen_mdl1)
+tab_model(sen_mdl1,
+          dv.labels = "Senility Symptoms",
+          pred.labels = c("wais" = "WAIS"),
+          title = "Regression Table for Senility Model")
 ```
 
 `r optend()`
@@ -199,16 +202,13 @@ Attempt to draft a discussion section based on the above research question and a
 
 `r optbegin("Example Write-Up of Analysis Strategy Section", olabel=FALSE, toggle = params$TOGGLE)`
 
-The `SenilityWAIS` dataset contained information on 54 participants who took part in a study concerning the presence of senility symptoms (scored dichotomously as present (1) or not present (0). The sample of older adults also completed the Wechsler Adult Intelligent Scale (WAIS), and scores were available for a subset of these items.
+The `SenilityWAIS` dataset contained information on 54 participants who took part in a study concerning the presence of senility symptoms (scored dichotomously as present (1) or not present (0). The sample of older adults also completed the Wechsler Adult Intelligence Scale (WAIS), and scores were available for a subset of these items. All participant data was complete (no missing values).
 
-To investigate whether the probability of having senility symptoms change as a function of WAIS score, a binary logistic regression model was used. Effects were considered statistically significant at $\alpha = 0.05$. The following model specification was used:
+To investigate whether the probability of having senility symptoms change as a function of WAIS score, a binary logistic regression model was used. Effects were considered statistically significant at $\alpha = .05$. The following model specification was used:
 
 $$
 \begin{aligned}
-\text{Senility} &= \beta_0 \\
-&+ \beta_1 A_\text{AudioVideo} + \beta_2 T_\text{Trained} \\
-&+ \beta_3 (A_\text{AudioVideo} * T_\text{Trained}) \\
-&+ \epsilon
+M_1 &: \qquad \log \left( \frac{p}{1 - p}\right) = \beta_0 + \beta_1 \cdot WAIS
 \end{aligned}
 $$
 
@@ -258,9 +258,11 @@ It appeared that there those without senility symptoms present had higher WAIS s
 ```{r lieplot, echo = FALSE, fig.cap = "", fig.align = "center"}
 #| label: fig-senwais-plot
 #| fig-cap: "Association between Senility Symotom Presence and WAIS "
+par(mfrow=c(1,1))
 ggplot(data = sen, aes(x = wais, fill = as_factor(senility))) + 
   geom_density() + 
-    labs(x = "WAIS Score", fill = "Senility Symptoms Present (0 = No, 1 = Yes)")
+    labs(x = "WAIS Score", fill = "Senility Symptoms Present \n(0 = No, 1 = Yes)")
+par(mfrow=c(1,1))
 ```
 
 A binary logistic regression model was fitted to determine whether the probability of having senility symptoms change as a function of WAIS score.
@@ -270,13 +272,19 @@ Our model did not raise any concerns regarding fit. Though there appeared to be 
 ```{r assumpt, echo = FALSE, fig.cap = "Assumption Checks", fig.align = "center"}
 #| label: fig-assumpt
 #| fig-cap: "Model Fit Plots"
-par(mfrow=c(2,2))
+par(mfrow=c(1,2))
 plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised Deviance Residuals")
 plot(cooks.distance(sen_mdl1), ylab = "Cook's Distance")
 par(mfrow=c(1,1))
 ```
 
-WAIS scores were a significant predictor of whether or not individuals experienced senility symptoms (see @tbl-res).
+```{r}
+#| include: false
+res <- exp(car::Confint(sen_mdl1))
+res <- round(res,2)
+```
+
+WAIS scores were a significant predictor of whether or not individuals experienced senility symptoms (see @tbl-res), where for every additional point scored on the WAIS, the odds of having senility symptoms decreased by a factor of `r res[2,1]` ($95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$).
 
 ```{r tableres, echo = FALSE, message = FALSE, caption = "Model Results"}
 #| label: tbl-res
@@ -287,14 +295,15 @@ tab_model(sen_mdl1,
           title = "Regression Table for Senility Model")
 ```
 
+We visualised the predicted probability based on our model estimates (see @fig-sen-out), which suggested that higher WAIS scores were associated with a lower probability of endorsing senility symptoms.
 
-```{r figureres, echo = FALSE, caption = "ANOVA Output"}
+```{r figureres, echo = FALSE, , message = FALSE, warning = FALSE, caption = "Predicted Probability"}
 #| label: fig-sen-out
 #| fig-cap: "Model Results"
  plot_model(sen_mdl1, type = "eff") 
 ```
 
-Results suggested that for every additional point scored on the WAIS, the odds of having senility symptoms decreased by a factor of 0.72 (see @fig-sen-out).
+We performed a deviance goodness-of-fit test to compare our fitted model to the null. At the 5% significance level, the addition of information about the participants’ WAIS resulted in a significant decrease in model deviance $\chi^2(1) = 10.78, p = .001$. Hence, we have strong evidence that the subjects’ WAIS was a helpful predictor of whether or not participants will experience symptoms of senility.
 
 `r optend()`
 
@@ -308,11 +317,13 @@ Attempt to draft a discussion section based on your results and the analysis pro
 
 `r optbegin("Example Write-Up of Discussion Section", olabel=FALSE, toggle = params$TOGGLE)`
 
-The findings indicated that, whether or not participants had symptoms of senility was influenced by WAIS score, where the presence of senility symptoms varied as a function of WAIS score - those with senility symptoms had lower WAIS scores (Mean = 8.93, SD = 3.17) than those who did not (Mean = 12.50, SD = 3.46). Our results led us to reject the null hypothesis. The direction of this association was clear - lower WAIS scores increased the chances of senility symptoms.
+The findings indicated that the presence of senility symptoms varied as a function of WAIS score - those with senility symptoms had lower WAIS scores (Mean = 8.93, SD = 3.17) than those who did not (Mean = 12.50, SD = 3.46). 
+
+Our results led us to reject the null hypothesis, as the direction of the association was clear from the results of our binary logistic regression model - lower WAIS scores increased the odds of endorsing senility symptoms.
 
 `r optend()`
 
-# Section B: Weeks 1-5 Recap
+# Section B: Weeks 6-10 Recap
 
 In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4/5 weeks.
 
@@ -385,7 +396,61 @@ In **R**:
 :::
 
 ::: callout-note
-See S2 Week 3 [lecture](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html) and [lectures](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_11_modelcomparison#1) for further details, examples, and to revise these concepts further.
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Interpretation of coefficients", olabel=FALSE,toggle=params$TOGGLE)`
+
+To interpret the fitted coefficients, we first exponentiate the model:
+$$
+\begin{aligned}
+\log \left( \frac{p_x}{1-p_x} \right) &= \beta_0 + \beta_1 x \\
+e^{ \log \left( \frac{p_x}{1-p_x} \right) } &= e^{\beta_0 + \beta_1 x } \\
+\frac{p_x}{1-p_x} &= e^{\beta_0} \ e^{\beta_1 x}
+\end{aligned}
+$$
+
+and recall that the probability of success divided by the probability of failure is the odds of success. 
+$$
+\frac{p_x}{1-p_x} = \text{odds}
+$$
+
+Let's apply this to our lab example from above:
+
+__Intercept__
+
+$$
+\text{If }x = 0, \qquad \frac{p_0}{1-p_0} = e^{\beta_0} \ e^{\beta_1 x} = e^{\beta_0}
+$$
+
+That is, $e^{\beta_0}$ represents the odds of having symptoms of senility for individuals with a WAIS score of 0. 
+
+In other words, for those with a WAIS score of 0, the probability of having senility symptoms is $e^{\beta_0}$ times that of non having them.
+
+__Slope__
+
+$$
+\text{If }x = 1, \qquad \frac{p_1}{1-p_1} = e^{\beta_0} \ e^{\beta_1 x} = e^{\beta_0} \ e^{\beta_1}
+$$
+
+Now consider taking the ratio of the odds of senility symptoms when $x=1$ to the odds of senility symptoms when $x = 0$:
+
+$$
+\frac{\text{odds}_{x=1}}{\text{odds}_{x=0}} = \frac{p_1 / (1 - p_1)}{p_0 / (1 - p_0)} 
+= \frac{e^{\beta_0} \ e^{\beta_1}}{e^{\beta_0}}
+= e^{\beta_1}
+$$
+
+So, $e^{\beta_1}$  represents the odds ratio for a 1 unit increase in WAIS score.
+
+It is typically interpreted by saying that for a one-unit increase in WAIS score the odds of senility symptoms increase by a factor of $e^{\beta_1}$.
+
+Equivalently, we say that $e^{\beta_1}$ represents the multiplicative increase (or decrease) in the odds of success when $x$ is increased by 1 unit.
+
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
 :::
 
 `r optend()`
@@ -409,7 +474,10 @@ $y_i = \beta_0 + \beta_1 x_i + + \beta_2 x_i + \epsilon_i$
 glm(y ~ x1 + x2, data = data, family = <INSERT_FAMILY>)
 ```
 
+:::
 
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
 :::
 
 `r optend()`
@@ -443,23 +511,31 @@ $$
 ```{r, eval=FALSE}
 glm(y ~ x1 + x2, data = data, family = binomial)
 ```
+:::
 
-
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
 :::
 
 `r optend()`
 
-`r optbegin("Interpreting Coefficients", olabel=FALSE,toggle=params$TOGGLE)` To translate log-odds to odds in order to aid interpretation, you must exponentiate (i.e., by using `exp()`) the coefficients from your model.
+`r optbegin("Interpreting Coefficients", olabel=FALSE,toggle=params$TOGGLE)` 
+
+To translate log-odds to odds in order to aid interpretation, you must exponentiate (i.e., by using `exp()`) the coefficients from your model.
 
 ::: blue
 **In R:**
 
 `exp(coef(modelname))`
 
-We can also use R to extract predicted probabilities for us from our models.
+We can also use `R` to extract predicted probabilities for us from our models.
 
 -   Calculate the predicted log-odds (probabilities on the logit scale): `predict(model, type="link")`
 -   Calculate the predicted probabilities: `predict(model, type="response")`
+:::
+
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
 :::
 
 `r optend()`
@@ -480,7 +556,6 @@ M_2 : \qquad \log \left( \frac{p}{1 - p} \right) &= \beta_0 + \beta_1 x
 $$ 
 
 :::blue 
-
 **In R:**
 We do the comparison as follows:
 
@@ -492,7 +567,10 @@ anova(mdl_red, mdl_main, test = 'Chisq')
 ```
 
 In the output we can see the residual deviance of each model. Remember the deviance is the equivalent of residual sum of squares in linear regression.
+:::
 
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
 :::
 
 `r optend()`
@@ -520,28 +598,213 @@ where $n$ is the sample size and $p$ is the number of regression coefficients in
 
 AIC and BIC differ in their degrees of penalization for number of regression coefficients, with BIC usually favouring models with fewer terms.
 
-`r optend()`
-
-`r optbegin("Exploratory vs Confirmatory Analyses",olabel=FALSE,toggle=params$TOGGLE)`
-
-*Exploratory* analyses are conducted when either (1) you have a hypothesis but no clear analysis plan/strategy; (2) you have lots of variables that might be associated with an outcome variable, but you're not sure which or in what ways i.e., no clear predictions. It also provides tools for hypothesis generation - particularly via visualisation of data.
-
-*Confirmatory* analyses are conducted when you have a specific research question to test. You can think of this type of analysis as putting your hypotheses to trial - does your data support or fail to support your argument?
+::: callout-note
+See S2 Week 6 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapR2_16_binarylogistic.html#1), S2 Week 6 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_06_glm1.html), and S2 Week 7 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_07_glm2.html) for further details, examples, and to revise these concepts further.
+:::
 
 `r optend()`
 
-`r optbegin("Steps in Exploratory Analyses",olabel=FALSE,toggle=params$TOGGLE)` There are a number of steps involved in exploratory analyses:
+`r optbegin("Errors and Power in Hypothesis Testing",olabel=FALSE,toggle=params$TOGGLE)`
 
--   Step 1: Check coding of data and visualise variables of interest
--   Step 2: Compare models of interest to find if your variables of interest are good predictors of your outcome variable
--   Step 3: Compute the k-fold cross validation MSE for each of your models
--   Step 4: Identify best fitting model `r optend()`
+When testing an hypothesis, we reach one of the following two decisions:
 
-`r optbegin("Power",olabel=FALSE,toggle=params$TOGGLE)`
+- failing to reject $H_0$ as the evidence against it is not sufficient
+- rejecting $H_0$ as we have enough evidence against it
 
-**Power for regression**
+However, irrespective of our decision, the underlying truth can either be that
+
+- $H_0$ is actually false
+- $H_0$ is actually true
+
+Hence, we have four possible outcomes following an hypothesis test:
+
+1. We failed to reject $H_0$ when it was true, meaning we made a __Correct__ decision
+1. We rejected $H_0$ when it was false, meaning we made a __Correct__ decision
+1. We rejected $H_0$ when it was true, committing a __Type I error__ 
+1. We failed to reject $H_0$ when it was false, committing a __Type II error__ 
+
+In the first two cases we are correct, while in the latter two we committed an error.
+
+When we reject the null hypothesis, we never know if we were correct or committed a Type I error, however we can control the chance of us committing a Type I error.
+Similarly, when we fail to reject the null hypothesis, we never know if we are correct or we committed a Type II error, but we can also control the chance of us committing a Type II error.
+
+The following table summarises the two types of errors that we can commit:
+
+```{r echo=FALSE, out.width='80%'}
+knitr::include_graphics('images/ht-errors-table-2.png')
+```
+
+A Type I error corresponds to a false discovery, while a type II error corresponds to a failed discovery/missed opportunity.
+
+Each error has a corresponding probability:
+
+- The probability of incorrectly rejecting a true null hypothesis is $\alpha = P(\text{Type I error})$
+- The probability of incorrectly not rejecting a false null hypothesis is $\beta = P(\text{Type II error})$
+
+A related quantity is __Power__, which is defined as the probability of correctly rejecting a false null hypothesis.
+
+:::yellow
+__Power__
+
+Power is the probability of rejecting a false null hypothesis. That is, it is the probability that we will find an effect when it is in fact present.
+$$
+\text{Power} = 1 - P(\text{Type II error}) = 1 - \beta
+$$
+
+:::
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Factors affecting power",olabel=FALSE,toggle=params$TOGGLE)`
+
+In practice, it is ideal for studies to have high power while using a relatively small significance level such as .05 or .01. For a fixed $\alpha$, the power increases in the same cases that P(Type II error) decreases, namely as the sample size increases and as the parameter value moves farther into the H values away from
+the H0 value.
+
+The __power__ of a test is affected by the following factors:
+
+- __sample size.__ Power increases as the sample size increases.
+- __effect size.__ Power increases as the parameter value moves farther into the $H_1$ values away from the $H_0$ value.
+- __significance level.__ Power increases as the significance level increases.
+
+Out of these, increasing the significance level $\alpha$ is never an acceptable way to increase power as it leads to more Type I errors, i.e. a higher chance of incorrectly rejecting a true null hypothesis (false discoveries). 
+
+As you can see the four quantities above are linked in some complex way, and in this exercises you will see:
+
+a. How to compute the minimum sample size required to correctly reject a false null hypothesis with a given degree of confidence.
+
+b. Given sample size constraints, to find what is the probability that you test will correctly reject a false null hypothesis. If it's too low, you might want to reconsider your study or perhaps even abandon it.
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Effect Size",olabel=FALSE,toggle=params$TOGGLE)`
+
+Effect size refers to the "detectability" of your alternative hypothesis. In simple terms, it compares the distance between the alternative and the null hypothesis to the variability in your data.
+
+For simplicity consider comparing a mean: $H_0: \mu = 0$ vs $H_1: \mu \neq 0$. If the sample mean were really 0.1 and the null hypothesis is 0, the distance is 0.1 - 0 = 0.1.
+
+Now, a distance of 0.1 has a different weight in the following two scenarios.
+
+__Scenario 1.__ Data vary between -1 and 1.
+
+__Scenario 2.__ Data vary between -1000 and 1000.
+
+Clearly, in Scenario 1 a distance of of 0.1 is a big difference.
+Conversely, in Scenario 2 a distance of 0.1 is not an interesting difference, it's negligible compared to the magnitude of the data.
+
+```{r echo=FALSE, out.width='85%'}
+x = factor(rep(c('A', 'B'), each = 50))
+y = c(rnorm(50, 0.1, 0.08), rnorm(50, 0.1, 1))
+plt.df = tibble(x, y)
+stripchart(y ~ x, data = plt.df, pch = 1, 
+           col = 'black', frame.plot = FALSE)
+points(0.1, 1.05, col = 'red', pch = 6, cex = 1, lwd = 2)
+points(0.1, 1.95, col = 'red', pch = 2, cex = 1, lwd = 2)
+abline(v = 0, col = 'blue', lty = 2)
+```
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("The pwr package",olabel=FALSE,toggle=params$TOGGLE)`
+
+You will perform power analysis using the `pwr` package. To install it, run `install.packages("pwr")` in your console, then run `library(pwr)` in your RMarkdown file.
+
+The following functions are available.
+
+Function | Description 
+:--------|:------------
+ `pwr.2p.test    ` | Two proportions (equal n)
+ `pwr.2p2n.test  ` | Two proportions (unequal n)
+ `pwr.anova.test ` | Balanced one-way ANOVA
+ `pwr.chisq.test ` | Chi-square test
+ `pwr.f2.test    ` | General linear model
+ `pwr.p.test     ` | Proportion (one sample)
+ `pwr.r.test     ` | Correlation
+ `pwr.t.test     ` | t-tests (one sample, two samples, paired)
+ `pwr.t2n.test   ` | t-test (two samples with unequal n)
+
+For each function, you can specify three of four arguments (sample size, alpha, effect size, power) and the fourth argument will be calculated for you.
+
+Of the four quantities, effect size is often the most difficult to specify. Calculating effect size typically requires some experience with the measures involved and knowledge of past research. 
+
+Typically, specifying effect size requires you to read published literature or past papers on your research topic, to see what effect sizes were found and what significant results were reported. Other times, this might come from previous collected data or subject-knowledge from your colleagues.
+
+But what can you do if you have no clue what effect size to expect in a given study? Cohen (1988) [^cohen] provided guidelines for what a small, medium, or large effect typically is in the behavioural sciences.
+
+Type of test | Small | Medium | Large
+:---|:---:|:---:|:---:|:---:
+t-test | 0.20 | 0.50 | 0.80
+ANOVA | 0.10 | 0.25 | 0.40 
+Linear regression | 0.02 | 0.15 | 0.35
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Power for t-tests",olabel=FALSE,toggle=params$TOGGLE)`
+
+We compare the mean of a response variable between two groups using a t-test. For example, if you are comparing the mean response between two groups, say treatment and control, the null and alternative hypotheses are:
+$$
+H_0 : \mu_t - \mu_c = 0 \\
+H_1 : \mu_t - \mu_c \neq 0
+$$
+
+The effect size in this case is Cohen's $D$:
+$$
+D = \frac{(\bar x_t - \bar x_c) - 0}{s_p}
+$$
+where
+
+- $\bar x_t$ and $\bar x_c$ are the sample means in the treatment and control groups, respectively
+- $s_p$ is the "pooled" standard deviation
+
+
+Cohen's $D$ measures the distance between (a) the observed difference in means from (b) the hypothesised value 0, and compares this to the variability in the data.
+
+:::blue 
+
+In **R** we use the function
+
+```{r, eval = FALSE}
+pwr.t.test(n = , d = , sig.level = , power = , type = , alternative = )
+```
+
+where
+
+- `n` = the sample size
+- `d` = the effect size
+- `sig.level` = the significance level $\alpha$ (the default is 0.05)
+- `power` = the power level.
+- `type` = the type of t-test to perform: either a two-sample t-test ("two.sample"), a one-sample t-test ("one.sample"), or a dependent sample t-test ("paired"). A two-sample test is the default.
+- `alternative` = whether the alternative hypothesis is two-sided ("two.sided")
+or one-sided ("less" or "greater"). A two-sided test is the default.
+
+:::
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
+
+`r optend()`
+
+`r optbegin("Power for linear regression",olabel=FALSE,toggle=params$TOGGLE)`
 
 In linear regression, the relevant function in **R** is:
+
+:::blue
 
 ```{r, eval=FALSE}
 library(pwr)
@@ -549,12 +812,13 @@ pwr.f2.test(u = , v = , f2 = , sig.level = , power = )
 ```
 
 where
-
 -   `u` = numerator degrees of freedom
 -   `v` = denominator degrees of freedom
 -   `f2` = effect size
 
-##  {.unnumbered .tabset}
+:::
+
+::: {.panel-tabset}
 
 The formula for the effect size $f^2$ is different depending on your goal.
 
@@ -629,16 +893,16 @@ Here, the numerator degrees of freedom are the extra predictors: $\texttt u = K 
 The denominator degrees of freedom returned by the function will give you (here you use $K$ the number of all predictors in the larger model): 
 
 $$
-\texttt v = n - (K + 1) = n - K - 1
+\text v = n - (K + 1) = n - K - 1
 $$
 
 From which you can infer the sample size as 
 
 $$
-n = \texttt v + K + 1
+n = \text v + K + 1
 $$
 
-### 3. Generic guidelines
+### 3. Generic Guidelines
 
 But what can you do if you have no clue what effect size to expect in a given study? Cohen (1988) [^1] provided guidelines for what a small, medium, or large effect typically is in the behavioural sciences.
 
@@ -654,6 +918,28 @@ For more information, please refer to Cohen J. (1992). [^2]
 
 [^2]: Cohen J. (1992) A power primer, *Psychological Bulletin, 112*(1): 155--159. PDF available via the University of Edinburgh library at [this link.](https://discovered.ed.ac.uk/permalink/f/1s15qcp/TN_cdi_proquest_journals_614317877)
 
-##  {.unnumbered}
+:::
+
+::: callout-note
+See S2 Week 7 [lecture](https://uoepsy.github.io/dapr2/2223/lectures/dapr2_17_intropower.html#1), S2 Week 8 [lab](https://uoepsy.github.io/dapr2/2223/labs/2_08_power.html) for further details, examples, and to revise these concepts further.
+:::
 
 `r optend()`
+
+`r optbegin("Exploratory vs Confirmatory Analyses",olabel=FALSE,toggle=params$TOGGLE)`
+
+*Exploratory* analyses are conducted when either (1) you have a hypothesis but no clear analysis plan/strategy; (2) you have lots of variables that might be associated with an outcome variable, but you're not sure which or in what ways i.e., no clear predictions. It also provides tools for hypothesis generation - particularly via visualisation of data.
+
+*Confirmatory* analyses are conducted when you have a specific research question to test. You can think of this type of analysis as putting your hypotheses to trial - does your data support or fail to support your argument?
+
+`r optend()`
+
+`r optbegin("Steps in Exploratory Analyses",olabel=FALSE,toggle=params$TOGGLE)` There are a number of steps involved in exploratory analyses:
+
+-   Step 1: Check coding of data and visualise variables of interest
+-   Step 2: Compare models of interest to find if your variables of interest are good predictors of your outcome variable
+-   Step 3: Compute the k-fold cross validation MSE for each of your models
+-   Step 4: Identify best fitting model 
+
+`r optend()`
+
