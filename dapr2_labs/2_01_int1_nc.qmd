@@ -60,8 +60,6 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 
 Researchers were specifically interested in how the number of social interactions might influence mental health and wellbeing differently for those living in rural communities compared to those in cities and suburbs. They want to assess whether the effect of social interactions on wellbeing _is moderated by_ (depends upon) whether or not a person lives in a rural area. 
 
-To investigate how the association between the number of social interactions and mental wellbeing might be different for those living in rural communities, the researchers conducted a study, where they collected data from 200 randomly selected residents of the Edinburgh & Lothian postcodes. 
-
 `r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
 
 __Description__
@@ -156,14 +154,22 @@ Much of the information required can be found in the [Study Overview] codebook.
 
 The `mwdata` dataset contained information on 200 hypothetical participants who lived in Edinburgh & Lothians area. Using a between-subjects design, the researchers collected information on participants' wellbeing (measured via WEMWBS), outdoor time (hours per week), social interactions (number per week), routine (whether or not one was followed), location of residence (City, Suburb, or Rural), average weekly steps (in thousands), and age (in years).
 
+Density plots and histograms will be used to visualise the marginal distributions of wellbeing and social interactions, and the strength of association between the two variables estimated via the correlation coefficient. To understand how these associations differ between rural and non-rural locations, scatterplots will be used. 
+
 To address the research question of whether the association between the number of social interactions and wellbeing differs between rural and non-rural residents, we are going to fit the following interaction model, where $y$ = wellbeing; $x_1$ = social interactions; and $x_2$ = whether or not the respondent lives in a rural location (where not rural will be specified as the reference group). 
 
 $$
 y = \beta_0 + \beta_1  x_1 + \beta_2  x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon \\ 
-\quad \\ \text{where} \quad \epsilon \sim N(0, \sigma) \quad \text{independently}
+\quad 
+\\ 
+\text{where} \quad \epsilon \sim N(0, \sigma) \quad \text{independently}
 $$
 
-or 
+<center>
+
+**OR**
+
+</center>
 
 $$
 \begin{split}
@@ -218,9 +224,14 @@ mwdata <- mwdata %>%
 
 Check coding of variables within `mwdata` and ensure `isRural` is a factor with two levels, 'rural' and 'not rural':
 ```{r}
-str(mwdata) #returns overall 'structure' of data. Or could run is.factor() for specific variable of interest
+# check structure of dataset (alternatively run is.factor() for specific variable)
+str(mwdata) 
+
+#assign isRural as a factor
 mwdata$isRural <- as_factor(mwdata$isRural)
-is.factor(mwdata$isRural) #check that isRural is now a factor
+
+#check that isRural is now a factor
+is.factor(mwdata$isRural) 
 ```
 
 ```{r}
@@ -255,6 +266,35 @@ In particular:
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Numeric
+
+For a quick overview of several summary statistics at once for all columns of our dataframe, but separately for each level of location (i.e.,rural and non-rural), you can use `describeBy()` from the **psych** package (but note that this is *not an APA style table*):
+
+```{r}
+describeBy(mwdata, mwdata$isRural)
+```
+
+
+We can present our summary statistics for wellbeing and social interactions grouped by location in a well formatted table using `kable()`: 
+
+```{r}
+#| label: tbl-w1-desc
+#| tbl-cap: Wellbeing, Social Interactions, and Location Descriptive Statistics
+mwdata %>%
+    select(isRural, wellbeing, social_int) %>%
+    group_by(isRural) %>%
+    summarise(Wellbeing_M = mean(wellbeing),
+              Wellbeing_SD = sd(wellbeing),
+              SocialInt_M = mean(social_int),
+              SocialInt_SD = sd(social_int)) %>%
+    kable(caption = "Wellbeing, Social Interactions, and Location Descriptive Statistics", align = "c", digits = 2, booktabs = TRUE) %>%
+    kable_styling(full_width = FALSE)
+```
+
+## Visual 
 
 Let's first plot the continuous variables included within our model (note that we could use this for the whole dataset, but we don't want to include irrelevant- / non-continuous variables):
 
@@ -312,10 +352,14 @@ Those in non-rural locations appear to have higher wellbeing scores across almos
 
 ::: 
 
-::: {.callout-important icon=false collapse=true}
-# How can we tell that there is an interaction?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### How do we know there is an interaction? 
 
 The lines in the two plots above are not running in *parallel* - this suggests the presence of an interaction. Specifically in our example, the non-parallel lines suggest an interaction effect based on location, as the number of social interactions does not appear to have the same influence on rural and non-rural residents' wellbeing scores. 
+
+:::
 
 :::
 
@@ -410,8 +454,8 @@ coefficients(rural_mod)
     - Interpretation: The simple effect of location (or the difference in wellbeing scores between rural and non rural residents) when number of social interactions is 0. 
 
 + $\beta_3$ `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`
-    - On plot: How the slope of the line changes when you move from the red to the blue line. 
-    - Interpretation: The interaction between social interactions (number per week) and location (rural/not rural) - the difference in the simple slopes of social interactions for rural vs non-rural residents. 
+    - On plot: How the slope of the line differs when you move from the red to the blue line. 
+    - Interpretation: The interaction between social interactions (number per week) and location (rural/not rural). This is the estimated difference in simple slopes of social interactions for rural vs non-rural residents. 
 
 `r solend()`
 
@@ -425,7 +469,7 @@ Mean center the continuous IV(s), and re-run your model with mean centered varia
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Create mean centered variable for 'social_int':
+Create mean centered variable for 'social_int', named 'mc_social_int':
 
 ```{r}
 mwdata <-
@@ -435,7 +479,7 @@ mwdata <-
     )
 ```
 
-Re-run model:
+Re-run model with 'mc_social_int':
 
 ```{r}
 #fit model including interaction between social_int and isRural
@@ -526,7 +570,7 @@ Whilst the difference in rural vs non-rural may not be significantly different w
 
 `r qbegin(8)`
 
-Using the `probe_interaction()` function from the interactions package, visualise the interaction effects from your model.
+Using the `probe_interaction()` function from the **interactions** package, visualise the interaction effects from your model.
 
 Try to summarise the interaction effects in a short and concise sentence. 
 
@@ -580,8 +624,17 @@ This suggested that for individuals living in non-rural locations, wellbeing sco
 
 `r qbegin(9)`
 
-Provide key model results in a formatted table.
+Provide key model results (from 'mc_social_int') in a formatted table.
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. 
+
+You can rename your DV and IV labels by specifying `dv.labels` and `pred.labels`. To do so, specify your variable name on the left, and what you would like this to be named in the table on the right. 
+
+:::
 
 `r qend()`
 
@@ -605,7 +658,7 @@ tab_model(rural_mod1,
 
 `r qbegin(10)`
 
-Interpret your results in the context of the research question and report your model in full.
+Interpret your results (from 'mc_social_int') in the context of the research question and report your model in full.
 
 Make reference to the interaction plot and regression table.
 
@@ -624,11 +677,12 @@ Make reference to the interaction plot and regression table.
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Full regression results including 95% Confidence Intervals are shown in @tbl-rural-mc-modresults. The $F$-test for model utility was significant $(F(3,196) = 27.49, p<.001)$, and the model explained approximately 28.54% of the variability in wellbeing scores.
+Full regression results including 95% Confidence Intervals are shown in @tbl-rural-mc-modresults. The $F$-test for model utility was significant $(F(3,196) = 27.49, p < .001)$, and the model explained approximately 28.54% of the variability in wellbeing scores.
 
 There was a significant conditional association between wellbeing (WEMWBS Scores) and social interactions $(\beta = 0.65, SE = 0.12, p < .001)$, which suggested that for those living in non-rural locations, wellbeing scores increased by 0.65 for every additional social interaction per week. A significant conditional association was also evident between wellbeing and location $(\beta = -4.86, SE = 0.65, p < .001)$, which suggested that for those with the average number of social interactions per week $(M = 12.06)$, wellbeing scores were 4.86 points lower for those in rural areas in comparison to those in non-rural.
 
-The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), where the slope was less steep for those in rural locations $(\beta = -0.52, SE = 0.16, p = .002)$. This interaction is visually presented in @fig-int. The effect of every additional social interaction per week on wellbeing (WEMWBS Scores) was 0.52 less for those living in rural locations in comparison to those in non-rural locations. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), and this was significant $(\beta = -0.52, SE = 0.16, p = .002)$. The expected increase in wellbeing (WEMWBS Scores) for every additional social interaction per week was 0.52 points less for those living in rural locations in comparison to those in non-rural. This interaction is visually presented in @fig-int. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+
 
 :::
 
@@ -654,7 +708,7 @@ output: bookdown::pdf_document2
 ---
 ```
 
-::: {.callout-important icon=false collapse=true}
+::: {.callout-important appearance="simple" icon=false collapse=true}
 # What to do if you cannot knit to PDF
 If you are having issues knitting directly to PDF, try the following:  
 

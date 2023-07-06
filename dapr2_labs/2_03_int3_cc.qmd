@@ -57,14 +57,15 @@ You can download the data required for this lab [here](https://uoepsy.github.io/
 >
 > Are there differences in types of memory deficits for those experiencing different cognitive impairment(s)?
 
-A group of researchers wants to test a hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls. On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls.
-
 `r optbegin("Cognitive Exp 3x2 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
 
 __Description__
 
-The researchers designed a study yielding a 3 by 2 factorial design to test this theory. 
+A group of researchers wants to test a hypothesised theory according to which the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls. On the other hand, the difference in performance between explicit and implicit memory tasks will not significantly differ between patients with amnesia in comparison to controls. The researchers designed a study yielding a 3 by 2 factorial design to test this theory.   
 
+The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.  
+
+Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on both tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which (spoiler alert!) will be discussed next year in DAPR3.]  
   
 __Data Dictionary__
 
@@ -74,22 +75,20 @@ The data in `cognitive_experiment_3_by_2.csv` contain three attributes collected
 cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
 tibble(
 variable = names(cog),
-description = c("Diagnosis classifies the three types of individuals: 1 = Amnesic patients, 2 = Huntingtons patients, and 3 = Control group of individuals with no known neurological disorder", "Task, tells us to which of two tasks each study participant was randomly assigned to: 1 = Grammar (which consists of classifying letter sequences as either following or not following grammatical rules), and 2 = Recognition (which consists of recognising particular stimuli as stimuli that have previously been presented during the task)", "Score")) %>% gt::gt()
+description = c("Diagnosis classifies the three types of individuals: 1 = Amnesic patients, 2 = Huntingtons patients, and 3 = Control group of individuals with no known neurological disorder", "Task tells us to which one of two tasks each study participant was randomly assigned to: 1 = Grammar (which consists of classifying letter sequences as either following or not following grammatical rules), and 2 = Recognition (which consists of recognising particular stimuli as stimuli that have previously been presented during the task)", "Score")) %>% gt::gt()
 ```
   
-Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.^[Some researchers may point out that a design where each person was assessed on both tasks might have been more efficient. However, the task factor in such design would then be within-subjects, meaning that the scores corresponding to the same person would be correlated. To analyse such design we will need a different method which is discussed next year!]
-
-The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.
-
 __Preview__
 
-The first ten rows of the data are:
+The first six rows of the data are:
 
 ```{r echo=FALSE, message=FALSE}
 read_csv('https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv') %>% head %>% gt::gt()
 ```
 
 `r optend()`
+
+<div class="divider div-transparent div-dot"></div>
 
 # Setup
 
@@ -184,7 +183,12 @@ Choose appropriate reference levels for the Diagnosis and Task variables.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-The Diagnosis factor has a group coded 'Control' which lends itself naturally to be the reference category.
+
+::: {.panel-tabset}
+
+## Diagnosis
+
+The Diagnosis factor has a group coded 'Control' which lends itself naturally to be the reference category, since it is the only group of participants with no known neurological disorder.
 
 ```{r}
 cog$Diagnosis <- relevel(cog$Diagnosis, 'Control')
@@ -192,7 +196,17 @@ cog$Diagnosis <- relevel(cog$Diagnosis, 'Control')
 levels(cog$Diagnosis)
 ```
 
-There is no natural reference category for the Task factor, so we will leave it unaltered. However, if you are of a different opinion, please note that there is no absolute correct answer. As long as you interpret the model correctly, you will reach to the same conclusions as someone that has chosen a different baseline category.
+## Task
+
+There is no natural reference category for the Task factor, so we will leave it unaltered. However, if you are of a different opinion, please note that there is no absolute correct answer. As long as you describe and interpret the model correctly, you will reach to the same conclusions as someone that has chosen a different baseline category. 
+
+We can see what the reference group is below (first in list):
+
+```{r}
+levels(cog$Task)
+```
+
+:::
 
 `r solend()`
 
@@ -200,15 +214,17 @@ There is no natural reference category for the Task factor, so we will leave it 
 
 `r qbegin(3)`
 
-Formally state:
-
-- a linear model to investigate whether there are differences in types of memory deficits for those experiencing different cognitive impairment(s)
-- your chosen significance level
-- the null and alternative hypotheses
+Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint 
+
+- Give the reader some background on the context of the study
+- State what type of analysis you will conduct in order to address the research question
+- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variables)
+- Specify your chosen significance ($\alpha$) level
+- State your hypotheses
 
 Much of the information required can be found in the [Study Overview] codebook.
 
@@ -218,19 +234,24 @@ Much of the information required can be found in the [Study Overview] codebook.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Before stating the model, you first need to define the dummy variables for Diagnosis:
+The `cog` dataset contained information on 30 hypothetical participants from a between-subjects study. Participants belonged to one of three 'Diagnosis' groups, which had 10 participants in each - Control, Amnesic, or Huntingtons. Participants from each of the Diagnosis groups were randomly assigned to one of two 'Tasks' to measure different memory processes - Grammar or Recognition. For the purpose of this analysis, 'Control' was designated as the reference group for Diagnosis, since it was the only group of participants with no known neurological disorder, and as there is no natural reference group for Diagnosis, we chose to leave this as 'Grammar'.  
+
+Boxplots will be used to visualise the associations among Diagnosis and Task conditions. To address the research question of whether the difference in performance between explicit and implicit memory tasks will be greatest for Huntington patients in comparison to controls, we first need to define the dummy variables for Diagnosis:
 
 $$
 D_\text{Amnesic} = \begin{cases}
 1 & \text{if Diagnosis is Amnesic} \\
 0 & \text{otherwise}
 \end{cases}
-\quad
+\quad  
+\\  
 D_\text{Huntingtons} = \begin{cases}
 1 & \text{if Diagnosis is Huntingtons} \\
 0 & \text{otherwise}
 \end{cases}
-\quad 
+\quad  
+\\  
+\\  
 (\text{Control is base level})
 $$
 
@@ -242,9 +263,11 @@ T_\text{Recognition} = \begin{cases}
 0 & \text{otherwise}
 \end{cases}
 \quad
+\\
+\\
 (\text{Grammar is base level})
 $$
-The model becomes:
+Based on the above dummy coding, we are going to fit the following interaction model:
 
 $$
 \begin{aligned}
@@ -292,7 +315,11 @@ Remember to interpret your plot in the context of the study.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-First, lets look at our descriptive statistics and present in a well formatted table:
+::: {.panel-tabset}
+
+## Numeric
+
+Descriptive statistics presented in a well formatted table:
 
 ```{r message=FALSE, warning=FALSE}
 #| label: tbl-cog-descript
@@ -309,7 +336,9 @@ cog_desc <- cog %>%
 cog_desc
 ```
 
-Next, look at associations among variables of interest:
+## Visual 
+
+Visualise associations among variables of interest:
 
 ```{r}
 #| label: fig-cog-desc
@@ -319,10 +348,17 @@ cog_plt <- ggplot(cog, aes(x = Diagnosis, y = Score, fill = Task)) +
 cog_plt
 ```
 
-+ Participants with Amnesia do not appear to differ in Score for Recognition or Grammar tasks. In comparison to Controls, Amnesic patients score lower on both tasks, but not considerably so.
+:::
 
-+ Participants with Huntingtons do differ in Score for Recognition and Grammar tasks, with higher scores on Recognition tasks. In comparison to Controls, Huntingtons patients score similarly on Recognition tasks, but considerably lower on Grammar tasks.
+::: {.callout-important icon=false appearance="minimal"}
 
++ Scores on Recognition tasks appear to be higher than those on Grammar across Diagnosis conditions  
++ Participants with Amnesia do not appear to differ in Score for Recognition or Grammar tasks   
++ In comparison to Controls, Amnesic patients score lower on both tasks, but not considerably so  
++ Participants with Huntingtons do differ in Score for Recognition and Grammar tasks, with higher scores on Recognition tasks  
++ In comparison to Controls, Huntingtons patients score similarly on Recognition tasks, but considerably lower on Grammar tasks  
+
+:::
 
 `r solend()`
 
@@ -336,7 +372,9 @@ Fit the specified model using `lm()`, and store the model in an object named "co
 
 :::{.callout-note}
 
-Fortunately, `R` computes the dummy variables for us! Thus. each row in the `summary()` output of the model will correspond to one of the estimated $\beta$'s in the equation above.
+# How do we specify dummy coding in `R`?
+
+Fortunately, `R` computes the dummy variables for us! Thus, each row in the `summary()` output of the model will correspond to one of the estimated $\beta$'s in the equation above.
 
 :::
 
@@ -441,7 +479,7 @@ coefficients(cog_mdl)
 
 `r qbegin(8)`
 
-Using the `cat_plot()` function from the interactions package, visualise the interaction effects from your model.
+Using the `cat_plot()` function from the **interactions** package, visualise the interaction effects from your model.
 
 Try to summarise the interaction effects in a few short and concise sentences. 
 
@@ -455,18 +493,22 @@ Try to summarise the interaction effects in a few short and concise sentences.
 plt_cog_mdl <- cat_plot(model = cog_mdl, 
                   pred = Diagnosis, 
                   modx = Task, 
-                  main.title = "Scores across Diagnois and Task",
+                  main.title = "Scores across Diagnosis and Task",
                   x.label = "Diagnosis",
                   y.label = "Score",
                   legend.main = "Task")
 plt_cog_mdl
 ```
 
-The effect of Task on Scores does appear to vary depending on Diagnosis.
+::: {.callout-important icon=false appearance="minimal"}
 
-The difference in score between recognition and grammar tasks for Huntingtons patients is larger than the difference in score between recognition and grammar tasks for the Control patients.
+The effect of Task on Scores does appear to vary depending on Diagnosis.  
 
-The difference in score between recognition and grammar tasks for Amnesic patients however does not appear to be very different (given the overlapping intervals) than the difference in score between recognition and grammar tasks for the Control patients.
+The difference in score between recognition and grammar tasks for Huntingtons patients is larger than the difference in score between recognition and grammar tasks for the Control patients.  
+
+The difference in score between recognition and grammar tasks for Amnesic patients however does not appear to be very different (given the overlapping intervals) than the difference in score between recognition and grammar tasks for the Control patients.  
+
+:::
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -541,13 +583,13 @@ Make reference to the interaction plot and regression table.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Full regression results including 95% Confidence Intervals are shown in @tbl-cog-modresults. The $F$-test for model utility was significant $(F(5,24) = 13.62, p <.001)$, and the model explained approximately 68.5% of the variability in Scores.
+Full regression results including 95% Confidence Intervals are shown in @tbl-cog-modresults. The $F$-test for model utility was significant $(F(5,24) = 13.62, p <.001)$, and the model explained approximately 68.5% of the variability in Scores. The interaction between Task and Diagnosis is visually presented in @fig-cog-int1.   
 
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be -10 points, though this difference was not significantly different from zero $(t(24) = -0.85, p = .40)$. 
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for amnesiac patients in comparison to controls was estimated to be -10 points $(\beta = -10, SE = 11.72)$, though this difference was not significantly different from zero $(t(24) = -0.85, p = .40)$. 
 
-The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntingtons patients in comparison to controls was significant, and indicated a difference of 40 points in explicit vs implicit memory performance $(t(24) = 3.41, p = .002)$. This interaction is visually presented in @fig-cog-int1.
+The difference in scores between the recognition and grammar tasks, respectively measuring explicit and implicit memory, for Huntingtons patients in comparison to controls was significant $(t(24) = 3.41, p = .002)$, and indicated a difference of 40 points in explicit vs implicit memory performance $(\beta = 40, SE = 11.72)$. 
 
-Therefore, we have evidence to reject the null hypothesis (the difference in performance between explicit and implicit memory tasks does not significantly differ between patients with Huntingtons in comparison to Controls).
+Therefore, we have evidence to reject the null hypothesis (the difference in performance between explicit and implicit memory tasks does not significantly differ between patients with Huntingtons in comparison to Controls).  
 
 `r solend()`
 
@@ -571,7 +613,7 @@ output: bookdown::pdf_document2
 ---
 ```
 
-::: {.callout-important icon=false collapse=true}
+::: {.callout-important appearance="simple" icon=false collapse=true}
 # What to do if you cannot knit to PDF
 If you are having issues knitting directly to PDF, try the following:  
 
