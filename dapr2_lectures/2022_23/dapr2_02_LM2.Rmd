@@ -1,0 +1,551 @@
+---
+title: "<b> Linear Model: Fundamentals </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+library(MASS)
+library(simglm)
+
+knitr::opts_chunk$set(fig.retina = 1.5,
+                      out.width = '90%')
+
+theme_set(theme_gray(base_size = 15))
+```
+
+
+# Week's Learning Objectives
+1. Understand the key principles of least squares. 
+
+2. Be able to interpret the coefficients from a simple linear model.
+
+3. Understand how these interpretations change when we add more predictors
+
+---
+# Linear Model
++ Last week we left off having introduced the linear model:
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ Where,
+  + $y_i$ is our measured outcome variable
+  + $x_i$ is our measured predictor variable
+  + $\beta_0$ is the model intercept
+  + $\beta_1$ is the model slope
+  + $\epsilon_i$ is the residual error (difference between the model predicted and the observed value of $y$)
+
++ Where we are going to pick up, is how we calculate $\beta_0$ and $\beta_1$
+
+---
+# Principle of least squares
+
++ The values $\beta_0$ and $\beta_1$ are typically **unknown** and need to be estimated from our data. 
+
++ We denote the "best" estimated values as $\hat \beta_0$ and $\hat \beta_1$
+
++ We find the best values for $\hat \beta_0$ and $\hat \beta_1$ (and thus our best line) using **least squares**
+    
++ Least squares;
+  + Minimizes the distances between the actual values of $y$ and the model-predicted values of $\hat y$
+  + That is, it minimizes the residuals for each data point (the line is "close")
+
+---
+# Principle of least squares
+
++ Formally, least squares minimizes the **residual sum of squares**
+
++ Essentially:
+  + Fit a line.
+  + Calculate the residuals
+  + Square them
+  + Sum up the squares
+  
++ **Why do you think we square the deviations? **
+
+
+---
+# Residual Sum of Squares
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
++ Data = $y_i$
+    + This is what we have measured in our study. 
+    + For us, the test scores.
+
++ Predicted value = $\hat{y}_i = \hat \beta_0 + \hat \beta_1 x_i$ 
+    + Or, the value of the outcome our model predicts given someone's values for predictors.
+    + In our example, given you study for 4 hours, what test score does our model predict you will get.
+
++ Residual = Difference between $y_i$ and $\hat{y}_i$.
+
+
+
+---
+# Key Point
+
++ It is worth a brief pause as this is a very important point.
+
+> The values of the intercept and slope that minimize the sum of square residual are our estimated coefficients from our data.
+
+--
+
+> Minimizing the $SS_{residual}$ means that across all our data, the predicted values from our model are as close as they can be to the actual measured values of the outcome.
+
+
+---
+# Calculating the slope
+
++ Calculations for slope:
+
+$$\hat \beta_1 = \frac{SP_{xy}}{SS_x}$$
+
+
++ $SP_{xy}$ = sum of cross-products:
+
+
+$$SP_{xy} = \sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})$$
+
+
++ $SS_x$ = sums of squared deviations of $x$:
+
+
+$$SS_x = \sum_{i=1}^{n}(x_i - \bar{x})^2$$
+
+
+---
+# Calculating the intercept
+
++ Calculations for intercept:
+
+$$\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x}$$
+
++ $\hat \beta_1$ = slope estimate
+
++ $\bar{y}$ = mean of $y$
+
++ $\bar{x}$ = mean of $x$
+
+
+---
+class: center, middle
+# Time for a little R and to look at an example hand calculation.
+
+
+---
+# `lm` in R
++ We do not generally calculate our linear models by hand. So lets look at how we do this in R.
+
++ In R, we use the `lm()` function.
+
+```{r, eval=FALSE}
+lm(DV ~ IV, data = )
+```
+
++ The first bit of code is the model formula:
+  + The outcome or DV appears on the left of ~
+  + The predictor(s) or IV appear on the right of ~
+
++ We then give R the name of the data set
+  + This set must contain variables (columns) with the same names as you have specified in the model formula.
+
+---
+# `lm` in R
+```{r}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+```
+
+```{r}
+lm(score ~ hours, data = test)
+```
+
+---
+# Interpretation
+
++ **Slope is the number of units by which Y increases, on average, for a unit increase in X.**
+
+--
+    + Unit of Y = 1 point on the test
+    + Unit of X = 1 hour of study
+    
+--
+
++ So, for every hour of study, test score increases on average by 1.055 points.
+
+--
+
++ **Intercept is the expected value of Y when X is 0.**
+
+--
+
+    + X = 0 is a student who does not study.
+
+--
+
++ So, a student who does no study would be expected to score 0.40 on the test.
+
+
+---
+# Note of caution on intercepts
++ In our example, 0 has a meaning.
+    + It is a student who has studied for 0 hours.
+    
++ But it is not always the case that 0 is meaningful.
+
++ Suppose our predictor variable was not hours of study, but age.
+
++ **Look back at the interpretation of the intercept, and instead of hours of study, insert age. Read this aloud a couple of times.**
+
+--
+
++ This is the first instance of a very general lesson about interpreting statistical tests. 
+    + The interpretation is always in the context of the constructs and how we have measured them.
+
+
+---
+class: center, middle
+# Congratulations, we have just run our first linear model. Questions...
+
+---
+# A little more to say on residuals
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ Recall last lecture we said that $\epsilon_i \sim N(0, \sigma)$ independently.
+
++ This means $\epsilon_i$ ...
+  + are distributed ( $\sim$ )
+    + a normal distribution ( $N$ )
+      + with a mean of 0 ( $N(0,$ )
+        + and a standard deviation of $\sigma$
+  
++ $\sigma$ = standard deviation (spread) of the errors
+  + $\sigma$, is constant, meaning that at any point along the x-axis, the spread of the residuals should be the same.
+  
+---
+# Visualizing $sigma$
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+n = 300
+df1 <- tibble(
+  x = runif(n, 1, 6),
+  y = 3 + 2 * x + rnorm(n, 0, 0.4)
+)
+
+p1 <- ggplot(df1, aes(x, y)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  ylim(4, 20)
+
+
+n = 300
+df2 <- tibble(
+  x = runif(n, 1, 6),
+  y = 3 + 2 * x + rnorm(n, 0, 2.5)
+)
+
+p2 <- ggplot(df2, aes(x, y)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  ylim(4, 20)
+```
+
+.pull-left[
+<center>**Small $\sigma$**</center>
+```{r echo = FALSE, message = FALSE, warning = FALSE, out.width = '90%', fig.align='center'}
+p1
+```
+]
+
+.pull-right[
+<center>**Large $\sigma$**</center>
+```{r echo = FALSE, message = FALSE, warning = FALSE, out.width = '90%', fig.align='center'}
+p2
+```
+]
+
+???
++ The less scatter around the line, 
+  + the smaller the standard deviation of the errors
+  + the stronger the relationship between $y$ and $x$. 
+
+---
+# What is $\sigma$?
+
++ We estimate $\sigma$ using the residuals from our model
+
++ The estimated standard deviation of the errors is:
+$$\hat \sigma = \sqrt{\frac{SS_{Residual}}{n - k - 1}} = \sqrt{\frac{\sum_{i=1}^n(y_i - \hat y_i)^2}{n - k - 1}}$$
+
++ In simple linear regression we only have one $x$, so $k = 1$ and the denominator becomes $n - 2$.
+
++ $\sigma$ and its properties will turn up a few times in this course.
+
+
+---
+class: center, middle
+# What happens if we have more than one predictor?
+
+---
+#  Multiple predictors (multiple regression)
++ The aim of a linear model is to explain variance in an outcome
+
++ In simple linear models, we have a single predictor, but the model can accommodate (in principle) any number of predictors. 
+
++ However, when we include multiple predictors, those predictors are likely to correlate.
+
++ Thus, a linear model with multiple predictors finds the optimal prediction of the outcome from several predictors, **taking into account their redundancy with one another**
+
+
+---
+#  Uses of multiple regression 
++ **For prediction:** multiple predictors may lead to improved prediction. 
+
++ **For theory testing:** often our theories suggest that multiple variables together contribute to variation in an outcome
+
++ **For covariate control:** we might want to assess the effect of a specific predictor, controlling for the influence of others.
+	+ E.g., effects of personality on health after removing the effects of age and sex
+
+
+---
+#  Extending the regression model 
+
++ Our model for a single predictor:
+
+$$y_i = \beta_0 + \beta_1 x_{1i} + \epsilon_i$$ 
+
++ is extended to include additional $x$'s:
+
+$$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_3 x_{3i} + \epsilon_i$$  
+
++ For each $x$, we have an additional $b$
+  + $\beta_1$ is the coefficient for the 1st predictor
+  + $\beta_2$ for the second etc.
+
+
+---
+#  Interpreting coefficients in multiple regression 
+
+$$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_j x_{ji} + \epsilon_i$$
+
++ Given that we have additional variables, our interpretation of the regression coefficients changes a little
+
++ $\beta_0$ = the predicted value for $y$ **all** $x$ are 0.
+	
++ Each $\beta_j$ is now a **partial regression coefficient**
+	+ It captures the change in $y$ for a one unit change in , $x$ **when all other x's are held constant**
+
+---
+# What does holding constant mean? 
+
++ Refers to finding the effect of the predictor when the values of the other predictors are fixed
+
++ It may also be expressed as the effect of **controlling for**, or **partialling out**, or **residualizing for** the other $x$'s
+
++ With multiple predictors `lm` isolates the effects and estimates the unique contributions of predictors. 
+
+---
+#  Visualizing models
+
+.pull-left[
+
+```{r, warning=FALSE, echo=FALSE, message=FALSE}
+df <- read_csv("./salary2.csv")
+m1 <- lm(salary ~ perf, data = df)
+m2 <- lm(salary ~ perf + serv, data = df)
+
+ggplot(df, aes(x=perf, y=salary)) +
+  geom_point() +
+  geom_smooth(method = "lm")+
+  xlab("") +
+  ylab("")
+
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::include_graphics("./lm_surface.png")
+```
+
+]
+
+???
++ In simple linear models, we could visualise the model as a straight line in 2D space
+	+ Least squares finds the coefficients that produces the *regression line* that minimises the vertical distances of the observed y-values from the line
+
++ In a regression with  2 predictors, this becomes a regression plane in 3D space
+	+ The goal now becomes finding the set of coefficients that minimises the vertical distances between the *regression*  *plane* and the observed y-values
+
++ The logic extends to any number of predictors
+	+ (but becomes very difficult to visualise!)
+
+---
+#  Example: lm with 2 predictors 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+
++ Imagine we extend our study of test scores.
+
++ We sample 150 students taking a multiple choice Biology exam (max score 40).
+
++ We give all students a survey at the start of the year measuring their school motivation. 
+  + We standardize this variable so the mean is 0, negative numbers are low motivation, and positive numbers high motivation. 
+  
++ We then measure the hours they spent studying for the test, and collate their scores on the test.
+
+---
+# Our data
+```{r}
+slice(test_study2, 1:6)
+```
+
+
+---
+#  `lm` code
+
+```{r}
+performance <- lm(score ~ hours + motivation, #<<
+          data = test_study2)
+```
+
++ Multiple predictors are separated by `+`
+
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+summary(performance)
+```
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(performance)
+round(res$coefficients,2)
+```
+
++ **A student who did not study, and who has average school motivation would be expected to score `r round(res$coefficients[[1,1]],2)` on the test.**
+
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(performance)
+round(res$coefficients,2)
+```
+
++ **Controlling for students level of motivation, for every additional hour studied, there is a `r round(res$coefficients[[2,1]],2)` points increase in test score.**
+
+
+---
+#  Multiple regression coefficients 
+
+```{r}
+res <- summary(performance)
+res$coefficients
+```
+
++ **Controlling for hours of study, for every SD unit increase in motivation, there is a `r round(res$coefficients[[3,1]],2)` points increase in test score.**
+
+
+
+---
+# Summary
++ Key take homes
+
+1. We find our model coefficients based on least squares
+2. These are the coefficients which minimize the sum of squared residuals
+3. We run linear models using `lm()` in R
+4. The intercept is the value of $Y$ when $X$ = 0
+5. The slope is the unit change in $Y$ for each unit change in $X$
+6. We can easily add more predictors to our model
+7. When we do, our interpretations of the coefficients are when all other predictors are held constant.
+
+
+---
+# For next week
++ Things to recap...
+
+  + We will look again at significance testing.
+  + And also discuss sampling variability.
+
++ If you want a refresh, go back and review sampling and hypothesis testing material from dapR1 !(here)[https://uoepsy.github.io/dapr1/2122/index.html]
+
+
+---
+class: center, middle
+# Thanks for listening!
+      

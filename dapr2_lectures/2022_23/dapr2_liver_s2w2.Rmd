@@ -1,0 +1,163 @@
+---
+title: 'dapR2 Live : Semester 2 week 2'
+author: "dapR2 Team"
+date: "24/01/2022"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+```
+
+# Data
+
+```{r, warning=FALSE, message=FALSE}
+n <- round(500*(c(.55, .2, .1, .05, .1)),0)
+set.seed(7284)
+wb_tib <- tibble(
+  swb = c(rnorm(n[1], 11, 3.6),
+          rnorm(n[2], 12, 4.2),
+          rnorm(n[3], 8, 2.2),
+          rnorm(n[4], 6, 1.1),
+          rnorm(n[5], 9.5, 2.5)),
+  status = factor(c(rep("Married/CP", n[1]),
+             rep("Cohab", n[2]),
+             rep("Single", n[3]),
+             rep("Widowed", n[4]),
+             rep("Divorced", n[5])))
+)
+```
+
+Take a look at the structure of the data set and the variables present:
+
+```{r}
+str(wb_tib)
+```
+
+And the descriptive stats by group.
+
+```{r}
+wb_tib %>%
+  group_by(status) %>%
+  summarise(
+    n = n(),
+    mean = round(mean(swb),2),
+    sd = round(sd(swb),2)
+  ) 
+```
+
+# Coding Schemes: Dummy
+
+```{r}
+contrasts(wb_tib$status)
+```
+
+What does this mean? First to create a little table of group means for reference
+
+```{r}
+gpM <- wb_tib %>%
+  group_by(status) %>%
+  summarise(
+    swb = round(mean(swb),2)
+  ) %>%
+  mutate(
+    GM = c(rep(mean(swb),5))
+  )
+gpM
+```
+
+Visualise the comparisons:
+
+```{r}
+wb_tib %>%
+  ggplot(., aes(x=status, y=swb, colour = status, shape = status)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = as.numeric(gpM[1,2]), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
+```
+
+Run our `lm`
+
+```{r}
+res_dummy <- lm(swb ~ status, data = wb_tib)
+summary(res_dummy)
+```
+
+```{r}
+contrasts(wb_tib$status) <- contr.treatment(n = 5, base = 3)
+contrasts(wb_tib$status)
+```
+
+```{r}
+res_dummy <- lm(swb ~ status, data = wb_tib)
+summary(res_dummy)
+```
+
+Have a look at the group means to compare:
+
+```{r}
+gpM
+```
+
+
+# Coding Schemes: Effects
+
+Switch our contrasts
+
+```{r}
+contrasts(wb_tib$status) <- contr.sum
+contrasts(wb_tib$status)
+```
+
+Visualize
+
+```{r}
+wb_tib %>%
+  ggplot(., aes(x=status, y=swb, colour = status, shape = status)) +
+  geom_jitter(width = 0.1, size = 2) + 
+  geom_hline(yintercept = mean(wb_tib$swb), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax=..y..,ymin=..y..))
+```
+
+Run the model
+
+```{r}
+wb_tib$status <- fct_relevel(wb_tib$status, "Widowed")
+contrasts(wb_tib$status) <- contr.sum
+contrasts(wb_tib$status)
+```
+
+```{r}
+
+res_zero <- lm(swb ~ status, data = wb_tib)
+summary(res_zero)
+```
+
+```{r}
+summary(res_dummy)
+```
+
+Refer to group means:
+
+```{r}
+gpM
+```
+
+
+# Predicted values
+```{r}
+pred_swb <- tibble(status = c("Cohab", "Divorced", "Married/CP", "Single", "Widowed"))
+pred_swb %>%
+  mutate(
+    pred_dummy = round(predict(res_dummy, newdata = .),2),
+    pred_zero = round(predict(res_zero, newdata = .),2)
+  )
+
+```
+
+```{r}
+gpM
+```
+

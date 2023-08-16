@@ -1,0 +1,452 @@
+---
+title: "Contrasts"
+link-citations: yes
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+set.seed(3)
+
+library(DT)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand how to specify contracts to test specific effects.
+2. Understand different types of study design.
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from [Week 1](https://uoepsy.github.io/dapr2/2223/labs/2_01_model_comps.html) and [Week 2](https://uoepsy.github.io/dapr2/2223/labs/2_02_effects.html)
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych** 
+* **kableExtra**
+* **emmeans**
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/caffeinedrink.csv) or read it in via this link https://uoepsy.github.io/data/caffeinedrink.csv
+
+:::
+
+# Study Overview
+
+> **Research Question**
+>
+> Does WPM differ by caffeine treatment condition?  
+
+To investigate if the number of words typed per minute (WPM) differs among caffeine treatment conditions, the researchers conducted an experiment where participants were randomly allocated to one of four treatment conditions. Two of these conditions included non-caffeinated drinks - control (water) and mint tea, and the other two caffeinated drinks - coffee and red bull. 
+
+| Drink           | Caffeine | Temp  | 
+|:---------------:|:--------:|:-----:|
+| Control (Water) | No       | Cold  | 
+| Red Bull        | Yes      | Cold  | 
+| Coffee          | Yes      | Hot   |
+| Mint Tea        | No       | Hot   |
+
+In addition to the above research question, the researchers were also specifically interested in the following comparisons:
+
+- Whether having some kind of caffeine (i.e., red bull or coffee), rather than no caffeine (i.e., control - water or mint tea), resulted in a difference in average WPM
+- Whether there was a difference in average WPM between those with hot drinks (i.e., mint tea / coffee) in comparison to those with cold drinks (control - water / red bull)
+
+`r optbegin("Caffeine data codebook", olabel=FALSE,toggle=params$TOGGLE)`  
+
+__Description__
+
+The data in `caffeinedrink.csv` contained two attributes collected from $n=40$ participants: 
+
+- `treatment`: Which one of four treatment conditions the participant was assigned - control (water), coffee, mint_tea, or red_bull
+- `wpm`: average number of words typed per minute
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/caffeinedrink.csv') %>%  head %>% gt::gt()
+```
+
+`r optend()`
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the caffeinedrink dataset into R, assigning it to an object named `caffeine` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#load packages
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(emmeans)
+
+#read in data
+caffeine <- read_csv("https://uoepsy.github.io/data/caffeinedrink.csv")
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(1)`
+
+Firstly, examine the dataset, and perform any necessary and appropriate data management steps.
+
+Secondly, set an appropriate reference group based on the research question. 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#look at structure of data
+str(caffeine)
+
+#Treatment is a categorical variable but it is coded as a character (`<chr>`), so we need to correct this
+caffeine <- caffeine %>%
+  mutate(treatment = as_factor(treatment))
+
+#check for NAs - there are none - all FALSE
+table(is.na(caffeine))
+
+#examine wpm variable - any impossible scores? e.g., negative values?
+describe(caffeine$wpm)
+```
+
+
+```{r}
+#set 'Control' caffeine treatment condition as our reference group. 
+caffeine$treatment <- fct_relevel(caffeine$treatment, "control")
+```
+
+All participant data was complete (no missing values), with WPM scores within possible ranges. Treatment was coded as a factor with four levels, and based on the different caffeine treatment conditions, the control (i.e, water) condition was designated as the reference group.
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Formally state:
+
++ a linear model to investigate whether there are differences in WPM based on caffeine treatment conditions
++ your chosen significance level
++ the null and alternative hypotheses
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\text{WPM} = \beta_0 + \beta_1 \cdot \text{Treatment(Coffee)} + \beta_2 \cdot \text{Treatment(Red Bull)} + \beta_3 \cdot \text{Treatment(Mint Tea)} + \epsilon
+$$
+Effects will be considered statistically significant at $\alpha=.05$
+
+Our hypotheses are:
+
+$H_0:$ All $\beta_j = 0$ (for $j = 1, 2, 3$)
+
+There are no differences in WPM based on caffeine treatment conditions. 
+
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2, 3$)
+
+There are differences in WPM based on caffeine treatment conditions. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Provide a table of descriptive statistics and visualise your data.
+
+Remember to interpret your plot in the context of the study (i.e., comment on any observed differences among treatment groups). 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.
+2. Recall that when visualising categorical variables, `geom_boxplot()` may be most appropriate to use.
+3. Make sure to comment on any observed differences among the sample means of the four treatment conditions.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's first produce a descriptive statistics table:
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-caf-descript
+#| tbl-cap: Descriptive Statistics
+caf_desc <- caffeine %>%
+  group_by(treatment) %>%
+  summarise(n = n(), 
+            M = mean(wpm), 
+            SD = sd(wpm),
+            Min = min(wpm),
+            Max = max(wpm)) %>%
+    kable(caption = "Descriptive Statistics", digits = 2) %>%
+    kable_styling()
+
+caf_desc
+```
+
+Since we have a continuous outcome and a categorical predictor - a boxplot would be most appropriate for visualisations:
+
+```{r}
+#| label: fig-caf-desc
+#| fig-cap: "Association between Treatment Conditions and WPM"
+caf_plt <- ggplot(data = caffeine, aes(x = treatment, y = wpm, fill = treatment)) +
+  geom_boxplot() +
+  labs(x = 'Treatment Condition', y = 'WPM')
+
+caf_plt
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ From the boxplots, it seems that those in the Red Bull condition, on average, typed the most WPM, whilst those in the Mint Tea condition the fewest. 
++ Overall, the average WPM appears to be lower for those in the non-caffeine conditions (i.e., control - water / mint tea) in comparison to those in the caffeine drinks condition (red bull / coffee).
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Fit the specified model, and assign it the name "caf_mdl1". 
+
+Examine and describe the coefficients in the output of `summary()` before interpreting the $F$-test results from `anova()` in the context of the ANOVA null hypothesis.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+caf_mdl1 <- lm(wpm ~ treatment, data=caffeine)
+anova(caf_mdl1)
+summary(caf_mdl1)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ We performed an analysis of variance against the null hypothesis of equal population mean WPM across four types of caffeine treatment conditions. At the 5% significance level, we rejected the null hypothesis as there is strong evidence that at least a pair of means differ from each other $F(3, 36) = 15.05, p < .001$.
+
++ The estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu_1 = 112.15$. The estimated average WPM for those in the control condition (water) is approximately 112.15.
+
++ The next estimate corresponds to `treatmentcoffee` and is $\hat \beta_1 = 2.34$. The difference in mean WPM between `Control` and `Coffee` is estimated to be $2.3350$. In other words, people who have had a coffee type approximately 2.34 words per minute more than those who have had water. Thus, $\hat \mu_2 = 112.15 + 2.34 = 114.49$
+
++ The estimate corresponding to `treatmentred_bull` is $\hat \beta_2 = 4.51$. This is the estimated difference in mean WPM between `Control` and `Red Bull` is estimated to be $4.51$. In other words, people who have had a red bull type approximately 4.51 words per minute more than those who have had water. Thus, $\hat \mu_3 = 112.15 + 4.51 = 116.66$
+
++ The estimate corresponding to `treatmentmint_tea` is $\hat \beta_3 = -1.06$. This is the estimated difference in mean WPM between `Control` and `Mint Tea` is estimated to be $-1.06$. In other words, people who have had a mint tea type approximately 1.06 words per minute less than those who have had water. Thus, $\hat \mu_4 = 112.15 + (-1.06) = 111.09$
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Formally state the two planned comparisons that the researchers were interested in as testable hypotheses. 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We can specify our two hypotheses as follows:
+
+$$
+\begin{aligned}
+1. \quad H_0 &: \mu_\text{No Caffeine} = \mu_\text{Caffeine} \\
+    \quad H_0 &: \frac{1}{2} (\mu_\text{Control} + \mu_\text{Mint Tea}) = \frac{1}{2} (\mu_\text{Coffee} + \mu_\text{Red Bull}) \\
+\\
+    \quad H_1 &: \mu_\text{No Caffeine} \neq \mu_\text{Caffeine} \\
+    \quad H_1 &: \frac{1}{2} (\mu_\text{Control} + \mu_\text{Mint Tea}) \neq \frac{1}{2} (\mu_\text{Coffee} + \mu_\text{Red Bull}) \\
+\\ 
+2. \quad H_0 &: \mu_\text{Hot Drink} = \mu_\text{Cold Drink} \\
+    \quad H_0 &: \frac{1}{2} (\mu_\text{Coffee} + \mu_\text{Mint Tea}) = \frac{1}{2} (\mu_\text{Control} + \mu_\text{Red Bull})
+\\
+\\
+    \quad H_1 &: \mu_\text{Hot Drink} \neq \mu_\text{Cold Drink} \\
+    \quad H_1 &: \frac{1}{2} (\mu_\text{Coffee} + \mu_\text{Mint Tea}) \neq \frac{1}{2} (\mu_\text{Control} + \mu_\text{Red Bull})
+\end{aligned}
+$$
+
+`r solend()`
+
+<br> 
+
+`r qbegin(6)`
+
+After checking the levels of the factor `treatment`, use `emmeans()` to obtain the estimated treatment means and uncertainties for your factor. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Use `plot()` to visualise this.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+levels(caffeine$treatment)
+```
+
+```{r}
+emm <- emmeans(caf_mdl1, ~ treatment)
+emm
+plot(emm)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Specify the coefficients of the comparisons and run the contrast analysis. Obtain 95% confidence intervals, and then interpret your results in relation to the researchers hypotheses. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Ordering matters here - look again at the output of `levels(caffeine$treatment)` as this will help you when assigning your weights. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+As shown above via `levels()`, the ordering of the treatment factor is:
+
+1. Control (no caffeine / cold drink)
+2. Coffee (caffeine / hot drink)
+3. Red Bull (caffeine / cold drink)
+4. Mint Tea (no caffeine / hot drink)
+
+From this ordering, we can specify our weights - based on the hypothesis, lets assign positive values to the no caffeine and hot drink conditions:
+
+```{r}
+comp <- list("No Caffeine - Caffeine" = c(1/2, -1/2, -1/2, 1/2),
+             "Hot Drink - Cold Drink" = c(-1/2, 1/2, -1/2, 1/2)
+             )
+```
+
+Now lets run our contrast analysis and get confidence intervals:
+
+```{r}
+comp_res <- contrast(emm, method = comp)
+comp_res
+confint(comp_res)
+```
+
+The hypothesis test for the first contrast could be reported as follows:
+
+::: {.callout-important icon=false appearance="minimal"}
+We performed a test against $H_0: \frac{1}{2}(\mu_1 + \mu_4) - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that the mean WPM for those who were in the no caffeine condition was significantly different from those in a caffeine condition $t(36) = -6.17, p = < .001$ (two-sided). We are 95\% confident that those who consumed no caffeine typed, on average, between 2.7 and 5.3 words less per minute than those who consumed some form of caffeine $CI_{95}[-5.25, -2.65]$.
+
+:::
+
+The hypothesis test for the second contrast could be reported as follows:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We performed a test against $H_0: \frac{1}{2}(\mu_2 + \mu_4) - \frac{1}{2}(\mu_1 + \mu_3) = 0$. At the 5\% significance level, there was evidence that the average WPM for those in the hot drink condition significantly differed from those in the cold drink condition $t(36) = -2.52, p = .02$ (two-sided). We are 95\% confident that those who consumed a hot drink typed, on average, between 0.3 and 2.9 words less per minute than those who consumed a cold drink $CI_{95}[-2.91, -0.32]$.
+
+:::
+
+`r solend()`
+
+## Study Design
+
+For each of the below experiment descriptions, note (1) the design, (2) number of variables of interest, (3) levels of categorical variables, (4) what you think the reference group should be and why.
+
+`r qbegin(8)`
+
+A group of researchers were interested in whether sleep deprivation influenced reaction time. They hypothesised that sleep deprived individuals would have slower reaction times than non-sleep deprived individuals. 
+
+To test this, they recruited 60 participants who were matched on a number of demographic variables including age and sex. One member of each pair (e.g., female aged 18) was placed into a different sleep condition - 'Sleep Deprived' (4 hours per night) or 'Non-Sleep Deprived' (8 hours per night).
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+1. Design = Between-person: Matched pairs
+2. No of variables of interest = 2 - Sleep Condition and Reaction Time
+3. Levels of variables = Sleep Condition has 2 levels - Sleep Deprived and Non-Sleep Deprived; Reaction Time is a continuous measure, so has no associated levels
+4. Reference Groups = Sleep Condition - Non-Sleep Deprived because the RQ stated that the researchers were interested in how the sleep deprived group *differed from* the non-sleep deprived group. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+A group of researchers were interested in replicating an experiment testing the Stroop Effect. 
+
+They recruited 50 participants who took part in Task A (word colour and meaning are congruent) and Task B (word colour and meaning are incongruent) where they were asked to name the color of the ink instead of reading the word. The order of presentation was counterbalanced across participants. The researchers hypothesised that participants would take significantly more time ('response time' measured in seconds) to complete Task B than Task A.
+
+You can test yourself here for fun: [Stroop Task](https://www.psytoolkit.org/lessons/experiment_stroop.html)
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+1. Design = Within-person: repeated measures
+2. No of variables of interest = 2 - Task and Response Time 
+3. Levels of variables = Task has 2 levels - A and B; Response Time is a continuous measure, so has no associated levels
+4. Reference Groups = Task - A because the RQ stated that the researchers were interested in how response time in Task B *differed from* the response time in Task A. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+A group of researchers wanted to test a hypothesised theory according to which patients with amnesia will have a deficit in explicit memory but not implicit memory. Huntingtons patients, on the other hand, will display the opposite: they will have no deficit in explicit memory, but will have a deficit in implicit memory.
+
+To test this, researchers designed a study that included two variables: 'Diagnosis' (Amnesic, Huntingtons, Control) and 'Task' (Grammar, Classification, Recognition) where participants were randomly assigned to a Task condition. The first two tasks (Grammar and Classification) are known to reflect implicit memory processes, whereas the Recognition task is known to reflect explicit memory processes.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+1. Design = Between-person: 3×3 factorial design 
+2. No of variables of interest = 2 - Diagnosis and Task
+3. Levels of variables = Diagnosis has 3 levels - Amnesic, Huntingtons, and Control; Task has 3 levels - Grammar, Classification, and Recognition
+4. Reference Groups = Diagnosis - Control; Task - Recognition. We have chosen Control since the other two groups have some form of cognitive impairment; and the Recognition task since it measures explicit memory whilst the other two task types implicit. 
+
+`r solend()`

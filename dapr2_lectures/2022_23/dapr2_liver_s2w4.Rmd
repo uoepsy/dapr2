@@ -1,0 +1,100 @@
+---
+title: 'dapR2 Live : Semester 2 week 4'
+author: "dapR2 Team"
+date: "07/02/2022"
+output: html_document
+---
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(emmeans)
+library(kableExtra)
+library(psych)
+```
+
+# Data
+
+```{r}
+df <- sim.anova(es1 = 0.1, es2 = 0.2, es3 = -0.1, es23 = 0.3, 
+                n = 300, n1 = 0, n2 = 3, n3 = 2,
+                center = F)
+
+df <- df %>%
+  mutate(
+    cov = IV1,
+    training = factor(IV2, labels = c("control", "con1", "con2")),
+    incentive = factor(IV3, labels = c("Yes", "No"))
+  ) %>%
+  select(4,5:7)
+
+df
+```
+
+# Models
+
+```{r}
+m0 <- lm(DV ~ 1, data = df)
+m1 <- lm(DV ~ training, data = df)
+m2 <- lm(DV ~ incentive, data = df)
+m3 <- lm(DV ~ training*incentive, data = df)
+m4 <- lm(DV ~ cov + training*incentive, data = df)
+```
+
+
+# `anova()` vs `summary()`
+
+```{r}
+anova(m3)
+```
+
+```{r}
+summary(m3)
+```
+
+# emmeans
+```{r}
+m3_emm <- emmeans(m3, ~training*incentive)
+
+```
+
+# Using aggregate for means
+
+```{r}
+mean(df$DV) # grandmean
+aggregate(DV ~ training + incentive, df, mean) # cell means
+aggregate(DV ~ training, df, mean) # row marginals
+aggregate(DV ~ incentive, df, mean) # column marginals
+```
+
+# Producing a table 
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+??? Find a nice reproducible for the table above
+
+
+```{r}
+df %>% 
+  group_by(training, incentive) %>% 
+  summarise(Mean = mean(DV), SD = sd(DV)) %>% 
+  kable(digits = 2) %>% 
+  kable_styling(full_width = FALSE)
+```
+
+
+
+
+
+# Interaction plots
+
+```{r}
+
+```

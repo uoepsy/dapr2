@@ -1,0 +1,185 @@
+---
+title: "Example Reporting: MLR"
+author: "DAPR2 team"
+date: "25/11/2021"
+output:
+    bookdown::html_document2
+---
+
+```{r setup, include=FALSE}
+# echo = FALSE hides all code from the knitted report.
+# message = FALSE hides all code messages.
+# fig.align = 'center' aligns all figures to the centre of the page
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, fig.align = 'center') 
+```
+
+
+```{r include = FALSE}
+# include = FALSE hides all code and output from the knitted report.
+# In this big code chunk you can do all your analysis and experiment with your models, as well as create results and plots. This code chunk and all its output will not show in the knitted report as there is an include = FALSE option above.
+
+library(tidyverse) # for all things!
+library(psych) # good for descriptive stats
+library(kableExtra) # useful for creating nice tables
+library(car) # for assumption tests
+library(sjPlot) # for plotting models
+
+scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+
+# standardise scs score
+scs_study <- 
+  scs_study %>% 
+    mutate(
+      zscs = (scs-mean(scs))/sd(scs)
+    )
+#alternatively, you could do zscs = scale(scs, center = TRUE, scale = TRUE)
+
+# the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
+describe(scs_study) %>% 
+    kable(digits = 2)
+
+dass_mdl <- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study)
+par(mfrow=c(2,2))
+plot(dass_mdl)
+# 35 seems to be a very influential point, lets remove it and re-run the model
+
+
+dass_mdl2 <- lm(dass ~ 1 + zscs*zn + zo + zc + ze + za, data = scs_study[-35, ])
+
+# check assumptions for updated model
+par(mfrow=c(2,2))
+plot(dass_mdl2)
+par(mfrow=c(1,1))
+
+# N.B. we cannot use crPlots for interactions
+
+# Additional diagnostic plots for independence and homoscedasticity
+
+# checking for independence
+plot(resid(dass_mdl2))
+
+# alternative check for equal variances (Homoscedasticity) - 
+residualPlots(dass_mdl2)
+
+# multicollinearity
+vif(dass_mdl2)
+
+# model output
+summary(dass_mdl2)
+```
+
+
+
+
+
+# Analysis Strategy
+  
+Data was obtained from https://uoepsy.github.io/data/scs_study.csv: a dataset containing information on `r nrow(scs_study)` participants, including Z-scores on the 5 personality traits assessed by the Big-Five Aspects Scale (BFAS) (Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism). Participants were also assessed on the Social Comparison Scale (SCS), which is an 11-item scale measuring self-perception (relative to others) of social rank, attractiveness and belonging, and the Depression Anxiety and Stress Scale (DASS-21) - a 21 item measure with higher scores indicating higher severity of symptoms. For both of these measures, only total scores are available. Items in the SCS are measured on a 5-point scale, giving minimum and maximum possible scores of 11 and 55 respectively. Items in the DASS-21 are measured on a 4-point scale, meaning that scores can range from a possible 21 to 84. 
+  
+All participant data was complete (no missing values), with scores on the SCS and the DASS-21 all within possible ranges. 
+
+To investigate whether, when controlling for other personality traits, neuroticism moderates the effect of social comparison on symptoms of depression, anxiety and stress, total scores on the DASS-21 were modelled using multiple linear regression. The Z-scored measures on each of the big-five personality traits were included as predictors, along with scores on the SCS (Z-scored) and its interaction with the measure of Neuroticism. Effects will be considered statistically significant at $\alpha = 0.05$.  
+
+The following model specification will be used:
+
+$$
+\text{DASS-21} 
+= \beta_0 + \beta_1 \text{O} + \beta_2 \text{C} + \beta_3 \text{E} + \beta_4 \text{A} 
++ \beta_5 \text{N} + \beta_6 \text{SCS} + \beta_7 (\text{SCS} \cdot \text{N}) 
++ \epsilon
+$$
+
+where O = Openness (z-scored), C = Conscientiousness (z-scored), E = Extraversion (z-scored), A = Agreeableness (z-scored), N = Neuroticism (z-scored), SCS = Social Comparison Scale (z-scored).
+
+One observation (unit 35) was judged to be too influential on the model (Cook's Distance = `r round(cooks.distance(dass_mdl)[35], 2)`) and as such was excluded from the final analysis, leaving 655 observations.
+
+To address the research question of whether neuroticism moderates the effect of social comparison on depression and anxiety, we will test whether the interaction between SCS and Neuroticism is significant. Formally, this corresponds to testing whether the interaction coefficient is equal to zero:
+
+$$H_0: \beta_7 = 0$$
+$$H_1: \beta_7 \neq 0$$
+
+For the final model we will visually assess the following assumptions using diagnostic plots: linearity (via plot of residuals vs fitted values), independence (with the previous plot and a plot of residuals vs index), equal variances (via a scale-location plot), and normality (via a qqplot of the residuals). We will also check if there is any evidence of multicollinearity by checking the VIF values, where values > 5 will be considered to indicate moderate multicollinearity, and values > 10 severe.
+
+
+
+# Results
+
+Descriptive statistics are displayed in Table \@ref(tab:scsdasstab). Bivariate correlations show a moderate negative relationship between DASS-21 and SCS scores; a moderate positive relationship between DASS-21 and Neuroticism, and a weak positive correlation between SCS and Neuroticism. Additionally, a strong positive relationship is evident between Extraversion and Agreeableness (see Figure \@ref(fig:splom)). 
+
+```{r scsdasstab, echo = FALSE}
+scs_study %>% 
+    select(scs, dass) %>%
+    describe() %>%
+    select(n, mean, sd, min, max) %>%
+    round(2) %>%
+    kable(caption = "SCS and DASS-21 descriptive statistics") %>%
+    kable_styling(full_width = FALSE)
+```
+
+```{r splom, echo=FALSE, fig.cap="Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal), of personality trait measures and scores on the SCS and the DASS-21"}
+# scatterplot matrix of dataset without the zscs variable
+scs_study %>% 
+    select(-zscs) %>%
+    pairs.panels()
+```
+
+
+The model met assumptions of linearity and independence (see top left panel of Figure \@ref(fig:diagplots)), homoscedasticity (see bottom left panel of Figure \@ref(fig:diagplots)), and normality (see top right panel of Figure \@ref(fig:diagplots)) where QQplot shows very little deviation from the diagonal line.
+
+```{r diagplots, echo = FALSE, out.width="90%", fig.cap = "Diagnostics plots."}
+par(mfrow = c(2,2))
+plot(dass_mdl2)
+par(mfrow = c(1,1))
+```
+
+```{r echo=FALSE}
+# store useful results in variables
+fres <- summary(dass_mdl2)$fstatistic
+fres <- round(fres, 2)
+```
+
+Full regression results including 95\% Confidence Intervals are shown in Table \@ref(tab:tabmodel). The interaction between social comparison and neuroticism in predicting depression and anxiety is visually presented in Figure \@ref(fig:intplot). The F-test for model utility was significant (F(`r fres[2]`,`r fres[3]`) = `r fres[1]`, p<.001), and the model explained approximately `r round(summary(dass_mdl2)$adj.r.squared * 100, 1)`% of the variability in DASS-21 Scores. 
+
+
+```{r tabmodel, echo=FALSE}
+tab_model(dass_mdl2, show.se = TRUE,
+          dv.labels = c("DASS-21"),
+          pred.labels = c("zscs"="Social Comparison Scale", 
+                          "zn"="Neuroticism", 
+                          "zo"="Openness", 
+                          "zc"="Conscientiousness",
+                          "ze"="Extraversion",
+                          "za"="Agreeableness",
+                          "zscs:zn"="Social Comparison Scale : Neuroticism"),
+          title = "(\\#tab:tabmodel) Regression table for DASS-21 model. Outcome variable is raw total score on DASS-21, all predictors are Z-scored")
+```
+
+
+Results showed a significant conditional association between SCS scores (Z-scored) and DASS-21 Scores ($\beta$ = -1.94, SE = 0.23, p < .001), suggesting that for those at the mean level of neuroticism, scores on the DASS-21 decrease by 1.94 for every 1 standard deviation increase in SCS scores. 
+A significant conditional association was also evident between Neuroticism (Z-scored) and DASS-21 Scores ($\beta$ = 1.42, SE = 0.23,, p<.001), suggesting that for those who score the mean on the SCS, scores on the DASS-21 increase by 1.42 for every 1 standard deviation increase in neuroticism. 
+
+Crucially, the association between social comparison and symptoms of depression and anxiety was found to be dependent upon the level of neuroticism, with a greater negative association between the two for those with high levels of neuroticism ($\beta$ = -2.77, SE = 0.24, p<.001). This interaction is visually presented in Figure \@ref(fig:intplot).
+
+```{r intplot, echo=FALSE, out.width="90%", fig.cap="Predicted DASS-21 score across SCS scores, for +/-1 SD Neuroticism"}
+plot_model(dass_mdl2, type="pred", terms = c("zscs","zn [-1,1]")) +
+  labs(title="Neuroticism moderating the effect of\nsocial comparison on depression and anxiety", 
+       x = "Social Comparison Scale (Z-scored)",
+       y = "DASS-21")+
+  scale_color_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
+                     values = c("dodgerblue","tomato1")) + 
+  scale_fill_manual("Neuroticism (Z-scored)", labels = c("-1 SD", "+1 SD"),
+                     values = c("dodgerblue","tomato1"))
+```
+
+
+
+The results presented here indicate that the association between social comparison and depression and anxiety may depend upon individuals' levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.  
+
+
+
+# Discussion 
+
+Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We investigated if neuroticism moderated effects of social comparison on symptoms of depression, anxiety, and stress after controlling for other personality traits. 
+
+We reject the null hypothesis that the interaction between SCS and Neuroticism is equal to zero, as our results indicated that the association between social comparison and depression and anxiety may depend upon individuals' levels of neuroticism, with perceived social rank perhaps leading to more symptoms of depression and anxiety for highly neurotic individuals. However, it is important to note that we can make no claims on the directions of these associations from these data - it may be that social comparison leads to more depression and anxiety in neurotic individuals, but also consistent is the view that - for these individuals - higher levels of depression leads to a greater reduction in perceived social rank.
+

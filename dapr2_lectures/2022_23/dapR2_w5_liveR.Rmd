@@ -1,0 +1,126 @@
+---
+title: "dapR2 live R: Week 5"
+author: "Tom Booth"
+date: "18/10/2021"
+output: html_document
+---
+
+# Data
+Some data:
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+
+tb <- tibble(
+  ID = paste("ID", 101:200, sep=""),
+  dept = factor(c(rep("accounts", 30), 
+                  rep("manager", 20), 
+                  rep("store", 50))),
+  salary = round(c(rnorm(30, 50, 4), 
+                   rnorm(20, 75, 2), 
+                   rnorm(50, 25, 2)),2)
+)
+
+tb
+```
+
+# Descriptive stats
+
+```{r}
+des <- tb %>%
+  group_by(dept) %>%
+  summarise(
+    mean = round(mean(salary),2),
+    sd = round(sd(salary),2)
+  )
+
+des
+```
+
+# Plot
+
+```{r}
+tb %>%
+  ggplot(., aes(x= dept, y= salary)) +
+  geom_boxplot() +
+  labs(x = "\n Organisational Department", y= " Salary") +
+  geom_jitter(alpha=0.3, width=.2, col= "blue")
+```
+
+# How is R dealing with `dept`?
+
+$$y = b_0 + b_1d_{manager} + b_2d_{store}$$
+
+```{r}
+contrasts(tb$dept)
+```
+
+
+# Linear model
+
+```{r}
+m1 <- lm(salary ~ dept, data = tb)
+summary(m1)
+```
+
+Let's get our group means back....
+
+```{r}
+des
+```
+
+
+# Equations by group
+
+$$y = b_0 + b_1d_{manager} + b_2d_{store} + \epsilon$$
+
+From here we can insert the values for the coefficients
+
+$$y_{accounts} = b_0 + b_1*0 + b_2*0$$
+$$y_{accounts} = b_0$$
+
+Working with the group means:
+
+```{r}
+des
+```
+
+
+$$y_{manager} = b_0 + b_1*1 + b_2*0$$
+
+$$y_{manager} = b_0 + b_1*1$$
+
+Working with the group means:
+
+```{r}
+des
+```
+
+```{r}
+summary(m1)$coefficients
+```
+
+```{r}
+49.77667 + 24.81633
+```
+
+
+$$y_{store} = b_0 + b_1*0 + b_2*1$$
+
+$$y_{accounts} = b_0 + b_2*1$$
+
+Working with the group means:
+
+```{r}
+des
+```
+
+```{r}
+summary(m1)$coefficients
+```
+
+```{r}
+49.77667 - 24.75387
+```
+
+

@@ -1,0 +1,213 @@
+---
+title: "<b> Simple Effects </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(emmeans)
+
+hosp_tbl <- read_csv("./hospital.csv", col_types = "dff")
+
+```
+
+# Lecture Objective
+1. Distinguish between main effects, simple effects and interactions.
+2. Interpret and test simple effects
+
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
+
++ **Simple contrasts/effects**
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+  
++ **Interactions (categorical-categorical)**
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  + With effects coding, we can also think of this as a difference in simple effects.
+  
+
+---
+# Our model and coefficients
+
++ Remember our effects coded model:
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
++ Where the variables represent the following comparisons: 
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+---
+# Our model and coefficients
+
++ And our model in R:
+
+```{r}
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, 
+                          Hospital = contr.sum)) # you can code contrasts within lm
+```
+
+
+---
+# Table of means
+
++ Useful to keep in mind the group means:
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+
+---
+# Simple Effects
++ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A
+
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+```{r}
+m1_emm <- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 <- pairs(m1_emm, 
+                    simple = "Hospital")
+m1_simple1
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+```{r}
+m1_simple2 <- pairs(m1_emm, 
+                    simple = "Treatment")
+m1_simple2
+```
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m1, Treatment ~ Hospital)
+```
+
+]
+
+.pull-right[
+```{r}
+m1_simple1
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+```{r}
+m1_simple2
+```
+
+]
+
+.pull-right[
+```{r, echo=FALSE, out.width="90%"}
+emmip(m1, Hospital ~ Treatment)
+```
+
+]
+
+
+---
+class: center, middle
+# Thanks for listening
+

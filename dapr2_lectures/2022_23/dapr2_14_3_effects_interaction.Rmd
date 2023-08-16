@@ -1,0 +1,467 @@
+---
+title: "<b> Effects Interactions </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(emmeans)
+
+hosp_tbl <- read_csv("./hospital.csv", col_types = "dff")
+
+```
+
+# Week's Learning Objectives
+1. Interpretation of interactions with effects coded variables.
+2. Use contrasts to code specific interaction hypotheses
+
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
+
++ **Simple contrasts/effects**
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+  
++ **Interactions (categorical-categorical)**
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  + With effects coding, we can also think of this as a difference in simple effects.
+
+
+---
+# Understanding our tests with effects codes
++ As discussed previously, each $\beta$ in the effects code model is the difference between a marginal mean and the grand mean
+
+$$\mu_{maginal} - \mu_{..}$$
+
++ Lets look at this more closely.
+
++ Suppose we have the following data:
+
+```{r, echo = FALSE}
+dat2 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(12, 14, 20, 5)
+)
+
+eg2 <- matrix(c(12,14,13,20,5,12.5,16,9.5,12.75),ncol=3,byrow=TRUE)
+colnames(eg2) <- c("C","D", "Mean")
+rownames(eg2) <- c("A","B","Mean")
+eg2 <- as.table(eg2)
+
+kable(eg2) %>%
+  kable_styling(., full_width = FALSE)
+```
+
++ Lets visualize the tests of each condition
+
+---
+# Understanding our tests with effects codes
+.pull-left[
+```{r, echo=FALSE}
+kable(eg2) %>%
+  kable_styling(., full_width = FALSE)
+```
+
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+gm <- mean(dat2$score)
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1, y = 13, size = 2) +
+  annotate("point", x = 2, y = 12.5, size = 2) +
+  geom_hline(yintercept = 13, linetype = "dashed") +
+  geom_hline(yintercept = 12.5, linetype = "dashed") +
+  geom_hline(yintercept = gm, linetype = "dashed", color = "blue" ) +
+  ggtitle("No effect cond1")
+```
+
+]
+
+---
+# Understanding our tests with effects codes
+.pull-left[
+```{r, echo=FALSE}
+kable(eg2) %>%
+  kable_styling(., full_width = FALSE)
+```
+
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  annotate("point", x = 1.5, y = 16, size = 2) +
+  annotate("point", x = 1.5, y = 9.5, size = 2) +
+  geom_hline(yintercept = 16, linetype = "dashed") +
+  geom_hline(yintercept = 9.5, linetype = "dashed") +
+  geom_hline(yintercept = gm, linetype = "dashed", color = "blue" ) +
+  ggtitle("Effect cond2")
+```
+
+]
+
+
+---
+# Understanding our tests with effects codes
++ For the interaction it is a little more complicated.
+
++ However, fundamentally keep in mind a categorical interaction is saying is there a difference in a differences.
+  + In the case of effects coding, we are asking if a marginal mean differs from the grand mean.
+  + So we are thinking about whether the distance of the row or column marginals from the grand means differs depending on level of another condition.
+
+
+---
+# Understanding our tests with effects codes
+.pull-left[
+```{r, echo=FALSE}
+kable(eg2) %>%
+  kable_styling(., full_width = FALSE)
+```
+
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+dat2 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_hline(yintercept = gm, linetype = "dashed", color = "blue" ) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=12, yend=14), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=20, yend=5), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.85 , y = 14, label = "-2") +
+  annotate("text", x = 2.15 , y = 11.5, label = "15") +
+  ggtitle("Interaction")
+```
+
+]
+
+
+---
+# Understanding our tests with effects codes
+.pull-left[
+```{r, echo=FALSE}
+dat5 <- tibble(
+  cond1 = c("A", "A", "B", "B"),
+  cond2 = c("C", "D", "C", "D"),
+  score = c(20, 19, 10, 9)
+)
+
+eg5 <- matrix(c(20,19,19.5,10,9,9.5,15,14,14.5),ncol=3,byrow=TRUE)
+colnames(eg5) <- c("C","D", "Mean")
+rownames(eg5) <- c("A","B","Mean")
+eg5 <- as.table(eg5)
+
+kable(eg5) %>%
+  kable_styling(., full_width = F)
+```
+
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+dat5 %>%
+  ggplot(., aes(x = cond1, y = score, group = cond2, colour = cond2, shape = cond2)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,30)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=19, yend=20), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=9, yend=10), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 19.5, label = "1") +
+  annotate("text", x = 2.2 , y = 9.5, label = "1") +
+  ggtitle("No Interaction")
+```
+
+]
+
+
+---
+# Our model and coefficients
+
++ Remember our effects coded model:
+
+$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$
++ Where the variables represent the following comparisons: 
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  E1 = c(1,1,0,0,-1,-1),
+  E2 = c(0,0,1,1,-1,-1),
+  E3 = c(1,-1,1,-1,1,-1),
+  E13 = c(1,-1,0,0,-1,1),
+  E23 = c(0,0,1,-1,-1,1)
+)
+```
+
+
+---
+# Our model and coefficients
+
++ And our model in R:
+
+```{r}
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, 
+                          Hospital = contr.sum)) # you can code contrasts within lm
+```
+
+
+---
+# Table of means
+
++ Useful to keep in mind the group means:
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+
+
+---
+# Our results
+```{r, echo=FALSE}
+m1sum <- summary(m1)
+summary(m1)
+```
+
+---
+# Visualizing the interaction
+
+.pull-left[
+```{r, echo=FALSE, warning=FALSE}
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
+```
+]
+
+.pull-right[
+```{r, eval=FALSE, warning=FALSE}
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
+```
+]
+
+
+---
+# Interpretation with effects coding
+.pull-left[
+```{r, echo=FALSE}
+round(m1sum$coefficients,2)[,1:2]
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+]
+
++ $b_0$ (`Intercept`) = Grand mean.
++ $b_1$ (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
++ $b_2$ (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
++ $b_3$ (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
+
+
+---
+# Interpretation with effects coding
+.pull-left[
+```{r, echo=FALSE}
+round(m1sum$coefficients,2)[,1:2]
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, ~V4,
+  "TreatA", "10.80",  "7.85", "9.33",
+  "TreatB", "9.43",  "13.11", "11.27",
+  "TreatC", "10.10",  "7.98", "9.04", 
+  "Marginal","10.11", "9.65", "9.88"
+  ), col.names = c("", "Hosp1",  "Hosp2", "Marginal"))
+```
+]
+
++ $b_4$ (`Treatment1:Hospital1`) = Does the effect of Treatment A differ across Hospital 1 and Hospital 2
++ $b_5$ (`Treatment2:Hospital1`) = Does the effect of Treatment B differ across Hospital 1 and Hospital 2
+
+$$(\mu_{11} - \mu_{..}) - (\mu_{1.} - \mu_{..}) - (\mu_{.1} - \mu_{..})$$
+
+
+---
+# Overall effect of interaction
++ We looked at how to assess this when discussing model comparisons. 
+
++ We can compare nested models based on the $F$-test
+
+```{r}
+m0 <- lm(SWB ~ Treatment + Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, Hospital = contr.sum))
+m1 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, Hospital = contr.sum))
+anova(m0, m1)
+```
+
+---
+# Overall effect of interaction
++ or use `anova()` on the single model.
+
+```{r}
+anova(m1)
+```
+
+
+
+
+---
+class: center, middle
+# Brief pause
+
+---
+# Interacting manual contrasts
++ Last week we spoke about creating manual contrasts. 
+
++ We can create an interaction based on these contrasts.
+
++ Suppose we wanted to test whether there is a difference between TreatmentA vs TreatmentB and TreatmentC across hospitals.
+
++ Steps:
+  + Define the contrasts for each factor
+  + Calculate the product (remember all interactions are products)
+  + Create the contrast code
+  + Run the contrast
+  
+---
+# Interacting manual contrasts in R
+
++ Step 1: Individual contrasts
+
+```{r}
+treat_con <- c("TreatA" = 1, "TreatB" = -1/2, "TreatC" = -1/2)
+hosp_con <- c("Hops1" = 1, "Hosp2" = -1)
+```
+
++ Step 2: Product
+
+```{r}
+contr_prod <- outer(treat_con, hosp_con)
+contr_prod
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 3: Create the contrast
+
+```{r}
+m1_emm <- emmeans(m1, ~Treatment*Hospital)
+m1_emm
+```
+
+
+```{r}
+int_comp <- list("TreatA vs B and C across hospital" = 
+                   c(1, -1/2, -1/2, -1, 1/2, 1/2))
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 4: Run
+
+```{r}
+int_comp_test <- contrast(m1_emm, int_comp)
+int_comp_test
+```
+
+
+---
+class: center, middle
+# Thanks for listening!

@@ -1,0 +1,130 @@
+---
+title: "dapR2 Week 7 Live R"
+output: html_document
+---
+
+Open up the data from lab:
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(sjPlot)
+
+
+w7 <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+slice(w7, 1:10)
+```
+
+Covert location to be a factor:
+
+```{r}
+w7 <- w7 %>%
+  mutate(
+    location = factor(location)
+  )
+slice(w7, 1:10)
+str(w7)
+```
+
+Remember this has 3 levels, and in lab you dropped this down to 2-levels:
+
+```{r}
+w7 %>% 
+    count(location)
+```
+
+Average wellbeing across groups:
+
+```{r}
+w7 %>%
+  group_by(location) %>%
+  summarise(
+    mean = mean(wellbeing)
+  )
+```
+
+Look at the `wellbeing` predicted by `outdoor_time` relationship:
+
+```{r}
+w7 %>%
+  ggplot(., aes(x=outdoor_time, y=wellbeing)) +
+  geom_point() +
+  geom_smooth(method="lm")+
+  facet_wrap(~location)
+```
+
+Look at the `wellbeing` predicted by `outdoor_time` relationship:
+
+```{r}
+w7 %>%
+  ggplot(., aes(x=outdoor_time, y=wellbeing, colour = location)) +
+  geom_point(alpha = 0.2)+
+  geom_smooth(method="lm")
+```
+
+Have a look at the dummy codes:
+
+```{r}
+contrasts(w7$location)
+```
+
+Fit the model:
+
+```{r}
+m1 <- lm(wellbeing ~ outdoor_time*location, w7)
+m1a <- lm (wellbeing ~ outdoor_time + location + outdoor_time:location, data = w7)
+summary(m1)
+```
+
+Look at the interaction plots:
+
+```{r}
+plot_model(m1,type="int")
+```
+
+Changing the reference level:
+
+```{r}
+w7 <- w7 %>%
+  mutate(
+    location = relevel(location, ref = "rural")
+  )
+```
+
+```{r}
+contrasts(w7$location)
+```
+
+
+```{r}
+m1b <- lm(wellbeing ~ outdoor_time*location, w7)
+summary(m1b)
+```
+
+```{r}
+plot_model(m1,type="int")
+```
+
+Mean centering:
+
+```{r}
+w7 <- w7 %>%
+  mutate(
+    m_outdoor = scale(outdoor_time, center = T, scale = F)[,1]
+  )
+```
+
+New model
+
+```{r}
+m2 <- lm(wellbeing ~ m_outdoor*location, w7)
+summary(m2)
+```
+
+```{r}
+plot_model(m2, type = "int")
+```
+
+
+
+
+

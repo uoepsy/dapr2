@@ -1,0 +1,71 @@
+---
+title: "dapR2 Week 7 Live R"
+output: html_document
+---
+
+Simulate some data based on the test score example. We are going to interact `hours` of study (continuous), with the `method` of study (3 level category variable):
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(simglm)
+library(sjPlot)
+library(interactions)
+
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method + hours:method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0, 1.4, 1.5, 6, 6, 2, 2, 1)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+data3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+```
+
+
+Run the model:
+
+```{r}
+m1 <- lm(score ~ hours + method + hours*method, data = data3)
+summary(m1)
+```
+
+Plot it:
+
+```{r}
+interact_plot(m1, 
+              pred = hours,
+              modx = method)
+```
+
+Look at the simple slopes:
+
+```{r}
+m1_int <- sim_slopes(m1, 
+              pred = hours,
+              modx = method)
+```
+
