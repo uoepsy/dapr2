@@ -15,10 +15,19 @@ output:
       countIncrementalSlides: false
 ---
 
-
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE, message=FALSE}
 options(htmltools.dir.version = FALSE)
+library(tidyverse)
+library(kableExtra)
+library(simglm)
+
+knitr::opts_chunk$set(out.width = '80%')
+
+theme_set(theme_gray(base_size = 15))
+
+baseColour <- "#BF1932"
 ```
+
 
 ```{r xaringan-themer, include = FALSE}
 library(xaringanthemer)
@@ -36,26 +45,19 @@ style_mono_accent(
 )
 ```
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-library(tidyverse)
-library(patchwork)
-library(kableExtra)
-library(MASS)
-library(simglm)
-
-knitr::opts_chunk$set(fig.retina = 1.5,
-                      out.width = '90%')
-
-theme_set(theme_gray(base_size = 15))
-```
-
 
 # Week's Learning Objectives
-1. Understand the key principles of least squares. 
+1. Be able to interpret the coefficients from a simple linear model.
 
-2. Be able to interpret the coefficients from a simple linear model.
+2. Understand how these interpretations change when we add more predictors.
 
-3. Understand how these interpretations change when we add more predictors
+3. Understand how and why we standardize coefficients and how this impacts interpretation
+
+
+---
+class: inverse, center, middle
+
+# Part 1: Recap & Coefficient Interpretation
 
 ---
 # Linear Model
@@ -70,122 +72,21 @@ $$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
   + $\beta_1$ is the model slope
   + $\epsilon_i$ is the residual error (difference between the model predicted and the observed value of $y$)
 
-+ Where we are going to pick up, is how we calculate $\beta_0$ and $\beta_1$
-
----
-# Principle of least squares
-
-+ The values $\beta_0$ and $\beta_1$ are typically **unknown** and need to be estimated from our data. 
-
-+ We denote the "best" estimated values as $\hat \beta_0$ and $\hat \beta_1$
-
-+ We find the best values for $\hat \beta_0$ and $\hat \beta_1$ (and thus our best line) using **least squares**
-    
-+ Least squares;
-  + Minimizes the distances between the actual values of $y$ and the model-predicted values of $\hat y$
-  + That is, it minimizes the residuals for each data point (the line is "close")
-
----
-# Principle of least squares
-
-+ Formally, least squares minimizes the **residual sum of squares**
-
-+ Essentially:
-  + Fit a line.
-  + Calculate the residuals
-  + Square them
-  + Sum up the squares
-  
-+ **Why do you think we square the deviations? **
-
-
----
-# Residual Sum of Squares
-
-$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
-+ Data = $y_i$
-    + This is what we have measured in our study. 
-    + For us, the test scores.
-
-+ Predicted value = $\hat{y}_i = \hat \beta_0 + \hat \beta_1 x_i$ 
-    + Or, the value of the outcome our model predicts given someone's values for predictors.
-    + In our example, given you study for 4 hours, what test score does our model predict you will get.
-
-+ Residual = Difference between $y_i$ and $\hat{y}_i$.
-
-
-
----
-# Key Point
-
-+ It is worth a brief pause as this is a very important point.
-
-> The values of the intercept and slope that minimize the sum of square residual are our estimated coefficients from our data.
-
---
-
-> Minimizing the $SS_{residual}$ means that across all our data, the predicted values from our model are as close as they can be to the actual measured values of the outcome.
-
-
----
-# Calculating the slope
-
-+ Calculations for slope:
-
-$$\hat \beta_1 = \frac{SP_{xy}}{SS_x}$$
-
-
-+ $SP_{xy}$ = sum of cross-products:
-
-
-$$SP_{xy} = \sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})$$
-
-
-+ $SS_x$ = sums of squared deviations of $x$:
-
-
-$$SS_x = \sum_{i=1}^{n}(x_i - \bar{x})^2$$
-
-
----
-# Calculating the intercept
-
-+ Calculations for intercept:
-
-$$\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x}$$
-
-+ $\hat \beta_1$ = slope estimate
-
-+ $\bar{y}$ = mean of $y$
-
-+ $\bar{x}$ = mean of $x$
-
-
----
-class: center, middle
-# Time for a little R and to look at an example hand calculation.
-
++ We spoke about calculating by hand, and also the key concept of **residuals**
 
 ---
 # `lm` in R
-+ We do not generally calculate our linear models by hand. So lets look at how we do this in R.
-
-+ In R, we use the `lm()` function.
++ We also introduced the basic structure of the `lm()` function.
 
 ```{r, eval=FALSE}
 lm(DV ~ IV, data = )
 ```
 
-+ The first bit of code is the model formula:
-  + The outcome or DV appears on the left of ~
-  + The predictor(s) or IV appear on the right of ~
-
-+ We then give R the name of the data set
-  + This set must contain variables (columns) with the same names as you have specified in the model formula.
++ And we had run our first model....
 
 ---
 # `lm` in R
-```{r}
+```{r, echo=FALSE}
 test <- tibble(
   student = paste(rep("ID",10),1:10, sep=""),
   hours = seq(0.5,5,.5),
@@ -194,8 +95,10 @@ test <- tibble(
 ```
 
 ```{r}
-lm(score ~ hours, data = test)
+summary(lm(score ~ hours, data = test))
 ```
+
+- Today we are going to focus on the interpretation of our model, and how we extend it to include more predictors. 
 
 ---
 # Interpretation
@@ -222,7 +125,6 @@ lm(score ~ hours, data = test)
 
 + So, a student who does no study would be expected to score 0.40 on the test.
 
-
 ---
 # Note of caution on intercepts
 + In our example, 0 has a meaning.
@@ -241,89 +143,75 @@ lm(score ~ hours, data = test)
 
 
 ---
-class: center, middle
-# Congratulations, we have just run our first linear model. Questions...
-
----
-# A little more to say on residuals
-
-$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
-
-+ Recall last lecture we said that $\epsilon_i \sim N(0, \sigma)$ independently.
-
-+ This means $\epsilon_i$ ...
-  + are distributed ( $\sim$ )
-    + a normal distribution ( $N$ )
-      + with a mean of 0 ( $N(0,$ )
-        + and a standard deviation of $\sigma$
-  
-+ $\sigma$ = standard deviation (spread) of the errors
-  + $\sigma$, is constant, meaning that at any point along the x-axis, the spread of the residuals should be the same.
-  
----
-# Visualizing $sigma$
-
-```{r echo = FALSE, message = FALSE, warning = FALSE}
-
-n = 300
-df1 <- tibble(
-  x = runif(n, 1, 6),
-  y = 3 + 2 * x + rnorm(n, 0, 0.4)
-)
-
-p1 <- ggplot(df1, aes(x, y)) +
-  geom_point() +
-  geom_smooth(method = lm, se = FALSE) +
-  ylim(4, 20)
-
-
-n = 300
-df2 <- tibble(
-  x = runif(n, 1, 6),
-  y = 3 + 2 * x + rnorm(n, 0, 2.5)
-)
-
-p2 <- ggplot(df2, aes(x, y)) +
-  geom_point() +
-  geom_smooth(method = lm, se = FALSE) +
-  ylim(4, 20)
-```
+# Scale of measurement
 
 .pull-left[
-<center>**Small $\sigma$**</center>
-```{r echo = FALSE, message = FALSE, warning = FALSE, out.width = '90%', fig.align='center'}
-p1
-```
++ Let's have some practice....
+
+  + $X$ = unit is 1 year
+  + $Y$ = unit is £1000
+  + $b_1$ = 0.4
+
 ]
+
 
 .pull-right[
-<center>**Large $\sigma$**</center>
-```{r echo = FALSE, message = FALSE, warning = FALSE, out.width = '90%', fig.align='center'}
-p2
-```
+
++ $b_0$ = **Intercept is the expected value of Y when X is 0.**
+
++ $b_1$ = **Slope is the number of units by which Y increases, on average, for a unit increase in X.**
+
 ]
 
-???
-+ The less scatter around the line, 
-  + the smaller the standard deviation of the errors
-  + the stronger the relationship between $y$ and $x$. 
 
 ---
-# What is $\sigma$?
+# Scale of measurement
 
-+ We estimate $\sigma$ using the residuals from our model
+.pull-left[
++ Let's have some practice....
 
-+ The estimated standard deviation of the errors is:
-$$\hat \sigma = \sqrt{\frac{SS_{Residual}}{n - k - 1}} = \sqrt{\frac{\sum_{i=1}^n(y_i - \hat y_i)^2}{n - k - 1}}$$
+  + $X$ = unit is 1kg
+  + $Y$ = unit is 1cm
+  + $b_1$ = 3.2
 
-+ In simple linear regression we only have one $x$, so $k = 1$ and the denominator becomes $n - 2$.
+]
 
-+ $\sigma$ and its properties will turn up a few times in this course.
+
+.pull-right[
+
++ $b_0$ = **Intercept is the expected value of Y when X is 0.**
+
++ $b_1$ = **Slope is the number of units by which Y increases, on average, for a unit increase in X.**
+
+]
 
 
 ---
-class: center, middle
-# What happens if we have more than one predictor?
+# Scale of measurement
+
+.pull-left[
++ Let's have some practice....
+
+  + $X$ = unit is 1 increment on a likert scale ranging from 1 to 5 measuring conscientiousness
+  + $Y$ = unit is 1 increment on a healthy eating scale
+  + $b_1$ = 0.25
+
+]
+
+
+.pull-right[
+
++ $b_0$ = **Intercept is the expected value of Y when X is 0.**
+
++ $b_1$ = **Slope is the number of units by which Y increases, on average, for a unit increase in X.**
+
+]
+
+
+---
+class: inverse, center, middle
+
+# Part 2: Adding more predictors to our model
 
 ---
 #  Multiple predictors (multiple regression)
@@ -389,7 +277,7 @@ $$y_i = \beta_0 + \beta_1 x_{1i} + \beta_2 x_{2i} + \beta_j x_{ji} + \epsilon_i$
 .pull-left[
 
 ```{r, warning=FALSE, echo=FALSE, message=FALSE}
-df <- read_csv("./salary2.csv")
+df <- read_csv("data/salary2.csv")
 m1 <- lm(salary ~ perf, data = df)
 m2 <- lm(salary ~ perf + serv, data = df)
 
@@ -406,7 +294,7 @@ ggplot(df, aes(x=perf, y=salary)) +
 .pull-right[
 
 ```{r, echo=FALSE}
-knitr::include_graphics("./lm_surface.png")
+knitr::include_graphics("figs/lm_surface.png")
 ```
 
 ]
@@ -522,6 +410,161 @@ res$coefficients
 
 
 
+
+
+
+
+---
+class: inverse, center, middle
+
+# Part 3: Standardization
+
+---
+# Unstandardized vs standardized coefficients
+- So far we have calculated unstandardized $\hat \beta_1$.
+  + This means we use the units of the variables we measured.
+
++ We interpreted the slope as the change in $y$ units for a unit change in $x$
+  + Where the unit is determined by how we have measured our variables.
+
++ However, sometimes these units do not make the most sense
+  + when this is the case, we may want to do something to help interpretation.
+  + This is typically called **standardization**
+
+
+---
+# Standardized units
++ Why might standard units be useful?
+
+--
+
++ **If the scales of our variables are arbitrary.**
+  + Example: A sum score of questionnaire items answered on a Likert scale.
+  + A unit here would equal moving from a 2 to 3 on one item.
+  + This is not especially meaningful (and actually has A LOT of associated assumptions)
+
+--
+
++ **If we want to compare the effects of variables on different scales**
+  + If we want to say something like, the effect of $x_1$ is stronger than the effect of $x_2$, we need a common scale.
+
+
+---
+# Standardizing the coefficients
++ After calculating a $\hat \beta_1$, it can be standardized by:
+
+
+$$\hat{\beta_1^*} = \hat \beta_1 \frac{s_x}{s_y}$$
+
++ where;
+  + $\hat{\beta_1^*}$ = standardized beta coefficient
+  + $\hat \beta_1$ = unstandardized beta coefficient
+  + $s_x$ = standard deviation of $x$
+  + $s_y$ = standard deviation of $y$
+
+
+---
+# Standardizing the variables
+
++ Alternatively, for continuous variables, transforming both the IV and DV to $z$-scores (mean=0, SD=1) prior to fitting the model yields standardised betas.
+
++ $z$-score for $x$:
+
+$$z_{x_i} = \frac{x_i - \bar{x}}{s_x}$$
+
++ and the $z$-score for $y$:
+
+$$z_{y_i} = \frac{y_i - \bar{y}}{s_y}$$
+
++ That is, we divide the individual deviations from the mean by the standard deviation
+  
+---
+# Two approaches in action
+
+
+```{r}
+summary(performance)$coefficients
+```
+
+```{r}
+round(1.3756983 * (sd(test_study2$hours)/sd(test_study2$score)),3) #<<
+```
+
+---
+# Two approaches in action
+
+
+```{r}
+test_study2 <- test_study2 %>%
+  mutate(
+    z_score = scale(score, center = T, scale = T),
+    z_hours = scale(hours, center = T, scale = T),
+    z_motivation = scale(motivation, center = T, scale = T)
+  )
+
+performance_z <- lm(z_score ~ z_hours + z_motivation, data = test_study2) #<<
+round(summary(performance_z)$coefficients,3)
+```
+
+
+---
+#  Interpreting standardized regression coefficients  
++ $R^2$ , $F$ and $t$-test remain the same for the standardized coefficients as for unstandardised coefficients.
+
++ $b_0$ (intercept) = zero when all variables are standardized:
+$$
+\bar{y} - \hat \beta_1 \bar{x} = 0 - \hat \beta_1  0 = 0
+$$
+
++ The interpretation of the coefficients becomes the increase in $y$ in standard deviation units for every standard deviation increase in $x$
+
++ So, in our example:
+
+>**For every standard deviation increase in hours of study, test score increases by 0.82 standard deviations**
+
+
+---
+# Which should we use? 
++ Unstandardized regression coefficients are often more useful when the variables are on  meaningful scales
+	+ E.g. X additional hours of exercise per week adds Y years of healthy life
+
++ Sometimes it's useful to obtain standardized regression coefficients
+	+ When the scales of variables are arbitrary
+	+ When there is a desire to compare the effects of variables measured on different scales	
+
++ Cautions
+	+ Just because you can put regression coefficients on a common metric doesn't mean they can be meaningfully compared.
+	+ The SD is a poor measure of spread for skewed distributions, therefore, be cautious of their use with skewed variables
+
+
+---
+# Relationship to correlation ( $r$ )
++ Standardized slope ( $\hat \beta_1^*$ ) = correlation coefficient ( $r$ ) for a linear model with a single continuous predictor.
+
++ For example:
+
+```{r}
+round(lm(z_score ~ z_hours, data = test_study2)$coefficients, 2)
+```
+
+
+```{r}
+round(cor(test_study2$hours, test_study2$score),2)
+```
+
+---
+# Relationship to correlation ( $r$ )
+
++ They are the same:
+  + $r$ is a standardized measure of linear association
+  + $\hat \beta_1^*$ is a standardized measure of the linear slope.
+
++ Something similar is true for linear models with multiple predictors.
+  + Slopes are equivalent to the *part correlation coefficient*
+  
+
+
+
 ---
 # Summary
 + Key take homes
@@ -542,10 +585,10 @@ res$coefficients
   + We will look again at significance testing.
   + And also discuss sampling variability.
 
-+ If you want a refresh, go back and review sampling and hypothesis testing material from dapR1 !(here)[https://uoepsy.github.io/dapr1/2122/index.html]
++ If you want a refresh, go back and review sampling and hypothesis testing material from dapR1
 
 
 ---
 class: center, middle
 # Thanks for listening!
-      
+
