@@ -1,0 +1,711 @@
+---
+title: "Effects Coding"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(3)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand how to specify sum-to-zero coding
+2. Interpret the output from a model using sum-to-zero coding
+3. Understand how to specify contracts to test specific effects
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from 
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych** 
+* **kableExtra**
+* **emmeans**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf). If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/RestaurantSpending.csv) or read it in via this link https://uoepsy.github.io/data/RestaurantSpending.csv
+
+:::
+
+# Study Overview
+
+> **Research Question** 
+>
+> Does the type of background music playing in a restaurant influence the amount of money that diners spend on their meal?
+
+A group of researchers wanted to test the claims reported in [@North2003] on whether the type of background music playing in a restaurant influences the average amount of money spent by diners on their meal.
+
+The group researchers got in touch with a restaurant and asked to alternate silence, popular music, and classical music on successive nights over 18 days. On those nights they recorded the mean spend per head for each table.
+
+`r optbegin("Restaurant Spending Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Data Dictionary__
+
+The data in `RestaurantSpending.csv` contained three attributes collected from $n=360$ participants:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+rest_spend <- read_csv("https://uoepsy.github.io/data/RestaurantSpending.csv")
+tibble(
+variable = names(rest_spend),
+description = c("identifier for each diner", "which one of three types of music was played (classical, pop, or none)", "restaurant spending per person (in pounds - £)")
+) %>% gt::gt()
+```
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/RestaurantSpending.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)` 
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the Restaurant Spending dataset into R, assigning it to an object named `rest_spend` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(emmeans)
+
+#Reading in data and storing in object named 'rest_spend'
+rest_spend <- read_csv('https://uoepsy.github.io/data/RestaurantSpending.csv')
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+## Study & Analysis Plan Overview 
+
+`r qbegin(1)`
+
+Examine the dataset, and perform any necessary and appropriate data management steps.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+- Convert categorical variables to factors
+- Label appropriately factors to aid with your model interpretations if required
+- If needed, provide better variable names
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's have a look at the data to see what we're working with:
+```{r}
+#first look at dataset structure
+str(rest_spend)
+
+#now lets look at top 6 rows (or the head) of the dataset
+head(rest_spend)
+
+#check for NAs - there are none - all FALSE
+table(is.na(rest_spend))
+```
+
+Let's start with the music 'type' variable. This should be coded as factor (`<fctr>`), but can see from above it is currently coded as a character (`<chr>`). Let's fix this, and rename 'type' to 'music' and remove the word 'music' form the labels of the levels of the factor to avoid repetition whilst we're at it:
+
+```{r}
+rest_spend <- rest_spend %>%
+    mutate(
+        type = factor(type, 
+                           levels = c("No Music", "Pop Music", "Classical Music"),
+                           labels = c("None", "Pop", "Classical"))) %>%
+        rename(music = type)
+```
+
+Next, let's look at the 'amount' variable. Here we want to check for impossible values - i.e., cannot have a negative £ per head.
+
+```{r}
+# all looks ok - min and max both positive values
+describe(rest_spend$amount)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+All participant data was complete (no missing values), with restaurant spending per person within possible ranges. Music type was coded as a factor with three levels (none, pop, and classical).
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+- Give the reader some background on the context of the study
+- State what type of analysis you will conduct in order to address the research question
+- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variable)
+- Specify your chosen significance ($\alpha$) level
+- State your hypotheses
+
+Much of the information required can be found in the [Study Overview] codebook.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The `caffeine` dataset contained information on 40 hypothetical participants who took part in an experiment examining whether the number of words typed per minute (WPM) differed among caffeine treatment conditions. Using a between-subjects design, the researchers collected information on participants' WPM (average number of words typed per minute), and which one of four treatment conditions they were randomly assigned to (control (water), coffee, mint_tea, or red_bull).
+
+Boxplots will be used to visualise the associations among WPM and caffeine treatment conditions. To address the research question of whether WPM differs by caffeine treatment condition, we first need to define the dummy variables for Treatment:
+
+Specify our model:
+
+$$
+\text{Restaurant Spending} = \beta_0 + \beta_1 \cdot \text{EffectLevel1} + \beta_2 \cdot \text{EffectLevel2} + \epsilon
+$$
+
+In words:
+
+$$
+\text{EffectLevel1} = \begin{cases}
+1  & \text{if observation is from category 1} \\
+0  & \text{if observation is from category 2} \\
+-1 & \text{otherwise}
+\end{cases}
+$$
+
+$$
+\text{EffectLevel2} = \begin{cases}
+0  & \text{if observation is from category 1} \\
+1  & \text{if observation is from category 2} \\
+-1 & \text{otherwise}
+\end{cases}
+$$
+
+Schematically:
+
+$$
+\begin{matrix}
+\textbf{Level}           & \textbf{EffectLevel1} & \textbf{EffectLevel2} \\
+\hline
+\text{None}              & 1   & 0    \\
+\text{Pop}               & 0   & 1    \\
+\text{Classical}         & -1  & -1
+\end{matrix}
+$$
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Descriptive Statistics & Visualisations
+
+:::
+
+`r qbegin(3)`
+
+Provide a table of descriptive statistics and visualise your data.
+
+Remember to interpret your plot in the context of the study (i.e., comment on any observed differences among treatment groups). 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.
+2. Recall that when visualising categorical variables, `geom_boxplot()` may be most appropriate to use.
+3. Make sure to comment on any observed differences among the sample means of the four treatment conditions.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Numeric
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-music-descript
+#| tbl-cap: Descriptive Statistics
+music_desc <- rest_spend %>% 
+            group_by(music) %>%
+            summarise(n = n(),
+                      Mean = mean(amount),
+                      SD = sd(amount),
+                      Min = min(amount),
+                      Max = max(amount)) %>% 
+            kable(caption = "Descriptive Statistics", digits = 2) %>%
+            kable_styling()
+
+music_desc
+```
+
+## Visual 
+
+```{r}
+#| label: fig-music-desc
+#| fig-cap: "Associations among Spending and Music Type"
+p1 <- ggplot(data = rest_spend, aes(x = music, y = amount, fill = music)) +
+  geom_boxplot() +
+  labs(x = 'Background music type', y = 'Restaurant spending (in GBP)')
+
+p1 
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ There are three types of music groups ($g = 3$), where there is one group for each music type: “Classical,” “None,” “Pop". Each group has 120 observations. 
++ It seems that customers without background music or pop music had a similar average restaurant spending
++ The average restaurant spending seems to be higher for those who had a classical music background compared to the customers either without music or with a pop music background.
+
+:::
+
+`r solend()`
+
+`r qbegin(4)`
+
+Set the sum to zero constraint for the factor of background music.
+
+Fit again the linear model, and assign the model the name 'mdl_stz'.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+We can switch between side-constraints using the following code:
+
+```{r, eval = FALSE}
+#use dummy coding
+contrasts(rest_spend$music) <- "contr.treatment"
+
+#use sum-to-zero coding
+contrasts(rest_spend$music) <- "contr.sum"
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+contrasts(rest_spend$music) <- "contr.sum"
+
+#check coding matches our table above:
+contrasts(rest_spend$music)
+```
+
+```{r}
+#fit model
+mdl_stz <- lm(amount ~ music, data = rest_spend)
+
+#check summary
+summary(mdl_stz)
+```
+
+`r solend()`
+
+<br> 
+
+`r qbegin(5)`
+
+Interpret your coefficients in the context of the study.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall that under this constraint the interpretation of the coefficients becomes:
+
+- $\beta_0$ represents the grand mean
+- $\beta_i$ the effect due to group $i$ --- that is, the mean response in group $i$ minus the grand mean
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's first map our coefficients and estimates:
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  22.7382 | $\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$
+| music1        | -0.5968  | $\beta_1 = \mu_1 - \mu$ |
+| music2        | -0.8392  | $\beta_2 = \mu_2 - \mu$ |
+
+::: {.callout-important icon=false appearance="minimal"}
+
+::: {.panel-tabset}
+
+## `summary()`
+
+The estimate corresponding to `(Intercept)` contains $\beta_0 = \mu = 22.7382$. This value represents the grand mean of the data. The estimated average spending for customers across background music conditions is approximately £22.74.
+
+The next estimate corresponds to `music1` and is $\hat \beta_1 = -0.5968$. The difference in mean spending between `None` and the grand mean is estimated to be $-0.5968$. In other words, people with no music playing in the background seem to spend approximately £0.60 less than average. 
+
+The estimate corresponding to `music2` is $\hat \beta_2 = -0.8392$. The difference in mean spending between `Pop` and the grand mean is estimated to be $-0.8392$. In other words, customers with Pop music playing in the background seem to spend approximately £0.84 less than average.
+
+The estimate for `music3`, representing the difference of “Classical” to the grand mean is *not shown* by `summary()`. Because of the side-constraint, we know it must be $\beta_3 = -(\beta_1 + \beta_2)$. The difference in mean spending between `Classical` and the grand mean is estimated to be $-(-0.5968 + -0.8392) = 1.436$. In other words, customers with Classical music playing in the background seem to spend approximately £1.44 more than average.
+
+## `anova()`
+
+:::
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+
+Obtain the estimated (or predicted) group means for the “None,” “Pop,” and “Classical” background music conditions by using the `predict()` function.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Step 1: Define a data frame with a column having the same name as the factor in the fitted model (i.e., music). Then, specify all the groups (= levels) for which you would like the predicted mean.
+
+Step 2: Pass the data frame to the predict function using the `newdata = ` argument. The `predict()` function will match the column named type with the predictor called type in the fitted model 'mdl_stz'.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Step 1:
+
+```{r}
+query_groups <- tibble(music = c("None", "Pop", "Classical"))
+query_groups
+```
+
+Step 2:
+
+```{r}
+predict(mdl_stz, newdata = query_groups)
+```
+
+- Predicted mean of "None" = $\hat \mu_\text{None}$ = 22.1414
+- Predicted mean of "Pop" = $\hat \mu_\text{Pop}$ = 22.1414 - 0.2424 = 21.899
+- Predicted mean of "Classical" = $\hat \mu_\text{Classical}$ = 22.1414 + 2.0328 = 24.1742
+
+We can see that these predicted means match our model estimates. 
+
+`r solend()`
+
+## Planned Comparisons / Contrasts
+
+`r qbegin(7)`
+
+Formally state the planned comparison that the researchers were interested in as a testable hypothesis. 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Recall that the researchers were also interested in addressing the following question:
+
+> Whether having some kind of music playing (i.e., pop or classical), rather than no music (i.e., none), resulted in a difference in spending
+
+We can specify the hypothesis as follows:
+
+$$
+\begin{aligned}
+1. \quad H_0 &: \mu_\text{No Music} = \mu_\text{Music} \\
+    \quad H_0 &: \mu_\text{None} = \frac{1}{2} (\mu_\text{Pop} + \mu_\text{Classical}) \\
+\\
+    \quad H_1 &: \mu_\text{No Music} \neq \mu_\text{Music} \\
+    \quad H_1 &: \mu_\text{No Music} \neq \frac{1}{2} (\mu_\text{Pop} + \mu_\text{Classical}) \\
+\\ 
+\end{aligned}
+$$
+
+`r solend()`
+
+<br> 
+
+`r qbegin(8)`
+
+After checking the levels of the factor `music`, use `emmeans()` to obtain the estimated treatment means and uncertainties for your factor. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Use `plot()` to visualise this.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+levels(rest_spend$music)
+```
+
+```{r}
+emm <- emmeans(mdl_stz, ~ music)
+emm
+plot(emm)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Specify the coefficients of the comparisons and run the contrast analysis, obtaining 95% confidence intervals. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Ordering matters here - look again at the output of `levels(rest_spend$music)` as this will help you when assigning your weights. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+As shown above via `levels()`, the ordering of the treatment factor is:
+
+1. None (no music)
+2. Pop (music)
+3. Classical (music)
+
+From this ordering, we can specify our weights - based on the hypothesis, lets assign positive values to the music conditions:
+
+```{r}
+comp <- list("No Music - Music" = c(-1, 1/2, 1/2))
+```
+
+Now lets run our contrast analysis and get confidence intervals:
+
+```{r}
+#run contrast analysis
+comp_res <- contrast(emm, method = comp)
+
+#examine output
+comp_res
+
+#obtain confidence intervals
+confint(comp_res)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Interpret the results of the contrast analysis in the context of the researchers hypotheses.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+
+We performed a test against $H_0: \mu_1 - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that the mean WPM for those who were in the no caffeine condition was significantly different from those in a caffeine condition $t(36) = -6.17, p = < .001$ (two-sided). We are 95\% confident that those who consumed no caffeine typed, on average, between 2.7 and 5.3 words less per minute than those who consumed some form of caffeine $CI_{95}[-5.25, -2.65]$.
+
+
+`r solend()`
+
+## Study Design
+
+`r qbegin(10)`
+
+For each of the below experiment descriptions, note (1) the design, (2) number of variables of interest, (3) levels of categorical variables, (4) what you think the reference group should be and why.
+
+::: {.panel-tabset}
+
+## Experiment 1
+
+A group of researchers were interested in investigating whether anxiety scores were reduced equally across three different types of therapy.
+
+To test this, they recruited 60 participants who were randomly allocated to one of three therapy conditions - Cognitive-Behavioral Therapy (CBT), Psychodynamic Therapy (PT), or Humanistic Therapy (HT). The researchers measured the level of anxiety both pre and post therapy session, and calculated the difference in score. 
+
+## Experiment 2
+
+A group of researchers were interested in investigating the association between mood and different types of exercise. 
+
+To test this, the researchers recruited 40 participants, and randomly allocated them to engage in one of four solo types of exercise - three of which took place outdoors (running, hill walking, and cycling), and one of which took place indoors (swimming). 
+
+The researchers hypothesised that participants who engaged in an outdoor activity would see a statistical improvement in their mood.
+
+## Experiment 3
+
+A group of researchers wanted to investigate whether the type of study techniques influences students' performance on a test. 
+
+To test this, researchers designed a study that involved randomly allocating students into one of three revision conditions - self-testing, listening to lecture recordings, and flash cards. They then recorded their score (out of 50) on a Multiple Choice Quiz (MCQ). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Experiment 1
+
+1. Design = Between-person
+2. No of variables of interest = 2 - Therapy & Anxiety
+3. Levels of variables = Therapy Condition has 3 levels - CBT, PT, and HT; Anxiety is a continuous measure, so has no associated levels.
+
+## Experiment 2
+
+1. Design = Between-person
+2. No of variables of interest = 2 - Exercise & Mood
+3. Levels of variables = Exercise has four levels - swimming, running, hill walking, and cycling, grouped into indoor and outdoor activities; Mood is a continuous measure, so has no associated levels
+
+## Experiment 3
+
+1. Design = Between-person 
+2. No of variables of interest = 2 - Study Technique & MCQ Score
+3. Levels of variables = Study Technique has 3 levels - self-testing, listening to lecture recordings, and flash cards; MCQ Score is a continuous measure, so has no associated levels
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
