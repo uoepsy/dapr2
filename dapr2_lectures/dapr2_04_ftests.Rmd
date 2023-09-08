@@ -1,0 +1,590 @@
+---
+title: "<b>F-tests & Model Comparison </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(effsize)
+library(simglm)
+
+theme_set(theme_gray(base_size = 15))
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
+```
+
+# Weeks Learning Objectives
+1. Understand the use of $F$ and incremental $F$ tests. 
+
+2. Be able to run and interpret $F$-tests in R.
+
+3. Understand how to use model comparisons to test different types of question.
+
+4. Understand the difference between nested and non-nested models, and the appropriate statistics to use for comparison in each case.
+
+
+---
+class: inverse, center, middle
+
+# Part 1: Recap and $F$-tests
+
+---
+# Where we left off...
++ Last week we looked at:
+  + The significance of individual predictors
+  + Overall model evaluation through $R^2$ and adjusted $R^2$ to see how much variance in the outcome has been explained.
+
++ Today we will:
+  + Look at significance tests of the overall model
+  + Discuss how we can use the same tools to do incremental tests (how much does my model improve when I add variables)
+  + Interpreting models based on standardized coefficients.
+
+---
+#  Significance of the overall model 
++ The test of the individual predictors (IVs, or $x$'s) does not tell us if the overall model is significant or not.
+	+ Neither does R-square
+	+ But both are indicative
+
++ To test the significance of the model as a whole, we conduct an $F$-test.
+
+
+---
+#  F-test & F-ratio
++ An $F$-test involves testing the statistical significance of a test statistic called (wait for it) the $F$-ratio.
+
++ The $F$-ratio tests the null hypothesis that all the regression slopes in a model are all zero.
+
+--
+
+  + In other words, our predictors tell us nothing about our outcome.
+  + They explain no variance.
+
+--
+
+  + If our predictors do explain some variance, our $F$-ratio will be significant.
+
+
+---
+# Our results (significant F)
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df2 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df2 %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2); summary(performance)
+```
+
+---
+#  F-ratio: Some details
++ $F$-ratio is a ratio of the explained to unexplained variance:
+
+$$F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} = \frac{MS_{Model}}{MS_{Residual}}$$
+
++ Where MS = mean squares
+
+--
+
++ **What are mean squares?**
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
+  + We saw how to calculate model and residual sums of squares last week
+
++ But what are degrees of freedom...
+
+---
+# Degrees of freedom
++ The degrees of freedom are defined as the number of independent values associated with the different calculations.
+  + Df are typically the combination of the amount of data you have (sample size) and the number of things you need to calculate/estimate.
+
++ **Residual degrees of freedom = n-k-1**
+  + $SS_{residual}$ calculation is based on our model, in which we estimate k $\beta$ terms (-k) and an intercept (-1)
+
++ **Total degrees of freedom = n-1**
+  + $SS_{total}$ calculation is based on the observed $y_i$ and $\bar{y}$ . 
+  + In order to estimate $\bar{y}$ , all apart from one value of $y$ is free to vary, hence n-1
+
++ **Model degrees of freedom = k**
+  + $SS_{model}$ are dependent on estimated $\beta$ , hence k.
+
+
+---
+# F-table
+
+```{r, echo=FALSE}
+ftest <- tibble(
+  SS = c("Model", "Residual", "Total"),
+  df = c("k", "n-k-1", " "),
+  MS = c("SS model/df model", "SS residual/df residual", " "),
+  Fratio = c("MS model/ MS residual", " ", " "),
+  pvalue = c("F(df model,df residual)", "", "")
+)
+
+kable(ftest)%>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+# Our example (note the df at the bottom)
+
+```{r}
+summary(performance)
+```
+
+---
+# F-ratio
++ Bigger $F$-ratios indicate better models.
+  + It means the model variance is big compared to the residual variance.
+
+--
+
++ The null hypothesis for the model says that the best guess of any individuals $y$ value is the mean of $y$ plus error.
+	+ Or, that the $x$ variables carry no information collectively about $y$.
+	+ I.e. the slopes all = 0
+
+--
+
++ $F$-ratio will be close to 1 when the null hypothesis is true
+  + If there is equivalent residual to model variation, $F$=1
+	+ If there is more model than residual $F$ > 1
+
+---
+# Testing the significance of $F$
+
++ The $F$-ratio is our test statistic for the significance of our model. 
+  + As with all statistical inferences, we would select an $\alpha$ level.
+  + Calculate the critical value of $F$ associated with this.
+  + And then compare our value to the critical value.
+  
++ The $F$-ratio is then evaluated against an $F$-distribution with $df_{Model}$ and $df_{Residual}$ and a pre-defined $\alpha$
+  + This provides us with the test of the overall model. 
+  
+  
+---
+# Visualize the test
+
+.pull-left[
+
+```{r, echo=FALSE}
+ggplot() +
+  xlim(-1,200) + 
+  stat_function(fun=df,
+                geom = c("line"),
+                args = list(df1=2, df2=147)) +
+  stat_function(fun = df, 
+                geom = "area",
+                xlim = c(qf(0.95, 2,147), 200),
+                alpha=.25,
+                fill = "blue",
+                args = list(df1=2, df2=147)) +
+  geom_vline(xintercept = 148.9, col="red") +
+  xlab("\n F") +
+  ylab("") +
+  ggtitle("F-distribution (2,147); F-ratio (148.9; red line)")
+```
+]
+
+.pull-right[
+
++ Critical value and $p$-value:
+```{r}
+tibble(
+  Crit = round(qf(0.95, 2, 147),3),
+  Exactp = 1-pf(148.9, 2, 147)
+)
+```
+
++ From this we would **reject the null**. 
+
+]
+
+
+---
+class: inverse, center, middle
+
+# Part 2: Model Comparison & Incremental $F$-tests
+
+---
+# Model comparisons
++ The core of the model comparison question is to ask:
+
+**When I make a change to my model, does it improve or not**
+
++ So far, our questions have really been is our overall model better than nothing ( $F$-test )
+
++ But what if instead we wanted to ask, is a model with $x1$ and $x2$ and $x3$ as predictors, better than the model with just $x1$?
+
++ In our linear model journey so far, we haven't yet explored the tools to answer this question. 
+
++ Why?
+  + Well we have tested individual predictors
+  + and we have tested overall models
+  + **but we have not tested the improvement when we add two (or more predictors)**
+
+
+---
+# $F$-test as an incremental test
+
++ One important way we can think about the $F$-test and the $F$-ratio is as an incremental test against an "empty" or null model.
+
++ A null or empty model is a linear model with only the intercept.
+  + In this model, our predicted value of the outcome for every case in our data set, is the mean of the outcome.
+  + That is, with no predictors, we have no information that may help us predict the outcome.
+  + So we will be "least wrong" by guessing the mean of the outcome.
+
++ An empty model is the same as saying all $\beta$ = 0.
+
++ And remember, this was the null hypothesis of the $F$-test
+
+---
+# $F$-test as an incremental test
++ So in this way, the $F$-test can be seen as **comparing two models**.
+
++ We can extend this idea, and use the $F$-test to compare two models that contain different sets of predictors.
+  + This is the **incremental $F$-test**
+
+---
+# Incremental $F$-test
+.pull-left[
++ The incremental $F$-test evaluates the statistical significance of the improvement in variance explained in an outcome with the addition of further predictor(s)
+
++ It is based on the difference in $F$-values between two models.
+  + We call the model with the additional predictor(s) model 1 or full model
+  + We call the model without model 0 or restricted model
+
+]
+
+.pull-right[
+$$F_{(df_R-df_F),df_F} = \frac{(SSR_R-SSR_F)/(df_R-df_F)}{SSR_F / df_F}$$
+
+
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SSR_R = \text{residual sums of squares for the restricted model} \\
+& SSR_F = \text{residual sums of squares for the full model} \\
+& df_R = \text{residual degrees of freedom from the restricted model} \\
+& df_F = \text{residual degrees of freedom from the full model} \\
+\end{align}
+$$
+]
+
+
+---
+# Why does this matter?
++ A very reasonable question you may have at this point is "so what, why does that matter?"
+
++ Well, it is very useful if we every want to formally compare two models and decide which is the better one.
+
++ And that is what we will discuss next!
+
+
+
+---
+class: inverse, center, middle
+
+# Part 3: Examples of Model comparisons
+
+
+---
+# Example 1
++ How about this example based on data from the Midlife In United States (MIDUS2) study.
+
++ Outcome: self-rated health
+
++ Covariates: Age, sex
+
++ Predictors: Big Five traits and Purpose in Life.
+
++ Research Question: Does personlity, here the five domains of the FFM, predict self-rated health over and above age and sex?
+
+---
+# The data
+```{r, warning=FALSE, message=FALSE}
+midus <- read_csv("data/MIDUS2.csv")
+midus2 <- midus %>%
+  select(1:4, 31:42) %>%
+  mutate(
+    PIL = rowMeans(.[grep("PIL", names(.))],na.rm=T)
+  ) %>%
+  select(1:4, 12:17) %>%
+  drop_na(.)
+slice(midus2, 1:3)
+
+```
+
+
+---
+# Example 1: The models
++ Does personality significantly predict self-rated health over and above the effects of age and sex?
+
++ First step here is to run two models.
+  + M1: We predict from age and sex
+  + M2: we add in the FFM traits
+
+```{r}
+m1 <- lm(health ~ age + sex, data = midus2)
+```
+
+```{r}
+m2 <- lm(health ~ age + sex + O + C + E + A + N, data = midus2)
+```
+
+---
+# Incremental $F$-test in R
++ Second step
+  + Compare the two models based on an incremental $F$-test
+
++ In order to apply the $F$-test for model comparison in R, we use the `anova()` function.
+
++ `anova()` takes as its arguments models that we wish to compare
+  + Here we will show examples with 2 models, but we can use more.
+
+```{r, eval=FALSE}
+anova(m1, m2)
+```
+
+
+---
+# Incremental $F$-test in R
+```{r}
+anova(m1, m2)
+```
+
+
+---
+class: inverse, center, middle
+
+# Part 4: Nested models and alternatives to $F$-tests
+
+---
+# Nested vs non-nested models
++ The $F$-ratio depends on the models being compared being nested
+
++ Nested means that the predictors in one model are a subset of the predictors in the other
+
++ We also require the models to be computed on the same data
+
+---
+# Nested vs non-nested models
+
+.pull-left[
+**Nested**
+
+```{r, eval=FALSE}
+
+m0 <- lm(outcome ~ x1 + x2 , data = data)
+
+m1 <- lm(outcome ~ x1 + x2 + x3, data = data)
+
+```
+
++ These models are nested.
+
++ `x1` and `x2` appear in both models
+]
+
+
+.pull-right[
+**Non-nested**
+
+```{r, eval=FALSE}
+
+m0 <- lm(outcome ~ x1 + x2 + x4, data = data)
+
+m1 <- lm(outcome ~ x1 + x2 + x3, data = data)
+
+```
+
++ These models are non-nested
+
++ There are unique variables in both models
+  + `x4` in `m0`
+  + `x3` in `m1`
+
+]
+
+
+---
+# Model comparison for non-nested models
++ So what happens when we have non-nested models?
+
++ There are two commonly used alternatives
+  + AIC
+  + BIC
+
++ Unlike the incremental $F$-test AIC and BIC do not require two models to be nested
+
++ Smaller (more negative) values indicate better fitting models.
+  + So we compare values and choose the model with the smaller AIC or BIC value
+  
+---
+# AIC & BIC
+
+.pull-left[
+$$AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k$$
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SS_{residual} = \text{sum of squares residuals} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+& \text{ln} = \text{natural log function} 
+\end{align}
+$$
+]
+
+.pull-right[
+
+$$BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)$$
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SS_{residual} = \text{sum of squares residuals} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+& \text{ln} = \text{natural log function} 
+\end{align}
+$$
+
+
+]
+
+
+---
+# Parsimony corrections
+
++ Both AIC and BIC contain something called a parsimony correction
+  + In essence, they penalise models for being complex
+  + This is to help us avoid overfitting (adding predictors arbitarily to improve fit)
+  
+$$AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k$$
+
+$$BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)$$
+
++ BIC has a harsher parsimony penalty for typical sample sizes when applying linear models than AIC
+  + When $\text{ln}(n) > 2$ BIC will have a more severe parsimony penalty (i.e. essentially all the time!)
+
+
+---
+# In R
+
+```{r}
+AIC(m1, m2)
+```
+
+---
+# Applied to non-nested models
+
+```{r}
+nn1 <- lm(health ~ O + C + E + A + N, data=midus2)
+nn2 <- lm(health ~ age + sex + PIL, data = midus2)
+AIC(nn1, nn2)
+```
+
+
+
+---
+# In R
+
+```{r}
+BIC(nn1, nn2)
+```
+
+
+```{r}
+BIC(nn1, nn2)
+```
+
+
+---
+# Considerations for use of AIC and BIC
++ The AIC and BIC for a single model are not meaningful
+  + They only make sense for model comparisons
+
++ AIC and BIC can be used for both nested and non-nested models.
+
++ For AIC, there are no cut-offs to suggest how big a difference in two models is needed to conclude that one is substantively better than the other
+
++ For BIC, a difference of 10 can be used as a rule of thumb to suggest that one model is substantively better than another
+
+
+
+---
+# Pause to summarise what we know so far
+
++ So far we have seen how to:
+  + run a linear model with a single predictor
+  + extend this and add predictors
+  + interpret these coefficients either in original units or standardized units
+  + test the significance of $\beta$ coefficients
+  + test the significance of the overall model
+  + estimate the amount of variance explained by our model
+
++ Short version, well done, you can now run and interpret linear models with continuous predictors.
+
++ Next week we will put this into action constructing and implementing an analysis plan for a linear model on a real example.
+
+---
+class: inverse, center, middle
+
+# Thanks for listening

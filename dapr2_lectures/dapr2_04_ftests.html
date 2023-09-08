@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>F-tests &amp; Model Comparison </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# <b>F-tests &amp; Model Comparison </b>
+]
+.subtitle[
+## Data Analysis for Psychology in R 2<br><br>
+]
+.author[
+### dapR2 Team
+]
+.institute[
+### Department of Psychology<br>The University of Edinburgh
+]
+
+---
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Understand the use of `\(F\)` and incremental `\(F\)` tests. 
+
+2. Be able to run and interpret `\(F\)`-tests in R.
+
+3. Understand how to use model comparisons to test different types of question.
+
+4. Understand the difference between nested and non-nested models, and the appropriate statistics to use for comparison in each case.
+
+
+---
+class: inverse, center, middle
+
+# Part 1: Recap and `\(F\)`-tests
+
+---
+# Where we left off...
++ Last week we looked at:
+  + The significance of individual predictors
+  + Overall model evaluation through `\(R^2\)` and adjusted `\(R^2\)` to see how much variance in the outcome has been explained.
+
++ Today we will:
+  + Look at significance tests of the overall model
+  + Discuss how we can use the same tools to do incremental tests (how much does my model improve when I add variables)
+  + Interpreting models based on standardized coefficients.
+
+---
+#  Significance of the overall model 
++ The test of the individual predictors (IVs, or `\(x\)`'s) does not tell us if the overall model is significant or not.
+	+ Neither does R-square
+	+ But both are indicative
+
++ To test the significance of the model as a whole, we conduct an `\(F\)`-test.
+
+
+---
+#  F-test &amp; F-ratio
++ An `\(F\)`-test involves testing the statistical significance of a test statistic called (wait for it) the `\(F\)`-ratio.
+
++ The `\(F\)`-ratio tests the null hypothesis that all the regression slopes in a model are all zero.
+
+--
+
+  + In other words, our predictors tell us nothing about our outcome.
+  + They explain no variance.
+
+--
+
+  + If our predictors do explain some variance, our `\(F\)`-ratio will be significant.
+
+
+---
+# Our results (significant F)
+
+
+
+```r
+performance &lt;- lm(score ~ hours + motivation, data = test_study2); summary(performance)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours + motivation, data = test_study2)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -12.9548  -2.8042  -0.2847   2.9344  13.8240 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  6.86679    0.65473  10.488   &lt;2e-16 ***
+## hours        1.37570    0.07989  17.220   &lt;2e-16 ***
+## motivation   0.91634    0.38376   2.388   0.0182 *  
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 4.386 on 147 degrees of freedom
+## Multiple R-squared:  0.6696,	Adjusted R-squared:  0.6651 
+## F-statistic: 148.9 on 2 and 147 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+#  F-ratio: Some details
++ `\(F\)`-ratio is a ratio of the explained to unexplained variance:
+
+`$$F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} = \frac{MS_{Model}}{MS_{Residual}}$$`
+
++ Where MS = mean squares
+
+--
+
++ **What are mean squares?**
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom.
+  + We saw how to calculate model and residual sums of squares last week
+
++ But what are degrees of freedom...
+
+---
+# Degrees of freedom
++ The degrees of freedom are defined as the number of independent values associated with the different calculations.
+  + Df are typically the combination of the amount of data you have (sample size) and the number of things you need to calculate/estimate.
+
++ **Residual degrees of freedom = n-k-1**
+  + `\(SS_{residual}\)` calculation is based on our model, in which we estimate k `\(\beta\)` terms (-k) and an intercept (-1)
+
++ **Total degrees of freedom = n-1**
+  + `\(SS_{total}\)` calculation is based on the observed `\(y_i\)` and `\(\bar{y}\)` . 
+  + In order to estimate `\(\bar{y}\)` , all apart from one value of `\(y\)` is free to vary, hence n-1
+
++ **Model degrees of freedom = k**
+  + `\(SS_{model}\)` are dependent on estimated `\(\beta\)` , hence k.
+
+
+---
+# F-table
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; SS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; MS &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Fratio &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; pvalue &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; k &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS model/df model &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; MS model/ MS residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; F(df model,df residual) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; n-k-1 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; SS residual/df residual &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Total &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+# Our example (note the df at the bottom)
+
+
+```r
+summary(performance)
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ hours + motivation, data = test_study2)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -12.9548  -2.8042  -0.2847   2.9344  13.8240 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  6.86679    0.65473  10.488   &lt;2e-16 ***
+## hours        1.37570    0.07989  17.220   &lt;2e-16 ***
+## motivation   0.91634    0.38376   2.388   0.0182 *  
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 4.386 on 147 degrees of freedom
+## Multiple R-squared:  0.6696,	Adjusted R-squared:  0.6651 
+## F-statistic: 148.9 on 2 and 147 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+# F-ratio
++ Bigger `\(F\)`-ratios indicate better models.
+  + It means the model variance is big compared to the residual variance.
+
+--
+
++ The null hypothesis for the model says that the best guess of any individuals `\(y\)` value is the mean of `\(y\)` plus error.
+	+ Or, that the `\(x\)` variables carry no information collectively about `\(y\)`.
+	+ I.e. the slopes all = 0
+
+--
+
++ `\(F\)`-ratio will be close to 1 when the null hypothesis is true
+  + If there is equivalent residual to model variation, `\(F\)`=1
+	+ If there is more model than residual `\(F\)` &gt; 1
+
+---
+# Testing the significance of `\(F\)`
+
++ The `\(F\)`-ratio is our test statistic for the significance of our model. 
+  + As with all statistical inferences, we would select an `\(\alpha\)` level.
+  + Calculate the critical value of `\(F\)` associated with this.
+  + And then compare our value to the critical value.
+  
++ The `\(F\)`-ratio is then evaluated against an `\(F\)`-distribution with `\(df_{Model}\)` and `\(df_{Residual}\)` and a pre-defined `\(\alpha\)`
+  + This provides us with the test of the overall model. 
+  
+  
+---
+# Visualize the test
+
+.pull-left[
+
+&lt;img src="dapr2_04_ftests_files/figure-html/unnamed-chunk-6-1.png" width="504" /&gt;
+]
+
+.pull-right[
+
++ Critical value and `\(p\)`-value:
+
+```r
+tibble(
+  Crit = round(qf(0.95, 2, 147),3),
+  Exactp = 1-pf(148.9, 2, 147)
+)
+```
+
+```
+## # A tibble: 1 × 2
+##    Crit Exactp
+##   &lt;dbl&gt;  &lt;dbl&gt;
+## 1  3.06      0
+```
+
++ From this we would **reject the null**. 
+
+]
+
+
+---
+class: inverse, center, middle
+
+# Part 2: Model Comparison &amp; Incremental `\(F\)`-tests
+
+---
+# Model comparisons
++ The core of the model comparison question is to ask:
+
+**When I make a change to my model, does it improve or not**
+
++ So far, our questions have really been is our overall model better than nothing ( `\(F\)`-test )
+
++ But what if instead we wanted to ask, is a model with `\(x1\)` and `\(x2\)` and `\(x3\)` as predictors, better than the model with just `\(x1\)`?
+
++ In our linear model journey so far, we haven't yet explored the tools to answer this question. 
+
++ Why?
+  + Well we have tested individual predictors
+  + and we have tested overall models
+  + **but we have not tested the improvement when we add two (or more predictors)**
+
+
+---
+# `\(F\)`-test as an incremental test
+
++ One important way we can think about the `\(F\)`-test and the `\(F\)`-ratio is as an incremental test against an "empty" or null model.
+
++ A null or empty model is a linear model with only the intercept.
+  + In this model, our predicted value of the outcome for every case in our data set, is the mean of the outcome.
+  + That is, with no predictors, we have no information that may help us predict the outcome.
+  + So we will be "least wrong" by guessing the mean of the outcome.
+
++ An empty model is the same as saying all `\(\beta\)` = 0.
+
++ And remember, this was the null hypothesis of the `\(F\)`-test
+
+---
+# `\(F\)`-test as an incremental test
++ So in this way, the `\(F\)`-test can be seen as **comparing two models**.
+
++ We can extend this idea, and use the `\(F\)`-test to compare two models that contain different sets of predictors.
+  + This is the **incremental `\(F\)`-test**
+
+---
+# Incremental `\(F\)`-test
+.pull-left[
++ The incremental `\(F\)`-test evaluates the statistical significance of the improvement in variance explained in an outcome with the addition of further predictor(s)
+
++ It is based on the difference in `\(F\)`-values between two models.
+  + We call the model with the additional predictor(s) model 1 or full model
+  + We call the model without model 0 or restricted model
+
+]
+
+.pull-right[
+`$$F_{(df_R-df_F),df_F} = \frac{(SSR_R-SSR_F)/(df_R-df_F)}{SSR_F / df_F}$$`
+
+
+
+$$
+`\begin{align}
+&amp; \text{Where:} \\
+&amp; SSR_R = \text{residual sums of squares for the restricted model} \\
+&amp; SSR_F = \text{residual sums of squares for the full model} \\
+&amp; df_R = \text{residual degrees of freedom from the restricted model} \\
+&amp; df_F = \text{residual degrees of freedom from the full model} \\
+\end{align}`
+$$
+]
+
+
+---
+# Why does this matter?
++ A very reasonable question you may have at this point is "so what, why does that matter?"
+
++ Well, it is very useful if we every want to formally compare two models and decide which is the better one.
+
++ And that is what we will discuss next!
+
+
+
+---
+class: inverse, center, middle
+
+# Part 3: Examples of Model comparisons
+
+
+---
+# Example 1
++ How about this example based on data from the Midlife In United States (MIDUS2) study.
+
++ Outcome: self-rated health
+
++ Covariates: Age, sex
+
++ Predictors: Big Five traits and Purpose in Life.
+
++ Research Question: Does personlity, here the five domains of the FFM, predict self-rated health over and above age and sex?
+
+---
+# The data
+
+```r
+midus &lt;- read_csv("data/MIDUS2.csv")
+midus2 &lt;- midus %&gt;%
+  select(1:4, 31:42) %&gt;%
+  mutate(
+    PIL = rowMeans(.[grep("PIL", names(.))],na.rm=T)
+  ) %&gt;%
+  select(1:4, 12:17) %&gt;%
+  drop_na(.)
+slice(midus2, 1:3)
+```
+
+```
+## # A tibble: 3 × 10
+##      ID   age sex    health     O     C     E     A     N   PIL
+##   &lt;dbl&gt; &lt;dbl&gt; &lt;chr&gt;   &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 10002    69 MALE        8  2.14   2.8   2.6   3.4  2     5.86
+## 2 10019    51 MALE        8  3.14   3     3.4   3.6  1.5   5.71
+## 3 10023    78 FEMALE      4  3.57   3.4   3.6   4    1.75  5.14
+```
+
+
+---
+# Example 1: The models
++ Does personality significantly predict self-rated health over and above the effects of age and sex?
+
++ First step here is to run two models.
+  + M1: We predict from age and sex
+  + M2: we add in the FFM traits
+
+
+```r
+m1 &lt;- lm(health ~ age + sex, data = midus2)
+```
+
+
+```r
+m2 &lt;- lm(health ~ age + sex + O + C + E + A + N, data = midus2)
+```
+
+---
+# Incremental `\(F\)`-test in R
++ Second step
+  + Compare the two models based on an incremental `\(F\)`-test
+
++ In order to apply the `\(F\)`-test for model comparison in R, we use the `anova()` function.
+
++ `anova()` takes as its arguments models that we wish to compare
+  + Here we will show examples with 2 models, but we can use more.
+
+
+```r
+anova(m1, m2)
+```
+
+
+---
+# Incremental `\(F\)`-test in R
+
+```r
+anova(m1, m2)
+```
+
+```
+## Analysis of Variance Table
+## 
+## Model 1: health ~ age + sex
+## Model 2: health ~ age + sex + O + C + E + A + N
+##   Res.Df    RSS Df Sum of Sq      F    Pr(&gt;F)    
+## 1   1758 4740.2                                  
+## 2   1753 4055.4  5    684.85 59.208 &lt; 2.2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+```
+
+
+---
+class: inverse, center, middle
+
+# Part 4: Nested models and alternatives to `\(F\)`-tests
+
+---
+# Nested vs non-nested models
++ The `\(F\)`-ratio depends on the models being compared being nested
+
++ Nested means that the predictors in one model are a subset of the predictors in the other
+
++ We also require the models to be computed on the same data
+
+---
+# Nested vs non-nested models
+
+.pull-left[
+**Nested**
+
+
+```r
+m0 &lt;- lm(outcome ~ x1 + x2 , data = data)
+
+m1 &lt;- lm(outcome ~ x1 + x2 + x3, data = data)
+```
+
++ These models are nested.
+
++ `x1` and `x2` appear in both models
+]
+
+
+.pull-right[
+**Non-nested**
+
+
+```r
+m0 &lt;- lm(outcome ~ x1 + x2 + x4, data = data)
+
+m1 &lt;- lm(outcome ~ x1 + x2 + x3, data = data)
+```
+
++ These models are non-nested
+
++ There are unique variables in both models
+  + `x4` in `m0`
+  + `x3` in `m1`
+
+]
+
+
+---
+# Model comparison for non-nested models
++ So what happens when we have non-nested models?
+
++ There are two commonly used alternatives
+  + AIC
+  + BIC
+
++ Unlike the incremental `\(F\)`-test AIC and BIC do not require two models to be nested
+
++ Smaller (more negative) values indicate better fitting models.
+  + So we compare values and choose the model with the smaller AIC or BIC value
+  
+---
+# AIC &amp; BIC
+
+.pull-left[
+`$$AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k$$`
+
+$$
+`\begin{align}
+&amp; \text{Where:} \\
+&amp; SS_{residual} = \text{sum of squares residuals} \\
+&amp; n = \text{sample size} \\
+&amp; k = \text{number of explanatory variables} \\
+&amp; \text{ln} = \text{natural log function} 
+\end{align}`
+$$
+]
+
+.pull-right[
+
+`$$BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)$$`
+
+$$
+`\begin{align}
+&amp; \text{Where:} \\
+&amp; SS_{residual} = \text{sum of squares residuals} \\
+&amp; n = \text{sample size} \\
+&amp; k = \text{number of explanatory variables} \\
+&amp; \text{ln} = \text{natural log function} 
+\end{align}`
+$$
+
+
+]
+
+
+---
+# Parsimony corrections
+
++ Both AIC and BIC contain something called a parsimony correction
+  + In essence, they penalise models for being complex
+  + This is to help us avoid overfitting (adding predictors arbitarily to improve fit)
+  
+`$$AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k$$`
+
+`$$BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)$$`
+
++ BIC has a harsher parsimony penalty for typical sample sizes when applying linear models than AIC
+  + When `\(\text{ln}(n) &gt; 2\)` BIC will have a more severe parsimony penalty (i.e. essentially all the time!)
+
+
+---
+# In R
+
+
+```r
+AIC(m1, m2)
+```
+
+```
+##    df      AIC
+## m1  4 6749.246
+## m2  9 6484.457
+```
+
+---
+# Applied to non-nested models
+
+
+```r
+nn1 &lt;- lm(health ~ O + C + E + A + N, data=midus2)
+nn2 &lt;- lm(health ~ age + sex + PIL, data = midus2)
+AIC(nn1, nn2)
+```
+
+```
+##     df      AIC
+## nn1  7 6501.524
+## nn2  5 6564.953
+```
+
+
+
+---
+# In R
+
+
+```r
+BIC(nn1, nn2)
+```
+
+```
+##     df      BIC
+## nn1  7 6539.840
+## nn2  5 6592.321
+```
+
+
+
+```r
+BIC(nn1, nn2)
+```
+
+```
+##     df      BIC
+## nn1  7 6539.840
+## nn2  5 6592.321
+```
+
+
+---
+# Considerations for use of AIC and BIC
++ The AIC and BIC for a single model are not meaningful
+  + They only make sense for model comparisons
+
++ AIC and BIC can be used for both nested and non-nested models.
+
++ For AIC, there are no cut-offs to suggest how big a difference in two models is needed to conclude that one is substantively better than the other
+
++ For BIC, a difference of 10 can be used as a rule of thumb to suggest that one model is substantively better than another
+
+
+
+---
+# Pause to summarise what we know so far
+
++ So far we have seen how to:
+  + run a linear model with a single predictor
+  + extend this and add predictors
+  + interpret these coefficients either in original units or standardized units
+  + test the significance of `\(\beta\)` coefficients
+  + test the significance of the overall model
+  + estimate the amount of variance explained by our model
+
++ Short version, well done, you can now run and interpret linear models with continuous predictors.
+
++ Next week we will put this into action constructing and implementing an analysis plan for a linear model on a real example.
+
+---
+class: inverse, center, middle
+
+# Thanks for listening
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
