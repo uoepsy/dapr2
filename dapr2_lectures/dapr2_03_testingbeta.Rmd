@@ -18,6 +18,7 @@ output:
 
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(dev = 'svg')
 ```
 
 ```{r xaringan-themer, include = FALSE}
@@ -40,6 +41,8 @@ style_mono_accent(
 library(tidyverse)
 library(kableExtra)
 library(simglm)
+
+baseColour <- '#BF1932'
 
 test <- tibble(
   student = paste(rep("ID",10),1:10, sep=""),
@@ -64,9 +67,9 @@ class: inverse, center, middle
 
 ---
 # Recap
-+ Last week we introduced the general linear model equation:
++ Last week we expanded the general linear model equation to include multiple predictors:
 
-$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+$$y_i = \beta_0 + \beta_1 x_{1} + \beta_2 x_{2} + \beta_i x_{i} + \epsilon_i$$
 
 + And we ran an example concerning test scores:
 
@@ -116,6 +119,7 @@ Important to really emphasize this is a package of information and we want it al
 + Steps in hypothesis testing:
 
 --
+ 
   + Research questions
     
 --
@@ -161,7 +165,7 @@ Important to really emphasize this is a package of information and we want it al
 
 --
 
-  + In typical testing in Psychology, we define have a **null ( $H_0$ )** and an **alternative ( $H_1$ )** hypothesis.
+  + In typical testing in Psychology, we define a **null ( $H_0$ )** and an **alternative ( $H_1$ )** hypothesis.
   + $H_0$ is precise, and states a specific value for the effect of interest.
   + $H_1$ is not specific, and simply says "something else other than the null is more likely"
 
@@ -173,9 +177,9 @@ Important to really emphasize this is a package of information and we want it al
 
 + We select a significance level, $\alpha$ (typically .05)
 
-+ Then we calculate the $p$-value associated with our test statistic (here $\beta$ )
++ Then we calculate the $p$-value associated with our test statistic
 
-+ If the associated $p$ is smaller, then we **reject** the null.
++ If the associated $p$ is smaller than $\alpha$, then we **reject** the null.
 
 + If it is larger, then we **fail to reject** the null.
 
@@ -246,7 +250,7 @@ $$H_1: \beta_1 \neq 0$$
 
 + We have already seen how we calculate $\hat \beta_1$.
 
-+ The associated test statistic to for $\beta$ coefficients is a $t$-statistic
++ The associated test statistic for $\beta$ coefficients is a $t$-statistic
 
 $$t = \frac{\hat \beta}{SE(\hat \beta)}$$
 
@@ -297,7 +301,7 @@ $$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j
 	+ $n$ is the sample size
 	+ $k$ is the number of predictors
 	+ $x_{ij}$ is the observed value of a predictor ( $j$ ) for an individual ( $i$ )
-	+ $\bar{x_{ij}$ is the mean of a predictor
+	+ $\bar{x_{j}}$ is the mean of a predictor
 	+ $(1 - R_{xj}^2)$ is the multiple correlation coefficient of the predictors
 
 + $(1 - R_{xj}^2)$ captures to degree to which all of our predictors are related.
@@ -311,24 +315,81 @@ $$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j
 
 + Examining the above formula we can see that:
 	+ $SE$ is smaller when residual variance ( $SS_{residual}$ ) is smaller
-	+ $SE$ is smaller when sample size ( $N$ ) is larger
+	+ $SE$ is smaller when sample size ( $n$ ) is larger
 	+ $SE$ is larger when the number of predictors ( $k$ ) is larger
 	+ $SE$ is larger when a predictor is strongly correlated with other predictors ( $R_{xj}^2$ )
 
 + So all we have left is $p$
 
 ???
-+ Well return to this later when we discuss multi-collinearity issues
-
-
++ We'll return to this later when we discuss multi-collinearity issues
 
 
 ---
 # Sampling distribution for the null
 
-+ Now we have our $t$-statistic, we need to evaluate it.
+.pull-left[
 
-+ For that, we need sampling distribution for the null.
++ Remember, $p$ refers to the likelihood of having results as extreme is ours, given $H_0$ is true
+
++ To compute that likelihood, we need a sampling distribution for the null.
+
++ For $\beta$, this is a $t$-distribution 
+
++ Remember, the shape of the $t$-distribution changes depending on the degrees of freedom
+
+]
+
+--
+
+.pull-right[
+```{r, echo = F, warning = F, message = F, fig.height = 4}
+ggplot() + 
+  xlim(-4, 4) +
+  stat_function(fun=dt,
+                geom = "line",
+                args = list(df=5), 
+                colour = baseColour,
+                linewidth = 1) +
+  stat_function(fun=dt,
+                geom = "line",
+                args = list(df=10),
+                colour = '#0F4C81',
+                linewidth = 1) +
+  stat_function(fun=dt,
+                geom = "line",
+                args = list(df=50),
+                colour = '#88B04B',
+                linewidth = 1) +
+  labs(x='t', y = '') +
+  annotate(geom = 'text', label = 'df = 5', colour = baseColour, x = 2, y = .3, size = 5) +
+  annotate(geom = 'text', label = 'df = 10', colour = '#0F4C81', x = 2, y = .33, size = 5) +
+  annotate(geom = 'text', label = 'df = 50', colour = '#88B04B', x = 2, y = .36, size = 5) +
+  theme(axis.title = element_text(size = 12, face = 'bold'))
+```
+
+]
+
+---
+# Sampling distribution for the null
+
++ For $\beta$, we use a $t$-distribution with $n-k-1$ degrees of freedom.
+	+ Where $k$ is the number of predictors, and the additional -1 represents the intercept.
+
+--
+
++ So in our example:
+  + n = 150
+  + k = 2
+  + 150 - 2 - 1 = 147
+
+
+---
+# Sampling distribution for the null
+
++ Remember, $p$ refers to the likelihood of having results as extreme is ours, given $H_0$ is true
+
++ To compute that likelihood, we need a sampling distribution for the null.
 
 + For $\beta$, this is a $t$-distribution with $n-k-1$ degrees of freedom.
 	+ Where $k$ is the number of predictors, and the additional -1 represents the intercept.
