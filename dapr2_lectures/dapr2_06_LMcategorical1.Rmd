@@ -1,0 +1,783 @@
+---
+title: "<b>Categorical Predictors </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(effsize)
+library(simglm)
+
+theme_set(theme_gray(base_size = 15))
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+```
+
+
+# Weeks Learning Objectives
+1. Understand the meaning of model coefficients in the case of a binary predictor.
+
+2. Understand how to apply dummy coding to include categorical predictors with 2+ levels.
+
+3. Be able to include categorical predictors into an `lm` model in R
+
+---
+class: inverse, center, middle
+
+# Part 1: Categorical variables
+
+---
+#  Categorical variables (recap dapR1) 
++ Categorical variables can only take discrete values
+	+ E.g., animal type: 1= duck, 2= cow, 3= wasp
+
++ They are mutually exclusive
+  + No duck-wasps or cow-ducks!
+
++ In R, categorical variables should be of class `factor`
+  + The discrete values are `levels`
+  + Levels can have numeric values (1, 2 3) and labels (e.g. "duck", "cow", "wasp")
+  + All that these numbers represent is category membership.
+
+---
+# Understanding category membership
++ When we have looked at variables like hours of study, an additional unit (1 hour) is more time.
+  + As values change (and they do not need to change by whole hours), we get a sense of more or less time being spent studying
+  + Across our whole sample, that gives us variation in hours of study.
+
++ When we have a categorical variable, we do not have this level of precision.
+
++ Suppose we split hours of study into the following groups:
+  + 0 to 2.99 hours = low study time
+  + 3 - 9.99 hours = medium study time
+  + 10+ hours = high study time
+  
++ **Side note**: This is for point of demonstration, it is never a good idea to break a continuous measure into groups
+
+---
+# Understanding category membership
+
+```{r, echo=FALSE}
+test_study3 %>%
+  select(1:3) %>%
+  slice(1:10) %>%
+  mutate(
+    hours_cat = cut(hours, breaks = c(-0.1, 2.99, 9.99, Inf), labels = c("low(1)", "medium(2)", "high(3)"))
+  ) %>%
+  arrange(., desc(hours_cat)) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+
+```
+
+
+---
+# Binary variable (recap)
++ Binary variable is a categorical variable with two levels.
+
++ Traditionally coded with a 0 and 1
+
++ In `lm`, binary variables are often referred to as dummy variables
+  + when we use multiple dummies, we talk about the general procedure of dummy coding
+
++ Why 0 and 1?
+
+--
+  
++ Quick version: It has some nice properties when it comes to interpretation.
+
+--
+
+  + What is the interpretation of the intercept?
+
+--
+
+  + What about the slope?
+
+
+---
+class: inverse, center, middle
+
+# Part 2: lm with a single binary predictor
+
+
+---
+# Extending our example
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+```
+
+
+
+.pull-left[
++ Our in class example so far has used test scores and revision time and motivation.
+
++ Let's we also collected data on who they studied with (`study`);
+  + 0 = alone; 1 = with others
+  
++ And also which of three different revisions methods they used for the test (`study_method`)
+	+ 1 = Notes re-reading; 2 = Notes summarising; 3 = Self-testing ([see here](https://www.psychologicalscience.org/publications/journals/pspi/learning-techniques.html))
+
++ We collect a new sample of 200 students.
+]
+
+
+.pull-right[
+
+```{r}
+head(test_study3) %>%
+  kable(.) %>%
+  kable_styling(full_width = F)
+```
+
+
+]
+
+---
+#  LM with binary predictors 
++ Now lets ask the question:
+
+  + **Do students who study with others score better than students who study alone?**
+
++ Our equation does not change: 
+
+$$score_i = \beta_0 + \beta_1 study_{i} + \epsilon_i$$
+
++ And in R:
+
+```{r}
+performance_study <- lm(score ~ study, data = test_study3)
+```
+
+---
+# Model results
+```{r}
+summary(performance_study)
+```
+
+---
+# Interpretation
+
+.pull-left[
++ As before, the intercept $\hat \beta_0$ is the expected value of $y$ when $x=0$
+
++ What is $x=0$ here?
+  + It is the students who study alone.
+
++ So what about $\hat \beta_1$?
+  + $\beta_1$ = 
+
++ **Look at the output on the right hand side.** 
+  + What do you notice about the difference in averages?
+  + Let's look back at the summary results again....
+
+]
+
+.pull-right[
+```{r warning=FALSE, message=FALSE}
+test_study3 %>%
+  group_by(., study) %>% #<<
+  summarise(
+    Average = round(mean(score),4) #<<
+  )
+```
+
+
+]
+
+
+---
+# Model results
+```{r}
+summary(performance_study)
+```
+
+---
+# Interpretation
++ $\hat \beta_0$ = predicted expected value of $y$ when $x = 0$
+  + Or, the mean of group coded 0 (those who study alone)
+  
++ $\hat \beta_1$ = predicted difference between the means of the two groups.
+  + Group 1 - Group 0 (Mean `score` for those who study with others - mean `score` of those who study alone)
+  
++ Notice how this maps to our question. 
+  + Do students who study with others score better than students who study alone?
+  
+
+---
+class: inverse, center, middle
+
+# Part 3: Prediction equations for groups & significance
+
+
+---
+#  Equations for each group 
++ What would our linear model look like if we added the values for $x$.
+
+
+$$\widehat{score} = \hat \beta_0 + \hat \beta_1 study$$
+
+
++ For those who study alone ( $study = 0$ ):
+
+
+$$\widehat{score}_{alone} = \hat \beta_0 + \hat \beta_1 \times 0$$
+
+
++ So;
+
+
+$$\widehat{score}_{alone} = \hat \beta_0$$
+
+
+
+---
+#  Equations for each group 
++ For those who study with others ( $study = 1$ ):
+
+
+$$\widehat{score}_{others} = \hat \beta_0 + \hat \beta_1 \times 1$$
+
+
++ So;
+
+
+$$\widehat{score}_{others} = \hat \beta_0 + \hat \beta_1$$
+
+
++ And if we re-arrange;
+
+
+$$\hat \beta_1 = \widehat{score}_{others} - \hat \beta_0$$
+
+
++ Remembering that $\widehat{score}_{alone} = \hat \beta_0$, we finally obtain:
+
+$$\hat \beta_1 = \widehat{score}_{others} - \widehat{score}_{alone}$$
+
+
+---
+#  Visualize the model
+
+```{r, echo=FALSE}
+bin <- test_study3 %>%
+  ggplot(., aes(x=factor(study), y=score, colour = study)) +
+  geom_point(alpha=0.4) +
+  labs(x = "\n Study", y = "Test Score \n") +
+  ylim(0,50) +
+  scale_x_discrete(labels = c("alone", "others")) +
+  theme(legend.position = "none")
+
+bin
+```
+
+
+---
+#  Visualize the model
+```{r, echo=FALSE}
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4)
+
+```
+
+
+---
+#  Visualize the model
+```{r, echo=FALSE}
+gpM <- test_study3 %>%
+  group_by(study) %>%
+  summarise(
+    score = mean(score)
+  )
+
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4) +
+  geom_errorbar(data = gpM, width=0.6,aes(ymax=..y..,ymin=..y..), size=1)
+
+```
+
+
+
+---
+#  Visualize the model
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(latex2exp)
+
+bin +
+  geom_jitter(width = .1, height = 0, alpha=0.4) +
+  geom_errorbar(data = gpM, width=0.6, aes(ymax=..y..,ymin=..y..), size=1)+
+  geom_segment(x=1.5, y=gpM[[1,2]], xend=1.5, yend=gpM[[2,2]], size =1, col="red") +
+  geom_segment(x=1.48, y=gpM[[1,2]], xend=1.52, yend=gpM[[1,2]], size =1, col="red") +
+  geom_segment(x=1.48, y=gpM[[2,2]], xend=1.52, yend=gpM[[2,2]], size =1, col="red") +
+  geom_text(x=1.58, y = gpM[[2,2]]-2, label = TeX('$\\hat{\\beta}_1$'), size=4, col = "red") +
+  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=4, col = "red")
+
+```
+
+
+---
+#  Evaluation of model and significance of $\beta_1$
+
++ $R^2$ and $F$-ratio interpretation are identical to their interpretation in models with only continuous predictors.
+
++ And we assess the significance of predictors in the same way
+
++ We use the standard error of the coefficient to construct:
+  + We calculate the $\hat \beta_1$ = difference between groups
+	+ $t$-value and associated $p$-value for the coefficient
+	+ Or a confidence interval around the coefficient
+
+
+---
+# Hold on... it's a t-test
+
+```{r}
+test_study3 %>%
+  t.test(score ~ study, var.equal = T, .)
+```
+
+
+---
+# Hold on... it's a t-test
+
+```{r}
+summary(performance_study)
+```
+
+
+???
+Yup!
+
+
+---
+class: inverse, center, middle
+
+# Part 4: Categorical variables with >2 levels
+
+
+---
+#  Including categorical predictors with >2 levels in a regression 
++ The goal when analyzing categorical data with 2+ levels, we want each of our $\beta$ coefficients to represent a specific difference between means.
+  + e.g. like with the use of a single binary variable, $\beta_1$ is the difference between the two groups.
+
++ When we have 2+ levels, to be able to do this, we need to apply a **coding scheme**. 
+
++ Two common coding schemes are:
+  + Dummy coding (which we will discuss now)
+  + Effects coding (or sum to zero, which we will discuss next week)
+  + There are LOTS of ways to do this, if curious, see !(here)[https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/] UCLA
+
+---
+#  Dummy coding 
++ Dummy coding uses 0's and 1's to represent group membership
+	+ One level is chosen as a baseline
+	+ All other levels are compared against that baseline
+	
++ Notice, this is identical to binary variables already discussed.
+
++ Dummy coding is simply the process of producing a set of binary coded variables
+
++ For any categorical variable, we will create $k$-1 dummy variables
+  + $k$ = number of levels
+
+---
+# Steps in dummy coding
+1. Choose a baseline level
+
+2. Assign everyone in the baseline  group `0` for all $k$-1 dummy variables
+
+3. Assign everyone in the next group a `1` for the first dummy variable and a `0` for all the other dummy variables
+
+4. Assign everyone in the next again group a `1` for the second dummy variable and a `0` for all the other dummy variables
+
+5. Repeat step 5 until all $k$-1 dummy variables have had 0's and 1's assigned
+
+6. Enter the $k$-1 dummy variables into your regression
+
+
+---
+#  Choosing a baseline? 
++ Each level of your categorical predictor will be compared against the baseline.
+
++ Good baseline levels could be:
+	+ The control group in an experiment
+	+ The group expected to have the lowest score on the outcome
+	+ The largest group
+
++ It is best the baseline is not:
+	+ A poorly defined level, e.g. an `Other` group
+	+ Much smaller than the other groups
+
+
+
+---
+#  Dummy coding 
+
+.pull-left[
++ We start out with  a dataset that looks like:
+
+```{r, echo=FALSE}
+test_study3 %>%
+  dplyr::select(ID,score,method) %>%
+  slice(1:10)
+```
+
+
+]
+
+
+.pull-right[
++ And end up with one that looks like:
+
+```{r, echo=FALSE}
+ test_study3 %>%
+  select(ID, score, method) %>%
+  mutate(
+    method1 = ifelse(method == "self-test", 1, 0),
+    method2 = ifelse(method == "summarise", 1, 0)
+  ) %>%
+  slice(1:10)
+```
+
+]
+
+
+---
+#  Dummy coding with `lm` 
+
++ `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
+  + It selects the first group as the baseline group
+
++ It represents this as a contrast matrix which looks like:
+
+```{r}
+contrasts(test_study3$method)
+```
+
+
+---
+#  Dummy coding with `lm` 
+
++ So in order to run the `lm` we simply write:
+
+```{r}
+mod1 <- lm(score ~ method, data = test_study3)
+```
+
+
++ And `lm` does all the dummy coding work for us
+
+---
+#  Dummy coding with `lm`
+
+.pull-left[
++ The intercept is the mean of the baseline group (notes re-reading)
+
++ The coefficient for `methodself-test` is the mean difference between the self-testing group and the baseline group (re-reading)
+
++ The coefficient for `methodsummarise` is the mean difference between the note summarising group and the baseline group (re-reading)
+
+]
+
+.pull-right[
+
+```{r}
+mod1
+```
+
+```{r, echo=FALSE}
+test_study3 %>%
+  group_by(method) %>%
+  summarise(
+    Group_Mean = mean(score)
+  )
+
+```
+
+
+]
+
+
+---
+#  Dummy coding with `lm` (full results)
+
+```{r}
+summary(mod1)
+```
+
+---
+#  Changing the baseline group  
+
++ The level that `lm` chooses as it's baseline may not always be the best choice
+	+ You can change it using:
+
+```{r, eval=FALSE}
+contrasts(test_study3$method) <- contr.treatment(3, base = 2)
+```
+
+
+	
++ `contrasts` updates the variable with the new coding scheme
+
++ `contr.treatment` Specifies that you want dummy coding
+
++ `3` is No. of levels of your predictor
+
++ `base=2` is the level number of your new baseline
+
+
+---
+#  Results using the new baseline 
+
+.pull-left[
++ The intercept is the now the mean of the second group (Self-Testing)
+
++ `method1` is now the difference between Notes re-reading and Self-Testing
+
++ `method3` is now the difference between Notes summarising and Self-testing 
+
+]
+
+.pull-right[
+
+```{r}
+contrasts(test_study3$method) <- contr.treatment(3, base = 2)
+mod2 <- lm(score ~ method, data = test_study3)
+mod2
+```
+
+```{r, echo=FALSE}
+test_study3 %>%
+  group_by(method) %>%
+  summarise(
+    Group_Mean = mean(score)
+  )
+
+```
+
+]
+
+---
+#  New baseline (full results)
+
+```{r}
+summary(mod2)
+```
+
+???
++ Note that the choice of baseline does not affect the R^2 or F-ratio
+
+
+---
+class: inverse, center, middle
+
+# Part 5: Why do we need a reference group? 
+
+---
+# Warning!
++ From a practical perspective, what we have covered above is what you need to know.
+
++ However, to understand how some of the other coding schemes work, there are a couple of technical bits it is useful to consider.
+
+
+---
+# Why do we need a reference group?
++ Consider our example and dummy coding.
+
++ Our `method` variable has three groups/levels (`read`, `self-test` & `summarise` )
+
++ We want a model that represents our data (observations), but all we "know" is what group an observation belongs to. So;
+
+$$y_{ij} = \mu_i + \epsilon_{ij}$$
+
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\mu_i$ is the mean of group $i$ and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+
+???
++ And this hopefully makes sense.
+  + Given we know someone's group, our best guess is the mean
+  + But people wont all score the mean, so there is some deviation for every person.
+
+
+---
+# Why do we need a reference group?
++ An alternative way to present this idea looks much more like our linear model:
+
+$$y_{ij} = \beta_0 + \underbrace{(\mu_{i} - \beta_0)}_{\beta_i} + \epsilon_{ij}$$
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\beta_0$ is an estimate of reference/overall average
+  + $\mu_i$ is the mean of group $i$ 
+  + $\beta_1$ is the difference between the reference and the mean of group $i$, and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+---
+# Why do we need a reference group?
++ We can write this equation more generally as:
+
+$$\mu_i = \beta_0 + \beta_i $$
+
++ or for the specific groups (in our case 3):
+
+$$\mu_{read} = \beta_0 + \beta_{1read}$$
+
+$$\mu_{self-test} = \beta_0 + \beta_{2self-test}$$
+
+$$\mu_{summarise} = \beta_0 + \beta_{3summarise}$$
+
++ **The problem**: we have four parameters ( $\beta_0$ , $\beta_{1read}$ , $\beta_{2self-test}$ , $\beta_{3summarise}$ ) to model three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ )
+
++ We are trying to estimate too much with too little.
+    + We need to estimate at least 1 parameter less
+
+---
+# Constraints fix identification
++ Let's think again about dummy coding.
+
++ Suppose we make `read` the reference. Then, 
+
+$$\mu_{read} = \beta_0$$
+
+$$\mu_{self-test} = \beta_0 + \beta_{1self-test}$$
+
+$$\mu_{summarise} = \beta_0 + \beta_{summarise}$$
++ **Fixed** ! 
+
++ We now only have three parameters ( $\beta_0$ , $\beta_{self-test}$ , $\beta_{summarise}$ ) for the three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ ). 
+
+
+> So when we code categorical variables, we need a constraint so that we can estimate our models.
+
+---
+# One last look at our model
+```{r}
+summary(mod1)
+```
+
+
+
+---
+# Summary of today
++ We can include categorical predictors in a linear model
+  + When we have categorical predictors, we are modelling the means of groups.
+
++ A categorical variable with 2 levels can be represented as a binary (0,1) variable
+  + the associated $\beta$ is the difference between groups
+
++ When the categorical predictor has more than one level, we can represent it with dummy coded variables.
+  + We have k-1 dummy variables, where k = levels
+  + Each dummy represents the difference between the mean of the group scored 1 and the reference group
+
++ In R, we need to make sure... 
+  + R recognises the variable as a factor (`factor()`), and 
+  + we have the correct reference level (`contr.treatment()`)
+
+---
+class: inverse, center, middle
+
+# Thanks for listening
