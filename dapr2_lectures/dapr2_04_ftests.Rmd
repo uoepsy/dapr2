@@ -42,6 +42,8 @@ library(kableExtra)
 library(effsize)
 library(simglm)
 
+baseColour <- "#BF1932"
+
 theme_set(theme_gray(base_size = 15))
 
 knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
@@ -71,12 +73,11 @@ class: inverse, center, middle
 + Today we will:
   + Look at significance tests of the overall model
   + Discuss how we can use the same tools to do incremental tests (how much does my model improve when I add variables)
-  + Interpreting models based on standardized coefficients.
 
 ---
 #  Significance of the overall model 
 + The test of the individual predictors (IVs, or $x$'s) does not tell us if the overall model is significant or not.
-	+ Neither does R-square
+	+ Neither does $R^2$
 	+ But both are indicative
 
 + To test the significance of the model as a whole, we conduct an $F$-test.
@@ -91,6 +92,7 @@ class: inverse, center, middle
 --
 
   + In other words, our predictors tell us nothing about our outcome.
+  
   + They explain no variance.
 
 --
@@ -150,17 +152,17 @@ $$F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} 
 ---
 # Degrees of freedom
 + The degrees of freedom are defined as the number of independent values associated with the different calculations.
-  + Df are typically the combination of the amount of data you have (sample size) and the number of things you need to calculate/estimate.
+  + Df are typically the combination of the amount of data you have (sample size, $n$) and the number of things you need to calculate/estimate ($k$).
+  
++ **Model degrees of freedom = $k$ **
+  + $SS_{model}$ are dependent on estimated $\beta$ s, hence $k$.
 
-+ **Residual degrees of freedom = n-k-1**
-  + $SS_{residual}$ calculation is based on our model, in which we estimate k $\beta$ terms (-k) and an intercept (-1)
++ **Residual degrees of freedom = $n-k-1$ **
+  + $SS_{residual}$ calculation is based on our model, in which we estimate $k$ $\beta$ terms and an intercept ($1$)
 
-+ **Total degrees of freedom = n-1**
++ **Total degrees of freedom = $n-1$ **
   + $SS_{total}$ calculation is based on the observed $y_i$ and $\bar{y}$ . 
-  + In order to estimate $\bar{y}$ , all apart from one value of $y$ is free to vary, hence n-1
-
-+ **Model degrees of freedom = k**
-  + $SS_{model}$ are dependent on estimated $\beta$ , hence k.
+  + In order to estimate $\bar{y}$ , all apart from one value of $y$ is free to vary, hence $n-1$
 
 
 ---
@@ -189,71 +191,220 @@ summary(performance)
 
 ---
 # F-ratio
-+ Bigger $F$-ratios indicate better models.
-  + It means the model variance is big compared to the residual variance.
++ Bigger $F$-ratios indicate better fitting models.
+
+  + It means the variance explained by the model is big compared to the residual variance.
 
 --
 
-+ The null hypothesis for the model says that the best guess of any individuals $y$ value is the mean of $y$ plus error.
++ $H_0$ for the model says that the best guess of any individual's $y$ value is $\bar{y}$ plus error.
 	+ Or, that the $x$ variables carry no information collectively about $y$.
-	+ I.e. the slopes all = 0
+	+ I.e. all slopes = 0
 
 --
 
-+ $F$-ratio will be close to 1 when the null hypothesis is true
-  + If there is equivalent residual to model variation, $F$=1
++ $F$-ratio will be close to 1 when $H_0$ is true
+  + If there is equivalent residual to model variation ($MS_{residuals} = MS_{model}$), $F$=1
 	+ If there is more model than residual $F$ > 1
+
 
 ---
 # Testing the significance of $F$
 
 + The $F$-ratio is our test statistic for the significance of our model. 
+
   + As with all statistical inferences, we would select an $\alpha$ level.
-  + Calculate the critical value of $F$ associated with this.
-  + And then compare our value to the critical value.
   
-+ The $F$-ratio is then evaluated against an $F$-distribution with $df_{Model}$ and $df_{Residual}$ and a pre-defined $\alpha$
-  + This provides us with the test of the overall model. 
+  + Identify the proper null $F$-distribution and calculate the critical value of $F$ associated with chosen level of $\alpha$
   
+  + Compare our $F$-statistic to the critical value.
   
+  + If our value is more extreme than the critical value, it is considered significant
+  
+
+---
+# Sampling distribution for the null
+
+.pull-left[
++ Similar to the $t$-distribution, the $F$-distribution changes shape based on $df$
+
++ With an $F$-statistic, we have to consider both the $df_{model}$ and $df_{residual}$
+
+]
+
+.pull-right[
+```{r, echo = F, warning = F, message = F, fig.height = 5}
+ggplot() + 
+  xlim(0, 6) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=2, df2=20), 
+                colour = baseColour,
+                linewidth = 1) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=5, df2=20),
+                colour = '#0F4C81',
+                linewidth = 1) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df=2, df2=100),
+                colour = '#88B04B',
+                linewidth = 1) +
+  labs(x='F', y = '') +
+  annotate(geom = 'text', label = 'F(2, 20)', colour = baseColour, x = 4, y = .75, size = 5) +
+  annotate(geom = 'text', label = 'F(5, 20)', colour = '#0F4C81', x = 4, y = .65, size = 5) +
+  annotate(geom = 'text', label = 'F(2, 100)', colour = '#88B04B', x = 4, y = .55, size = 5) +
+  theme(axis.title = element_text(size = 12, face = 'bold'))
+```
+]
+
+  
+---
+# A decision about the null
+
++ We have an $F$-statistic:
+  
+  + $F = 148.9$
+
+--
+
++ We need to calculate $df_{model}$ and $df_{residual}$ to get our null distribution:
+  
+  + $df_{model}=k=2$
+  
+  + $df_{residual}=n-k-1=150-2-1=147$
+
+--
+
++ We need to set our $\alpha$ level
+  
+  + $\alpha = .05$
+
+--
++ Now we can compute our critical value for $F$
+
 ---
 # Visualize the test
 
 .pull-left[
+```{r, echo = F, fig.height=5}
 
-```{r, echo=FALSE}
-ggplot() +
-  xlim(-1,200) + 
+(p <- ggplot() + 
+  xlim(-2, 200) +
   stat_function(fun=df,
-                geom = c("line"),
-                args = list(df1=2, df2=147)) +
-  stat_function(fun = df, 
-                geom = "area",
-                xlim = c(qf(0.95, 2,147), 200),
-                alpha=.25,
-                fill = "blue",
-                args = list(df1=2, df2=147)) +
-  geom_vline(xintercept = 148.9, col="red") +
-  xlab("\n F") +
-  ylab("") +
-  ggtitle("F-distribution (2,147); F-ratio (148.9; red line)")
+                geom = "line",
+                args = list(df1=2, df2 = 147),
+                linewidth = .5) +
+  labs(x='\n F', y = '', title = 'F-distribution (2, 147)') +
+  theme(axis.title=element_text(size = 14, face = 'bold'),
+        plot.title=element_text(size = 14, face = 'bold')))
+
 ```
+
 ]
 
 .pull-right[
 
-+ Critical value and $p$-value:
-```{r}
-tibble(
-  Crit = round(qf(0.95, 2, 147),3),
-  Exactp = 1-pf(148.9, 2, 147)
-)
-```
-
-+ From this we would **reject the null**. 
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
 
 ]
 
+---
+count: false
+
+# Visualize the test
+
+.pull-left[
+```{r, echo = F, fig.height=5, message = F}
+
+(p <- p + stat_function(fun = df, 
+                geom = "area",
+                xlim = c(qf(0.95, 2, 147), 200),
+                alpha=.25,
+                fill = "blue",
+                args = list(df1=2, df2=147)) +
+  geom_vline(xintercept = qf(0.95, 2, 147), linewidth = .5, linetype='dashed'))
+
+```
+
+]
+
+.pull-right[
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value 
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
+
+]
+
+---
+count: false
+
+# Visualize the test
+
+.pull-left[
+```{r, echo = F, fig.height=5, message = F}
+
+(p <-  p + geom_vline(xintercept = 148.90, colour = baseColour))
+
+```
+
+]
+
+.pull-right[
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value 
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
++ We can calculate the probability of an F-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
+
+```{r}
+(pVal = 1-pf(148.9, 2, 147))
+```
+
+]
+
+---
+count: false
+
+# Visualize the test
+
+.pull-left[
+```{r, echo = F, fig.height=5, message = F}
+
+p
+
+```
+
+]
+
+.pull-right[
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value 
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
++ We can calculate the probability of an F-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
+```{r}
+(pVal = 1-pf(148.9, 2, 147))
+```
++ Our model significantly predicted the variance in test score, $F(2,147)= 148.90, p < .001$
+
+]
+
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -262,20 +413,30 @@ class: inverse, center, middle
 
 ---
 # Model comparisons
-+ The core of the model comparison question is to ask:
 
-**When I make a change to my model, does it improve or not**
++ So far, our questions have been _is our overall model better than nothing?_ ( $F$-test ) or _which variables, specifically, are good predictors of the outcome variable?_ ( $t$-tests of $\beta$ estimates )
 
-+ So far, our questions have really been is our overall model better than nothing ( $F$-test )
+--
 
-+ But what if instead we wanted to ask, is a model with $x_1$ and $x_2$ and $x_3$ as predictors, better than the model with just $x_1$?
++ But what if instead we wanted to ask:
+
+> **When I make a change to my model, does it improve or not?**
+
++ This question is the core of model comparison
+
+--
+
++ We can adapt this to our models in a more specific way: 
+
+  + Eg is a model with $x_1$ and $x_2$ and $x_3$ as predictors better than the model with just $x_1$?
+
+--
 
 + In our linear model journey so far, we haven't yet explored the tools to answer this question. 
-
-+ Why?
-  + Well we have tested individual predictors
+  
+  + We have tested individual predictors
   + and we have tested overall models
-  + **but we have not tested the improvement when we add two (or more predictors)**
+  + **but we have not tested the improvement when we add predictors**
   
 + More generally, we have not looked at combined tests of the effects of predictors >1 but < all predictors
 
@@ -286,16 +447,16 @@ class: inverse, center, middle
 + One important way we can think about the $F$-test and the $F$-ratio is as an incremental test against an "empty" or null model.
 
 + A null or empty model is a linear model with only the intercept.
-  + In this model, our predicted value of the outcome for every case in our data set, is the mean of the outcome.
+  + In this model, our predicted value of the outcome for every case in our data set, is the mean of the outcome ( $\bar{y}$).
   + That is, with no predictors, we have no information that may help us predict the outcome.
   + So we will be "least wrong" by guessing the mean of the outcome.
 
 + An empty model is the same as saying all $\beta$ = 0.
 
-+ And remember, this was the null hypothesis of the $F$-test
+  + And remember, this was the null hypothesis of the $F$-test
 
----
-# $F$-test as an incremental test
+--
+
 + So in this way, the $F$-test can be seen as **comparing two models**.
 
 + We can extend this idea, and use the $F$-test to compare two models that contain different sets of predictors.
@@ -307,8 +468,8 @@ class: inverse, center, middle
 + The incremental $F$-test evaluates the statistical significance of the improvement in variance explained in an outcome with the addition of further predictor(s)
 
 + It is based on the difference in $F$-values between two models.
-  + We call the model with the additional predictor(s) model 1 or full model
-  + We call the model without model 0 or restricted model
+  + We call the model with the additional predictor(s) **model 1** or **full model**
+  + We call the model without **model 0** or **restricted model**
 
 ]
 
@@ -338,7 +499,6 @@ $$
 + And that is what we will discuss next!
 
 
-
 ---
 class: inverse, center, middle
 
@@ -347,15 +507,15 @@ class: inverse, center, middle
 
 ---
 # Example 1
-+ How about this example based on data from the Midlife In United States (MIDUS2) study.
++ How about this example based on data from the Midlife In United States (MIDUS2) study:
 
-+ Outcome: self-rated health
+  + Outcome: self-rated health
 
-+ Covariates: Age, sex
+  + Covariates: Age, sex
 
-+ Predictors: Big Five traits and Purpose in Life.
+  + Predictors: Big Five traits and Purpose in Life.
 
-+ Research Question: Does personality, here the five domains of the FFM, predict self-rated health over and above age and sex?
++ Research Question: Does personality predict self-rated health over and above age and sex?
 
 ---
 # The data
@@ -397,12 +557,11 @@ m2 <- lm(health ~ age + sex + O + C + E + A + N, data = midus2)
 + In order to apply the $F$-test for model comparison in R, we use the `anova()` function.
 
 + `anova()` takes as its arguments models that we wish to compare
-  + Here we will show examples with 2 models, but we can use more.
+  + Here we will show examples with 2 models, but we could use more.
 
 ```{r, eval=FALSE}
 anova(m1, m2)
 ```
-
 
 ---
 # Incremental $F$-test in R
@@ -410,6 +569,10 @@ anova(m1, m2)
 anova(m1, m2)
 ```
 
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -418,9 +581,9 @@ class: inverse, center, middle
 
 ---
 # Nested vs non-nested models
-+ The $F$-ratio depends on the models being compared being nested
++ The $F$-ratio depends on the comparison models being nested
 
-+ Nested means that the predictors in one model are a subset of the predictors in the other
+  + Nested means that the predictors in one model are a subset of the predictors in the other
 
 + We also require the models to be computed on the same data
 
@@ -564,22 +727,17 @@ BIC(m1, m2)
 ```{r}
 nn1 <- lm(health ~ O + C + E + A + N, data=midus2)
 nn2 <- lm(health ~ age + sex + PIL, data = midus2)
+```
+
+```{r}
 AIC(nn1, nn2)
 ```
 
 
-
----
-# In R
-
 ```{r}
 BIC(nn1, nn2)
 ```
 
-
-```{r}
-BIC(nn1, nn2)
-```
 
 
 ---
@@ -593,7 +751,10 @@ BIC(nn1, nn2)
 
 + For BIC, a difference of 10 can be used as a rule of thumb to suggest that one model is substantively better than another
 
+---
+class: center, middle
 
+# Questions?
 
 ---
 # Pause to summarise what we know so far
