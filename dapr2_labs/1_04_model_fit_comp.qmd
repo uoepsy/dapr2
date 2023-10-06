@@ -1,5 +1,5 @@
 ---
-title: "Model Fit and Comparison"
+title: "Model Fit and Comparisons"
 link-citations: TRUE
 params: 
     SHOW_SOLS: TRUE
@@ -13,7 +13,6 @@ source('assets/setup.R')
 library(patchwork)
 library(checkdown)
 
-# knitr::opts_chunk$set(cache = TRUE)
 set.seed(1)
 ```
 
@@ -128,7 +127,7 @@ mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
 
 ## Section I: Model Fit
 
-In the first section of this lab, you will focus on the statistics contained within the highlighted sections of the `summary()` output below. You will be both calculating these by hand and deriving via `R` code before interpreting these values in the context of the research question.
+In the first section of this lab, you will focus on the statistics contained within the highlighted sections of the `summary()` output below. You will be both calculating these by hand and deriving via `R` before interpreting these values in the context of the research question.
 
 ```{r echo = FALSE, out.width='85%'}
 knitr::include_graphics('images/mdl_output_model.PNG')
@@ -176,7 +175,9 @@ The Adjusted-$R^2$ coefficient is defined as:
 
 $$
 \hat R^2 = 1 - \frac{(1 - R^2)(n-1)}{n-k-1}
-\quad \\
+\quad \\  
+\quad \\  
+\\  
 \begin{align}
 & \text{Where:} \\
 & n = \text{sample size} \\
@@ -195,23 +196,28 @@ $$
 
 In `R` we can write:
 ```{r}
-#R squared & adjusted R squared
+#Define n & k
 
+n <- nrow(mwdata)
+k <- 2
+
+
+#Predicted scores
 wellbeing_fitted <- mwdata %>%
   mutate(
-    wellbeing_hat = predict(mdl),
-    resid = wellbeing - wellbeing_hat
-  )
+    wellbeing_pred = predict(mdl),
+    wellbeing_resid = wellbeing - wellbeing_pred)
 
-
+# Sums of Squares, and R / Adjusted R Squared
 wellbeing_fitted %>%
   summarise(
-    SSModel = sum( (wellbeing_hat - mean(wellbeing))^2 ),
-    SSTotal = sum( (wellbeing - mean(wellbeing))^2 )
-  ) %>%
+    SSModel = sum((wellbeing_pred - mean(wellbeing))^2),
+    SSTotal = sum((wellbeing - mean(wellbeing))^2),
+    SSResid = sum(wellbeing_resid^2)
+  ) %>% 
   summarise(
     RSquared = SSModel / SSTotal,
-    AdjRSquared = 1-((1-(RSquared))*(200-1)/(200-2-1))
+    AdjRSquared = 1-((1-(RSquared))*(n-1)/(n-k-1))
   )
 ```
 
@@ -279,13 +285,15 @@ In other words, conduct an $F$-test against the null hypothesis that the model i
 
 ### Hint 
 
-The F-ratio is used to test the null hypothesis that all regression slopes are zero.  
+The $F$-ratio is used to test the null hypothesis that all regression slopes are zero.  
 
-It is called the F-ratio because it is the ratio of the how much of the variation is explained by the model (per paramater) versus how much of the variation is left unexplained in the residuals (per remaining degrees of freedom). 
+It is called the $F$-ratio because it is the ratio of the how much of the variation is explained by the model (per parameter) versus how much of the variation is left unexplained in the residuals (per remaining degrees of freedom). 
 
 $$
 F_{df_{model},df_{residual}} = \frac{MS_{Model}}{MS_{Residual}} = \frac{SS_{Model}/df_{Model}}{SS_{Residual}/df_{Residual}} \\
-\quad \\
+\quad \\  
+\quad \\  
+\\  
 \begin{align}
 & \text{Where:} \\
 & df_{model} = k \\
@@ -320,8 +328,8 @@ f_star
 ```{r}
 model_utility <- wellbeing_fitted %>%
   summarise(
-    SSModel = sum((wellbeing_hat - mean(wellbeing))^2 ),
-    SSResid = sum( resid^2 ),
+    SSModel = sum((wellbeing_pred - mean(wellbeing))^2),
+    SSResid = sum(wellbeing_resid^2),
     MSModel = SSModel / df1,
     MSResid = SSResid / df2,
     FObs = MSModel / MSResid
@@ -336,7 +344,7 @@ pvalue <- 1 - pf(model_utility$FObs, df1, df2)
 pvalue
 ```
 
-The value `1.643779e-06` simply means $1.6 \times 10^{-6}$, so it's a really small number.
+The value `1.643779e-06` simply means $1.6 \times 10^{-6}$, so it's a really small number (i.e., 0.000001643779).
 
 ## R function
 
@@ -359,10 +367,9 @@ F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06
 
 We performed an $F$-test of model utility at the 5\% significance level, where $F(2,197) = 14.26, p <.001$.
 
-The large $F$-statistic and small $p$-value $(p <.001)$ suggested that we have very strong evidence against the null hypothesis that the model is ineffective.
+The large $F$-statistic and small $p$-value $(p <.001)$ suggested that we have very strong evidence against the null hypothesis.
 
-In other words, the data provide strong evidence that the number of social interactions and outdoor time are effective predictors of wellbeing scores.
-
+In other words, the data provide strong evidence that the number of social interactions and outdoor time are predictors of wellbeing scores.
 
 :::
 
@@ -395,7 +402,9 @@ $$
 $$
 \text{Wellbeing} = \beta_0  + \beta_1 \cdot Social~Interactions + \epsilon
 $$
+
 <br>
+
 $$
 \text{Wellbeing} = \beta_0  + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon
 $$
@@ -660,7 +669,7 @@ We used AIC and BIC model selection to distinguish between two possible models d
 
 `r qbegin(10)`
 
-The code below fits 6 different models based on our `wrdata`:
+The code below fits 6 different models based on our `mwdata`:
 
 ```{r eval=FALSE}
 model1 <- lm(wellbeing ~ social_int, data = mwdata)
@@ -668,7 +677,7 @@ model2 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
 model3 <- lm(wellbeing ~ social_int + age, data = mwdata)
 model4 <- lm(wellbeing ~ social_int + outdoor_time + age, data = mwdata)
 model5 <- lm(wellbeing ~ social_int + outdoor_time + age + steps_k, data = mwdata)
-model6 <- lm(wellbeing ~ social_int + outdoor_time, data = test_data)
+model6 <- lm(wellbeing ~ social_int + outdoor_time, data = wb_data)
 ```
 
 For each of the below pairs of models, what methods are/are not available for us to use for comparison and why?  
@@ -713,7 +722,7 @@ You may need to examine the dataset, and check for accuracy (e.g., are there any
   These models are __not__ nested, and they are __not__ fitted on the same dataset. The "steps_k" variable contains missing values (over 30% of the data is missing for this variable), and so these whole rows are excluded from `model5` (but they are included in `model3`). We cannot compare these models.   
   
 + `model2` vs `model6`  
-  These models are nested, but they are __not__ fitted on the same dataset. `model2` uses the 'mwdata' dataset, whilst `model6` uses the 'test_data' dataset. We cannot compare these models.   
+  These models are nested, but they are __not__ fitted on the same dataset. `model2` uses the 'mwdata' dataset, whilst `model6` uses the 'wb_data' dataset. We cannot compare these models.   
 
 `r solend()`
 
