@@ -66,31 +66,45 @@ Further, **you must not copy any of the write-up included below for future repor
 
 ## Study Overview 
 
-> **Research Question**
+> **Research Aim**
 > 
-> Does education level explain a significant amount of variance in income over seniority?
+> Exploring the associations between Fear of Missing Out (FoMO), age, social media networks, and the Big Five personality traits. 
+>
+> **Research Questions**
+> 
+> + RQ1: Does age predict FoMO?
+> + RQ2: Does the number of Instagram followers explain a significant amount of variance in FoMO over and above age?
+> + RQ3: Does personality predict FoMO?
 
-Let’s imagine a study into income disparity for workers in the city of Riverview, a a hypothetical midwestern city in the US.. We might carry out interviews and find that there is an association between the level of education and an employee’s income. However, we are unsure whether this association explains any more variance than that already accounted for by seniority level.
-
-`r optbegin('Riverview data codebook.', FALSE, show = TRUE, toggle = params$TOGGLE)`
+`r optbegin('FoMO data codebook.', FALSE, show = TRUE, toggle = params$TOGGLE)`
 
 __Description__
 
-The riverview data come from @Lewis-Beck2015 and contain five attributes collected from a random sample of employees working in the hypothetical city of Riverview ($n=32$). The attributes include:
+The data used for this write-up exercise are simulated, drawing on recent work on Fear of Missing Out (FoMO), socio-demographic information, and the Big Five personality traits. The simulated data acted to expand upon the methods and results reported in the following paper:
 
-- `education`: Years of formal education
-- `income`: Annual income (in thousands of U.S. dollars)
-- `seniority`: Years of seniority
-- `gender`: Employee's gender
-- `male`: Dummy coded gender variable (0 = Female, 1 = Male)
-- `party`: Political party affiliation
+Rozgonjuk, D., Sindermann, C., Elhai, J. D., & Montag, C. (2021). Individual differences in Fear of Missing Out (FoMO): Age, gender, and the Big Five personality trait domains, facets, and items. *Personality and Individual Differences, 171*, 110546. https://doi.org/10.1016/j.paid.2020.110546 
+
+We have extended the aforementioned study to include an extra socio-demographic variable - a measure of popularity on social media based on the number of followers. Unlike the original study, we do not have measures of gender, education level, or specific country of residence.
+
+__Data Dictionary__
+
+The data in `FOMOdataset.csv` contain eight attributes collected from a simulated sample of $n=3370$ hypothetical individuals across the UK, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
+tibble(
+Variable = names(fomo),
+Description = c("FoMO Score (as measured by the 10-item FoMO scale)", "Age (in years)", "Score on personality items assessing Neuroticism from the Big Five Inventory (BFI)", "Score on personality items assessing Extraversion from the Big Five Inventory (BFI)", "Score on personality items assessing Openness from the Big Five Inventory (BFI)", "Score on personality items assessing Agreeableness from the Big Five Inventory (BFI)", "Score on personality items assessing Conscientiousness from the Big Five Inventory (BFI)", "Total Number of Instagram Followers")
+) %>% gt::gt()
+```
+ 
 
 __Preview__
 
 The first six rows of the data are:
 
 ```{r echo=FALSE, message=FALSE}
-read_csv('https://uoepsy.github.io/data/riverview.csv') %>% head %>% gt::gt()
+read_csv('https://uoepsy.github.io/data/FOMOdataset.csv') %>% head %>% gt::gt()
 ```
 
 `r optend()`
@@ -102,7 +116,7 @@ read_csv('https://uoepsy.github.io/data/riverview.csv') %>% head %>% gt::gt()
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read the riverview dataset into R, assigning it to an object named `riverview`
+3. Read the FOMO dataset into R, assigning it to an object named `fomo`
 
 `r qend()`
 
@@ -114,11 +128,11 @@ library(patchwork)
 library(sjPlot)
 library(kableExtra)
 
-#Reading in riverview data and storing in object named 'riverview'
-riverview <- read_csv("https://uoepsy.github.io/data/riverview.csv")
+#Reading in fomo data and storing in object named 'riverview'
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
 
 #check first six rows
-head(riverview)
+head(fomo)
 ```
 
 `r solend()`
@@ -131,52 +145,79 @@ library(psych) # good for descriptive stats
 library(kableExtra) # useful for creating nice tables
 library(sjPlot) #regression tables
 
-riverview <- read_csv("https://uoepsy.github.io/data/riverview.csv")
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
 
-# standardise scs score
-scs_study <- 
-  scs_study %>% 
+# standardise scores
+fomo <- 
+  fomo %>% 
     mutate(
-      zscs = (scs-mean(scs))/sd(scs)
-    )
-#alternatively, you could do zscs = scale(scs, center = TRUE, scale = TRUE)
+      FOMOz = (FOMO-mean(FOMO))/sd(FOMO),
+      Oz = (O-mean(O))/sd(O),
+      Cz = (O-mean(C))/sd(C),
+      Ez = (E-mean(E))/sd(E),
+      Az = (A-mean(A))/sd(A),      
+      Nz = (O-mean(N))/sd(N))
+#alternatively, you could do FOMOz = scale(FOMO, center = TRUE, scale = TRUE)
+
 
 # the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
-describe(scs_study %>% 
-        select(dass, scs, zn))[,c(2:4,8:9)] %>% 
-        kable(., caption = "DASS-21, SCS, and Neuroticism Descriptive Statistics", digits = 2) %>%
+describe(fomo) %>% 
+        kable(., caption = "FoMO, Socio-Demographic, and Personality Descriptive Statistics", digits = 2) %>%
         kable_styling()
 
 ```
 
 ```{r eval = FALSE}
 # scatterplot matrix of dataset without the zscs variable
-pairs.panels(scs_study %>% select(-zscs))
+pairs.panels(fomo)
 ```
 
-
-```{r}
+```{r eval = FALSE}
 #build models
-income_mdl1 <- lm(income ~ seniority, data = riverview)
-income_mdl2 <- lm(income ~ seniority + education, data = riverview)
+fomo_mdl1 <- lm(FOMO ~ Age, data = fomo)
+fomo_mdl2 <- lm(FOMO ~ Age + TotalFollowing, data = fomo)
+fomo_mdl3 <- lm(FOMOz ~ Oz+Cz+Ez+Az+Nz, data = fomo)
 
 #check summary table of results for each model
-summary(income_mdl1)
-summary(income_mdl2)
+summary(fomo_mdl1)
+summary(fomo_mdl2)
+summary(fomo_mdl3)
 ```
 
-```{r}
-#compare models
-anova(income_mdl1, income_mdl2)
+```{r eval = FALSE}
+#create table for results - RQ1
+tab_model(fomo_mdl1,
+          dv.labels = "FoMO",
+          pred.labels = c("Age" = "Age (in years)"), 
+          title = "RQ1: Regression Table for FoMO Model")
 ```
 
-```{r}
-#create table for results
-tab_model(income_mdl1, income_mdl2,
-          dv.labels = c("Income", "Income"),
-          pred.labels = c("seniority" = "Seniority (in years)", 
-                          "education"="Formal Education (in years)"), 
-          title = "Regression Table for Income Model")
+
+
+```{r eval = FALSE}
+#compare models - RQ2
+anova(fomo_mdl1, fomo_mdl2)
+```
+
+```{r eval = FALSE}
+#create table for results - RQ2
+tab_model(fomo_mdl1, fomo_mdl2,
+          dv.labels = c("FoMO", "FoMO"),
+          pred.labels = c("Age" = "Age (in years)", 
+                          "TotalFollwing" = "Number of Instagram Followers"), 
+          title = "RQ2: Regression Table for FoMO Models")
+```
+
+```{r eval = FALSE}
+#create table for results - RQ3
+tab_model(fomo_mdl3,
+          dv.labels = "FoMO",
+          pred.labels = c("Nz" = "Neuroticism",
+                          "Ez" = "Extraversion",
+                          "Oz" = "Openness",
+                          "Az" = "Agreeableness",
+                          "Cz" = "Conscientiousness"),
+          title = "RQ3: Regression Table for FoMO Model")
 ```
 
 `r optend()`
