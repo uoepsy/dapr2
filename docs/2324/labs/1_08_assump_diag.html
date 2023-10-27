@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.340">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>DAPR2 - Assumptions and Diagnostics</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light"><script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script><script>
+function toggle_visibility(id1, id2) {
+var e = document.getElementById(id1);
+var f = document.getElementById(id2);
+e.style.display = ((e.style.display!='none') ? 'none' : 'block');
+if(f.classList.contains('fa-circle-right')) {
+    f.classList.add('fa-circle-down')
+    f.classList.remove('fa-circle-right')
+} else {
+    f.classList.add('fa-circle-right')
+    f.classList.remove('fa-circle-down')
+}
+}
+</script><script src="https://kit.fontawesome.com/120b08a6f5.js" crossorigin="anonymous"></script><script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+</head>
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top"><nav class="quarto-secondary-nav"><div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+      <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item">
+      DAPR2
+      </li></ol></nav>
+      <a class="flex-grow-1" role="button" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+      </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav></header><!-- content --><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal sidebar-navigation floating overflow-auto"><div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">DAPR2</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+<li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="false">
+ <span class="menu-text">Semester 1</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 ">
+<li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="false">
+ <span class="menu-text">Intro to Linear Models</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-2" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-2" class="collapse list-unstyled sidebar-section depth2 ">
+<li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_01_slr.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Simple Linear Regression</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_02_mlr.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Multiple Linear Regression</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_03_mlr_stz.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Multiple Linear Regression &amp; Standardization</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_04_model_fit_comp.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Fit and Comparisons</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_05_writeup_recap.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Write Up &amp; Block 1 Recap</span></a>
+  </div>
+</li>
+      </ul>
+</li>
+          <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="false">
+ <span class="menu-text">Analysing and Evaluating Experimental Studies</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-3" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-3" class="collapse list-unstyled sidebar-section depth2 ">
+<li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./1_06_dummy.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Dummy Coding</span></a>
+  </div>
+</li>
+      </ul>
+</li>
+      </ul>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="false">
+ <span class="menu-text">Semester 2</span></a>
+          <a class="sidebar-item-toggle text-start collapsed" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-4" aria-expanded="false" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-4" class="collapse list-unstyled sidebar-section depth1 ">
+<li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Interaction Models</span></span>
+  </li>
+          <li class="sidebar-item sidebar-item-section">
+      <span class="sidebar-item-text sidebar-link text-start">
+ <span class="menu-text">Advanced Topics for LM</span></span>
+  </li>
+      </ul>
+</li>
+    </ul>
+</div>
+</nav><div id="quarto-sidebar-glass" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar,#quarto-sidebar-glass"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
+   
+  <ul>
+<li><a href="#lab-overview" id="toc-lab-overview" class="nav-link active" data-scroll-target="#lab-overview">Lab Overview</a></li>
+  <li><a href="#sec-studyview" id="toc-sec-studyview" class="nav-link" data-scroll-target="#sec-studyview">Study Overview</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
+  <li>
+<a href="#exercises" id="toc-exercises" class="nav-link" data-scroll-target="#exercises">Exercises</a>
+  <ul class="collapse">
+<li><a href="#assumptions" id="toc-assumptions" class="nav-link" data-scroll-target="#assumptions">Assumptions</a></li>
+  <li><a href="#multicollinearity" id="toc-multicollinearity" class="nav-link" data-scroll-target="#multicollinearity">Multicollinearity</a></li>
+  <li><a href="#diagnostics" id="toc-diagnostics" class="nav-link" data-scroll-target="#diagnostics">Diagnostics</a></li>
+  </ul>
+</li>
+  <li><a href="#compile-report" id="toc-compile-report" class="nav-link" data-scroll-target="#compile-report">Compile Report</a></li>
+  </ul></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
+<h1 class="title">Assumptions and Diagnostics</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header><div class="lo">
+<section id="learning-objectives" class="level3"><h3 class="anchored" data-anchor-id="learning-objectives">
+<i class="fa fa-graduation-cap"></i> Learning Objectives</h3>
+<p>At the end of this lab, you will:</p>
+<ol type="1">
+<li>Be able to state the assumptions underlying a linear model.</li>
+<li>Specify the assumptions underlying a linear model with multiple predictors.</li>
+<li>Assess if a fitted model satisfies the assumptions of your model.</li>
+<li>Assess the effect of influential cases on linear model coefficients and overall model evaluations.</li>
+</ol></section><section id="what-you-need" class="level3"><h3 class="anchored" data-anchor-id="what-you-need">
+<i class="fa fa-check-square-o fa-2"></i> What You Need</h3>
+<ol type="1">
+<li>Be up to date with lectures</li>
+</ol></section><section id="required-r-packages" class="level3"><h3 class="anchored" data-anchor-id="required-r-packages">
+<i class="fab fa-r-project"></i> Required R Packages</h3>
+<p>Remember to load all packages within a code chunk at the start of your RMarkdown file using <code><a href="https://rdrr.io/r/base/library.html">library()</a></code>. If you do not have a package and need to install, do so within the console using <code>install.packages(" ")</code>. For further guidance on installing/updating packages, see Section C <a href="https://uoepsy.github.io/files/install-update-r#update-pkgs">here</a>.</p>
+<p>For this lab, you will need to load the following package(s):</p>
+<ul>
+<li><strong>tidyverse</strong></li>
+<li><strong>car</strong></li>
+<li><strong>see</strong></li>
+<li><strong>performance</strong></li>
+</ul></section><section id="presenting-results" class="level3"><h3 class="anchored" data-anchor-id="presenting-results">
+<i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results</h3>
+<p>All results should be presented following <a href="https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf">APA guidelines</a>. If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the <a href="https://uoepsy.github.io//rmd-bootcamp/">rmd bootcamp</a>.</p>
+<p>The example write-up sections included as part of the solutions are <strong>not perfect</strong> - they instead should give you a good example of what information you should include and how to structure this. Note that you must <strong>not</strong> copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more <a href="https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct">here</a>.</p>
+</section><section id="lab-data" class="level3"><h3 class="anchored" data-anchor-id="lab-data">
+<i class="fa fa-file"></i> Lab Data</h3>
+<p>You can download the data required for this lab <a href="https://uoepsy.github.io/data/wellbeing_rural.csv">here</a> or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv</p>
+</section>
+</div>
+<section id="lab-overview" class="level1"><h1>Lab Overview</h1>
+<p>In the previous labs, we have fitted a number of regression models, including some with multiple predictors. In each case, we first specified the model, then visually explored the marginal distributions and associations among variables which would be used in the analysis. Finally, we fit the model, and began to examine the fit by studying what the various parameter estimates represented, and the spread of the residuals.</p>
+<p>But before we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets a specific set of assumptions. If these assumptions are not satisfied, the results will not hold.</p>
+<p>In this lab, we will check the assumptions of one of the models that we have previously fitted in Block 1 where we will assess the assumptions of the multiple linear regression model we fitted using the ‘mwdata’ dataset in <a href="">Week 2</a>.</p>
+</section><section id="sec-studyview" class="level1"><h1>Study Overview</h1>
+<blockquote class="blockquote">
+<p><strong>Research Question</strong></p>
+<p>Is there an association between wellbeing and time spent outdoors <em>after</em> taking into account the association between wellbeing and social interactions?</p>
+</blockquote>
+<div class="optional-begin">
+<span id="opt-start-1" class="fa-solid fa-circle-right optional-icon clickable" onclick="toggle_visibility('opt-body-1', 'opt-start-1')"> <span class="olab">Wellbeing/Rurality data codebook.</span></span>
+</div>
+<div id="opt-body-1" class="optional-body" style="display: none;">
+<p><strong>Description</strong></p>
+<p>From the Edinburgh &amp; Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being.</p>
+<p>Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.</p>
+<p><strong>Data Dictionary</strong></p>
+<p>The data in <code>wellbeing_rural.csv</code> contain seven attributes collected from a random sample of <span class="math inline">\(n=200\)</span> hypothetical residents over Edinburgh &amp; Lothians, and include:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+
+<div id="xpqxkbfqhg" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#xpqxkbfqhg table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#xpqxkbfqhg thead, #xpqxkbfqhg tbody, #xpqxkbfqhg tfoot, #xpqxkbfqhg tr, #xpqxkbfqhg td, #xpqxkbfqhg th {
+  border-style: none;
+}
+
+#xpqxkbfqhg p {
+  margin: 0;
+  padding: 0;
+}
+
+#xpqxkbfqhg .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#xpqxkbfqhg .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#xpqxkbfqhg .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#xpqxkbfqhg .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#xpqxkbfqhg .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#xpqxkbfqhg .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#xpqxkbfqhg .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#xpqxkbfqhg .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#xpqxkbfqhg .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#xpqxkbfqhg .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#xpqxkbfqhg .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#xpqxkbfqhg .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#xpqxkbfqhg .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#xpqxkbfqhg .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#xpqxkbfqhg .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xpqxkbfqhg .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#xpqxkbfqhg .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#xpqxkbfqhg .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#xpqxkbfqhg .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xpqxkbfqhg .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#xpqxkbfqhg .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xpqxkbfqhg .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#xpqxkbfqhg .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xpqxkbfqhg .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#xpqxkbfqhg .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#xpqxkbfqhg .gt_left {
+  text-align: left;
+}
+
+#xpqxkbfqhg .gt_center {
+  text-align: center;
+}
+
+#xpqxkbfqhg .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#xpqxkbfqhg .gt_font_normal {
+  font-weight: normal;
+}
+
+#xpqxkbfqhg .gt_font_bold {
+  font-weight: bold;
+}
+
+#xpqxkbfqhg .gt_font_italic {
+  font-style: italic;
+}
+
+#xpqxkbfqhg .gt_super {
+  font-size: 65%;
+}
+
+#xpqxkbfqhg .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#xpqxkbfqhg .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#xpqxkbfqhg .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#xpqxkbfqhg .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#xpqxkbfqhg .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#xpqxkbfqhg .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#xpqxkbfqhg .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+<thead><tr class="gt_col_headings">
+<th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="variable">variable</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="description">description</th>
+    </tr></thead>
+<tbody class="gt_table_body">
+<tr>
+<td headers="variable" class="gt_row gt_left">age</td>
+<td headers="description" class="gt_row gt_left">Age in years of respondent</td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">outdoor_time</td>
+<td headers="description" class="gt_row gt_left">Self report estimated number of hours per week spent outdoors </td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">social_int</td>
+<td headers="description" class="gt_row gt_left">Self report estimated number of social interactions per week (both online and in-person)</td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">routine</td>
+<td headers="description" class="gt_row gt_left">Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'</td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">wellbeing</td>
+<td headers="description" class="gt_row gt_left">Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70</td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">location</td>
+<td headers="description" class="gt_row gt_left">Location of primary residence (City, Suburb, Rural)</td>
+</tr>
+<tr>
+<td headers="variable" class="gt_row gt_left">steps_k</td>
+<td headers="description" class="gt_row gt_left">Average weekly number of steps in thousands (as given by activity tracker if available)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<p><strong>Preview</strong></p>
+<p>The first six rows of the data are:</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+
+<div id="jxqiwkyfqa" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>#jxqiwkyfqa table {
+  font-family: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#jxqiwkyfqa thead, #jxqiwkyfqa tbody, #jxqiwkyfqa tfoot, #jxqiwkyfqa tr, #jxqiwkyfqa td, #jxqiwkyfqa th {
+  border-style: none;
+}
+
+#jxqiwkyfqa p {
+  margin: 0;
+  padding: 0;
+}
+
+#jxqiwkyfqa .gt_table {
+  display: table;
+  border-collapse: collapse;
+  line-height: normal;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 16px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#jxqiwkyfqa .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#jxqiwkyfqa .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 3px;
+  padding-bottom: 5px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#jxqiwkyfqa .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#jxqiwkyfqa .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#jxqiwkyfqa .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#jxqiwkyfqa .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#jxqiwkyfqa .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#jxqiwkyfqa .gt_spanner_row {
+  border-bottom-style: hidden;
+}
+
+#jxqiwkyfqa .gt_group_heading {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#jxqiwkyfqa .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#jxqiwkyfqa .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#jxqiwkyfqa .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#jxqiwkyfqa .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#jxqiwkyfqa .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jxqiwkyfqa .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#jxqiwkyfqa .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#jxqiwkyfqa .gt_row_group_first th {
+  border-top-width: 2px;
+}
+
+#jxqiwkyfqa .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jxqiwkyfqa .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#jxqiwkyfqa .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jxqiwkyfqa .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_last_grand_summary_row_top {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: double;
+  border-bottom-width: 6px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#jxqiwkyfqa .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jxqiwkyfqa .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#jxqiwkyfqa .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#jxqiwkyfqa .gt_left {
+  text-align: left;
+}
+
+#jxqiwkyfqa .gt_center {
+  text-align: center;
+}
+
+#jxqiwkyfqa .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#jxqiwkyfqa .gt_font_normal {
+  font-weight: normal;
+}
+
+#jxqiwkyfqa .gt_font_bold {
+  font-weight: bold;
+}
+
+#jxqiwkyfqa .gt_font_italic {
+  font-style: italic;
+}
+
+#jxqiwkyfqa .gt_super {
+  font-size: 65%;
+}
+
+#jxqiwkyfqa .gt_footnote_marks {
+  font-size: 75%;
+  vertical-align: 0.4em;
+  position: initial;
+}
+
+#jxqiwkyfqa .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#jxqiwkyfqa .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#jxqiwkyfqa .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#jxqiwkyfqa .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#jxqiwkyfqa .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#jxqiwkyfqa .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+<table class="gt_table" data-quarto-disable-processing="false" data-quarto-bootstrap="false">
+<thead><tr class="gt_col_headings">
+<th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="age">age</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="outdoor_time">outdoor_time</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="social_int">social_int</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="routine">routine</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="wellbeing">wellbeing</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" scope="col" id="location">location</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_right" rowspan="1" colspan="1" scope="col" id="steps_k">steps_k</th>
+    </tr></thead>
+<tbody class="gt_table_body">
+<tr>
+<td headers="age" class="gt_row gt_right">28</td>
+<td headers="outdoor_time" class="gt_row gt_right">12</td>
+<td headers="social_int" class="gt_row gt_right">13</td>
+<td headers="routine" class="gt_row gt_right">1</td>
+<td headers="wellbeing" class="gt_row gt_right">36</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">21.6</td>
+</tr>
+<tr>
+<td headers="age" class="gt_row gt_right">56</td>
+<td headers="outdoor_time" class="gt_row gt_right">5</td>
+<td headers="social_int" class="gt_row gt_right">15</td>
+<td headers="routine" class="gt_row gt_right">1</td>
+<td headers="wellbeing" class="gt_row gt_right">41</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">12.3</td>
+</tr>
+<tr>
+<td headers="age" class="gt_row gt_right">25</td>
+<td headers="outdoor_time" class="gt_row gt_right">19</td>
+<td headers="social_int" class="gt_row gt_right">11</td>
+<td headers="routine" class="gt_row gt_right">1</td>
+<td headers="wellbeing" class="gt_row gt_right">35</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">49.8</td>
+</tr>
+<tr>
+<td headers="age" class="gt_row gt_right">60</td>
+<td headers="outdoor_time" class="gt_row gt_right">25</td>
+<td headers="social_int" class="gt_row gt_right">15</td>
+<td headers="routine" class="gt_row gt_right">0</td>
+<td headers="wellbeing" class="gt_row gt_right">35</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">NA</td>
+</tr>
+<tr>
+<td headers="age" class="gt_row gt_right">19</td>
+<td headers="outdoor_time" class="gt_row gt_right">9</td>
+<td headers="social_int" class="gt_row gt_right">18</td>
+<td headers="routine" class="gt_row gt_right">1</td>
+<td headers="wellbeing" class="gt_row gt_right">32</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">48.1</td>
+</tr>
+<tr>
+<td headers="age" class="gt_row gt_right">34</td>
+<td headers="outdoor_time" class="gt_row gt_right">18</td>
+<td headers="social_int" class="gt_row gt_right">13</td>
+<td headers="routine" class="gt_row gt_right">1</td>
+<td headers="wellbeing" class="gt_row gt_right">34</td>
+<td headers="location" class="gt_row gt_left">rural</td>
+<td headers="steps_k" class="gt_row gt_right">67.3</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<p class="optional-end">
+</p>
+<div class="divider div-transparent div-dot">
+
+</div>
+</section><section id="setup" class="level1"><h1>Setup</h1>
+<div class="question-begin">
+Setup
+</div>
+<div class="question-body">
+<ol type="1">
+<li>Create a new RMarkdown file</li>
+<li>Load the required package(s)</li>
+<li>Read the wellbeing dataset into R, assigning it to an object named <code>mwdata</code>
+</li>
+<li>Fit the following model:</li>
+</ol>
+<p><span class="math display">\[
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon
+\]</span></p>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-2" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-2', 'sol-start-2')"> Solution </span>
+</div>
+<div id="sol-body-2" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="co">#Loading the required package(s)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://r-forge.r-project.org/projects/car/">car</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://easystats.github.io/see/">see</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://easystats.github.io/performance/">performance</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Reading in data and storing to an object named 'mwdata'</span></span>
+<span><span class="va">mwdata</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://readr.tidyverse.org/reference/read_delim.html">read_csv</a></span><span class="op">(</span><span class="st">"https://uoepsy.github.io/data/wellbeing_rural.csv"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co">## wellbeing model</span></span>
+<span><span class="va">wb_mdl1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">outdoor_time</span> <span class="op">+</span> <span class="va">social_int</span>, data <span class="op">=</span> <span class="va">mwdata</span><span class="op">)</span> </span></code></pre></div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="divider div-transparent div-dot">
+
+</div>
+</section><section id="exercises" class="level1"><h1>Exercises</h1>
+<section id="assumptions" class="level2"><h2 class="anchored" data-anchor-id="assumptions">Assumptions</h2>
+<div class="frame">
+<p><strong>Assumptions</strong></p>
+<p>You can remember the four assumptions by memorising the acronym LINE:</p>
+<ul>
+<li>
+<strong>L</strong>inearity: The relationship between <span class="math inline">\(y\)</span> and <span class="math inline">\(x\)</span> is linear.</li>
+<li>
+<strong>I</strong>ndependence of errors: The error terms should be independent from one another.</li>
+<li>
+<strong>N</strong>ormality: The errors <span class="math inline">\(\epsilon\)</span> are normally distributed in the population.</li>
+<li>
+<strong>E</strong>qual variances (“Homoscedasticity”): The variability of the errors <span class="math inline">\(\epsilon\)</span> is constant across <span class="math inline">\(x\)</span>.</li>
+</ul>
+</div>
+<div class="question-begin">
+Question 1
+</div>
+<div class="question-body">
+<p>Let’s start by using <code><a href="https://easystats.github.io/performance/reference/check_model.html">check_model()</a></code> for our <code>wb_mdl1</code> model - we can refer to these plots as a guide as we work through the assumptions questions of the lab.</p>
+<div class="callout callout-style-simple callout-note">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>These plots <strong>cannot</strong> be used in your reports - they are to be used as a guide only.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-3" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-3', 'sol-start-3')"> Solution </span>
+</div>
+<div id="sol-body-3" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://easystats.github.io/performance/reference/check_model.html">check_model</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The <code><a href="https://easystats.github.io/performance/reference/check_model.html">check_model()</a></code> function is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. There does appear to be evidence that some assumptions have been violated, <strong>but</strong> to be sure we need to check each assumption individually with plots that are more suitable for a statistics report.</p>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 2
+</div>
+<div class="question-body">
+<p>Check if the fitted model satisfies the linearity assumption for <code>wb_mdl1</code>.</p>
+<p>Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots.</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>When we have multiple predictors, we need to use component-residual plots (also known as partial-residual plots) to check the assumption of linearity.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-4" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-4', 'sol-start-4')"> Solution </span>
+</div>
+<div id="sol-body-4" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/car/man/crPlots.html">crPlots</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" style="width:85.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>The smoother (the pink line) follows quite closely to a linear relationship (the dashed blue line), though there is some deviation (especially for social interactions). Overall, the evidence suggests that the linearity assumption is met.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 3
+</div>
+<div class="question-body">
+<p>Check if the fitted model <code>wb_mdl1</code> satisfy the equal variance assumption.</p>
+<p>Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plot.</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Use <code><a href="https://rdrr.io/pkg/car/man/residualPlots.html">residualPlots()</a></code> to plot residuals against the predictor.</p>
+<p>For interpretation - if the assumption is met, you should see a random scatter of <span class="math inline">\((x, y)\)</span> points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-5" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-5', 'sol-start-5')"> Solution </span>
+</div>
+<div id="sol-body-5" class="solution-body" style="display: none;">
+<p>We can visually assess by plotting the Pearson residuals against the fitted values:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/car/man/residualPlots.html">residualPlots</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" style="width:90.0%"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             Test stat Pr(&gt;|Test stat|)
+outdoor_time    1.2286           0.2207
+social_int     -0.3157           0.7526
+Tukey test     -0.1606           0.8724</code></pre>
+</div>
+</div>
+<div class="callout-hint" data-collapse="true">
+<p><strong>Quick Tip</strong></p>
+<p>As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the ‘resolution’ of the points.</p>
+<p>We can make all residuals positive by discarding the sign (take the absolute value), and then take the square root to make them closer to each other.</p>
+<p>A plot of <span class="math inline">\(\sqrt{|\text{Standardized residuals}|}\)</span> against the fitted values is shown below:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html">plot</a></span><span class="op">(</span><span class="va">wb_mdl1</span>, which <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The plot above has the points closer to each other, and all above 0. The line seems to be relatively flat (as it should be if the spread was constant). The data met the assumption of equal variance.</p>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>Partial residual plots show no clear non-linear trends between residuals and predictors, hence there is little sign of non-constant variance. The data met the assumption of equal variance as the spread of the standardized residuals appears to be constant as the fitted values vary.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 4
+</div>
+<div class="question-body">
+<p>For <code>wb_mdl1</code>, visually assess whether there is autocorrelation in the error terms.</p>
+<p>Write a sentence summarising whether or not you consider the assumption of independence to have been met (you may have to assume certain aspects of the study design).</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>To get a single figure made up of 2 by 1 panels, you can use the command <code>par(mfrow = c(1,2))</code>. Then create the plot. Then you need to go back to a single figure made up by a single panel with the command <code>par(mfrow = c(1,1))</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-6" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-6', 'sol-start-6')"> Solution </span>
+</div>
+<div id="sol-body-6" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/residuals.html">resid</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html">plot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html">fitted</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/residuals.html">resid</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>,<span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>Since our data were collected from a between-persons study design, we can assume the errors to be independent. This is supported by the plot of the residuals vs their index, as this shows no clear dependence (if they were collected over time, for example, and there was an increasing trend this would highlight a violation). The residuals vs fitted plot shows that there is no association between the errors and the model predictions.</p>
+</div>
+</div>
+</div>
+<p>:::</p>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 5
+</div>
+<div class="question-body">
+<p>Check if the fitted model <code>wb_mdl1</code> satisfies the normality assumption.</p>
+<p>Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots.</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>We can get the QQplot from <code>plot(model, which = ???)</code>, and you can plot the frequency distribution of the residuals via <code>hist(model$residuals)</code>.</p>
+<p>For interpretation - remember that departures from a linear trend in QQ plots indicate a lack of normality.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-7" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-7', 'sol-start-7')"> Solution </span>
+</div>
+<div id="sol-body-7" class="solution-body" style="display: none;">
+<p>Histogram:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/hist.html">hist</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">$</span><span class="va">residuals</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>QQ Plot:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html">plot</a></span><span class="op">(</span><span class="va">wb_mdl1</span>, which <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>The QQplot indicated that the residuals follow close to a normal distribution. Although there is some evidence of heavier tails, given the small sample size (<span class="math inline">\(n\)</span>=32) it is not of concern and we can be more conservative in our visual assessment of the plot.</p>
+<p>The normal quantile plot follows a linear pattern and does not highlight any substantial skew or departure from normality.</p>
+</div>
+</div>
+</div>
+<p>:::</p>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+</section><section id="multicollinearity" class="level2"><h2 class="anchored" data-anchor-id="multicollinearity">Multicollinearity</h2>
+<div class="question-begin">
+Question 6
+</div>
+<div class="question-body">
+<p>For <code>wb_mdl1</code>, calculate the variance inflation factor (VIF) for the predictors in the model.</p>
+<p>Write a sentence summarising whether or not you consider multicollinearity to be a problem here.</p>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-8" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-8', 'sol-start-8')"> Solution </span>
+</div>
+<div id="sol-body-8" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/pkg/car/man/vif.html">vif</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>outdoor_time   social_int 
+    1.001306     1.001306 </code></pre>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>The VIF values for all predictors are &lt;5, indicating that multicollinearity is not adversely affecting model estimates.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+</section><section id="diagnostics" class="level2"><h2 class="anchored" data-anchor-id="diagnostics">Diagnostics</h2>
+<div class="question-begin">
+Question 7
+</div>
+<div class="question-body">
+<p>Create a new tibble which contains:</p>
+<ol type="1">
+<li>The original variables from the model (Hint, what does <code>wb_mdl1$model</code> give you?)</li>
+<li>The fitted values from the model <span class="math inline">\(\hat y\)</span><br>
+</li>
+<li>The residuals <span class="math inline">\(\hat \epsilon\)</span>
+</li>
+<li>The studentised residuals</li>
+<li>The hat values</li>
+<li>The Cook’s Distance values</li>
+</ol>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-9" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-9', 'sol-start-9')"> Solution </span>
+</div>
+<div id="sol-body-9" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">mdl_diagnost</span> <span class="op">&lt;-</span> </span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html">tibble</a></span><span class="op">(</span></span>
+<span>  <span class="va">wb_mdl1</span><span class="op">$</span><span class="va">model</span>,</span>
+<span>  fitted <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/fitted.values.html">fitted</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span>,</span>
+<span>  resid <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/residuals.html">residuals</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span>,</span>
+<span>  studres <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/influence.measures.html">rstudent</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span>,</span>
+<span>  hats <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/influence.measures.html">hatvalues</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span>,</span>
+<span>  cooksd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/influence.measures.html">cooks.distance</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 8
+</div>
+<div class="question-body">
+<p>From the tibble above, comment on the following:</p>
+<ul>
+<li>Looking at the studentised residuals, are there any outliers?</li>
+<li>Looking at the hat values, are there any observations with high leverage?</li>
+<li>Looking at the Cook’s Distance values, are there any highly influential points?</li>
+</ul>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-10" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-10', 'sol-start-10')"> Solution </span>
+</div>
+<div id="sol-body-10" class="solution-body" style="display: none;">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" aria-current="page">Outliers</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">High Leverage</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-3" role="tab" aria-controls="tabset-1-3" aria-selected="false">Influential Points</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<p>In a standard normal distribution, 95% of the values are roughly between -2 and 2. Because of this, studentised residuals of <span class="math inline">\(&gt;2\)</span> or <span class="math inline">\(&lt; -2\)</span> indicate potential outlyingness.</p>
+<p>We can ask R whether the <em>absolute</em> values (by specifying <code><a href="https://rdrr.io/r/base/MathFun.html">abs()</a></code>) are <span class="math inline">\(&gt;2\)</span>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html">table</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">mdl_diagnost</span><span class="op">$</span><span class="va">studres</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+FALSE  TRUE 
+  189    11 </code></pre>
+</div>
+</div>
+<p>All values are <code>FALSE</code>, which tells us that none of the absolute values are <span class="math inline">\(&gt;2\)</span>.</p>
+<p>We could also <em>filter</em> our newly created tibble to these observations:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">mdl_diagnost</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html">abs</a></span><span class="op">(</span><span class="va">studres</span><span class="op">)</span><span class="op">&gt;</span><span class="fl">2</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 11 × 8
+   wellbeing outdoor_time social_int fitted resid studres    hats  cooksd
+       &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;  &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
+ 1        26           23         17   38.9 -12.9   -2.60 0.0151  0.0336 
+ 2        27           24         15   38.4 -11.4   -2.29 0.0112  0.0194 
+ 3        30           31         16   40.2 -10.2   -2.05 0.0267  0.0377 
+ 4        26           19         17   38.1 -12.1   -2.43 0.0127  0.0247 
+ 5        26           25         11   37.3 -11.3   -2.26 0.00980 0.0165 
+ 6        28           19         19   38.8 -10.8   -2.17 0.0201  0.0315 
+ 7        22           19         16   37.8 -15.8   -3.20 0.00990 0.0326 
+ 8        59           26         19   40.2  18.8    3.90 0.0266  0.130  
+ 9        49           28         11   37.9  11.1    2.23 0.0147  0.0243 
+10        50           29         11   38.1  11.9    2.40 0.0167  0.0320 
+11        47           22         11   36.7  10.3    2.06 0.00670 0.00939</code></pre>
+</div>
+</div>
+<p>There are zero rows in the tibble that have absolute values <span class="math inline">\(&gt;2\)</span>.</p>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>There are no outliers in our data.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<p>Recall that hat values of more than <span class="math inline">\(2 \bar{h}\)</span> (2 times the average hat value) are considered high leverage. The average hat value, <span class="math inline">\(\bar{h}\)</span> is calculated as <span class="math inline">\(\frac{k + 1}{n}\)</span>, where <span class="math inline">\(k\)</span> is the number of predictors, and <span class="math inline">\(n\)</span> is the sample size.</p>
+<p>For our model: <span class="math display">\[
+\bar h = \frac{k+1}{n} = \frac{2+1}{200} = \frac{3}{200} = 0.015
+\]</span> We can ask whether any of observations have hat values which are greater than <span class="math inline">\(2 \bar h\)</span>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html">table</a></span><span class="op">(</span><span class="va">mdl_diagnost</span><span class="op">$</span><span class="va">hats</span> <span class="op">&gt;</span> <span class="op">(</span><span class="fl">2</span><span class="op">*</span><span class="fl">0.015</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+FALSE  TRUE 
+  184    16 </code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">mdl_diagnost</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">hats</span> <span class="op">&gt;</span> <span class="op">(</span><span class="fl">2</span><span class="op">*</span><span class="fl">0.015</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 16 × 8
+   wellbeing outdoor_time social_int fitted   resid studres   hats     cooksd
+       &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;      &lt;dbl&gt;
+ 1        39            2         19   35.4  3.62    0.730  0.0449 0.00837   
+ 2        38            1         11   32.5  5.50    1.11   0.0353 0.0149    
+ 3        35           35         14   40.3 -5.28   -1.06   0.0346 0.0134    
+ 4        35            5          7   32.0  3.04    0.609  0.0314 0.00401   
+ 5        41           10         21   37.6  3.36    0.674  0.0357 0.00561   
+ 6        36           29          5   36.1 -0.0683 -0.0137 0.0311 0.00000201
+ 7        36           10          4   32.0  4.05    0.812  0.0329 0.00748   
+ 8        39            7         21   37.0  1.95    0.393  0.0412 0.00222   
+ 9        30            7          5   31.7 -1.69   -0.338  0.0342 0.00136   
+10        32           28          4   35.5 -3.53   -0.709  0.0337 0.00586   
+11        48           34         13   39.7  8.26    1.66   0.0302 0.0284    
+12        31           11          4   32.1 -1.15   -0.230  0.0312 0.000571  
+13        37           31          3   35.8  1.20    0.243  0.0453 0.000934  
+14        46           10         20   37.3  8.69    1.75   0.0305 0.0319    
+15        35            9         24   38.4 -3.45   -0.700  0.0564 0.00979   
+16        41           32          7   37.3  3.66    0.734  0.0309 0.00575   </code></pre>
+</div>
+</div>
+<p>No values have been returned (the tibble has zero rows), hence we do not have any observations that have hat values which are greater than <span class="math inline">\(2 \bar h\)</span>.</p>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>There are 16 observations that have high leverage.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-1-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-3-tab">
+<p>Recall that we have a Cook’s Distance cut-off of <span class="math inline">\(\frac{4}{n-k-1}\)</span>, where <span class="math inline">\(k\)</span> is the number of predictors, and <span class="math inline">\(n\)</span> is the sample size.</p>
+<p>For our model: <span class="math display">\[
+D_{cutoff} = \frac{4}{n-k-1} = \frac{4}{200 - 2 - 1} = \frac{4}{197} = 0.020
+\]</span></p>
+<p>We can ask whether any of observations have a high influence on our model estimates:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/table.html">table</a></span><span class="op">(</span><span class="va">mdl_diagnost</span><span class="op">$</span><span class="va">cooksd</span> <span class="op">&gt;</span> <span class="fl">0.020</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+FALSE  TRUE 
+  189    11 </code></pre>
+</div>
+</div>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">mdl_diagnost</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html">filter</a></span><span class="op">(</span><span class="va">cooksd</span> <span class="op">&gt;</span> <span class="fl">0.020</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 11 × 8
+   wellbeing outdoor_time social_int fitted  resid studres    hats cooksd
+       &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+ 1        26           23         17   38.9 -12.9    -2.60 0.0151  0.0336
+ 2        30           31         16   40.2 -10.2    -2.05 0.0267  0.0377
+ 3        26           19         17   38.1 -12.1    -2.43 0.0127  0.0247
+ 4        28           19         19   38.8 -10.8    -2.17 0.0201  0.0315
+ 5        22           19         16   37.8 -15.8    -3.20 0.00990 0.0326
+ 6        59           26         19   40.2  18.8     3.90 0.0266  0.130 
+ 7        46           27          8   36.7   9.33    1.87 0.0173  0.0203
+ 8        49           28         11   37.9  11.1     2.23 0.0147  0.0243
+ 9        48           34         13   39.7   8.26    1.66 0.0302  0.0284
+10        50           29         11   38.1  11.9     2.40 0.0167  0.0320
+11        46           10         20   37.3   8.69    1.75 0.0305  0.0319</code></pre>
+</div>
+</div>
+<p>No values have been returned (the tibble has zero rows), hence we do not have any observations that have a high influence on our model estimates.</p>
+<p>You can also display the Cook’s Distance values themselves using <code>plot(model, which = 4)</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html">plot</a></span><span class="op">(</span><span class="va">wb_mdl1</span>, which <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>None of our observations have a high influence on our model estimates, as the maximum value of Cook’s distance in our sample is 0.108, which is less than the cutt-off value of 0.020. Thus, we do not appear to have any influential points in our sample.</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 9
+</div>
+<div class="question-body">
+<p>Use the function <code><a href="https://rdrr.io/r/stats/influence.measures.html">influence.measures()</a></code> to extract these delete-1 measures of influence.</p>
+<p>Try plotting the distributions of some of these measures.</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The function <code><a href="https://rdrr.io/r/stats/influence.measures.html">influence.measures()</a></code> returns an <code>infl</code>-type object. To plot this, we need to find a way to extract the actual numbers from it.<br>
+What do you think <code>names(influence.measures(wb_mdl1))</code> shows you? How can we use <code>influence.measures(wb_mdl1)$&lt;insert name here&gt;</code> to extract the matrix of numbers?</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-11" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-11', 'sol-start-11')"> Solution </span>
+</div>
+<div class="solution-body" id="sol-body-11" style="display: none;">
+
+
+
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">inf_mes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/influence.measures.html">influence.measures</a></span><span class="op">(</span><span class="va">wb_mdl1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">inf_mes</span><span class="op">$</span><span class="va">infmat</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span>,<span class="op">]</span>,<span class="fl">3</span><span class="op">)</span></span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   dfb.1_ dfb.otd_ dfb.scl_  dffit cov.r cook.d   hat
+1   0.006   -0.008    0.002  0.012 1.024  0.000 0.009
+2   0.083   -0.168    0.061  0.203 1.016  0.014 0.025
+3  -0.006   -0.001    0.004 -0.016 1.020  0.000 0.005
+4   0.047   -0.050   -0.039 -0.081 1.020  0.002 0.012
+5   0.001    0.080   -0.091 -0.138 1.028  0.006 0.024
+6  -0.003    0.001   -0.008 -0.037 1.017  0.000 0.005
+7  -0.008   -0.001    0.015  0.018 1.036  0.000 0.020
+8   0.106   -0.119   -0.006  0.166 0.985  0.009 0.010
+9  -0.003    0.004   -0.001 -0.007 1.025  0.000 0.009
+10  0.002   -0.008    0.008  0.015 1.026  0.000 0.010</code></pre>
+</div>
+</div>
+<p>Let’s plot the distribution of COVRATIO statistics.</p>
+<p>Recall that values which are <span class="math inline">\(&gt;1+\frac{3(k+1)}{n}\)</span> or <span class="math inline">\(&lt;1-\frac{3(k+1)}{n}\)</span> are considered as having strong influence.</p>
+<p>For our model: <span class="math display">\[
+1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{200} \quad = \quad 1\pm \frac{9}{200} \quad = \quad 1\pm0.045
+\]</span> The “infmat” bit of an <code>infl</code>-type object contains the numbers, as we can see from out output above. To use it with ggplot, we will need to turn it into a dataframe (<code><a href="https://rdrr.io/r/base/as.data.frame.html">as.data.frame()</a></code>), or a tibble (<code><a href="https://tibble.tidyverse.org/reference/as_tibble.html">as_tibble()</a></code>):</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="va">infdata</span> <span class="op">&lt;-</span> <span class="va">inf_mes</span><span class="op">$</span><span class="va">infmat</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html">as_tibble</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<p>Now we can build our plot. It would be useful to add vertical lines at the values <span class="math inline">\(\quad 1\pm0.045\)</span>. To do so, we can use the <code><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_vline()</a></code> function:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">infdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">cov.r</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> </span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_histogram.html">geom_histogram</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_vline</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">-</span><span class="fl">0.045</span><span class="op">)</span>, col <span class="op">=</span> <span class="st">"blue"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_vline</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>xintercept <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">+</span><span class="fl">0.045</span><span class="op">)</span>, col <span class="op">=</span> <span class="st">"red"</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span> </span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"none"</span><span class="op">)</span>  <span class="co">#remove legend</span></span></code></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_08_assump_diag_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>It looks like a few observations may be having quite a high influence here. This is perhaps not that surprising as we only have 32 datapoints.</p>
+<div class="divider div-transparent div-dot">
+
+</div>
+
+
+<section id="compile-report" class="level1"><h1>Compile Report</h1>
+<div class="question-begin">
+Compile Report
+</div>
+<div class="question-body">
+<p>Knit your report to PDF, and check over your work. To do so, you should make sure:</p>
+<ul>
+<li>Only the output you want your reader to see is visible (e.g., do you want to hide your code?)</li>
+<li>Check that the <strong>tinytex</strong> package is installed</li>
+<li>Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:</li>
+</ul>
+<pre><code>---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---</code></pre>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+What to do if you cannot knit to PDF
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>If you are having issues knitting directly to PDF, try the following:</p>
+<ul>
+<li>Knit to HTML file<br>
+</li>
+<li>Open your HTML in a web-browser (e.g.&nbsp;Chrome, Firefox)<br>
+</li>
+<li>Print to PDF (Ctrl+P, then choose to save to PDF)<br>
+</li>
+<li>Open file to check formatting</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hiding Code and/or Output
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true">Hiding R Code</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false">Hiding R Output</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-3" role="tab" aria-controls="tabset-2-3" aria-selected="false">Hiding R Code and Output</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<p>To not show the code of an R code chunk, and only show the output, write:</p>
+<div class="sourceCode" id="cb32"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, echo=FALSE}</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+</div>
+<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
+<p>To show the code of an R code chunk, but hide the output, write:</p>
+<div class="sourceCode" id="cb33"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, results='hide'}</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+</div>
+<div id="tabset-2-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-3-tab">
+<p>To hide both code and output of an R code chunk, write:</p>
+<div class="sourceCode" id="cb34"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, include=FALSE}</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tinytex
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>You must make sure you have <strong>tinytex</strong> installed in R so that you can “Knit” your Rmd document to a PDF file:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"tinytex"</span><span class="op">)</span></span>
+<span><span class="fu">tinytex</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/tinytex/man/install_tinytex.html">install_tinytex</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-12" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-12', 'sol-start-12')"> Solution </span>
+</div>
+<div id="sol-body-12" class="solution-body" style="display: none;">
+<p>You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor.</p>
+</div>
+<p class="solution-end">
+</p>
+
+
+</section><!-- /main --><script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Handle positioning of the toggle
+      window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+      const annoteTargets = window.document.querySelectorAll('.code-annotation-anchor');
+      for (let i=0; i<annoteTargets.length; i++) {
+        const annoteTarget = annoteTargets[i];
+        const targetCell = annoteTarget.getAttribute("data-target-cell");
+        const targetAnnotation = annoteTarget.getAttribute("data-target-annotation");
+        const contentFn = () => {
+          const content = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          if (content) {
+            const tipContent = content.cloneNode(true);
+            tipContent.classList.add("code-annotation-tip-content");
+            return tipContent.outerHTML;
+          }
+        }
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          onShow: (instance) => {
+            selectCodeLines(instance.reference);
+            instance.reference.classList.add('code-annotation-active');
+            window.tippy.hideAll();
+          },
+          onHide: (instance) => {
+            unselectCodeLines();
+            instance.reference.classList.remove('code-annotation-active');
+          },
+          maxWidth: 300,
+          delay: [50, 0],
+          duration: [200, 0],
+          offset: [5, 10],
+          arrow: true,
+          appendTo: function(el) {
+            return el.parentElement.parentElement.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto',
+          placement: 'right',
+          popperOptions: {
+            modifiers: [
+            {
+              name: 'flip',
+              options: {
+                flipVariations: false, // true by default
+                allowedAutoPlacements: ['right'],
+                fallbackPlacements: ['right', 'top', 'top-start', 'top-end'],
+              },
+            },
+            {
+              name: 'preventOverflow',
+              options: {
+                mainAxis: false,
+                altAxis: false
+              }
+            }
+            ]        
+          }      
+        };
+        window.tippy(annoteTarget, config); 
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+<footer class="footer"><div class="nav-footer">
+    <div class="nav-footer-left">
+      &nbsp;
+    </div>   
+    <div class="nav-footer-center">© Copyright 2019-2023 <a href="https://www.ed.ac.uk/">The University of Edinburgh</a>. Site licensed under the <a href="https://www.gnu.org/licenses/agpl-3.0.en.html">GNU AGPLv3</a> license.</div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer></section></section></main>
+</div>
+
+
+</body></html>
