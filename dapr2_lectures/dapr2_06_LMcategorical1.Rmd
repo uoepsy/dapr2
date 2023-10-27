@@ -41,6 +41,9 @@ library(tidyverse)
 library(kableExtra)
 library(effsize)
 library(simglm)
+library(emmeans)
+
+baseColor = "#BF1932"
 
 theme_set(theme_gray(base_size = 15))
 
@@ -90,6 +93,9 @@ test_study3 <- df3 %>%
 
 3. Be able to include categorical predictors into an `lm` model in R
 
+4. Introduce `emmeans` as a tool for testing different effects in models with categorical predictors.
+
+
 ---
 class: inverse, center, middle
 
@@ -126,18 +132,30 @@ class: inverse, center, middle
 ---
 # Understanding category membership
 
+.pull-left[
 ```{r, echo=FALSE}
-test_study3 %>%
+
+sampDat <- test_study3 %>%
   select(1:3) %>%
-  slice(1:10) %>%
   mutate(
-    hours_cat = cut(hours, breaks = c(-0.1, 2.99, 9.99, Inf), labels = c("low(1)", "medium(2)", "high(3)"))
-  ) %>%
+    hours_cat = cut(hours, breaks = c(-0.1, 2.99, 9.99, Inf), labels = c("low", "medium", "high")),
+    hours_catNum = cut(hours, breaks = c(-0.1, 2.99, 9.99, Inf), labels = c("1", "2", "3"))
+  ) 
+
+sampDat %>%
+  slice(1:10) %>%
   arrange(., desc(hours_cat)) %>%
   kable(.) %>%
   kable_styling(., full_width = F)
-
 ```
+]
+
+.pull-right[
+```{r, echo = F}
+summary(sampDat[,c('hours', 'hours_cat', 'hours_catNum')])
+```
+]
+
 
 
 ---
@@ -153,16 +171,22 @@ test_study3 %>%
 
 --
   
-+ Quick version: It has some nice properties when it comes to interpretation.
+Quick version: It has some nice properties when it comes to interpretation.
 
 --
 
-  + What is the interpretation of the intercept?
+>  **Test your understanding:**
+
+> What is the interpretation of the intercept?
 
 --
 
-  + What about the slope?
+> What about the slope?
 
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -174,9 +198,9 @@ class: inverse, center, middle
 # Extending our example
 
 .pull-left[
-+ Our in class example so far has used test scores and revision time and motivation.
++ Our in-class example so far has used *test scores*, *revision time* and *motivation*.
 
-+ Let's we also collected data on who they studied with (`study`);
++ Let's say we also collected data on who they studied with (`study`);
   + 0 = alone; 1 = with others
   
 + And also which of three different revisions methods they used for the test (`study_method`)
@@ -249,12 +273,45 @@ test_study3 %>%
 
 ]
 
+---
+# Model results
+
+.pull-left[
+```{r, echo = F}
+knitr::include_graphics('figs/catModResults.png')
+```
+]
+
+.pull-right[
+```{r, echo = F}
+test_study3 %>%
+  group_by(., study) %>% 
+  summarise(
+    Average = round(mean(score),4)
+  )
+```
+
+]
 
 ---
 # Model results
-```{r}
-summary(performance_study)
+
+.pull-left[
+```{r, echo = F}
+knitr::include_graphics('figs/catModResults.png')
 ```
+]
+
+.pull-right[
+```{r, echo = F}
+test_study3 %>%
+  group_by(., study) %>% 
+  summarise(
+    Average = round(mean(score),4)
+  )
+```
+]
+
 
 ---
 # Interpretation
@@ -266,7 +323,11 @@ summary(performance_study)
   
 + Notice how this maps to our question. 
   + Do students who study with others score better than students who study alone?
-  
+
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -323,31 +384,41 @@ $$\hat \beta_1 = \widehat{score}_{others} - \widehat{score}_{alone}$$
 ---
 #  Visualize the model
 
-```{r, echo=FALSE}
-bin <- test_study3 %>%
+.center[
+
+```{r, echo=FALSE, fig.width=7, fig.height=6}
+(bin <- test_study3 %>%
   ggplot(., aes(x=factor(study), y=score, colour = study)) +
   geom_point(alpha=0.4) +
   labs(x = "\n Study", y = "Test Score \n") +
-  ylim(0,50) +
+  ylim(0,45) +
   scale_x_discrete(labels = c("alone", "others")) +
-  theme(legend.position = "none")
-
-bin
+  theme(legend.position = "none",
+        axis.text = element_text(size=12),
+        axis.title = element_text(size = 14, face = 'bold')))
 ```
-
+]
 
 ---
+count: false
+
 #  Visualize the model
-```{r, echo=FALSE}
+
+.center[
+```{r, echo=FALSE, fig.width=7, fig.height=6}
 bin +
   geom_jitter(width = .1, height = 0, alpha=0.4)
 
 ```
-
+]
 
 ---
+count: false
+
 #  Visualize the model
-```{r, echo=FALSE}
+
+.center[
+```{r, echo=FALSE, fig.width=7, fig.height=6}
 gpM <- test_study3 %>%
   group_by(study) %>%
   summarise(
@@ -355,30 +426,33 @@ gpM <- test_study3 %>%
   )
 
 bin +
-  geom_jitter(width = .1, height = 0, alpha=0.4) +
-  geom_errorbar(data = gpM, width=0.6,aes(ymax=..y..,ymin=..y..), size=1)
+  geom_jitter(width = .1, height = 0, alpha=0.4) + 
+  geom_errorbar(data = gpM, width=0.6,aes(ymax=after_stat(y),ymin=after_stat(y)), size=1)
 
 ```
-
-
+]
 
 ---
+count: false
+
 #  Visualize the model
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+.center[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.width=7, fig.height=6}
 library(latex2exp)
 
 bin +
-  geom_jitter(width = .1, height = 0, alpha=0.4) +
-  geom_errorbar(data = gpM, width=0.6, aes(ymax=..y..,ymin=..y..), size=1)+
-  geom_segment(x=1.5, y=gpM[[1,2]], xend=1.5, yend=gpM[[2,2]], size =1, col="red") +
-  geom_segment(x=1.48, y=gpM[[1,2]], xend=1.52, yend=gpM[[1,2]], size =1, col="red") +
-  geom_segment(x=1.48, y=gpM[[2,2]], xend=1.52, yend=gpM[[2,2]], size =1, col="red") +
-  geom_text(x=1.58, y = gpM[[2,2]]-2, label = TeX('$\\hat{\\beta}_1$'), size=4, col = "red") +
-  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=4, col = "red")
+  geom_jitter(width = .1, height = 0, alpha=0.4) + 
+  geom_errorbar(data = gpM, width=0.6,aes(ymax=after_stat(y),ymin=after_stat(y)), size=1) +
+  geom_segment(x=1.5, y=gpM[[1,2]], xend=1.5, yend=gpM[[2,2]], size =1, col=baseColor) +
+  geom_segment(x=1.48, y=gpM[[1,2]], xend=1.52, yend=gpM[[1,2]], size =1, col=baseColor) +
+  geom_segment(x=1.48, y=gpM[[2,2]], xend=1.52, yend=gpM[[2,2]], size =1, col=baseColor) +
+  geom_text(x=1.58, y = gpM[[2,2]]-2, label = TeX('$\\hat{\\beta}_1$'), size=5, col = baseColor) +
+  geom_text(x=0.65, y = gpM[[1,2]] , label = TeX('$\\hat{\\beta}_0$'), size=5, col = baseColor)
 
 ```
-
+]
 
 ---
 #  Evaluation of model and significance of $\beta_1$
@@ -403,16 +477,35 @@ test_study3 %>%
 
 
 ---
-# Hold on... it's a t-test
+# Model results
 
-```{r}
-summary(performance_study)
++ **Test your understanding:**  How do we interpret our results?
+
+.pull-left[
+```{r, echo = F}
+modSum <- round(summary(performance_study)[['coefficients']], 2)
+fTest <- round(summary(performance_study)[['fstatistic']], 2)
+descDat <- test_study3 %>%
+  group_by(., study) %>% 
+  summarise(
+    Average = round(mean(score),2),
+    SD = round(sd(score), 2))
+
+knitr::include_graphics('figs/catModResults.png')
 ```
+]
 
+--
 
-???
-Yup!
+.pull-right[
+Study habits significantly predicted student test scores, *F*(`r fTest['numdf']`, `r fTest['dendf']`) = `r fTest['value']`, *p* < .001. Study habits explained `r round(summary(performance_study)[['r.squared']], 2)`% of the variance in test scores.  Specifically, students who studied with others (*M* = `r descDat$Average[2]`, *SD* = `r descDat$SD[2]` ) scored significantly higher than students who studied alone (*M* = `r descDat$Average[1]`, *SD* = `r descDat$SD[1]`), $\beta_1$ = `r modSum[2,'Estimate']`, *SE* = `r modSum[2, 'Std. Error']`, *t* = `r modSum[2, "t value"]`, *p* < .001. 
 
+]
+
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -422,15 +515,17 @@ class: inverse, center, middle
 
 ---
 #  Including categorical predictors with >2 levels in a regression 
-+ The goal when analyzing categorical data with 2+ levels, we want each of our $\beta$ coefficients to represent a specific difference between means.
-  + e.g. like with the use of a single binary variable, $\beta_1$ is the difference between the two groups.
+  + The goal when analyzing categorical data with 2 or more levels is that each of our $\beta$ coefficients represents a specific difference between means.
 
-+ When we have 2+ levels, to be able to do this, we need to apply a **coding scheme**. 
+  + e.g. When using a single binary predictor, $\beta_1$ is the difference between the two groups. 
+
+
++  To be able to do this when we have 2+ levels, we need to apply a **coding scheme**. 
 
 + Two common coding schemes are:
   + Dummy coding (which we will discuss now)
   + Effects coding (or sum to zero, which we will discuss next week)
-  + There are LOTS of ways to do this, if curious, see !(here)[https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/] UCLA
+  + There are LOTS of ways to do this; if curious, [see here](https://stats.oarc.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
 
 ---
 #  Dummy coding 
@@ -446,7 +541,7 @@ class: inverse, center, middle
   + $k$ = number of levels
 
 ---
-# Steps in dummy coding
+# Steps in dummy coding by hand
 1. Choose a baseline level
 
 2. Assign everyone in the baseline  group `0` for all $k$-1 dummy variables
@@ -455,7 +550,7 @@ class: inverse, center, middle
 
 4. Assign everyone in the next again group a `1` for the second dummy variable and a `0` for all the other dummy variables
 
-5. Repeat step 5 until all $k$-1 dummy variables have had 0's and 1's assigned
+5. Repeat until all $k$-1 dummy variables have had 0's and 1's assigned
 
 6. Enter the $k$-1 dummy variables into your regression
 
@@ -476,7 +571,7 @@ class: inverse, center, middle
 
 
 ---
-#  Dummy coding 
+#  Dummy coding by hand
 
 .pull-left[
 + We start out with  a dataset that looks like:
@@ -495,23 +590,48 @@ test_study3 %>%
 + And end up with one that looks like:
 
 ```{r, echo=FALSE}
- test_study3 %>%
+dummyCoded <- test_study3 %>%
   select(ID, score, method) %>%
   mutate(
     method1 = ifelse(method == "self-test", 1, 0),
-    method2 = ifelse(method == "summarise", 1, 0)
-  ) %>%
+    method2 = ifelse(method == "summarise", 1, 0))
+
+dummyCoded %>% 
   slice(1:10)
 ```
 
 ]
+
+---
+#  Dummy coding by hand
+
++ We would then enter the dummy coded variables into a regression model:
+
+.pull-left[
+```{r, echo = F}
+dummyCoded %>% 
+  slice(1:10)
+```
+
+]
+
+.pull-right[
+```{r, echo = F}
+knitr::include_graphics('figs/dcResults.png')
+```
+]
+
+--
+
+> **Test your understanding:** Which method is our baseline?
+> How does our model know to treat it as the baseline?
 
 
 ---
 #  Dummy coding with `lm` 
 
 + `lm` automatically applies dummy coding when you include a variable of class `factor` in a model.
-  + It selects the first group as the baseline group
+  + It selects the first group (alphabetically) as the baseline group
 
 + It represents this as a contrast matrix which looks like:
 
@@ -523,14 +643,37 @@ contrasts(test_study3$method)
 ---
 #  Dummy coding with `lm` 
 
-+ So in order to run the `lm` we simply write:
-
-```{r}
+```{r, echo = F}
 mod1 <- lm(score ~ method, data = test_study3)
 ```
 
 
-+ And `lm` does all the dummy coding work for us
++ `lm` does all the dummy coding work for us:
+
+.pull-left[
+.center[**Dummy Coding in lm**]
+```{r, eval = F}
+summary(lm(score ~ method, 
+           data = dummyCoded))
+```
+
+```{r, echo = F}
+knitr::include_graphics('figs/RdcResults.png')
+```
+
+]
+
+.pull-right[
+.center[**Dummy Coding by Hand**]
+```{r, eval = F}
+summary(lm(score ~ method1+method2, 
+           data = dummyCoded))
+```
+
+```{r, echo = F, out.width='90%'}
+knitr::include_graphics('figs/dcResults.png')
+```
+]
 
 ---
 #  Dummy coding with `lm`
@@ -632,105 +775,168 @@ summary(mod2)
 ???
 + Note that the choice of baseline does not affect the R^2 or F-ratio
 
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
 
-# Part 5: Why do we need a reference group? 
-
----
-# Warning!
-+ From a practical perspective, what we have covered above is what you need to know.
-
-+ However, to understand how some of the other coding schemes work, there are a couple of technical bits it is useful to consider.
+# Part 5: Testing manual contrasts using emmeans
 
 
 ---
-# Why do we need a reference group?
-+ Consider our example and dummy coding.
+# Using `emmeans` to test contrasts
 
-+ Our `method` variable has three groups/levels (`read`, `self-test` & `summarise` )
++ We will use the package `emmeans` to test our contrasts
+  + We will also be using this in the next few weeks to look at analysing experimental designs.
 
-+ We want a model that represents our data (observations), but all we "know" is what group an observation belongs to. So;
++ **E**stimated
++ **M**arginal
++ **Means**
 
-$$y_{ij} = \mu_i + \epsilon_{ij}$$
-
-+ Where 
-  + $y_{ij}$ are the individual observations
-  + $\mu_i$ is the mean of group $i$ and
-  + $\epsilon_{ij}$ is the individual deviation from that mean.
-
-
-???
-+ And this hopefully makes sense.
-  + Given we know someone's group, our best guess is the mean
-  + But people wont all score the mean, so there is some deviation for every person.
-
++ Essentially this package provides us with a lot of tools to help us model contrasts and linear functions.
 
 ---
-# Why do we need a reference group?
-+ An alternative way to present this idea looks much more like our linear model:
+# Working with `emmeans`
 
-$$y_{ij} = \beta_0 + \underbrace{(\mu_{i} - \beta_0)}_{\beta_i} + \epsilon_{ij}$$
-+ Where 
-  + $y_{ij}$ are the individual observations
-  + $\beta_0$ is an estimate of reference/overall average
-  + $\mu_i$ is the mean of group $i$ 
-  + $\beta_1$ is the difference between the reference and the mean of group $i$, and
-  + $\epsilon_{ij}$ is the individual deviation from that mean.
+```{r, echo = F}
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+```
 
----
-# Why do we need a reference group?
-+ We can write this equation more generally as:
++ We already have our model:
 
-$$\mu_i = \beta_0 + \beta_i $$
+```{r, eval=F}
+mod1 <- lm(score ~ method, test_study3)
+```
 
-+ or for the specific groups (in our case 3):
++ Next we use `emmeans` to get the estimated means of our groups.
 
-$$\mu_{read} = \beta_0 + \beta_{1read}$$
-
-$$\mu_{self-test} = \beta_0 + \beta_{2self-test}$$
-
-$$\mu_{summarise} = \beta_0 + \beta_{3summarise}$$
-
-+ **The problem**: we have four parameters ( $\beta_0$ , $\beta_{1read}$ , $\beta_{2self-test}$ , $\beta_{3summarise}$ ) to model three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ )
-
-+ We are trying to estimate too much with too little.
-    + We need to estimate at least 1 parameter less
-
----
-# Constraints fix identification
-+ Let's think again about dummy coding.
-
-+ Suppose we make `read` the reference. Then, 
-
-$$\mu_{read} = \beta_0$$
-
-$$\mu_{self-test} = \beta_0 + \beta_{1self-test}$$
-
-$$\mu_{summarise} = \beta_0 + \beta_{summarise}$$
-+ **Fixed** ! 
-
-+ We now only have three parameters ( $\beta_0$ , $\beta_{self-test}$ , $\beta_{summarise}$ ) for the three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ ). 
-
-
-> So when we code categorical variables, we need a constraint so that we can estimate our models.
-
----
-# One last look at our model
 ```{r}
-summary(mod1)
+method_mean <- emmeans(mod1, ~method)
+
+method_mean
 ```
 
 
+---
+# Visualise estimated means
+
+.pull-left[
+```{r, eval=FALSE}
+plot(method_mean)
+```
+
++ We then use these means to test contrasts
+
+]
+
+.pull-right[
+```{r, echo=FALSE}
+plot(method_mean)
+```
+
+]
+
+---
+# Defining the contrast
+
++ **KEY POINT**: The order of your categorical variable matters as `emmeans` uses this order. 
+
+
+```{r, echo=FALSE}
+contrasts <- contrasts(test_study3$method)
+
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+```{r}
+levels(test_study3$method)
+```
+
+```{r}
+method_comp <- list("Reading vs Self-Testing" = c(1, -1, 0),
+                    "Reading vs Summarising" = c(1, 0, -1),
+                    "Self-Testing vs Summarising" = c(0, 1, -1))
+
+```
+
+
+---
+# Requesting the test
++ In order to test our effects, we use the `contrast` function from `emmeans`
+
+```{r}
+method_comp_test <- contrast(method_mean, method_comp)
+method_comp_test
+```
+--
+
++ We can see we have p-values, but we can also request confidence intervals
+
+```{r}
+confint(method_comp_test)
+```
+
+
+---
+# Interpreting the results
++ The estimate is the difference between the average of the group means within each chunk.
+
+.pull-left[
+
+```{r, eval = F}
+method_comp_test
+```
+
+
+```{r, echo = F}
+knitr::include_graphics('figs/contrastEstimates.png')
+```
+]
+
+.pull-right[
+```{r, eval = F}
+method_mean
+```
+
+```{r, echo = F, out.width='75%'}
+knitr::include_graphics('figs/contrastMeans.png')
+```
+
+]
++ So for `Self-Testing vs Summarising` :
+
+```{r}
+27.6-24.2
+```
++ So those who test themselves on the content of their notes have higher scores than those who simply read their notes.
+  + And this is significant.
+
+---
+class: center, middle
+
+# Questions?
 
 ---
 # Summary of today
-+ We can include categorical predictors in a linear model
-  + When we have categorical predictors, we are modelling the means of groups.
-
++ When we have categorical predictors, we are modelling the means of groups
+  
 + A categorical variable with 2 levels can be represented as a binary (0,1) variable
-  + the associated $\beta$ is the difference between groups
+  + The associated $\beta$ is the difference between groups
 
 + When the categorical predictor has more than one level, we can represent it with dummy coded variables.
   + We have k-1 dummy variables, where k = levels
@@ -739,6 +945,12 @@ summary(mod1)
 + In R, we need to make sure... 
   + R recognises the variable as a factor (`factor()`), and 
   + we have the correct reference level (`contr.treatment()`)
+
++ We also looked at the use of `emmeans` to test specific contrasts.
+  + Run the model
+  + Estimate the means
+  + Define the contrast
+  + Test the contrast
 
 ---
 class: inverse, center, middle

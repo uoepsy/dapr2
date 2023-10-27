@@ -1,0 +1,177 @@
+---
+title: "<b>Why Do We Need a Reference Group?</b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(simglm)
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119)
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor',
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor',
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+mod1 <- lm(score ~ method, data = test_study3)
+```
+
+
+# Warning!
++ From a practical perspective, what we have covered in the lecture is what you need to know.
+
++ However, to understand how some of the other coding schemes work, there are a couple of technical bits you may find useful to consider.
+
+---
+# Why do we need a reference group?
+
+.pull-left[
+
++ Consider our example and dummy coding.
+
++ Our `method` variable has three groups/levels (`read`, `self-test` & `summarise` )
+
++ We want a model that represents our data (observations), but all we "know" is what group an observation belongs to. So;
+
+$$y_{ij} = \mu_i + \epsilon_{ij}$$
+
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\mu_i$ is the mean of group $i$ and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+]
+
+.pull-right[
+```{r, echo = F}
+ test_study3 %>%
+   dplyr::select(ID,score,method) %>%
+   slice(1:10)
+```
+
+]
+
+???
++ And this hopefully makes sense.
+  + Given we know someone's group, our best guess is the mean
+  + But people wont all score the mean, so there is some deviation for every person.
+
+
+---
+# Why do we need a reference group?
++ An alternative way to present this idea looks much more like our linear model:
+
+$$y_{ij} = \beta_0 + \underbrace{(\mu_{i} - \beta_0)}_{\beta_i} + \epsilon_{ij}$$
++ Where 
+  + $y_{ij}$ are the individual observations
+  + $\beta_0$ is an estimate of reference/overall average
+  + $\mu_i$ is the mean of group $i$ 
+  + $\beta_1$ is the difference between the reference and the mean of group $i$, and
+  + $\epsilon_{ij}$ is the individual deviation from that mean.
+
+---
+# Why do we need a reference group?
++ We can write this equation more generally as:
+
+$$\mu_i = \beta_0 + \beta_i $$
+
++ or for the specific groups (in our case 3):
+
+$$\mu_{read} = \beta_0 + \beta_{1read}$$
+
+$$\mu_{self-test} = \beta_0 + \beta_{2self-test}$$
+
+$$\mu_{summarise} = \beta_0 + \beta_{3summarise}$$
+
++ **The problem**: we have four parameters ( $\beta_0$ , $\beta_{1read}$ , $\beta_{2self-test}$ , $\beta_{3summarise}$ ) to model three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ )
+
++ We are trying to estimate too much with too little.
+    + We need to estimate at least 1 parameter less
+
+---
+# Constraints fix identification
++ Let's think again about dummy coding.
+
++ Suppose we make `read` the reference. Then, 
+
+$$\mu_{read} = \beta_0$$
+
+$$\mu_{self-test} = \beta_0 + \beta_{1self-test}$$
+
+$$\mu_{summarise} = \beta_0 + \beta_{summarise}$$
++ **Fixed** ! 
+
++ We now only have three parameters ( $\beta_0$ , $\beta_{self-test}$ , $\beta_{summarise}$ ) for the three group means ( $\mu_{read}$ , $\mu_{self-test}$ , $\mu_{summarise}$ ). 
+
+
+> So when we code categorical variables, we need a constraint so that we can estimate our models.
+
+---
+# One last look at our model
+```{r}
+summary(mod1)
+```
+
