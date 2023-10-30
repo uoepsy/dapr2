@@ -16,6 +16,7 @@ library(patchwork)
 library(pander)
 library(car)
 library(performance)
+library(kableExtra)
 set.seed(953)
 ```
 
@@ -24,10 +25,10 @@ set.seed(953)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Be able to state the assumptions underlying a linear model.
-2. Specify the assumptions underlying a linear model with multiple predictors.
-3. Assess if a fitted model satisfies the assumptions of your model.
-4. Assess the effect of influential cases on linear model coefficients and overall model evaluations.
+1. Be able to state the assumptions underlying a linear model
+2. Specify the assumptions underlying a linear model with multiple predictors
+3. Assess if a fitted model satisfies the assumptions of your model
+4. Assess the effect of influential cases on linear model coefficients and overall model evaluations
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -42,6 +43,7 @@ For this lab, you will need to load the following package(s):
 * **car**
 * **see**
 * **performance**
+* **kableExtra**
 
 ### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
 All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf). If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
@@ -123,6 +125,7 @@ library(tidyverse)
 library(car)
 library(see)
 library(performance)
+library(kableExtra)
 
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
@@ -246,13 +249,13 @@ A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values is 
 plot(wb_mdl1, which = 3)
 ```
 
-The plot above has the points closer to each other, and all above 0. The line seems to be relatively flat (as it should be if the spread was constant). The data met the assumption of equal variance.
+The plot above has the majority of the points close to each other, and all above 0. The line seems to be relatively flat (as it should be if the spread was constant), but there is some deviation from this (e.g., observations 16, 78, and 109 appear quite far away from the cluster of points). We could hesitantly conclude at this point that the data met the assumption of equal variance.
 
 :::
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-Partial residual plots show no clear non-linear trends between residuals and predictors, hence there is little sign of non-constant variance. The data met the assumption of equal variance as the spread of the standardized residuals appears to be constant as the fitted values vary.
+Partial residual plots show no clear non-linear trends between residuals and predictors, hence there is little sign of non-constant variance. The data met the assumption of equal variance as the spread of the standardized residuals appears to be constant (for the most part) as the fitted values vary.
 
 :::
 
@@ -262,7 +265,7 @@ Partial residual plots show no clear non-linear trends between residuals and pre
 
 `r qbegin(4)`
 
-For `wb_mdl1`, visually assess whether there is autocorrelation in the error terms.  
+Visually assess whether there is autocorrelation in the error terms.  
   
 Write a sentence summarising whether or not you consider the assumption of independence to have been met (you may have to assume certain aspects of the study design).  
 
@@ -328,9 +331,8 @@ plot(wb_mdl1, which = 2)
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-The QQplot indicated that the residuals follow close to a normal distribution. Although there is some evidence of heavier tails, given the small sample size ($n$=32) it is not of concern and we can be more conservative in our visual assessment of the plot.
+The QQplot indicated that the residuals follow close to a normal distribution, as the points follow linear pattern and there is no substantial skew or departure from normality. There is some evidence of heavier tails, and we may want to examine some observations more closely (i.e., 16, 78, 109).
 
-The normal quantile plot follows a linear pattern and does not highlight any substantial skew or departure from normality.
 :::
 
 :::
@@ -356,7 +358,7 @@ vif(wb_mdl1)
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-The VIF values for all predictors are <5, indicating that multicollinearity is not adversely affecting model estimates. 
+The VIF values for all predictors are < 5, indicating that multicollinearity is not adversely affecting model estimates. 
 
 :::
 
@@ -379,7 +381,6 @@ Create a new tibble which contains:
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 ```{r}
-
 mdl_diagnost <- 
   tibble(
   wb_mdl1$model,
@@ -396,6 +397,7 @@ mdl_diagnost <-
 <br>
 
 `r qbegin(8)`
+
 From the tibble above, comment on the following:
 
 * Looking at the studentised residuals, are there any outliers? 
@@ -416,19 +418,31 @@ We can ask R whether the *absolute* values (by specifying `abs()`) are $>2$:
 table(abs(mdl_diagnost$studres) > 2)
 ```
 
-All values are `FALSE`, which tells us that none of the absolute values are $>2$. 
+Yes, we have 11 `TRUE` observations, which tells us that they have absolute values are $>2$. 
 
-We could also *filter* our newly created tibble to these observations:
+We can identify which of our observations have these values:
+
 ```{r}
-mdl_diagnost %>% 
-  filter(abs(studres)>2)
+which(abs(mdl_diagnost$studres) > 2)
 ```
 
-There are zero rows in the tibble that have absolute values $>2$.
+So we know that observations (or rows) 16, 50, 53, 58, 62, 76, 78, 109, 126, 151, and 163 have absolute values that are $>2$.
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    studres = rstudent(wb_mdl1)) %>%
+  dplyr::filter(., studres > 2 | studres < -2) %>%
+  arrange(., desc(studres)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-There are no outliers in our data. 
+There are `r sum(abs(mdl_diagnost$studres) > 2)` observations that have been identified as potential outliers.
 
 :::
 
@@ -446,17 +460,31 @@ We can ask whether any of observations have hat values which are greater than $2
 table(mdl_diagnost$hats > (2*0.015))
 ```
 
+We have 16 `TRUE` observations, which tells us that they have high leverage
+
+We can identify which of our observations have these values:
 
 ```{r}
-mdl_diagnost %>%
-  filter(hats > (2*0.015))
+which(mdl_diagnost$hats > (2*0.015))
 ```
 
-No values have been returned (the tibble has zero rows), hence we do not have any observations that have hat values which are greater than $2 \bar h$.
+So we know that observations (or rows) 25, 56, 59, 60, 72, 73, 75, 79, 127, 131, 149, 159, 165, 169, 176, and 197 have hat values which are greater than $2 \bar h$.
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    hats = hatvalues(wb_mdl1)) %>%
+  dplyr::filter(., hats > (2*0.015)) %>%
+  arrange(., desc(hats)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-There are `r sum(mdl_diagnost$hats > (2*0.015))` observations that have high leverage.  
+There are `r sum(mdl_diagnost$hats > (2*0.015))` observations that have high leverage (> $2 \bar h$).  
 
 :::
 
@@ -475,23 +503,37 @@ We can ask whether any of observations have a high influence on our model estima
 table(mdl_diagnost$cooksd > 0.020)
 ```
 
+Yes, we have 11 `TRUE` observations, which tells us that they are above the $D_{cutoff} = 0.020$.
+
+We can identify which of our observations have these values:
 
 ```{r}
-mdl_diagnost %>%
-  filter(cooksd > 0.020)
+which(mdl_diagnost$cooksd > 0.020)
 ```
 
-No values have been returned (the tibble has zero rows), hence we do not have any observations that have a high influence on our model estimates.
+So we know that observations (or rows) 16, 53, 58, 76, 78, 109, 125, 126, 149, 151, and 169 have $D > 0.020$. 
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    cooksd = cooks.distance(wb_mdl1)) %>%
+  dplyr::filter(., cooksd > 4/(200-2-1)) %>%
+  arrange(., desc(cooksd)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
 
 You can also display the Cook's Distance values themselves using `plot(model, which = 4)`:
 
 ```{r}
-plot(wb_mdl1, which = 4)
+plot(wb_mdl1, which = 4, abline(h=0.020, col="blue"))
 ```
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-None of our observations have a high influence on our model estimates, as the maximum value of Cook’s distance in our sample is  0.108, which is less than the cutt-off value of 0.020. Thus, we do not appear to have any influential points in our sample. 
+There are `r sum(mdl_diagnost$cooksd > 0.020)` observations that have a high influence on our model estimates
 
 :::
 
@@ -532,7 +574,9 @@ For our model:
 $$
 1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{200} \quad = \quad 1\pm \frac{9}{200} \quad = \quad 1\pm0.045
 $$
+
 The "infmat" bit of an `infl`-type object contains the numbers, as we can see from out output above. To use it with ggplot, we will need to turn it into a dataframe (`as.data.frame()`), or a tibble (`as_tibble()`):   
+
 ```{r message=FALSE, warning=FALSE}
 infdata <- inf_mes$infmat %>%
   as_tibble()
@@ -548,7 +592,34 @@ ggplot(data = infdata, aes(x = cov.r)) +
   theme(legend.position = "none")  #remove legend
 ```
 
-It looks like a few observations may be having quite a high influence here. This is perhaps not that surprising as we only have 32 datapoints. 
+It looks like a few observations may be having quite a high influence here.  
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+What approaches would be appropriate to take given the issues highlighted above with the violations of assumptions and case diagnostic results?
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+There are lots of different options available, and there is no one right answer. 
+
+::: {.panel-tabset}
+
+
+## Investigate Observations
+
+
+## Sensitivity Analysis
+
+
+
+`r solend()`
+
+
+
 
 <div class="divider div-transparent div-dot"></div>
 
