@@ -1,5 +1,5 @@
 ---
-title: "Bootstrap for regression"
+title: "Bootstraping"
 link-citations: TRUE
 params: 
     SHOW_SOLS: TRUE
@@ -19,9 +19,7 @@ set.seed(3)
 At the end of this lab, you will:
 
 1. Understand the principles of bootstrapping
-2. 
-how varying factors can influence power
-1. Be able to conduct power analyses using the `pwr` package
+2. Apply the bootstrap confidence interval to inference in linear models
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -42,6 +40,8 @@ For this lab, you will need to load the following package(s):
 
 ### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
 All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf). If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
 
 ### <i class="fa fa-file"></i> Lab Data
 You can download the data required for this lab [here](https://uoepsy.github.io/data/science-faith-attitude.csv) or read it in via this link https://uoepsy.github.io/data/science-faith-attitude.csv. 
@@ -67,7 +67,7 @@ __Data Dictionary__
 ebsurvey <- read_csv("https://uoepsy.github.io/data/science-faith-attitude.csv")
 tibble(
 variable = names(ebsurvey),
-description = c("Participant ID", "Nation ID - 1 = France, 2 = Belgium, 3 = The Netherlands, 4 = Germany West, 5 = Italy, 6 = Luxembourg, 7 = Denmark, 8 = Ireland, 9 = Great Britain, 10 = Northern Ireland, 11 = Greece, 12 = Spain, 13 = Portugal, 14 = Germany East, 15 = Norway, 16 = Finland, 17 = Sweden, 18 = Austria, 19 = Cyprus (Republic), 20 = Czech Republic, 21 = Estonia, 22 = Hungary, 23 = Latvia, 24 = Lithuania, 25 = Malta, 26 = Poland, 27 = Slovakia, 28 = Slovenia, 29 = Bulgaria, 30 = Romania, 31 = Turkey, 32 = Croatia, 33 Cyprus (TCC; not included), 34 = Iceland, 35 = Switzerland", "Score on a science quiz composed of 13 true/false items. Scores can range 0-13.", "Age - individual's age (in years)", "Whether participant idenitfied as male (1) or female (0)", "Attitude to science and faith. Response to the question - We rely too much on science and not enough on faith. Responses were recorded on a 5-point scale from strongly disagree (0) to strongly agree (4)", "Number of explicitly mentioned target phrases in response to the question - Please tell me, in your own words, what it means to study something scientifically?" )
+description = c("Participant ID", "Nation ID:  1 = France, 2 = Belgium, 3 = The Netherlands, 4 = Germany West, 5 = Italy, 6 = Luxembourg, 7 = Denmark, 8 = Ireland, 9 = Great Britain, 10 = Northern Ireland, 11 = Greece, 12 = Spain, 13 = Portugal, 14 = Germany East, 15 = Norway, 16 = Finland, 17 = Sweden, 18 = Austria, 19 = Cyprus (Republic), 20 = Czech Republic, 21 = Estonia, 22 = Hungary, 23 = Latvia, 24 = Lithuania, 25 = Malta, 26 = Poland, 27 = Slovakia, 28 = Slovenia, 29 = Bulgaria, 30 = Romania, 31 = Turkey, 32 = Croatia, 33 Cyprus (TCC; not included), 34 = Iceland, 35 = Switzerland", "Score on a science quiz composed of 13 true/false items. Scores can range 0-13.", "Individual's age (in years)", "Whether participant idenitfied as male (1) or female (0)", "Attitude to science and faith. Response to the question - We rely too much on science and not enough on faith. Responses were recorded on a 5-point scale from strongly disagree (0) to strongly agree (4)", "Number of explicitly mentioned target phrases in response to the question - Please tell me, in your own words, what it means to study something scientifically?" )
 ) %>% gt::gt()
 ```
 
@@ -89,7 +89,7 @@ read_csv('https://uoepsy.github.io/data/science-faith-attitude.csv') %>% head %>
 
 1. Create a new RMarkdown file
 2. Load the required package(s)
-3. Read in the recall_med_coast dataset into R, assigning it to an object named `recdata` 
+3. Read in the science-faith-attitude dataset into R, assigning it to an object named `ebsurvey` 
  
 `r qend()`
 
@@ -133,6 +133,7 @@ Note, to address the research question, we only need to refer to the `kstot`, `a
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
 ```{r}
 # Inspect top 6 rows
 head(ebsurvey)
@@ -143,7 +144,8 @@ dim(ebsurvey)
 
 There are `r nrow(ebsurvey)` observations on `r ncol(ebsurvey)` variables.
 
-However, today we will be only using the `kstot`, `age`, and `toomuchscience` variables. We can subset the data:
+However, today we will be only using the `kstot`, `age`, and `toomuchscience` variables, and so we subset the data to only include these:
+
 ```{r}
 ebsurvey <- ebsurvey %>%
     select(kstot, age, toomuchscience)
@@ -200,20 +202,20 @@ Much of the information required can be found in the [Study Overview] codebook.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-The `ebsurvey` dataset, excluding missing values, included 10,503 individual respondents who were measured on 3 different attributes: (1) Score on a science "quiz" composed of 13 true/false items; (2) Attitudes towards science and faith (question wording: "We rely too much on science and not enough on faith"; responses on a 5-point scale from strongly disagree to strongly agree); and (3) their age (measured in years).
+The `ebsurvey` dataset, excluding missing values, included 10,503 individual respondents who were measured on 3 different attributes: (1) score on a science "quiz" composed of 13 true/false items; (2) attitudes towards science and faith (question wording: "We rely too much on science and not enough on faith" with responses recorded on a 5-point scale from strongly disagree to strongly agree); and (3) their age (in years).
 
-Histograms will be used to visualise the marginal distributions of XXXXXXX. To understand the strength of association among the variables, we will estimate the the correlation coefficients. To address the research question of whether there is an association between XXXXX after taking into account the association between XXX and age, we are going to fit the following multiple linear regression model:
+Histograms will be used to visualise the marginal distributions of attitudes towards science and faith, scientific knowledge, and age. To understand the strength of association among the variables, we will estimate the the correlation coefficients. To address the research question of whether there is an association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age, we are going to fit the following multiple linear regression model:
 
 $$
  \text{Attitude} = \beta_0  + \beta_1 \cdot \text{Science Knowledge} + \beta_2 \cdot \text{Age} + \epsilon
 $$
-Effects will be considered statistically significant at $\alpha=.05$.
+Effects will be considered statistically significant at $\alpha = .05$.
 
 Our hypotheses are:
 
-$H_0: \beta_1 = 0$: There is no association between wellbeing and time spent outdoors after taking into account the association between wellbeing and age
+$H_0: \beta_1 = 0$: There is no association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age
 
-$H_1: \beta_1 \neq 0$: There is an association between wellbeing and time spent outdoors after taking into account the association between wellbeing and age
+$H_1: \beta_1 \neq 0$: There is an association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age
 
 `r solend()`
 
@@ -258,10 +260,10 @@ Alongside descriptive statistics, visualize the marginal distributions of the `a
 
 ```{r}
 #| label: tbl-w9-desc
-#| tbl-cap: Wellbeing, Social Interactions, and Outdoor Time Descriptive Statistics
+#| tbl-cap: Attitude, Scientfic Knowledge, and Age Descriptive Statistics
 ebsurvey %>% 
     describe() %>%
-    kable(caption = "Wellbeing, Social Interactions, and Outdoor Time Descriptive Statistics", align = "c", digits = 2) %>%
+    kable(caption = "Attitude, Scientfic Knowledge, and Age Descriptive Statistics", align = "c", digits = 2) %>%
     kable_styling(full_width = FALSE)
 
 ```
@@ -275,7 +277,7 @@ ebsurvey %>%
 You may wish to consider using helpful bin sizes, see the `bindwidth` argument, but this is subjective and optional.
 ```{r}
 ggplot(ebsurvey, aes(x = age)) +
-    geom_histogram(color = 'white', binwidth = 5) +
+    geom_histogram() +
     labs(x = 'Age (years)', 
          y = 'Frequency')
 ```
@@ -290,8 +292,8 @@ The mean age in the sample is about 45 years with a standard deviation of just o
 
 ```{r}
 ggplot(ebsurvey, aes(x = science_knowledge)) +
-    geom_histogram(binwidth = 1, color = 'white') +
-    labs(x = 'Science knowledge quiz scores', 
+    geom_histogram() +
+    labs(x = 'Science Knowledge Quiz Scores', 
          y = 'Frequency')
 ```
 
@@ -305,8 +307,8 @@ The histogram shows that the majority of values on the science knowledge quiz sc
 
 ```{r}
 ggplot(ebsurvey, aes(x = attitude)) +
-    geom_histogram(color = 'white', binwidth = 1) +
-    labs(x = 'We rely too much on science and not enough on faith', 
+    geom_histogram() +
+    labs(x = 'We Rely too Much on Science and not Enough on Faith', 
          y = 'Frequency')
 ```
 
@@ -326,7 +328,7 @@ The mean score on the science and faith attitude variable is just over 2. There 
 
 `r qbegin(4)`
 
-Produce plots of the associations between the outcome variable (wellbeing) and each of the explanatory variables.
+Produce plots of the associations between the outcome variable (attitude) and each of the explanatory variables.
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -353,10 +355,12 @@ Produce plots of the associations between the outcome variable (wellbeing) and e
 #| fig-cap: "Scatterplots displaying the associations between Attitude towards Science and Faith and a) Age, and b) Science Knowledge"
 p1 <- ggplot(data = ebsurvey, aes(x = age, y = attitude)) +
     geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
     labs(x = 'Age (in years)', y = "Attitude towards Science and Faith")
 
 p2 <- ggplot(data = ebsurvey, aes(x = science_knowledge, y = attitude)) +
-    geom_point() +
+    geom_point()  +
+  geom_smooth(method = "lm", se = FALSE) + 
     labs(x = "Science Knowledge Quiz Scores", y = "Attitude towards Science and Faith")
 
 p1 | p2 
@@ -369,6 +373,7 @@ From the pairwise scatterplots, it does not seem like there is a strong linear d
 <br>
 
 `r qbegin(5)`
+
 Produce a correlation matrix of the variables which are to be used in the analysis, and write a short paragraph describing the associations. 
 
 :::{.callout-tip appearance="simple" collapse="true"}
@@ -412,9 +417,9 @@ ebsurvey %>%
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-+ There was a weak, positive, linear association between attitude towards science and faith and age for the participants in the sample ($r$ = .05)
-+ There was a weak, negative, linear association between attitude towards science and faith and scientific knowledgefor the participants in the sample ($r$ = -.18)
-+ There was a weak, negative, linear association between scientific knowledge and age for the participants in the sample ($r$ = -.12). The correlation is relatively small in absolute terms, and we therefore have little concern about multicollinearity influencing this regression analysis
++ There was a weak, positive, linear association between attitude towards science and faith and age for the participants in the sample $(r = .05)$
++ There was a weak, negative, linear association between attitude towards science and faith and scientific knowledge for the participants in the sample $(r = -.18)$
++ There was a weak, negative, linear association between scientific knowledge and age for the participants in the sample $(r = -.12)$. The correlation is relatively small in absolute terms, and we therefore have little concern about multicollinearity influencing this regression analysis
 + Overall, there were very weak linear associations among the variables of interest
 
 :::
@@ -515,7 +520,7 @@ Obtain confidence intervals for your bootstrapped model estimates.
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-You can use your preferred confidence level here, by default this is 95%:
+You can use your preferred confidence level here, but by default this is 95%:
 
 ```{r}
 Confint(boot_mdl, level = 0.95, type = "perc")
@@ -533,9 +538,9 @@ Confint(boot_mdl, type = "perc") %>%
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-We are 95% confident that the population intercept is between 2.68 and 2.90.
-We are 95% confident that the population slope for science knowledge is between -0.09 and -0.07.
-We are 95% confident that the population slope for age is between 0.001 and 0.004.
++ We are 95% confident that the population intercept is between 2.68 and 2.90  
++ We are 95% confident that the population slope for science knowledge is between -0.09 and -0.07  
++ We are 95% confident that the population slope for age is between 0.001 and 0.004  
 
 The bootstrap confidence intervals table containing the 95% confidence intervals for both slope estimates do not include 0. This leads us to reject both null hypotheses at the 5% significance level, and conclude that there appear to be associations between both attitude to science and faith and age, and for attitude to science and faith with science knowledge. 
 
@@ -588,7 +593,7 @@ cor(ebsurvey) %>%
 
 To answer the research hypotheses, we fitted the following regression model:
 $$
-\text{attitude} = \beta_0 + \beta_1 \ \text{science_knowledge} + \beta_2 \ \text{age} + \epsilon
+\text{Attitude} = \beta_0 + \beta_1 \cdot \text{Science Knowledge} + \beta_2 \cdot \text{Age} + \epsilon
 $$
 
 ```{r echo=FALSE}
@@ -599,7 +604,7 @@ b2 <- signif(coef(att_mdl)[3],2)
 
 Which resulted in the following estimated regression coefficients for the original sample:
 $$
-\widehat{\text{attitude}} = `r b0` `r b1` \ \text{science_knowledge} + `r b2` \ \text{age}
+\widehat{\text{Attitude}} = `r b0` `r b1` \cdot \text{Science Knowledge} + `r b2` \cdot \text{Age}
 $$
 
 The model does not satisfy the regression assumptions, see Figure \@ref(fig:res-diag-plots), and for this reason we will assess statistical significance using the boostrap approach with $R = 1000$ resamples.

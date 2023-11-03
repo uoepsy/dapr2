@@ -44,6 +44,7 @@ For this lab, you will need to load the following package(s):
 * **see**
 * **performance**
 * **kableExtra**
+* **sjPlot**
 
 ### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
 All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf). If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
@@ -126,6 +127,7 @@ library(car)
 library(see)
 library(performance)
 library(kableExtra)
+library(sjPlot)
 
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
@@ -592,7 +594,7 @@ ggplot(data = infdata, aes(x = cov.r)) +
   theme(legend.position = "none")  #remove legend
 ```
 
-It looks like a few observations may be having quite a high influence here.  
+It looks like a few observations may be having quite a strong influence on the standard errors here.  
 
 `r solend()`
 
@@ -602,24 +604,115 @@ It looks like a few observations may be having quite a high influence here.
 
 What approaches would be appropriate to take given the issues highlighted above with the violations of assumptions and case diagnostic results?
 
+`r qend()`
+
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-There are lots of different options available, and there is no one right answer. 
+There are lots of different options available, and there is no one right answer. Assuming that we have no issues with model specification (i.e., are not missing variables, have modeled appropriately), then we may want to consider one of the below approaches (note: this is **not** an exhaustive list!)
 
 ::: {.panel-tabset}
 
-
 ## Investigate Observations
 
+The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a persons height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)! 
+
+If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value should be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect.
+
+If there is an extreme value, but legitimate, you may want to consider ways to reduce this influence (e.g., winsorizing).
+
+If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach as outlined below. 
 
 ## Sensitivity Analysis
 
+This allows us to assess the **sensitivity** of our results (i.e., parameter estimates, p-values, confidence intervals) to changes in our modelling approach (i.e., the removal of observations).
+
+We can re-fit our model after excluding our identified outliers and potentially influential observations, and compare these results to the original model.
+
+::: {.callout-important icon=false collapse=true}
+# Process of Removing Observations
+
+The current example involves removing all identified outliers and potentially influential observations at the same time. Ideally, and to ensure a more thorough sensitivity analysis, you would remove each of these observations one at a time, assess the effects on the model by comparing to your original, reassessing the remaining pre-identified observations, and repeating the process if necessary. 
+
+:::
+
+::: {.panel-tabset}
+
+### Original Model
+
+```{r}
+## wellbeing model
+wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) 
+summary(wb_mdl1)
+```
+
+
+### Model with Observations Removed
+
+```{r}
+## wellbeing model
+wb_mdl2 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 176, 197), ])
+summary(wb_mdl2)
+```
+
+
+### Compare `summary()` output
+
+```{r}
+tab_model(wb_mdl1, wb_mdl2,
+          dv.labels = c("Wellbeing (WEMWBS Scores)", "Wellbeing (WEMWBS Scores)"),
+          pred.labels = c("outdoor_time" = "Outdoor Time (hours per week)",
+                          "social_int" = "Social Interactions (number per week)"),
+          title = "Regression Table for Wellbeing Models wb1 and wb2")
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We conducted a sensitivity analysis to assess how robust our conclusions were regarding outdoor time and the weekly number of social interactions in the presence of previously identified outliers and potentially influential observations. We re-fit the model, excluding these 28 observations (14% of our original sample), and compared these model results (`wb_mdl2`) to those of our original model (`wb_mdl1`). 
+
+There was little difference in the estimates from `wb_mdl1` and `wb_mdl2`, and so we can conclude that after conducting a sensitivity analysis, there were no meaningful differences in our results, and hence our conclusions from our original model hold. Specifically:
+
++ The direction of all model estimates are the same in `wb_mdl1` and `wb_mdl2` (i.e., all positive)
++ There is no difference in statistical significance, and the p-values were of a similar magnitude (i.e., all < .001)
++ The estimate and confidence intervals for `outdoor_time` are very similar
++ There are some quantitative differences in the estimate and confidence intervals for `social_int`. The estimate differs in magnitude by 0.10), but given that this remains positive and significant, so we do not need to be too concerned about this. 
+
+:::
+
+## Boostrapping
+
+The bootstrap method is an alternative non-parametric method of constructing a standard error. Instead of having to rely on calculating the standard error with a formula and potentially applying fancy mathematical corrections, bootstrapping involves mimicking the idea of “repeatedly sampling from the population”. It does so by repeatedly **re**sampling with **replacement** from our original sample.
+
+What this means is that we don’t have to rely on any assumptions about our model residuals, because we actually generate an actual distribution that we can take as an approximation of our sampling distribution, meaning that we can actually look at where 95% of the distribution falls, without having to rely on any summing of squared deviations.
+
+Note, the bootstrap may provide us with an alternative way of conducting inference, but our model may still be mis-specified. It is also very important to remember that bootstrapping is entirely reliant on utilising our original sample to pretend that it is a population (and mimic sampling from that population). If our original sample is not representative of the population that we’re interested in, bootstrapping doesn’t help us at all.
+
+More on how bootstrapping works next week!
+
+## Data Transformations
+
+## Using Non-Linear Models
+
+## Removing Observations
+
+Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is. 
+
+If you do decide to remove observations, you will need to document what specific data points you excluded, and provide an explanation as to why these were excluded. 
+
+To set specific values to `NA` in our dataset, we could do the following:
+
+If we wanted to remove the full row from the datset, we could do the following:
+
+```{r eval = FALSE}
+# create new dataset 'mwdata2' without identified outliers and potentially influential observations
+mwdata2 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 176, 197), ]
+```
+
+:::
 
 
 `r solend()`
-
-
-
 
 <div class="divider div-transparent div-dot"></div>
 
