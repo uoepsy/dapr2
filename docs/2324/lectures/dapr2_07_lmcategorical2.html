@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Sum-to-zero (Effects) coding &amp; Manual Contrasts </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# <b> Sum-to-zero (Effects) coding &amp; Manual Contrasts </b>
+]
+.subtitle[
+## Data Analysis for Psychology in R 2<br><br>
+]
+.author[
+### dapR2 Team
+]
+.institute[
+### Department of Psychology<br>The University of Edinburgh
+]
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+# Weeks Learning Objectives
+1. Understand the difference between dummy and sum-to-zero coding.
+
+2. Understand the core principle of different coding schemes.
+
+3. Interpret the output from a model using sum-to-zero coding.
+
+4. Review rules for constructing contrasts
+
+5. Continue using `emmeans` to investigate manual contrasts.
+
+
+---
+class: inverse, center, middle
+
+# Part 1: Why can't we always use dummy coding?
+
+---
+# Why not always use dummy coding?
++ Last week we discussed dummy coding:
+  + Dummy coding creates a set of `\(k\)`-1 dummy variables (coded `0` or `1`).
+  + Each variable's `\(\beta\)` reflects the difference between the group coded `1`, and the reference group (coded `0` across all dummy variables)
+  + As such, we say it uses a reference group constraint to estimate our group means
+
++ This is a neat and (comparatively) straight-forward way to deal with categorical variables.
+
++ But it doesn't always give us the exact test we need. We might want to compare to:
+  + The overall or grand mean
+  + Group 1 vs groups 2, 3, 4 combined
+  + and on we could go!
+
+
+---
+# Why not always use dummy coding?
++ The link last week has many different examples of coding schemes that answer different questions.
+
++ This week we will consider the two examples on the previous slide:
+
+  1. Comparing a specific group to the overall mean in your sample (grand mean). This is **sum-to-zero** or **effects coding**
+  2. Comparing specific combinations of groups. These are **manual contrasts**
+
++ Let's start with the grand mean with our class study example.
+
+---
+# Effects coding (sum to zero coding)
+
+.pull-left[
+![](dapr2_07_lmcategorical2_files/figure-html/unnamed-chunk-3-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
++ To interpret the plot:
+  + Coloured points: individual test scores for students in each group
+  + Solid coloured lines: group means
+  + Dashed grey line: the grand mean (the mean of all the observations)
+
++ We can see already a key difference from dummy coding
+  + Rather than all groups being compared to reading, all will be compared to the grey line.
+
+]
+
+--
+
+&gt; **Test your understanding:** If our coefficients reflect the comparison of each group to the grand mean, what direction of coefficients would we expect for each group? 
+
+--
+
+&gt; Where is the biggest absolute difference?
+
+---
+# Model with the grand mean
++ If we write our model including the grand mean, we get:
+
+`$$y_{ij} = \mu + \beta_j + \epsilon_{ij}$$`
++ where
+  + `\(y_{ij}\)` is the score for a given individual ( `\(i\)` ) in a given group ( `\(j\)` )
+  + `\(\mu\)` is the grand mean
+  + `\(\beta_j\)` is a group specific effect
+  + `\(\epsilon_{ij}\)` is the individual deviation from the group mean
+  
++ Let's briefly consider the constraints we apply, before looking at how we do this in R.
+
+---
+# Model with the grand mean
++ This means that each group mean is:
+
+`$$\mu_{read} = \mu + \beta_{read}$$`
+
+`$$\mu_{self-test} = \mu + \beta_{self-test}$$`
+
+`$$\mu_{summarise} = \mu + \beta_{summarise}$$`
+
++ And as with dummy coding, this means we have 4 things to estimate ( `\(\mu\)` , `\(\beta_{read}\)` , `\(\beta_{self-test}\)` , `\(\beta_{summarise}\)` ), but only 3 group means.
+
+---
+# Sum to zero constraint
+
++ In sum to zero coding, we fix this with the following constraint:
+
+`$$\sum_{j=1}^m \beta_j = 0$$`
+
++ Or alternatively written for the 3 group case:
+
+`$$\beta_1 + \beta_2 + \beta_3 = 0$$`
+
+
+---
+# Sum to zero constraint
++ This constraints leads to the following interpretations:
+
++ `\(\beta_0\)` is the grand mean (mean of all observations) or `\(\mu\)`
+
++ `\(\beta_j\)` are the differences between the coded group and the grand mean:
+
+`$$\beta_j = \mu_j - \mu$$`
+
+---
+# Why the grand mean?
+
+`$$\beta_1 + \beta_2 + \beta_3 = 0$$`
+
++ Substitute `\(\beta_0\)` :
+
+`$$(\mu_1 - \beta_0) + (\mu_2 - \beta_0) + (\mu_3 - \beta_0) = 0$$`
+
+`$$\mu_1 + \mu_2 + \mu_3 = 3\beta_0$$`
+
+$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} $$
+`$$\beta_0 = \mu$$`
+
+---
+# Sum to zero constraint
+
++ Finally, we can get back to our group means from the coefficients as follows: 
+
+`$$\mu_1 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+
+---
+class: center, middle
+
+# Questions?
+
+---
+class: inverse, center, middle
+
+# Part 2: Calculating coefficients with sum-to-zero coding
+
+
+
+---
+# Group Means
+
+
+```r
+test_study3 %&gt;%
+  select(1,2,6) %&gt;%
+  group_by(method) %&gt;%
+  summarise(
+    mean = round(mean(score),3),
+    sd = round(sd(score),1),
+    N = n()
+  )
+```
+
+```
+## # A tibble: 3 × 4
+##   method     mean    sd     N
+##   &lt;fct&gt;     &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt;
+## 1 read       23.4   8      87
+## 2 self-test  27.6   8.3    66
+## 3 summarise  24.2   8      97
+```
+
+
+---
+# Effects (sum to zero) model
+
++ We need to change the contrast scheme from default.
+
+
+```r
+contrasts(test_study3$method) &lt;- contr.sum 
+contrasts(test_study3$method)
+```
+
+```
+##           [,1] [,2]
+## read         1    0
+## self-test    0    1
+## summarise   -1   -1
+```
+
+---
+# Effects (sum to zero) model
+
+```r
+summary(lm(score ~ method, data = test_study3))
+```
+
+```
+## 
+## Call:
+## lm(formula = score ~ method, data = test_study3)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -23.4138  -5.3593  -0.1959   5.7496  17.8041 
+## 
+## Coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  25.0618     0.5177  48.409  &lt; 2e-16 ***
+## method1      -1.6480     0.7198  -2.290  0.02289 *  
+## method2       2.5139     0.7731   3.252  0.00131 ** 
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 8.079 on 247 degrees of freedom
+## Multiple R-squared:  0.04224,	Adjusted R-squared:  0.03448 
+## F-statistic: 5.447 on 2 and 247 DF,  p-value: 0.004845
+```
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+
+```
+## (Intercept)     method1     method2 
+##      25.062      -1.648       2.514
+```
+
++ Coefficients from group means
+
+
+`$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3}$$` 
+
+`$$\beta_1 = \mu_1 - \mu$$`
+
+`$$\beta_2 = \mu_2 - \mu$$`
+
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; method &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Gmean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Coefficients &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; read &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.414 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.648 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; self-test &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27.576 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.514 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; summarise &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24.196 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.866 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+
+```
+## (Intercept)     method1     method2 
+##      25.062      -1.648       2.514
+```
+
++ Group means from coefficients:
+
+`$$\mu_1 = \beta_0 + \beta_1$$`
+
+`$$\mu_2 = \beta_0 + \beta_2$$`
+
+`$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+]
+
+
+.pull-right[
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; method &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Gmean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Coefficients &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; read &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 23.414 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -1.648 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; self-test &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 27.576 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.514 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; summarise &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24.196 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25.062 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.866 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+```r
+25.062 + -1.648
+```
+
+```
+## [1] 23.414
+```
+
+
+```r
+25.062 + 2.514
+```
+
+```
+## [1] 27.576
+```
+
+
+```r
+25.062 - (-1.648 + 2.514)
+```
+
+```
+## [1] 24.196
+```
+
+
+]
+
+
+---
+# The wide world of contrasts 
++ We have now seen two examples of coding schemes (dummy and effect).
+
++ There are **lots** of different coding schemes we can use for categorical variables to make different comparisons.
+  + If you are interested, see the excellent resource on [UCLA website](https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
+
++ But always remember...
+
+**The data is the same, the tested contrast differs**
+
+---
+class: inverse, center, middle
+
+# Part 3: The data doesn't change, what we compare does
+
+---
+# The data is the same, the tested contrasts differ
+
++ We can run our model for `method` using both dummy and sum-to-zero coding schemes
+
+
+```r
+contrasts(test_study3$method) &lt;- contr.treatment
+m_dummy &lt;- lm(score ~ method, data = test_study3)
+
+# Change the contrasts and run again
+contrasts(test_study3$method) &lt;- contr.sum
+m_zero &lt;- lm(score ~ method, data = test_study3)
+```
+
++ We see that the model coefficients are different, because the tested contrast differs:
+
+.pull-left[
+
+```r
+coef(m_dummy)
+```
+
+```
+## (Intercept)     method2     method3 
+##  23.4137931   4.1619645   0.7820832
+```
+]
+
+.pull-right[
+
+```r
+coef(m_zero)
+```
+
+```
+## (Intercept)     method1     method2 
+##   25.061809   -1.648016    2.513949
+```
+]
+
+---
+# The data is the same, the tested contrasts differ
+
+However, if we create a small data set,
+
+
+```r
+treat &lt;- tibble(method = c("read", "self-test", "summarise"))
+```
+
+and add the predicted values from our models,
+
+
+```r
+treat %&gt;%
+  mutate(
+    pred_dummy = predict(m_dummy, newdata = .),
+    pred_zero = predict(m_zero, newdata = .)
+  )
+```
+
+```
+## # A tibble: 3 × 3
+##   method    pred_dummy pred_zero
+##   &lt;chr&gt;          &lt;dbl&gt;     &lt;dbl&gt;
+## 1 read            23.4      23.4
+## 2 self-test       27.6      27.6
+## 3 summarise       24.2      24.2
+```
+
+You can see that no matter what coding or contrasts we use, we are still modelling the group means!
+
+---
+class: center, middle
+
+# Questions?
+
+---
+class: inverse, center, middle
+
+# Part 4: Setting up our own specific tests
+
+
+---
+# Why do we need manual contrasts?
++ We have looked now at dummy and sum-to-zero coding. 
+
++ These provide us with coefficients which test the significance of the difference between means of groups and some other mean (either reference group or grandmean)
+  + The other coding schemes we linked to do exactly the same thing.
+
++ ***Sometimes*** we have a research question that requires the test of the difference between particular combinations of groups for which there is no *"off the shelf"* test. 
+
++ For such situations, we can apply a set of rules and test what are referred to as manual contrasts.
+
+
+---
+# Manual contrast testing
++ We can structure a wide variety of contrasts so long as they can be written:
+
+  1. A as a linear combination of population means.
+  2. The associated coefficients (weights `\(c_1\)` etc below) sum to zero.
+
++ So
+
+$$H_0: c_1\mu_1 + c_2\mu_2 + c_3\mu_3 $$
+
++ With
+
+`$$c_1 + c_2 + c_3 = 0$$`
+
+---
+# New example
++ Suppose we were interested in the effect of various relationship statuses on an individuals subjective well-being (`swb`)
+
++ Our predictor is `status` which has 5 levels:
+  + Married or Civil Partnership
+  + Cohabiting relationship
+  + Single
+  + Widowed
+  + Divorced
+
++ Let's say we have data on 500 people.
+
+---
+# Data
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; status &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; n &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; mean &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; sd &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 100 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 11.44 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4.22 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 9.37 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.34 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 275 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 10.63 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3.41 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 8.06 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2.19 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 6.00 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.07 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+# Our questions
++ Suppose we want to know if there are `swb` differences between:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+    + Group 1: `Married/CP`, `Divorced`, `Widowed`
+    + Group 2: `Single`, `Cohab`
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+    + Group 1: `Married/CP`
+    + Group 2: `Divorced`, `Widowed`
+
+--
+
++ To test this, we need to:
+  + group levels of our factor `status`
+  + calculate a mean of these new sub-groups making sure all levels contribute equally to their respective groups
+  + then test the difference between these means
+
++ Manual contrasts can do this for us, if we follow some rules.
+
+---
+# Rules for manual contrasts
+
++ **Rule 1**: Weights (e.g. `\(c_1\)` etc from previous slide) range between -1 and 1
+
++ **Rule 2**: The group(s) in one chunk are given negative weights, the group(s) in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) are equal to 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons (where `\(k\)` = number of groups)
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Orthogonal vs. Non-orthogonal Contrasts
++ Orthogonal contrasts test independent sources of variation.
+  + If we follow the rules above, we will have orthogonal contrasts.
+
++ Non-orthogonal contrasts test non-independent sources of variation.
+  + This presents some further statistical challenges in terms of making inferences. 
+  + We will come back to this discussion later in the course.
+
+---
+# Checking if contrasts are orthogonal
++ The sum of the products of the weights will = 0 for any pair of orthogonal comparisons
+
+`$$\sum{c_{1j}c_{2j}} = 0$$`
+
+---
+# From our example
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
++ Below we can see the product of `\(c_1c_2\)` for each level, and the row-wise sums for each contrast and the products.
+  + The 0 for contrast 1 and 2 show we have set correct weights.
+  + The 0 for the product shows the contrasts are orthogonal
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; Contrast &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Cohab &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Divorced &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Married_CP &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Single &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Widowed &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Sum &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Contrast1 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.330 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.330 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Contrast2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.500 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.00 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.500 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Product &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.165 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.165 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+class: inverse, center, middle
+
+# Part 5: Testing manual contrasts using emmeans
+
+
+---
+# Using `emmeans` to test contrasts
+
++ We will use the package `emmeans` to test our contrasts
+  + We will also be using this in the next few weeks to look at analysing experimental designs.
+
++ **E**stimated
++ **M**arginal
++ **Means**
+
++ Essentially this package provides us with a lot of tools to help us model contrasts and linear functions.
+
+---
+# Working with `emmeans`
++ First we run our model:
+
+
+```r
+status_res &lt;- lm(swb ~ status, wb_tib)
+```
+
++ Next we use the `emmeans` to get the estimated means of our groups.
+
+
+```r
+status_mean &lt;- emmeans(status_res, ~status)
+status_mean
+```
+
+```
+##  status     emmean    SE  df lower.CL upper.CL
+##  Cohab       11.44 0.333 495    10.78    12.09
+##  Divorced     9.37 0.471 495     8.45    10.30
+##  Married/CP  10.63 0.201 495    10.23    11.02
+##  Single       8.06 0.471 495     7.13     8.99
+##  Widowed      6.00 0.666 495     4.70     7.31
+## 
+## Confidence level used: 0.95
+```
+
+
+---
+# Visualise estimated means
+
+.pull-left[
+
+```r
+plot(status_mean)
+```
+
++ We then use these means to test contrasts
+
+]
+
+.pull-right[
+![](dapr2_07_lmcategorical2_files/figure-html/unnamed-chunk-28-1.png)&lt;!-- --&gt;
+
+]
+
+---
+# Defining the contrast
+
++ **KEY POINT**: The order of your categorical variable matters as `emmeans` uses this order. 
+
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 1.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.5 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+
+```r
+levels(wb_tib$status)
+```
+
+```
+## [1] "Cohab"      "Divorced"   "Married/CP" "Single"     "Widowed"
+```
+
+
+```r
+status_comp &lt;- list("Married or CP vs not" = c(-1/2, 1/3, 1/3, -1/2, 1/3),
+                    "Current vs Not current" = c(0, -1/2, 1, 0, -1/2))
+```
+
+
+---
+# Requesting the test
++ In order to test our effects, we use the `contrast` function from `emmeans`
+
+
+```r
+status_comp_test &lt;- contrast(status_mean, status_comp)
+status_comp_test
+```
+
+```
+##  contrast               estimate    SE  df t.ratio p.value
+##  Married or CP vs not      -1.08 0.402 495  -2.690  0.0074
+##  Current vs Not current     2.94 0.455 495   6.459  &lt;.0001
+```
++ We can see we have p-values, but we can also request confidence intervals
+
+
+```r
+confint(status_comp_test)
+```
+
+```
+##  contrast               estimate    SE  df lower.CL upper.CL
+##  Married or CP vs not      -1.08 0.402 495    -1.87   -0.291
+##  Current vs Not current     2.94 0.455 495     2.04    3.829
+## 
+## Confidence level used: 0.95
+```
+
+
+---
+# Interpreting the results
++ The estimate is the difference between the average of the group means within each chunk.
+
+
+
+```r
+confint(status_comp_test)
+```
+
+```
+##  contrast               estimate    SE  df lower.CL upper.CL
+##  Married or CP vs not      -1.08 0.402 495    -1.87   -0.291
+##  Current vs Not current     2.94 0.455 495     2.04    3.829
+## 
+## Confidence level used: 0.95
+```
++ So for `Married or CP vs not` :
+
+
+```r
+((10.63 + 6.00 + 9.37)/3) - ((11.44 + 8.06)/2)
+```
+
+```
+## [1] -1.083333
+```
++ So those who are not currently or previously married or in a civial partnership have higher SWB.
+  + And this is significant.
+
+---
+class: center, middle
+
+# Questions?
+
+---
+# Summary of today
+
++ We have considered different ways in which we can code categorical predictors.
+
++ Take home:
+  + Use of coding schemes allows us to compare groups (or levels) in lots of ways.
+  + Our `\(\beta\)`'s will represent differences in group means.
+  + The scheme we use determines which group or combination of groups we are comparing.
+  + **In all cases the underlying data is unchanged.**
+
++ We also looked at the use of `emmeans` in testing manual contrasts.
+  + Run the model
+  + Estimate the means
+  + Define the contrast
+  + Test the contrast
+
++ Though I am sure tricky at points, I hope this shows how coding schemes are a very flexible tool for testing hypotheses.
+
+
+---
+class: inverse, center, middle
+
+# Thanks for listening
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
