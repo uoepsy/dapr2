@@ -46,9 +46,9 @@ class: center, middle, inverse, title-slide
 
 3. Interpret the output from a model using sum-to-zero coding.
 
-4. Introduce rules for constructing contrasts
+4. Review rules for constructing contrasts
 
-5. Introduce `emmeans` as a tool for testing different effects in models with categorical predictors.
+5. Continue using `emmeans` to investigate manual contrasts.
 
 
 ---
@@ -58,11 +58,9 @@ class: inverse, center, middle
 
 ---
 # Why not always use dummy coding?
-+ Last week we discussed dummy coding.
-
-+ We saw how it:
-  + Creates a set of `\(k\)`-1, dummy variables (coded 0-1).
-  + Each variable codes the difference between the group coded 1, and the reference group (coded 0 for all dummy variables)
++ Last week we discussed dummy coding:
+  + Dummy coding creates a set of `\(k\)`-1 dummy variables (coded `0` or `1`).
+  + Each variable's `\(\beta\)` reflects the difference between the group coded `1`, and the reference group (coded `0` across all dummy variables)
   + As such, we say it uses a reference group constraint to estimate our group means
 
 + This is a neat and (comparatively) straight-forward way to deal with categorical variables.
@@ -79,8 +77,8 @@ class: inverse, center, middle
 
 + This week we will consider the two examples on the previous slide:
 
-1. Comparing a specific group to the overall mean in your sample (grand mean). This is **sum-to-zero or effects coding**
-2. Comparing specific combinations of groups. This is **manual contrasts**
+  1. Comparing a specific group to the overall mean in your sample (grand mean). This is **sum-to-zero** or **effects coding**
+  2. Comparing specific combinations of groups. These are **manual contrasts**
 
 + Let's start with the grand mean with our class study example.
 
@@ -94,17 +92,22 @@ class: inverse, center, middle
 .pull-right[
 
 + To interpret the plot:
-  + The coloured points represent the individual test scores for the students in each group.
-  + The solid coloured lines are the group means.
-  + The dashed grey line is the grand mean (the mean of all the observations)
+  + Coloured points: individual test scores for students in each group
+  + Solid coloured lines: group means
+  + Dashed grey line: the grand mean (the mean of all the observations)
 
-+ We can see already a key difference
-  + Rather than all groups being compared to reading, all will not be compared to the grey line.
-
-+ **looking at this plot, if our coefficients will compare each group (solid colour line), to the grand mean (grey dashed line), what direction of coefficients would we expect for each group? Where is the biggest absolute difference?**
++ We can see already a key difference from dummy coding
+  + Rather than all groups being compared to reading, all will be compared to the grey line.
 
 ]
 
+--
+
+&gt; **Test your understanding:** If our coefficients reflect the comparison of each group to the grand mean, what direction of coefficients would we expect for each group? 
+
+--
+
+&gt; Where is the biggest absolute difference?
 
 ---
 # Model with the grand mean
@@ -117,7 +120,7 @@ class: inverse, center, middle
   + `\(\beta_j\)` is a group specific effect
   + `\(\epsilon_{ij}\)` is the individual deviation from the group mean
   
-+ Let's breifly consider the constraints we apply, before looking at how we do this in R.
++ Let's briefly consider the constraints we apply, before looking at how we do this in R.
 
 ---
 # Model with the grand mean
@@ -177,6 +180,11 @@ $$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} $$
 `$$\mu_2 = \beta_0 + \beta_2$$`
 
 `$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$`
+
+---
+class: center, middle
+
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -431,17 +439,43 @@ contrasts(test_study3$method) &lt;- contr.sum
 m_zero &lt;- lm(score ~ method, data = test_study3)
 ```
 
-+ Create a small data set:
++ We see that the model coefficients are different, because the tested contrast differs:
+
+.pull-left[
+
+```r
+coef(m_dummy)
+```
+
+```
+## (Intercept)     method2     method3 
+##  23.4137931   4.1619645   0.7820832
+```
+]
+
+.pull-right[
+
+```r
+coef(m_zero)
+```
+
+```
+## (Intercept)     method1     method2 
+##   25.061809   -1.648016    2.513949
+```
+]
+
+---
+# The data is the same, the tested contrasts differ
+
+However, if we create a small data set,
 
 
 ```r
 treat &lt;- tibble(method = c("read", "self-test", "summarise"))
 ```
 
----
-# The data is the same, the tested contrasts differ
-
-+ Add the predicted values from our models
+and add the predicted values from our models,
 
 
 ```r
@@ -461,9 +495,12 @@ treat %&gt;%
 ## 3 summarise       24.2      24.2
 ```
 
-+ No matter what coding or contrasts we use, we are still modelling the group means!
+You can see that no matter what coding or contrasts we use, we are still modelling the group means!
 
+---
+class: center, middle
 
+# Questions?
 
 ---
 class: inverse, center, middle
@@ -562,32 +599,186 @@ $$H_0: c_1\mu_1 + c_2\mu_2 + c_3\mu_3 $$
 + Suppose we want to know if there are `swb` differences between:
 
 1. Those who are currently or previously married or in a civil partnership vs not.
-2. Those who are currently married or in a civil partnership vs those who have previously been.
+    + Group 1: `Married/CP`, `Divorced`, `Widowed`
+    + Group 2: `Single`, `Cohab`
 
-+ To not test this, we need to:
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+    + Group 1: `Married/CP`
+    + Group 2: `Divorced`, `Widowed`
+
+--
+
++ To test this, we need to:
   + group levels of our factor `status`
-  + calculate a mean of these new sub-groups making sure all groups contribute equally to the respective groups
+  + calculate a mean of these new sub-groups making sure all levels contribute equally to their respective groups
   + then test the difference between these means
 
 + Manual contrasts can do this for us, if we follow some rules.
 
 ---
-# Rules manual contrasts
+# Rules for manual contrasts
 
 + **Rule 1**: Weights (e.g. `\(c_1\)` etc from previous slide) range between -1 and 1
+
 + **Rule 2**: The group(s) in one chunk are given negative weights, the group(s) in the other get positive weights
+
 + **Rule 3**: The sum of the weights of the comparison must be 0
+
 + **Rule 4**: If a group is not involved in the comparison, weight is 0
+
 + **Rule 5**: For a given comparison, weights assigned to group(s) are equal to 1 divided by the number of groups in that chunk.
+
 + **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons (where `\(k\)` = number of groups)
+
 + **Rule 7**: Each contrast can only compare 2 chunks
-+ **Rule 8**: Once a group singled out, it can not enter other contrasts 
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
 
 ---
 # Applying rules
-+ Let's construct two contrasts to answer questions 1 and 2:
+
+.pull-left[
+
++ Let's construct two contrasts:
 
 1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt; group &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; contrast1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; contrast2 &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Cohab &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Divorced &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Married/CP &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Single &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -0.50 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Widowed &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.33 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt;  &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
 2. Those who are currently married or in a civil partnership vs those who have previously been.
 
 &lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
@@ -626,7 +817,25 @@ $$H_0: c_1\mu_1 + c_2\mu_2 + c_3\mu_3 $$
   &lt;/tr&gt;
 &lt;/tbody&gt;
 &lt;/table&gt;
+]
 
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running `\(k\)` - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
 
 ---
 # Orthogonal vs. Non-orthogonal Contrasts
@@ -792,7 +1001,7 @@ plot(status_mean)
 ]
 
 .pull-right[
-![](dapr2_07_lmcategorical2_files/figure-html/unnamed-chunk-24-1.png)&lt;!-- --&gt;
+![](dapr2_07_lmcategorical2_files/figure-html/unnamed-chunk-28-1.png)&lt;!-- --&gt;
 
 ]
 
@@ -917,6 +1126,10 @@ confint(status_comp_test)
 + So those who are not currently or previously married or in a civial partnership have higher SWB.
   + And this is significant.
 
+---
+class: center, middle
+
+# Questions?
 
 ---
 # Summary of today
@@ -929,7 +1142,7 @@ confint(status_comp_test)
   + The scheme we use determines which group or combination of groups we are comparing.
   + **In all cases the underlying data is unchanged.**
 
-+ We also looked at the use of `emmeans` to test specific contrasts.
++ We also looked at the use of `emmeans` in testing manual contrasts.
   + Run the model
   + Estimate the means
   + Define the contrast
