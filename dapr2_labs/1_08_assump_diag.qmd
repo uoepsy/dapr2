@@ -61,7 +61,7 @@ In the previous labs, we have fitted a number of regression models, including so
 
 But before we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets a specific set of assumptions. If these assumptions are not satisfied, the results will not hold.
 
-In this lab, we will check the assumptions of one of the models that we have previously fitted in Block 1 where we will assess the assumptions of the multiple linear regression model we fitted using the 'mwdata' dataset in [Week 2](). 
+In this lab, we will check the assumptions of one of the models that we have previously fitted in Block 1 where we will assess the assumptions of the multiple linear regression model we fitted using the 'mwdata' dataset in [Week 2](https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html). 
 
 # Study Overview {#sec-studyview}
 
@@ -134,7 +134,6 @@ mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
 
 ## wellbeing model
 wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) 
-
 ```
 
 `r solend()`
@@ -144,19 +143,6 @@ wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
 # Exercises
 
 ## Assumptions
-
-:::frame
-
-**Assumptions**
-
-You can remember the four assumptions by memorising the acronym LINE:
-
-+ **L**inearity: The relationship between $y$ and $x$ is linear.
-+ **I**ndependence of errors: The error terms should be independent from one another.
-+ **N**ormality: The errors $\epsilon$ are normally distributed in the population.
-+ **E**qual variances ("Homoscedasticity"): The variability of the errors  $\epsilon$ is constant across $x$.  
-
-:::
 
 `r qbegin(1)`
 
@@ -175,7 +161,7 @@ These plots **cannot** be used in your reports - they are to be used as a guide 
 check_model(wb_mdl1)
 ```
 
-The `check_model()` function is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. There does appear to be evidence that some assumptions have been violated, **but** to be sure we need to check each assumption individually with plots that are more suitable for a statistics report. 
+The `check_model()` function is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. There does appear to be evidence that some assumptions may have been violated, **but** to be sure we need to check each assumption individually with plots that are more suitable for a statistics report. 
 
 `r solend()`
 
@@ -191,7 +177,13 @@ Write a sentence summarising whether or not you consider the assumption to have 
 
 ### Hint
 
-When we have multiple predictors, we need to use component-residual plots (also known as partial-residual plots) to check the assumption of linearity. 
+How you check this assumption depends on the number of predictors in your model:
+
++ Single predictor: Use either residual vs fitted values plot (`plot(model, which = 1)`), and/or a scatterplot with loess lines
+    + For interpretation - in the former, you want the residuals appear to be randomly scattered around zero, without showing any pattern with respect to the fitted values; in the latter, the loess line should closely follow the data. 
+
++ Multiple predictors: Use component-residual plots (also known as partial-residual plots) to check the assumption of linearity. 
+    + For interpretation - you are looking for the pink line to follow a linear relationship (i.e., follow the blue line). 
 
 :::
 
@@ -226,6 +218,18 @@ Write a sentence summarising whether or not you consider the assumption to have 
 Use `residualPlots()` to plot residuals against the predictor. 
 
 For interpretation - if the assumption is met, you should see a random scatter of $(x, y)$ points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.
+
+:::{.callout-hint collapse="true"}
+
+**Quick Tip** 
+
+As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
+
+We can make all residuals positive by discarding the sign (take the absolute value), and then take the square root to make them closer to each other.
+
+A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values can be obtained via `plot(model, which = 3)`.
+
+:::
  
 :::
 
@@ -238,28 +242,18 @@ We can visually assess by plotting the Pearson residuals against the fitted valu
 ```{r, fig.width = 8, out.width = '90%'}
 residualPlots(wb_mdl1)
 ```
-  
-:::{.callout-hint collapse="true"}
 
-**Quick Tip** 
-
-As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
-
-We can make all residuals positive by discarding the sign (take the absolute value), and then take the square root to make them closer to each other.
-
-A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values is shown below:
+Or by plotting the $\sqrt{|\text{Standardized residuals}|}$ against the fitted values:
 
 ```{r}
 plot(wb_mdl1, which = 3)
 ```
 
-In the above plot, all points are above 0, but the majority of the points are not very close to each other. The line does not appear to be relatively flat, and so this suggested that the error variance does change across the fitted values.
-
-:::
-
 ::: {.callout-important icon=false appearance="minimal"}
 
 Partial residual plots did show non-linear trends between residuals and predictors, hence there is evidence of non-constant variance i.e., heteroscedasticity. Thus, the data did not meet the assumption of equal variance, as the spread of the standardized residuals did not appear to be constant (for the most part) as the fitted values varied.
+
+In the second plot, all points are above 0, but the majority of the points are not very close to each other. The line does not appear to be relatively flat, and so this also suggested that the error variance does change across the fitted values.
 
 :::
 
@@ -296,7 +290,7 @@ Write a sentence summarising whether or not you consider the assumption to have 
 
 ### Hint
 
-We can get the QQplot from `plot(model, which = 2)`, and you can plot the frequency distribution of the residuals via `hist(model$residuals)`. 
+We can get the QQplot from `plot(model, which = 2)`, and you can plot the frequency distribution of the residuals via `ggplot(data = ???, aes(x = model$residuals)) + geom_histogram()`. 
 
 For interpretation - remember that departures from a linear trend in QQ plots indicate a lack of normality.
  
@@ -311,8 +305,15 @@ For interpretation - remember that departures from a linear trend in QQ plots in
 ### Histogram
 
 ```{r}
-hist(wb_mdl1$residuals)
+ggplot(data = mwdata, aes(x = wb_mdl1$residuals)) +
+    geom_histogram() 
 ```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The histogram indicated that the residuals (the differences between observed and predicted values) followed close to a normal distribution. 
+
+:::
 
 ### QQ Plot
 
@@ -320,14 +321,13 @@ hist(wb_mdl1$residuals)
 plot(wb_mdl1, which = 2)
 ```
 
-:::
-
 ::: {.callout-important icon=false appearance="minimal"}
 
-The QQplot indicated that the residuals follow close to a normal distribution, as the points followed a linear pattern and there was no substantial skew or departure from normality. There was some evidence of heavier tails, and we may want to examine some observations more closely (i.e., 16, 78, 109).
+The QQplot indicated that the residuals followed close to a normal distribution, as the points followed a linear pattern and there was no substantial skew or departure from normality. There was some evidence of heavier tails, and we may want to examine some observations more closely (i.e., 16, 78, 109).
 
 :::
 
+:::
 
 `r solend()`
 
@@ -341,16 +341,25 @@ For `wb_mdl1`, calculate the variance inflation factor (VIF) for the predictors 
 
 Write a sentence summarising whether or not you consider multicollinearity to be a problem here.  
 
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+We can loosely interpret VIF values >5 as indicative of moderate multicollinearity, and values >10 as indicative of severe multicollinearity.
+
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
 ```{r}
 vif(wb_mdl1)
 ```
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-The VIF values for all predictors are < 5, indicating that multicollinearity is not adversely affecting model estimates. 
+The VIF values for all predictors are <5, indicating that multicollinearity is not adversely affecting model estimates. 
 
 :::
 
@@ -407,12 +416,12 @@ From the tibble above, comment on the following:
 
 In a standard normal distribution, 95% of the values are roughly between -2 and 2. Because of this, studentised residuals of $>2$ or $< -2$ indicate potential outlyingness. 
 
-We can ask R whether the *absolute* values (by specifying `abs()`) are $>2$:
+We can ask `R` how many of the *absolute* values (by specifying `abs()`) are $>2$:
 ```{r}
 table(abs(mdl_diagnost$studres) > 2)
 ```
 
-Yes, we have 11 `TRUE` observations, which tells us that they have absolute values are $>2$. 
+We have 11 `TRUE` observations, which tells us that they have |studentised residuals| $>2$. 
 
 We can identify which of our observations have these values:
 
@@ -420,7 +429,7 @@ We can identify which of our observations have these values:
 which(abs(mdl_diagnost$studres) > 2)
 ```
 
-So we know that observations (or rows) 16, 50, 53, 58, 62, 76, 78, 109, 126, 151, and 163 have absolute values that are $>2$.
+So we know that observations (or rows) 16, 50, 53, 58, 62, 76, 78, 109, 126, 151, and 163 have absolute values that have studentised residuals of $>2$ or $< -2$.
 
 We could also *filter* our newly created tibble to these observations to examine the values further:
 
@@ -442,7 +451,7 @@ There were `r sum(abs(mdl_diagnost$studres) > 2)` observations identified as pot
 
 ## High Leverage
 
-Recall that hat values of more than $2 \bar{h}$ (2 times the average hat value) are considered high leverage. The average hat value, $\bar{h}$ is calculated as $\frac{k + 1}{n}$, where $k$ is the number of predictors, and $n$ is the sample size.
+Hat values of more than $2 \bar{h}$ (2 times the average hat value) are considered high leverage. The average hat value, $\bar{h}$ is calculated as $\frac{k + 1}{n}$, where $k$ is the number of predictors, and $n$ is the sample size.
 
 For our model:
 $$
@@ -454,7 +463,7 @@ We can ask whether any of observations have hat values which are greater than $2
 table(mdl_diagnost$hats > (2*0.015))
 ```
 
-We have 16 `TRUE` observations, which tells us that they have high leverage
+We have 16 `TRUE` observations, which tells us that they have high leverage.
 
 We can identify which of our observations have these values:
 
@@ -484,7 +493,7 @@ There were `r sum(mdl_diagnost$hats > (2*0.015))` observations that had high lev
 
 ## Influential Points
 
-Recall that we have a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
+We are using a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
 
 For our model:
 $$
@@ -519,7 +528,7 @@ mwdata %>%
     kable_styling(., full_width = F)
 ```
 
-You can also display the Cook's Distance values themselves using `plot(model, which = 4)`:
+You can also display the Cook's Distance values themselves using `plot(model, which = 4)`, and add a horizontal line at the $D_{cutoff} = 0.020$ using `abline(h = ???)`:
 
 ```{r}
 plot(wb_mdl1, which = 4, abline(h=0.020, col="blue"))
@@ -541,7 +550,7 @@ There were `r sum(mdl_diagnost$cooksd > 0.020)` observations that had a high inf
 
 Use the function `influence.measures()` to extract these delete-1 measures of influence.  
 
-Try plotting the distributions of some of these measures. 
+Choose a couple of these measures to focus on, exploring in more detail (you may want to examine values or even try plotting distributions). 
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -555,21 +564,61 @@ What do you think `names(influence.measures(wb_mdl1))` shows you? How can we use
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-```{r}
-inf_mes <- influence.measures(wb_mdl1)
-round(inf_mes$infmat[1:10,],3)
-```
-  
-Let's plot the distribution of COVRATIO statistics. 
 
-Recall that values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence.  
+::: {.panel-tabset}
+
+## Extracting `influence.measures()`
+
+```{r}
+#extract measures
+inf_mes <- influence.measures(wb_mdl1)
+
+#examine top ten rows, and round to 3 decimal places
+round(inf_mes$infmat[1:10,], 3)
+
+```
+
+
+## Examine `DFBETA` values
+
+DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it's included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients.
+
+A commonly used cut-off or threshold to compare $|DFBETA|$ values (absolute values) against is $\frac{2}{\sqrt{n}}$ (see Belsley et al., (1980) p. 28 for more info)^[Belsley, D. A., Kuh, E., & Welsch, R. E. (2005). Regression diagnostics: Identifying influential data and sources of collinearity. John Wiley & Sons. DOI: 10.1002/0471725153]. 
 
 For our model:
+
+$$
+|DFBETA_{cutoff}| \quad = \quad \frac{2}{\sqrt{n}} \quad = \quad  \frac{2}{\sqrt{200}}  = 0.141
+$$
+
+In order to extract these in order to arrange in descending order, we need to save our delete-1 measures of influence as a dataframe (via `as.data.frame()`). Then we can then arrange our DFBETA values in descending order (via `arrange(desc(???))`). To avoid returning 200 rows of output (i.e., the length of the dataframe), we can ask for the first 15 rows via (`head(., 15)`):
+
+```{r}
+#save as a dataframe
+inf_mes1 <- as.data.frame(inf_mes$infmat)
+
+#arrange dfbeta values in descending order using the absolute value, and show first 10 rows
+inf_mes1 %>%
+    arrange(desc(abs(dfb.1_))) %>%
+    head(., 15)
+```
+
+We can see that we have `r sum(abs(inf_mes1$dfb.1_) > (2/sqrt(200)))` $|DFBETA|$ values > $\frac{2}{\sqrt{200}}$, from observations (or rows) 16, 53, 56, 75, 76, 85, 101, 109, 149, 173, and 179 that we may want to examine further:
+
+```{r}
+which(abs(inf_mes1$dfb.1_) > (2/sqrt(200)))
+```
+
+## Plotting COVRATIO statistics
+
+Values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence.  
+
+For our model, this is:
 $$
 1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{200} \quad = \quad 1\pm \frac{9}{200} \quad = \quad 1\pm0.045
 $$
 
-The "infmat" bit of an `infl`-type object contains the numbers, as we can see from out output above. To use it with ggplot, we will need to turn it into a dataframe (`as.data.frame()`), or a tibble (`as_tibble()`):   
+The "infmat" bit of an `infl`-type object contains the numbers, as we can see from out output above. To use it with `ggplot()`, we will need to turn it into a dataframe (`as.data.frame()`), or a tibble (`as_tibble()`):   
 
 ```{r message=FALSE, warning=FALSE}
 infdata <- inf_mes$infmat %>%
@@ -586,7 +635,21 @@ ggplot(data = infdata, aes(x = cov.r)) +
   theme(legend.position = "none")  #remove legend
 ```
 
-It looks like a few observations may be having quite a strong influence on the standard errors here.  
+It looks like a few observations may be having quite a strong influence on the standard errors here. We can check specifically how many observations are potentially having a having strong influence using the cut off $1\pm0.045$:
+
+```{r}
+table(infdata$cov.r < 1 - 0.045 | infdata$cov.r > 1 + 0.045)
+```
+
+We can identify these 15 observations to investigate further:
+
+```{r}
+which(infdata$cov.r < 1 - 0.045 | infdata$cov.r > 1 + 0.045)
+```
+
+We know that observations (or rows) 16, 25, 50, 58, 62, 72, 73, 78, 79, 109, 127, 151, 159, 165, and 176 have $\text{COVRATIO  }  1\pm0.045$. 
+
+:::
 
 `r solend()`
 
@@ -608,9 +671,9 @@ There are lots of different options available, and there is no one right answer.
 
 The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a persons height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)! 
 
-If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value should be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect.
+If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect.
 
-If there is an extreme value, but legitimate, you may want to consider ways to reduce this influence (e.g., winsorizing).
+If there is an extreme value, but legitimate, you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value).
 
 If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach as outlined below. 
 
@@ -621,6 +684,7 @@ This allows us to assess the **sensitivity** of our results (i.e., parameter est
 We can re-fit our model after excluding our identified outliers and potentially influential observations, and compare these results to the original model.
 
 ::: {.callout-important icon=false collapse=true}
+
 # Process of Removing Observations
 
 The current example involves removing all identified outliers and potentially influential observations at the same time. Ideally, and to ensure a more thorough sensitivity analysis, you would remove each of these observations one at a time, assess the effects on the model by comparing to your original, reassessing the remaining pre-identified observations, and repeating the process if necessary. 
@@ -642,7 +706,7 @@ summary(wb_mdl1)
 
 ```{r}
 ## wellbeing model
-wb_mdl2 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 176, 197), ])
+wb_mdl2 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ])
 summary(wb_mdl2)
 ```
 
@@ -668,7 +732,7 @@ There was little difference in the estimates from `wb_mdl1` and `wb_mdl2`, and s
 + The direction of all model estimates are the same in `wb_mdl1` and `wb_mdl2` (i.e., all positive)
 + There is no difference in statistical significance, and the p-values were of a similar magnitude (i.e., all < .001)
 + The estimate and confidence intervals for `outdoor_time` are very similar
-+ There are some quantitative differences in the estimate and confidence intervals for `social_int`. The estimate differs in magnitude by 0.10), but given that this remains positive and significant, so we do not need to be too concerned about this. 
++ There are some quantitative differences in the estimate and confidence intervals for `social_int`. The estimate differs slightly in magnitude by 0.07), but given that this remains positive and significant, we do not need to be too concerned about this. 
 
 :::
 
@@ -684,7 +748,7 @@ More on how bootstrapping works next week!
 
 ## Data Transformations
 
-A data transformation involves the replacement of a variable (e.g., $y$) by a function of that variable in order to change the shape of a distribution or association. We can transform the outcome variable prior to fitting the model, using something such as `log(y)` or `sqrt(y)`. This will sometimes allow us to estimate a model for which our assumptions are satisfied.
+A data transformation involves the replacement of a variable (e.g., $y$) by a function of that variable in order to change the shape of a distribution or association (e.g., to help reduce skew). We can transform the outcome variable prior to fitting the model, using something such as `log(y)` or `sqrt(y)`. This will sometimes allow us to estimate a model for which our assumptions are satisfied.
 
 Some of the most common (not an exhaustive list) transformations are:
 
@@ -738,23 +802,93 @@ Finding the optimal transformation to use can be difficult, but there are method
 
 ## Using Non-Linear Models
 
+::: {.panel-tabset}
+
+### Generalized Linear Models
+
+Generalized Linear Models (GLMs) can appropriately deal with data that do not follow a normal distribution (which is a requirement for traditional linear models). They can accommodate various types of distributions, including the Poisson, binomial, and gamma distributions. This makes them suitable for modelling count data (e.g., number of sunny days Edinburgh has per year - yes, count data can include 0!), binary data (where there are only two possible values e.g., doesn't wear glasses vs wear glasses, smoker vs non-smoker, i.e., values that are yes/no or 0/1), and other types of non-normal data.
+
+We will explore some GLMs later in the course (Semester 2 Block 4), where we will work with logistic regression models. 
+
+### Higher Order Terms
+
+Higher order regression terms refer to the inclusion of polynomial terms of degree higher than one in a regression model. In a linear regression model, the association between the dependent variable ($Y$) and the independent variable ($X$) is assumed to be linear, which means the association can be represented by a straight line. However, in many real-world scenarios, associations between variables are not strictly linear, and including higher order regression terms can help capture more complex relationships. Higher order terms that you could incorporate include quadratic, cubic, or higher degree polynomial terms. 
+
+For example, in a quadratic regression model, the relationship between $Y$ and $X$ can be represented as:
+
+$$
+Y = \beta_0 + \beta_1 \cdot X + \beta_2 \cdot X^2 + \epsilon
+$$
+$$
+\begin{align}
+& \text{Where:} \\
+& Y = \text{Dependent Variable} \\
+& X = \text{Independent Variable} \\
+\end{align}
+$$
+
+As in our models we've seen so far, $\beta_0$, $\beta_1$, and $\beta_2$ are the coefficients to be estimated in the above model. What is different from what we've seen in DAPR2 is the term $\beta_2 \cdot X^2$, and this represents the *quadratic term*. This allows for a curved as opposed to straight line to represent the association between $Y$ and $X$, and hence can allow us to capture more complex relationships. For example, we can model the association between height and age:
+
+```{r}
+#| echo: false
+#| label: fig-nonlin
+#| fig-cap: "Two linear models, one with a quadratic term (right)"  
+#| out-width: "100%"
+set.seed(13)
+df <- tibble(
+  age = sample(0:16,100,replace=T),
+  height = 70 + (7*age) - (17*scale(age)^2) + rnorm(100,0,10)
+)
+mod1 <- lm(height ~ age, data = df)
+mod2 <- lm(height ~ age + I(age^2), data = df)
+df <- df %>% mutate(f1 = fitted(mod1),f2=fitted(mod2))
+
+p1 <- ggplot(df,aes(x=age,y=height)) +
+  geom_point() + 
+  geom_line(aes(y=f1),lwd=1, col="blue")  +
+  labs(title="Simple Linear Model") +
+  theme_bw(base_size = 12)
+
+p2 <- ggplot(df,aes(x=age,y=height)) +
+  geom_point() + 
+  geom_line(aes(y=f2),lwd=1,col="blue") +
+  labs(title="Quadratic Model") +    
+  theme_bw(base_size = 12)
+
+p1 | p2
+```
+
+Please note that these types of models are beyond the scope of the DAPR2 course, but if you want to know more, please do read up on these in your own time. 
+:::
+
 ## Removing Observations
 
-Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is. 
+Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is, and reduce statistical power by reducing the size of your sample. 
 
 If you do decide to remove observations, you will need to document what specific data points you excluded, and provide an explanation as to why these were excluded. 
 
-To set specific values to `NA` in our dataset, we could do the following:
+To set specific values to `NA` in our dataset (and save this updated dataset in a new object named `mwdata2`), we could use the following code. For the purpose of this demonstration, lets say that we wanted to set any `age` values of <20 as `NA`. In the original dataset `mwdata`, we had 3 individuals aged 18, and 6 aged 19, so we should end up with 9 `NA` values in `mwdata2` column `age`:
 
-If we wanted to remove the full row from the datset, we could do the following:
+```{r}
+#specify age column in original dataset, where age is < 20, for values to be set to NA and save to new object named mwdata2 to avoid overwriting original data
+mwdata2 <-  mwdata %>% 
+    mutate(age = replace(age, age < 20, NA))
 
-```{r eval = FALSE}
-# create new dataset 'mwdata2' without identified outliers and potentially influential observations
-mwdata2 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 176, 197), ]
+#check how many NA values we have - there should be 9 (so 9 TRUEs):
+table(is.na(mwdata2$age))
+```
+
+If we wanted to remove a full row from the datset, we could use the following code. For the purpose of this demonstration, lets say that we wanted to remove all rows that were highlighted in the above assumption and diagnostic checks as potentially having an adverse influence on our model estimates:
+
+```{r}
+# create new dataset 'mwdata3' without (by specifying -) identified outliers and potentially influential observations
+mwdata3 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ]
+
+# check dimensions - should now have 32 rows less than original dataset 200 - 32 = 168
+dim(mwdata3)
 ```
 
 :::
-
 
 `r solend()`
 
