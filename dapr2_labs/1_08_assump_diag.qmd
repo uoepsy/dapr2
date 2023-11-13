@@ -33,6 +33,7 @@ At the end of this lab, you will:
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
 1. Be up to date with lectures
+2. Have completed [Week 2](https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html) lab exercises
 
 ### <i class="fab fa-r-project"></i> Required R Packages
 Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
@@ -61,7 +62,7 @@ In the previous labs, we have fitted a number of regression models, including so
 
 But before we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets a specific set of assumptions. If these assumptions are not satisfied, the results will not hold.
 
-In this lab, we will check the assumptions of one of the models that we have previously fitted in Block 1 where we will assess the assumptions of the multiple linear regression model we fitted using the 'mwdata' dataset in [Week 2](https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html). 
+In this lab, we will check the assumptions of one of the multiple linear regression models that we have previously fitted in Block 1 using the 'mwdata' dataset (see [Week 2](https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html)). 
 
 # Study Overview {#sec-studyview}
 
@@ -132,7 +133,7 @@ library(sjPlot)
 # Reading in data and storing to an object named 'mwdata'
 mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
 
-## wellbeing model
+# wellbeing model
 wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) 
 ```
 
@@ -215,13 +216,13 @@ Write a sentence summarising whether or not you consider the assumption to have 
 
 ### Hint
 
-Use `residualPlots()` to plot residuals against the predictor. 
+Use `residualPlots()` to plot residuals against the predictor. Since we are only interested in visually assessing our assumption checks, we can suppress the curvature test output by specifying `tests = FALSE`.
 
 For interpretation - if the assumption is met, you should see a random scatter of $(x, y)$ points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.
 
 :::{.callout-hint collapse="true"}
 
-**Quick Tip** 
+**Quick Tip if plotting using `plot(model)`** 
 
 As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
 
@@ -240,7 +241,7 @@ A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values can
 We can visually assess by plotting the Pearson residuals against the fitted values:
 
 ```{r, fig.width = 8, out.width = '90%'}
-residualPlots(wb_mdl1)
+residualPlots(wb_mdl1, tests = FALSE)
 ```
 
 Or by plotting the $\sqrt{|\text{Standardized residuals}|}$ against the fitted values:
@@ -548,7 +549,7 @@ There were `r sum(mdl_diagnost$cooksd > 0.020)` observations that had a high inf
 
 `r qbegin(9)`
 
-Use the function `influence.measures()` to extract these delete-1 measures of influence.  
+Use the function `influence.measures()` to extract these delete-1 measures^[leave-one-out deletion diagnostics] of influence.  
 
 Choose a couple of these measures to focus on, exploring in more detail (you may want to examine values or even try plotting distributions). 
 
@@ -671,9 +672,11 @@ There are lots of different options available, and there is no one right answer.
 
 The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a persons height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)! 
 
-If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect.
+If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect. 
 
-If there is an extreme value, but legitimate, you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value).
+We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results). 
+
+If there is an extreme, but legitimate value that you have determined is adversely influencing your model (i.e., by examining the assumptions and diagnostics as outlined above), you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value).
 
 If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach as outlined below. 
 
@@ -736,7 +739,7 @@ There was little difference in the estimates from `wb_mdl1` and `wb_mdl2`, and s
 
 :::
 
-## Boostrapping
+## Bootstrapping
 
 The bootstrap method is an alternative non-parametric method of constructing a standard error. Instead of having to rely on calculating the standard error with a formula and potentially applying fancy mathematical corrections, bootstrapping involves mimicking the idea of “repeatedly sampling from the population”. It does so by repeatedly **re**sampling with **replacement** from our original sample.
 
@@ -745,6 +748,85 @@ What this means is that we don’t have to rely on any assumptions about our mod
 Note, the bootstrap may provide us with an alternative way of conducting inference, but our model may still be mis-specified. It is also very important to remember that bootstrapping is entirely reliant on utilising our original sample to pretend that it is a population (and mimic sampling from that population). If our original sample is not representative of the population that we’re interested in, bootstrapping doesn’t help us at all.
 
 More on how bootstrapping works next week!
+
+## OLS vs WLS Regression
+
+The method of ordinary least squares regression (OLS: i.e., the type of regression model you have been fitting on the course) assumes that there is constant variance in the errors (*homoscedasticity*). The method of weighted least squares (WLS) can be used when the ordinary least squares assumption of constant variance in the errors is violated (i.e., you have evidence of *heteroscedasticity*, like we do in Q3 of this lab).
+
+If we have some specific belief that your non-constant variance is due to differences in the variances of the outcome between various groups, then it might be better to use Weighted Least Squares.   
+
+As an example, imagine we are looking at weight of different dog breeds (@fig-dogweight). The weights of chihuahuas are all quite close together (between 2 to 5kg), but the weight of, for example, spaniels is anywhere from 8 to 25kg - a much bigger variance. 
+
+```{r}
+#| echo: false
+#| label: fig-dogweight
+#| fig-cap: "The weights of 49 dogs, of 7 breeds"
+set.seed(4)
+df <- tibble(
+  breed = c("chihuahua","boxer","pug","spaniel","golden retriever","beagle","lurcher"),
+  m = c(8,70,18,24,70,30,45),
+  sd = c(2,10,6,24,15,8,5)
+  ) |>
+  mutate(
+    weight = map2(m,sd, ~rnorm(7,.x,.y)*0.454)
+  ) |> select(breed,weight) |> unnest(cols = c(weight))
+df$breed = factor(df$breed, levels=c("beagle","pug","spaniel","chihuahua","boxer","golden retriever","lurcher"))
+dogdf<-df
+#save(dogdf, file="../../uoepsy/data/dogweight.RData")
+
+
+df_ms = df |> group_by(breed) |> summarise(m = round(mean(weight),1))
+ggplot(df, aes(x=breed,y=weight))+
+  geom_boxplot(fatten = NULL) + 
+  stat_summary(geom="segment", 
+               mapping=aes(xend=..x..-.375,yend=..y..,col=breed)) +
+  stat_summary(geom="segment", 
+               mapping=aes(xend=..x..+.375,yend=..y..,col=breed)) + 
+  geom_label(data=df_ms,aes(label=m,y=m,col=breed))+
+  guides(col="none") +
+  labs(x="Dog Breed",y="Weight (kg)")
+
+```
+
+Recall that the default way that `lm()` deals with categorical predictors such as `dog breed`, is to compare each one to a reference level. In this case, that reference level is "beagle" (first in the alphabet). Looking at @fig-dogweight above, which comparison do you feel more confident in? 
+
+- **A:** Beagles (14kg) vs Pugs (9.1kg). A difference of 4.9kg.  
+- **B:** Beagles (14kg) vs Spaniels (19kg). A difference of 5kg.  
+
+Hopefully, your intuition is that **A** looks like a clearer difference than **B** because there's less overlap between Beagles and Pugs than between Beagles and Spaniels. Our standard linear model, however, assumes the standard errors are identical for each comparison:  
+```{r}
+#| echo: false
+dogmodel <- lm(weight~breed, dogdf)
+.pp(summary(dogmodel),l = list(3,9:18))
+```
+
+Furthermore, we can see that we have heteroscedasticity in our residuals - the variance is not constant across the model:  
+```{r}
+#| fig-height: 3
+plot(dogmodel, which=3)
+```
+
+Weighted least squares is a method that allows us to apply weights to each observation, where the size of the weight indicates the precision of the information contained in that observation.  
+
+We can, in our dog-breeds example, allocate different weights to each breed. Accordingly, the Chihuahuas are given higher weights (and so Chihuahua comparisons result in a smaller SE), and Spaniels and Retrievers are given lower weights. 
+
+```{r}
+#| eval: false
+library(nlme)
+load(url("https://uoepsy.github.io/data/dogweight.RData"))
+dogmod_wls = gls(weight ~ breed, data = dogdf, 
+                 weights = varIdent(form = ~ 1 | breed))
+summary(dogmod_wls)
+```
+
+```{r}
+#| echo: false
+library(nlme)
+dogmod_wls = gls(weight ~ breed, data = dogdf, weights = varIdent(form = ~ 1 | breed))
+.pp(summary(dogmod_wls),l = list(16:25))
+```
+
+We _can_ also apply weights that change according to continuous predictors (e.g. observations with a smaller value of $x$ are given more weight than observations with larger values). 
 
 ## Data Transformations
 
