@@ -5,11 +5,389 @@ date: "2023-11-14"
 output: html_document
 ---
 
+```{r, echo = F, message=FALSE}
+library(tidyverse)
+library(gt)
+# library(psych)
+library(kableExtra)
+library(car)
+library(emmeans)
+
+# library(sjPlot)
+
+dat <- read.csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv')
+dat2 <- read.csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv')
+```
+
 # Overview of the Week
 
-This week, we'll be reviewing what we've learned in weeks 7-10 and applying it to a practical example. 
+This week, we'll be reviewing what we've learned in weeks 7-10 and applying it to a practical example. Specifically, we'll cover:
+
+1) Multiple linear regression with categorical variables;
+2) Dummy, effects, and manual contrast coding;
+3) Checking model assumptions & diagnostics;
+4) Bootstrapping
 
 
-Our example is based on the paper *** CHANGE ALL OF THIS **** [Individual differences in Fear of Missing Out (FoMO): Age, and the Big Five personality trait domains, facets, and items](https://www.sciencedirect.com/science/article/pii/S0191886920307376#ec0005). This paper looks at how fear of missing out (FOMO) is related to the Big Five personality traits, age, and gender. Although the data we will be using in these analysis are simulated, they are based on the data found in the paper. Because we haven't yet covered linear modeling using categorical variables, the gender variable is replaced with a continuous variable that measures the number of followers participants have on Instagram.
+Our example is based on the paper _[Class Attendance in College: A Meta-Analytic Review of the Relationship of Class Attendance With Grades and Student Characteristics](https://www.ucsd.ac.uk/wp-content/uploads/Benefits-of-attendance-for-students.pdf)_ This paper looks at the association between class attendance and a range of other variables (such as student personality, academic performance, class marks, etc.) We will be using data that are simulated, so the variables we examine will differ slightly from those found in the paper. Specifically, we have included a range of categorical variables here.
 
-We're going to use these data to review multiple linear regression with categorical variables, dummy and effects coding, checking model assumptions and diagnostics, and performing bootstrapping. 
+During this week's example, we will work with two separate, but related, studies. In the first, researchers are interested in exploring possible predictors of attendance in university courses. In the second, researchers are investigating the association between attendance and final marks. 
+
+In the second, the researchers are interested in the association between attendance and final marks. In this study, researchers gathered data from 200 university students on both their attendance and their final marks. 
+
+
+# Study 1
+
+Researchers collected data from 397 university students across years 1-4, as well as students in MSc and PhD programs. From these students, they gathered data on class time, the use of online materials, and student's self-discipline. 
+
+```{r, echo = F}
+
+
+tibble(
+Variable = names(dat),
+Description = c("Participant ID number", "Total attendance in days", "Level of conscientiousness (levels = Low; Moderate; High)", "Class time (levels = 9AM; 10AM; 11AM; 12PM; 1PM; 2PM; 3PM; 4PM)", "Frequency of access to online course materials (levels = Rarely; Sometimes; Often)", "Year in university (levels = Y1; Y2; Y3; Y4; MSc; PhD)")
+) %>% gt()|> opt_horizontal_padding(scale = 3)
+```
+
+They want to use these data to investigate the following research questions:
+
+**Research Question 1:** Can student's conscientiousness, frequency of access to online materials, and year in University predict course attendance?
+
+**Research Question 2:** Is the time at which the class is scheduled associated with student attendance?
+
+
+## Study 1 Setup
+
+First, let's load the data and all necessary packages. Note that by using the `stringsAsFactors` argument in the `read.csv` function, all of our character variables are automatically imported as factors, which is very handy when you're working with a dataset with lots of factors in it.
+
+```{r, eval = F}
+library(tidyverse)
+library(emmeans)
+library(kableExtra)
+library(car)
+
+dat <- read.csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv', stringsAsFactors = T)
+```
+
+
+## Study 1 - Checking the Data
+
+First, we'll have a look at our data using the `summary` function:
+
+```{r}
+dat %>%
+  summary(.)
+```
+You'll notice that we have a continuous outcome variable, `Attendance`, and discrete predictor variables, `Conscientiousness`, `Time`, `OnlineAccess` and `Year`. 
+
+We'll also have a look at hour our variables are distributed, using a histogram for our continous outcome and bar plots for our factors:
+
+```{r}
+ggplot(dat, aes(Attendance)) + geom_histogram(colour = 'black', binwidth = 5)
+```
+
+```{r}
+ggplot(dat, aes(Conscientiousness, fill = Conscientiousness)) + geom_bar() +
+  theme(legend.position = 'none')
+```
+
+```{r}
+ggplot(dat, aes(Year, fill = Year)) + geom_bar() +
+  theme(legend.position = 'none')
+```
+
+```{r}
+ggplot(dat, aes(Time, fill = Time)) + geom_bar() +
+  theme(legend.position = 'none')
+```
+
+
+# Study 1 - Modelling RQ 1 (CHANGE THIS HEADING)
+
+Given the first research question we've specified, **Can student's conscientiousness, frequency of access to online materials, and year in University predict course attendance?**, we'll use the following model:
+
+$$Attendance \sim Conscientiousness + OnlineAccess + Year$$
+
+Between the 3 predictors, we have 12 levels. Before we run our model, we have to make a few decisions in terms of the coding and baseline comparisons we'll be making across predictors. We decide to use dummy coding for `Conscientiousness` and `OnlineAccess` and effects coding for `Year`. We'll be using `Moderate` as the baseline level for `Conscientiousness` and `Sometimes` as the baseline level for `OnlineAccess`. We can use the `factor` function to order our levels accordingly:
+
+```{r}
+dat$Conscientiousness <- dat$Conscientiousness %>% 
+  factor(., levels = c('Moderate', 'Low', 'High'))
+
+summary(dat$Conscientiousness)
+```
+
+
+```{r}
+dat$OnlineAccess <- dat$OnlineAccess %>% 
+  factor(., levels = c('Sometimes', 'Rarely', 'Often'))
+
+summary(dat$OnlineAccess)
+```
+
+For effects coding, we'll just make sure our years are ordered chronologically to help with interpretation of the outcomes:
+
+```{r}
+dat$Year <- dat$Year %>% 
+  factor(., levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+
+summary(dat$Year)
+```
+
+We also need to specify effects coding for our `Year` variable using the `contr.sum` function:
+
+```{r}
+contrasts(dat$Year) <- contr.sum
+```
+
+Now that we have this done, we should end up with a model that looks like the one below. Note that some variable names have been shortened for sizing purposes:
+
+$$Attendance \sim \beta_0+\beta_1Consc_{low} + \beta_2Consc_{high} + \beta_3Online_{rarely} + \beta_4Online_{often} + \beta_5Year_{Y1} + \beta_6Year_{Y2} + \beta_7Year_{Y3} + \beta_8Year_{Y4} + \beta_9Year_{MSc}$$
+
+Now we can run our model:
+
+```{r}
+m1 <- lm(Attendance~Conscientiousness+OnlineAccess+Year, dat)
+summary(m1)
+```
+
+This looks interesting, but before we interpret, let's check assumptions:
+
+**Linearity** 
+We can assume linearity when working with categorical predictors (see [here](https://www.bookdown.org/rwnahhas/RMPH/mlr-linearity.html))
+
+**Independence of Errors**
+We are using between-subjects data, so we'll also assume independence of our error terms. 
+
+**Normality of Residuals**
+We can check this using histograms and QQ plots:
+
+```{r}
+hist(m1$residuals)
+```
+```{r}
+plot(m1, which = 2)
+```
+Tails are a bit fatter than we would expect, but overall, this looks pretty good. No major concerns.
+
+**Equality of Variance (Homoskedasticity)**
+We can check for heteroskedasticity using residuals vs predicted values plots. We can get these using the `residualPlot` from the `car` package:
+
+```{r}
+residualPlot(m1)
+```
+Looks good! Now we can interpret the model.
+
+```{r}
+summary(m1)
+```
+We could also do a quick reworking of our `Year` variable to quickly get results for the `PhD` group. Keep in mind you could also use manual contrasts to do this, which you'll see in the next example.
+
+```{r}
+dat$Year <- dat$Year %>% 
+  factor(., levels = c('Y1', 'Y2', 'Y3', 'Y4', 'PhD', 'MSc'))
+
+summary(dat$Year)
+```
+
+```{r}
+contrasts(dat$Year) <- contr.sum
+m2 <- lm(Attendance~Conscientiousness+OnlineAccess+Year, dat)
+summary(m2)
+```
+
+### Sample write up and model interpretation, RQ1 -
+We will be evaluating all results using $\alpha = .05$.
+
+Looking at these results, we can see that our overall model is significant, REPORT FSTAT, DF, AND P VAL. Conscientiousness, frequency of online access, and year in university explain ~34% of the variance in attendance. Specifically, those with high levels of consc attended class sig more often than those with moderate levels, REPORT BETA, SE, T, and P HERE. Conversely, those with low levels of consc attendede class signficiantly less than those with mod levels, REPORT BETA, SE, T, and P HERE. Specifically, those with low levels of consc attended, on average, BETA HERE fewer class periods than those with mdoerate levels, when controlling for year of study and online access.  Both those who often accessed the online materials (REPORT BETA, SE, T, and P HERE) and those who rarely accessed the online materials  (REPORT BETA, SE, T, and P HERE) attended class less often than those who sometimes accessed the online content (See FIG 3). 
+Students in Y1 attended approximately BETA fewer courses than the average student (REPORT BETA, SE, T, and P HERE), while PhD students attended approximately BETA more courses than the average student (REPORT BETA, SE, T, and P HERE). There was no signifiant difference in the average number of courses attended by the other year groups. Please see Table X for descriptive data on attendance by group.
+
+
+NOTE FOR EMMA: 
+Will make plots for each of the predictors. This is just the base example of what I plan to do for each:
+
+```{r fig3, fig.cap='Student Attendance by Online Material Access'}
+ggplot(dat, aes(OnlineAccess, Attendance, colour = OnlineAccess)) + geom_boxplot() + geom_jitter(aes(color = OnlineAccess)) +
+  theme(legend.position = 'none')
+```
+
+TABLE HERE WITH MEAN AND SD of ATTENDANCE BY EACH GROUP.
+
+
+
+## Aim 2 - Contrast Coding (CHANGE THIS HEADING)
+Our second research question is **Is the time at which the class is scheduled associated with student attendance?**. To test this, we'll use the `emmeans` function to write our own contrasts. We're going to be testing the following model:
+
+$$Attendance \sim Time$$
+
+First, let's relevel our `Time variable` so that it's in chronological order:
+
+```{r}
+dat$Time <- dat$Time %>% 
+  factor(., levels = c('9AM', '10AM', '11AM','12PM', '1PM', '2PM', '3PM', '4PM'))
+
+summary(dat$Time)
+```
+
+We'll look at how `Time` is distributed using a bar plot: 
+
+```{r}
+ggplot(dat, aes(Time, fill = Time)) + geom_bar() + 
+  theme(legend.position = 'none')
+```
+First let's run our model and check assumptions. Remember, we don't need to check linearity or independence.
+
+**Normality of residuals:**
+```{r}
+m3 <- lm(Attendance~Time, dat)
+
+hist(m3$residuals)
+```
+
+```{r}
+plot(m3, which = 2)
+```
+The distribution is a bit flat, but if you'll remember from class, distributional problems are usually not a strong concern (and we can always bootstrap for extra certainty!). Heteroskedasticity is much more of a problem. Let's check that using our residual by predicted values plot.
+
+```{r}
+residualPlot(m3)
+```
+
+This looks great! We're going to keep our model as is.
+
+
+Now let's specify our contrasts with emmeans:
+
+```{r}
+(timeMean <- emmeans(m3, ~Time))
+```
+```{r}
+plot(timeMean)
+```
+
+I'd guess we're going to see some significant differences here. Let's say, however, we're less worried about specific times and more about times of day in general. 
+
+```{r}
+levels(dat$Time)
+timeComp <- list('Early or Late vs Middle of the Day' = c(-1/4,-1/4, 1/4, 1/4, 1/4, 1/4, -1/4, -1/4))
+```
+
+```{r}
+(timeTest <- contrast(timeMean, timeComp))
+```
+
+Here, we see that students with classes in the middle of the day are more likely to attend than those who have classes either early in the morning or later in the afternoon (REPORT NUMERIC RESULTS HERE).
+
+
+
+# Study 2
+
+Researchers collected attendance and final mark data from 200 university students. 
+
+```{r, echo = F}
+tibble(
+Variable = names(dat2),
+Description = c("Total attendance in days", "Final Mark in points")
+) %>% gt()|> opt_horizontal_padding(scale = 3)
+```
+
+They want to use these data to investigate the following research question:
+
+**Research Question:** Can student attendance be used to predict marks?
+
+## Study 2 Setup
+
+First, let's load the data.
+
+```{r, eval = F}
+dat2 <- read.csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv', stringsAsFactors = T)
+```
+
+
+## Study 2 - Checking the Data
+
+First, let's have a look at the data:
+
+```{r}
+dat2 %>%
+  summary(.)
+```
+You'll notice that here we have two continuous outcome variables, `Attendance` and `Marks`. 
+
+Let's look at how our variables are distributed, using histograms:
+
+```{r}
+ggplot(dat2, aes(Attendance)) + geom_histogram(colour = 'black')
+```
+Ok, that looks a bit weird...but let's keep going.
+
+```{r}
+ggplot(dat2, aes(Marks)) + geom_histogram(colour = 'black', binwidth = 4)
+```
+
+# Study 2 - Modelling (CHANGE THIS HEADING)
+
+We'll use the following model to investigate our research question:
+
+$$Attendance \sim Time$$
+
+Let's run our model, then we'll check assumptions:
+
+```{r}
+m4 <- lm(Marks~Attendance, dat2)
+summary(m4)
+```
+
+This model looks highly significant, but we'll have to check assumptions before interpretation, especially given how the distribution of attendance looked.
+
+**Linearity** 
+It's a simple regression, so we can just look at the scatterplot:
+
+```{r}
+ggplot(dat2, aes(Attendance, Marks)) + geom_point() + 
+  geom_smooth(method = 'lm') + 
+  geom_smooth(method = 'loess', colour = 'red')
+```
+
+There's a very slight curve in the loess line, but based on the points, I think that's due to possible issues in the distribution of the observations rather than a nonlinear relationship. We'll say linearity assumption is not violated.
+
+**Independence of Errors**
+We are using between-subjects data, so we'll assume independence of our error terms. 
+
+**Normality of Residuals**
+Let's check with a histogram and QQ plot:
+
+```{r}
+hist(m4$residuals)
+```
+Bit of a tail to the right, but not bad...
+
+```{r}
+plot(m4, which = 2)
+```
+Ok, this actually looks alright, I think. Just the slight tail to the right.
+
+**Equality of Variance (Homoskedasticity)**
+We'll use the `residualPlot` to check for heteroskedasticity:
+
+```{r}
+residualPlot(m4)
+```
+Oh no! It's violated! We can't trust the SEs in our model! We'll need to bootstrap. We can do this using the `Boot` function in the `car` package. Let's resample 1000 times.
+
+
+```{r}
+boot_m4 <- Boot(m4, R = 1000)
+
+summary(boot_m4)
+```
+
+Let's calculate confidence intervals to test our hypothesis:
+
+```{r}
+confint(boot_m4)
+```
+
+Because our confidence interval for the beta associated with attendance does not include 0, we can be more certain that attendance is, in fact, a significant predictor of marks. 
+
+WRITE UP HERE...I'M GOING TO BASE THIS ON THE BOOTSTRAP WRITE UP IN THE BOOSTRAPPING LAB.
