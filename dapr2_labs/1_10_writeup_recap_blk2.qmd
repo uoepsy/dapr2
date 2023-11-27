@@ -25,8 +25,8 @@ library(tidyverse)
 At the end of this lab, you will:
 
 1. Understand how to write-up and provide interpretation of a linear model with multiple predictors (including categorical)
-2. Understand how to specify dummy and sum-to-zero coding ad interpret the model output
-3. Understand how to specify contracts to test specific effects
+2. Understand how to specify dummy and sum-to-zero coding and interpret the model output
+3. Understand how to specify contrasts to test specific effects
 4. Be able to specify and assess the assumptions underlying a linear model with multiple predictors
 5. Be able to assess the effect of influential cases on linear model coefficients and overall model evaluations
 
@@ -82,7 +82,7 @@ Further, **you must not copy any of the write-up included below for future repor
 > **Research Questions**
 > 
 > + RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?
-> + RQ2: Is there an association between class time and attendance?
+> + RQ2: Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
 > + RQ3: Is class attendance associated with final grades?
 
 `r optbegin('Academics data codebook.', FALSE, show = TRUE, toggle = params$TOGGLE)`
@@ -200,7 +200,7 @@ data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
 ```
 
 
-## Overall RQ1
+## Overall & RQ1
 
 ```{r}
 #######
@@ -209,6 +209,12 @@ data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
 
 #check coding
 str(data1)
+str(data2)
+
+#check for NAs - none in dataset, so no missing values
+table(is.na(data1))
+table(is.na(data2))
+
 
 # make variables factors
 data1 <- data1 %>%
@@ -217,16 +223,13 @@ data1 <- data1 %>%
            Conscientiousness = as_factor(Conscientiousness),
            Year = as_factor(Year))
 
-#specify reference levels
+#specify reference levels (alternatively use the below tidyverse way like Year - see lecture example code)
 data1$OnlineAccess <- relevel(data1$OnlineAccess, "Sometimes")
 data1$Conscientiousness <- relevel(data1$Conscientiousness, "Moderate")
 
-#ordering of year variable - make chronological
+#ordering of year variable - make chronological, Y1 as reference group
 data1$Year <- data1$Year %>% 
   factor(., levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
-
-data1$Time <- data1$Time %>% 
-  factor(., levels = c('9AM', '10AM', '11AM','12PM', '1PM', '2PM', '3PM', '4PM'))
 
 ```
 
@@ -352,8 +355,8 @@ tab_model(m1,
 #######
 
 #ordering of time variable - make chronological
-data1$Year <- data1$Year %>% 
-  factor(., levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+data1$Time <- data1$Time %>% 
+  factor(., levels = c('9AM', '10AM', '11AM','12PM', '1PM', '2PM', '3PM', '4PM'))
 ```
 
 ```{r}
@@ -585,7 +588,7 @@ The first dataset contained information on 397 participants, including their att
 The aim of this report was to address three research questions (the first two RQs using dataset 1, and RQ3 using dataset 2):
 
 1. Does conscientiousness, frequency of access of online access, and year of study influence class attendance?
-2. Is there any association between class time and attendance?
+2. Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
 3. Does class attendance influence grades?
 
 To allow visual examination of the bivariate associations between attendance and the other variables of interest, a series of boxplots were used for RQs 1 and 2, and a scatterplot for RQ3. In order to comment on the strength of the linear association between attendance and grades in RQ3, we will also compute the correlation coefficient. 
@@ -680,7 +683,7 @@ $$
 H_0: \beta_1 \neq 0
 $$
 
-For models related to all RQs, as we were using between-subjects datasets, we assumed independence of our error terms. For RQ1 and RQ2 models, we assumed linearity as all predictor variables were categorical. For the RQ3 model, we visually assessed linearity using a scatterplot with loess lines (where the loess line should closely follow the data). For models related to all RQs, equal variances was assessed via partial residual plots (residuals should be evenly spread across the range of fitted values, where the spread should be constant across the range of fitted values), and normality was assessed via a qqplot of the residuals (points should follow along the diagonal line). 
+For models related to all RQs, as we were using between-subjects datasets, we assumed independence of our error terms. For RQ1 and RQ2 models, we assumed linearity as all predictor variables were categorical. For the RQ3 model, we visually assessed linearity using a scatterplot with loess lines (where the loess line should closely follow the data). For models related to all RQs, equal variances was assessed via partial residual plots (residuals should be evenly spread across the range of fitted values, where the spread should be constant across the range of fitted values), and normality was assessed via a qqplot of the residuals (points should follow along the diagonal line). If assumptions are found to be violated, we will consider either conducting a sensitivity analysis or bootstrapping our model (depending on which assumption(s) are violated). 
 
 Throughout the report, effects were considered statistically significant at $\alpha = .05$. 
 
@@ -769,7 +772,7 @@ data1 %>%
     kable_styling()   
 ```
 
-To determine whether there were differences in attendance rates across early/late and midday classes, we performed a test against $H_0: \frac{1}{4}(\mu_1+\mu_2+\mu_7+\mu_8) -\frac{1}{4}(\mu_3+\mu_4+\mu_5+\mu_6) = 0$. The model met the assumptions of normality (there was no extreme deviation from the diagonal line; see Appendix B @fig-rq2-assumpt-norm) and equal variances (there was a constant spread of residuals; see Appendix B @fig-rq2-assumpt-eqvar).
+To determine whether there was a difference in attendance between those with early/late classes in comparison to those with midday classes, we performed a test against $H_0: \frac{1}{4}(\mu_1+\mu_2+\mu_7+\mu_8) -\frac{1}{4}(\mu_3+\mu_4+\mu_5+\mu_6) = 0$. The model met the assumptions of normality (there was no extreme deviation from the diagonal line; see Appendix B @fig-rq2-assumpt-norm) and equal variances (there was a constant spread of residuals; see Appendix B @fig-rq2-assumpt-eqvar).
 
 At the 5\% significance level, there was evidence that class attendance did significantly differ between those who had early/late classes and those who had classes in the middle of the day $(t(389) = 3.96,~ p < .001, \text{two-sided})$, where students with midday classes attended, on average, 5.36 $(SE = 1.35)$ more classes (see @fig-rq2-means). We are 95% confident that those who had midday classes attended approximately 2-8 classes more than those who had classes in the morning or late afternoon ($CI_{95}[2.70, 8.01]$). 
 
@@ -779,7 +782,7 @@ At the 5\% significance level, there was evidence that class attendance did sign
 plot(time_mean)
 ```
 
-In relation to RQ3, there was a strong positive correlation between attendance and marks $(r_{(Attendance,~Grade)} = 0.91)$. Our fitted model failed to satisfy all regression assumptions (see Appendix C). Although our model met the linearity (though there was a slight curve in the loess line; see Appendix C @fig-rq3-assumpt-lin), and normality of residuals assumptions (there was a slight skew, but not of concern; see Appendix C @fig-rq3-assumpt-norm), the assumption of equal variances was violated as the spread of residuals was not constant and suggested that there was evidence of heteroscedasticity (see Appendix C @fig-rq3-assumpt-eqvar). Therefore, since we could not trust that the SEs in our model results were reliable, we bootstrapped. Results suggested that there was a significant positive association between marks and attendance (see @fig-rq3). Specifically, we are 95% confident that for every day one attends class, their final mark will increase, on average, between `r round(confint(boot_m3)[2], 2)` and `r round(confint(boot_m3)[4], 2)` points. As the 95% CI did not contain zero, we rejected the null hypothesis as there was evidence of a significant association between student’ attendance and their final marks. 
+In relation to RQ3, there was a strong positive correlation between attendance and marks $(r_{(Attendance,~Grade)} = .91)$. Our fitted model failed to satisfy all regression assumptions (see Appendix C). Although our model met the linearity (though there was a slight curve in the loess line; see Appendix C @fig-rq3-assumpt-lin), and normality of residuals assumptions (there was a slight skew, but not of concern; see Appendix C @fig-rq3-assumpt-norm), the assumption of equal variances was violated as the spread of residuals was not constant and suggested that there was evidence of heteroscedasticity (see Appendix C @fig-rq3-assumpt-eqvar). Therefore, since we could not trust that the SEs in our model results were reliable, we bootstrapped. Results suggested that there was a significant positive association between marks and attendance (see @fig-rq3). Specifically, we are 95% confident that for every day one attends class, their final mark will increase, on average, between `r round(confint(boot_m3)[2], 2)` and `r round(confint(boot_m3)[4], 2)` points. As the 95% CI did not contain zero, we rejected the null hypothesis as there was evidence of a significant association between student’ attendance and their final marks. 
 
 ```{r echo = FALSE}
 #| label: fig-rq3
@@ -901,7 +904,7 @@ residualPlot(m2, main = "Equal Variances Assumption Check for m3")
 
 <br>
 
-# Section B: Block 1 (Weeks 7 - 10) Recap
+# Section B: Block 2 (Weeks 7 - 10) Recap
 
 In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4 weeks. 
 
