@@ -167,7 +167,7 @@ The `mwdata` dataset contained information on 200 hypothetical participants who 
 
 Density plots and histograms will be used to visualise the marginal distributions of wellbeing and social interactions, and the strength of association between the two variables estimated via the correlation coefficient. To understand how these associations differ between rural and non-rural locations, scatterplots will be used. 
 
-To address the research question of whether the association between the number of social interactions and wellbeing differs between rural and non-rural residents, we are going to fit the following interaction model (where not rural will be specified as the reference group). 
+To address the research question of whether the association between the number of social interactions and wellbeing differs between rural and non-rural residents, we are going to fit the following interaction model (where not rural will be specified as the reference group for location). 
 
 $$
 \begin{align}
@@ -214,13 +214,14 @@ Type `?ifelse` in the *console* if you want to see the help function. You can us
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Create a new variable for Rural/Not Rural:
+Create a new variable for Rural/Not Rural, and then assign as a factor:
 ```{r}
 #if location is rural, assign name 'rural'. If another value (i.e., city or suburb) assign name 'not rural'.
 # In other words, if location = rural assign name rural; if location != rural then assign name not rural.
 mwdata <- mwdata %>% 
   mutate(
-    isRural = ifelse(location == "rural", "rural", "not rural")
+    isRural = ifelse(location == "rural", "rural", "not rural"),
+    isRural = as_factor(isRural)
   )
 ```
 
@@ -228,9 +229,6 @@ Check coding of variables within `mwdata` and ensure `isRural` is a factor with 
 ```{r}
 # check structure of dataset (alternatively run is.factor() for specific variable)
 str(mwdata) 
-
-#assign isRural as a factor
-mwdata$isRural <- as_factor(mwdata$isRural)
 
 #check that isRural is now a factor
 is.factor(mwdata$isRural) 
@@ -260,8 +258,10 @@ In particular:
 
 ### Hint
 
-1. The `pairs.panels()` function from the `psych` package can plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots, but is only useful for *continuous* variables.  
-2. To include facets, within your `ggplot()` argument you will need to specify `+ facet_wrap()` in order to produce facets for each location. It would also be useful to specify `geom_smooth(method="lm")`
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.
+2. The `pairs.panels()` function from the `psych` package can plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots, but is only useful for *continuous* variables.  
+3. To include facets, within your `ggplot()` argument you will need to specify `+ facet_wrap()` in order to produce facets for each location. It would also be useful to specify `geom_smooth(method="lm")`.
+4. To include different colours for each location, you will need to specify `colour = isRural` within your `ggplot()` argument, as well as `+ scale_colour_discrete()` to state the `name =` of your legend and the `labels =` associated with each coloured line.
 
 :::
 
@@ -347,7 +347,7 @@ ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
   labs(x = "Social Interactions (number per week)", y = "Wellbeing (WEMWBS Scores)")
 ```
 
-Or instead of facets, we could use different colours for each location (rural vs non-rural):
+Or instead of facets, we could use different colors for each location (rural vs non-rural):
 
 ```{r message=FALSE, warning = FALSE}
 ggplot(data = mwdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
@@ -419,7 +419,7 @@ summary(rural_mod)
 
 `r qbegin(5)`  
 
-Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in @fig-annotate-int (it may help to sketch out the plot yourself and annotate it).  
+Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in @fig-annotate-int (it may help to sketch out the plot yourself and annotate it, and refer to the drop down options below).  
 
 ```{r fig-annotate-int, echo=FALSE, message = FALSE, fig.cap="Multiple regression model: Wellbeing ~ Social Interactions * is Rural<br><small>Note that the dashed lines represent predicted values below the minimum observed number of social interactions, to ensure that zero on the x-axis is visible</small>"}
 #| label: fig-annotate-int
@@ -432,7 +432,8 @@ sjPlot::plot_model(rural_mod, type="int")+
   scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1))
 ```
 
-`r optbegin("Options", olabel=FALSE, toggle=params$TOGGLE)`
+`r optbegin("Options for Mapping Parameter Estimates to Plot", olabel=FALSE, toggle=params$TOGGLE)`
+
 Here are some options to choose from:
 
 + The point at which the red line cuts the y-axis (where social_int = 0)
@@ -447,11 +448,20 @@ Here are some options to choose from:
 
 `r optend()`
 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. 
+
+:::
+
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. 
+Obtain parameter estimates:
 
 ```{r}
 coefficients(rural_mod)
@@ -472,7 +482,7 @@ $\beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`
 
 + On plot: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the red line.  
 + Interpretation: The simple slope of social interactions (number per week) for location reference group (not rural).   
-    - For every additional social interaction per week, non-rural residents' wellbeing scores were estimated to increase by `r round(coef(rural_mod)[2],2)`.  
+    - For someone who lives in a non-rural location, every 1 additional social interaction per week was associated with a `r round(coef(rural_mod)[2],2)` point change in their wellbeing score.
 
 ## `isRuralrural`   
 
@@ -480,7 +490,7 @@ $\beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`
 
 + On plot: The vertical distance from the red to the blue line _at the y-axis_ (where social_int = 0).  
 + Interpretation: The simple effect of location (or the difference in wellbeing scores between rural and non rural residents) when number of social interactions is 0.  
-    - Rural residents who had zero social interactions per week were estimated to have wellbeing scores `r round(coef(rural_mod)[3],2)` points higher than non-rural residents (note that this difference is is not significantly different from zero).  
+    - For residents who had zero social interactions per week, living in a rural location was associated with wellbeing scores `r round(coef(rural_mod)[3],2)` points higher than those living in non-rural locations (note that this difference is is not significantly different from zero).  
 
 ## `social_int:isRuralrural`   
 
@@ -488,7 +498,7 @@ $\beta_3$ = `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`
 
 + On plot: How the slope of the line differs when you move from the red to the blue line.    
 + Interpretation: The interaction between social interactions (number per week) and location (rural/not rural). This is the estimated difference in simple slopes of social interactions for rural vs non-rural residents.   
-    - For every additional social interaction per week, rural residents' wellbeing scores increased by 0.52 points *less* than they did for non-rural residents.  
+    - Compared to living in non-rural locations, living in a rural location was associated with a `r round(abs(coef(rural_mod)[4]),2)` lesser increase in wellbeing scores for every every 1 additional social interaction per week.
 
 :::
 
@@ -621,6 +631,39 @@ p2 <- ggplot(data = mwdata, aes(x = mc_social_int, y = wellbeing, colour = isRur
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+By comparing the `summary()` outputs, you should see that the coefficients for `(Intercept)` and `isRuralrural` differed between the two models, whilst the coefficients for `social_int` and `mc_social_int` were the same, as were the interaction estimates `social_int:isRuralrural`.
+
+::: {.callout-important icon=false collapse=true}
+## Comapre Model Estiamtes
+
+Original Model - `rural_mod`:
+
+```
+Call:
+lm(formula = wellbeing ~ social_int * isRural, data = mwdata)
+
+Coefficients:
+                        Estimate Std. Error t value Pr(>|t|)    
+(Intercept)              30.9986     1.4284  21.702  < 2e-16 ***
+social_int                0.6488     0.1160   5.593 7.42e-08 ***
+isRuralrural              1.3866     2.0510   0.676  0.49981    
+social_int:isRuralrural  -0.5176     0.1615  -3.206  0.00157 ** 
+```
+Model with mean centered social interactions `rural_mod1`:
+
+```
+Call:
+lm(formula = wellbeing ~ mc_social_int * isRural, data = mwdata)
+
+Coefficients:
+                           Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                 38.8263     0.4581  84.754  < 2e-16 ***
+mc_social_int                0.6488     0.1160   5.593 7.42e-08 ***
+isRuralrural                -4.8581     0.6478  -7.500 2.17e-12 ***
+mc_social_int:isRuralrural  -0.5176     0.1615  -3.206  0.00157 ** 
+```
+:::
 
 Recall that when there is an interaction A$\times$B, the coefficients A and B are no longer *main effects*. Instead, they are *conditional effects* upon the other being zero. 
 
@@ -767,6 +810,7 @@ The association between wellbeing (WEMWBS Scores) and social interactions was fo
 :::
 
 `r solend()`
+
 
 <div class="divider div-transparent div-dot"></div>
 
