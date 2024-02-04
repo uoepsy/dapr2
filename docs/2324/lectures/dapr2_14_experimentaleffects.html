@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title> Analyzing Experiments </title>
+    <meta charset="utf-8" />
+    <meta name="author" content="dapR2 Team" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+.title[
+# <b> Analyzing Experiments </b>
+]
+.subtitle[
+## Data Analysis for Psychology in R 2<br><br>
+]
+.author[
+### dapR2 Team
+]
+.institute[
+### Department of Psychology<br>The University of Edinburgh
+]
+
+---
+
+
+
+
+
+
+
+
+
+# Week's Learning Objectives
+1. Interpretation of interactions with effects coded variables.
+2. Distinguish between main effects, simple effects and interactions.
+3. Use contrasts to code specific interaction hypotheses.
+4. Apply pairwise tests and corrections.
+
+
+---
+# Hypotheses we test in Factorial Designs
++ Main effects
+  + An overall, or average, effect of a condition.
+  + Is there an effect of `Treatment` averaged over `Hospital`? 
+  + Is there an effect of `Hospital` averaged over `Treatment`? 
+
+
++ **Simple contrasts/effects**
+  + An effect of one condition at a specific level of another.
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (...and so on for all combinations.)
+  
++ **Interactions (categorical-categorical)**
+  + A change in the effect of some condition as a function of another.
+  + Does the effect of `Treatment` differ by `Hospital`? 
+  + With effects coding, we can also think of this as a difference in simple effects.
+  
+
+---
+# Our model and coefficients
+
++ The effects coded model:
+
+`$$y_{ijk} = b_0 + \underbrace{(b_1E_1 + b_2E_2)}_{\text{Treatment}} + \underbrace{b_3E_3}_{\text{Hospital}} + \underbrace{b_4E_{13} + b_5E_{23}}_{\text{Interactions}} + \epsilon_{i}$$`
++ Where the variables represent the following comparisons: 
+
+
+```
+## # A tibble: 6 × 7
+##   Treatment Hospital    E1    E2    E3   E13   E23
+##   &lt;chr&gt;     &lt;chr&gt;    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1 A         Hosp1        1     0     1     1     0
+## 2 A         Hosp2        1     0    -1    -1     0
+## 3 B         Hosp1        0     1     1     0     1
+## 4 B         Hosp2        0     1    -1     0    -1
+## 5 C         Hosp1       -1    -1     1    -1    -1
+## 6 C         Hosp2       -1    -1    -1     1     1
+```
+
+---
+# Our model and coefficients
+
++ And our model in R:
+
+
+```r
+m1 &lt;- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl,
+         contrasts = list(Treatment = contr.sum, 
+                          Hospital = contr.sum)) # you can code contrasts within lm
+```
+
+
+---
+# Table of means
+
++ Useful to keep in mind the group means:
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+
+---
+# Simple Effects
++ We noted previously that simple effects consider the effect of one condition at a specific level of the other.
+
+  + Is there an effect of `Hospital` for those receiving `Treatment A`? (and so on for all combinations)
+  
+  + Or, put another way, is there a difference in `SWB` between Hospitals 1 and 2 for people receiving Treatment A?
+
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+
+```r
+m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
+m1_simple1 &lt;- pairs(m1_emm, 
+                    simple = "Hospital")
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+---
+# Simple Effects with `emmeans`
+
+.pull-left[
+
+```r
+m1_simple2 &lt;- pairs(m1_emm, 
+                    simple = "Treatment")
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+]
+
+.pull-right[
+
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-9-1.png" width="90%" /&gt;
+
+]
+
+.pull-right[
+
+```r
+m1_simple1
+```
+
+```
+## Treatment = TreatA:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.95 0.523 174   5.632  &lt;.0001
+## 
+## Treatment = TreatB:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2    -3.69 0.523 174  -7.047  &lt;.0001
+## 
+## Treatment = TreatC:
+##  contrast      estimate    SE  df t.ratio p.value
+##  Hosp1 - Hosp2     2.12 0.523 174   4.059  0.0001
+```
+
+]
+
+---
+# Simple effects with plots
+
+.pull-left[
+
+```r
+m1_simple2
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0259
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.3796
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.4044
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  0.9682
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 3 estimates
+```
+
+]
+
+.pull-right[
+&lt;img src="dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-12-1.png" width="90%" /&gt;
+
+]
+
+
+
+
+---
+class: center, middle
+# Questions....
+
+
+---
+# Recap categorical interactions
++ When the effects of one predictor on the outcome differ across levels of another predictor.
+
++ Categorical*categorical interaction:
+	+ There is a difference in the differences between groups across levels of a second factor.
+
++ We have just seen that the simple effects are giving us tests of the difference **within** a level of a second predictor.
+  + So then the interactions here can be thought of as the difference in the simple effects. 
+  + This also means the simple effects help us understand an interaction between effects coded variables. 
+  
+---
+# Our results
+
+```
+## 
+## Call:
+## lm(formula = SWB ~ Treatment + Hospital + Treatment * Hospital, 
+##     data = hosp_tbl, contrasts = list(Treatment = contr.sum, 
+##         Hospital = contr.sum))
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -6.6000 -1.2533  0.1083  1.2650  5.7000 
+## 
+## Coefficients:
+##                      Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)            9.8806     0.1510  65.425  &lt; 2e-16 ***
+## Treatment1            -0.5539     0.2136  -2.593   0.0103 *  
+## Treatment2             1.3928     0.2136   6.521 7.30e-10 ***
+## Hospital1              0.2306     0.1510   1.527   0.1287    
+## Treatment1:Hospital1   1.2428     0.2136   5.819 2.79e-08 ***
+## Treatment2:Hospital1  -2.0739     0.2136  -9.710  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 2.026 on 174 degrees of freedom
+## Multiple R-squared:  0.4476,	Adjusted R-squared:  0.4317 
+## F-statistic:  28.2 on 5 and 174 DF,  p-value: &lt; 2.2e-16
+```
+
+---
+# Visualizing the interaction
+
+.pull-left[
+![](dapr2_14_experimentaleffects_files/figure-html/unnamed-chunk-14-1.png)&lt;!-- --&gt;
+]
+
+.pull-right[
+
+```r
+emmip(m1, Hospital~Treatment) +
+  geom_hline(yintercept = mean(hosp_tbl$SWB))
+```
+]
+
+---
+# Interpretation with effects coding
+
+```
+##                      Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept)              9.88       0.15   65.42     0.00
+## Treatment1              -0.55       0.21   -2.59     0.01
+## Treatment2               1.39       0.21    6.52     0.00
+## Hospital1                0.23       0.15    1.53     0.13
+## Treatment1:Hospital1     1.24       0.21    5.82     0.00
+## Treatment2:Hospital1    -2.07       0.21   -9.71     0.00
+```
+
++ `\(b_0\)` (`Intercept`) = Grand mean.
++ `\(b_1\)` (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
++ `\(b_2\)` (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
++ `\(b_3\)` (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
++ `\(b_4\)` (`Treatment1:Hospital1`) = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2.
++ `\(b_5\)` (`Treatment2:Hospital1`) = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2.
+
+
+---
+# Interpretation with effects coding
+.pull-left[
+
+```
+##                      Estimate Std. Error
+## (Intercept)              9.88       0.15
+## Treatment1              -0.55       0.21
+## Treatment2               1.39       0.21
+## Hospital1                0.23       0.15
+## Treatment1:Hospital1     1.24       0.21
+## Treatment2:Hospital1    -2.07       0.21
+```
+]
+
+.pull-right[
+&lt;table&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;  &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp1 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Hosp2 &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; Marginal &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatA &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.80 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.85 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.33 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatB &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 13.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 11.27 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; TreatC &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.10 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 7.98 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.04 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Marginal &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 10.11 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.65 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; 9.88 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
++ `\(b_0\)` (`Intercept`) = Grand mean.
++ `\(b_1\)` (`Treatment1`) = Difference between row marginal for treatment A and the grand mean. 
++ `\(b_2\)` (`Treatment2`) = Difference between row marginal for treatment B and the grand mean.
++ `\(b_3\)` (`Hospital1`) = Difference between column marginal for Hospital 1 and the grand mean.
++ `\(b_4\)` (`Treatment1:Hospital1`) = Difference between Treatment A and grand mean, in Hospital 1 and Hospital 2.
++ `\(b_5\)` (`Treatment2:Hospital1`) = Difference between Treatment B and grand mean, in Hospital 1 and Hospital 2.
+
+
+---
+class: center, middle
+# Questions....
+
+---
+# Interacting manual contrasts
++ We can create an interaction based on manual contrasts.
+
++ Suppose we wanted to test whether there is a difference between Treatment A vs Treatment B and Treatment C across hospitals.
+
++ Steps:
+  + Define the contrasts for each factor.
+  + Calculate the product (remember all interactions are products).
+  + Create the contrast code.
+  + Run the contrast.
+  
+---
+# Interacting manual contrasts in R
+
++ Step 1: Individual contrasts.
+
+
+```r
+treat_con &lt;- c("TreatA" = 1, "TreatB" = -1/2, "TreatC" = -1/2)
+hosp_con &lt;- c("Hops1" = 1, "Hosp2" = -1)
+```
+
++ Step 2: Product.
+
+
+```r
+contr_prod &lt;- outer(treat_con, hosp_con)
+contr_prod
+```
+
+```
+##        Hops1 Hosp2
+## TreatA   1.0  -1.0
+## TreatB  -0.5   0.5
+## TreatC  -0.5   0.5
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 3: Create the contrast.
+
+
+```r
+m1_emm &lt;- emmeans(m1, ~Treatment*Hospital)
+m1_emm
+```
+
+```
+##  Treatment Hospital emmean   SE  df lower.CL upper.CL
+##  TreatA    Hosp1     10.80 0.37 174    10.07    11.53
+##  TreatB    Hosp1      9.43 0.37 174     8.70    10.16
+##  TreatC    Hosp1     10.10 0.37 174     9.37    10.83
+##  TreatA    Hosp2      7.85 0.37 174     7.12     8.58
+##  TreatB    Hosp2     13.12 0.37 174    12.39    13.85
+##  TreatC    Hosp2      7.98 0.37 174     7.25     8.71
+## 
+## Confidence level used: 0.95
+```
+
+
+
+```r
+int_comp &lt;- list("TreatA vs B and C across hospital" = 
+                   c(1, -1/2, -1/2, -1, 1/2, 1/2))
+```
+
+
+---
+# Interacting manual contrasts in R
+
++ Step 4: Run.
+
+
+```r
+int_comp_test &lt;- contrast(m1_emm, int_comp)
+int_comp_test
+```
+
+```
+##  contrast                          estimate    SE  df t.ratio p.value
+##  TreatA vs B and C across hospital     3.73 0.641 174   5.819  &lt;.0001
+```
+
+
+---
+class: center, middle
+# Questions....
+
+---
+# Pairwise comparisons
++ As the name suggests, pairwise comparisons compare all levels of a given predictor variable with all levels of the other.
+
++ A fully exploratory pairwise analysis.
+
+
+```r
+pairs_res &lt;- pairs(m1_emm)
+```
+
+---
+# Pairwise comparisons
+
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.0982
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.7670
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0002
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.7918
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0346
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0670
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0004
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0010
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  0.9999
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 6 estimates
+```
+
+
+
+---
+# Why do pairwise comparisons?
+
++ Sometimes we do not have a concrete hypothesis to test.
+
++ Sometimes we do, but the exploratory analysis is still useful information for the field.
+
++ Pairwise comparisons throws up a statistical issue, namely the problem of multiple comparisons.
+  + When we do lots and lots of tests, the chances of Type I error (false-positives) increase.
+
++ How we can adjust our inferences to deal with this?
+
+---
+# Types of errors
+
++ Type I error = False positive
+  + Reject the null when the null is true. 
+  + `\(\alpha = P(\text{Type I Error})\)`
+
++ Type II error = False negative
+  + Fail to reject the null when the null is false. 
+  + `\(\beta = P(\text{Type II Error})\)`
+  
+---
+# A single test
++ If we perform a single test, our Type I error rate is `\(\alpha\)`.
+  + So if we set `\(\alpha = 0.05\)`, the probability of a false positive is 5%.
+
++ However, what if we do multiple tests ( `\(m\)` ), each with the same `\(\alpha\)` level?
+
++ What is the probability of a false positive among `\(m\)` tests?
+
+---
+# Multiple tests
+
+`$$P(\text{Type I error}) = \alpha$$`
+`$$P(\text{not making a Type I error}) = 1 - \alpha$$`
+
+`$$P(\text{Not making a Type I error in m tests}) = (1 - \alpha)^m$$`
+
+`$$P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m$$`
+
+---
+# P(Making a Type I error in m tests)
+
++ Suppose `\(m=2\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^2)
+```
+
+```
+## [1] 0.0975
+```
+
++ Suppose `\(m=5\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^5)
+```
+
+```
+## [1] 0.2262191
+```
+
++ Suppose `\(m=10\)` and `\(\alpha = 0.05\)`
+
+
+```r
+1 - ((1-0.05)^10)
+```
+
+```
+## [1] 0.4012631
+```
+
+---
+# Why does this matter?
+
++ The `\(P(\text{Making a Type I error in m tests}) = 1 - (1-\alpha)^m\)` is referred to as the family-wise error rate. 
+
++ A "family" is a set of related tests. 
+
++ When we analyse an experimental design, and we look at lots of specific comparisons, we can think of all these tests as a "family". 
+
++ The larger the family, the more likely we are to find a false positive (see previous slide). 
+
+---
+# Corrections
++ There are various methods designed to control for the number of tests.
+  + Here control means to keep the Type I Error rate at an intended `\(\alpha\)`. 
+
++ Many options. Some of most common:
+  + Bonferroni
+  + Sidak
+  + Tukey
+  + Scheffe
+
++ Others you may see:
+  + Holm's step-down
+  + Hochberg's step-up
+
+
+---
+# Bonferroni &amp; Sidak
++ Both are considered "conservative" adjustments.
+
++ Each treats individual tests within the family as if they are independent.
+  + Consider an `\(\alpha = 0.05\)` and `\(m=\text{number of tests}=15\)`
+
++ **Bonferroni**: `\(\alpha_{Bonferroni} = \frac{\alpha}{m}\)`
+
+
+```r
+0.05/15
+```
+
+```
+## [1] 0.003333333
+```
+
+
++ **Sidak**: `\(\alpha_{Sidak} = 1 - (1- \alpha)^{\frac{1}{m}}\)`
+
+
+```r
+1-((1-0.05)^(1/15))
+```
+
+```
+## [1] 0.003413713
+```
+
+---
+# No adjustments
+
+
+```r
+pairs(m1_emm, adjust="none")
+```
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.0096
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.1847
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  &lt;.0001
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.1998
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0030
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0062
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  &lt;.0001
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0001
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  0.8090
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+```
+
+---
+# Bonferroni in action: `emmeans`
+
+
+```r
+pairs(m1_emm, adjust="bonferroni")
+```
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.1441
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  1.0000
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0003
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  1.0000
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0445
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0928
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0004
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0011
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  1.0000
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: bonferroni method for 15 tests
+```
+
+---
+# Sidak with `emmeans`
+
+
+```r
+pairs(m1_emm, adjust = "sidak")
+```
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.1348
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.9533
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0003
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.9647
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0436
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0889
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0004
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0011
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  1.0000
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: sidak method for 15 tests
+```
+
+---
+# What about if there were less tests?
+
+
+```r
+pairs(m1_emm, simple="Treatment", adjust="bonferroni")
+```
+
+```
+## Hospital = Hosp1:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB    1.370 0.523 174   2.619  0.0288
+##  TreatA - TreatC    0.697 0.523 174   1.332  0.5541
+##  TreatB - TreatC   -0.673 0.523 174  -1.287  0.5993
+## 
+## Hospital = Hosp2:
+##  contrast        estimate    SE  df t.ratio p.value
+##  TreatA - TreatB   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA - TreatC   -0.127 0.523 174  -0.242  1.0000
+##  TreatB - TreatC    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: bonferroni method for 3 tests
+```
+
+
+---
+# Scheffe &amp; Tukey
++ **Scheffe procedure** involves an adjustment to the critical value of `\(F\)`.
+  + The adjustment relates to the number of comparisons being made.
+  + And makes the critical value of `\(F\)` larger for a fixed `\(\alpha\)`. 
+  + The more tests, the larger `\(F\)`. 
+
++ The square-root of the adjusted F provides and adjusted `\(t\)`. 
+
+--
+
++ **Tukey's HSD** (Honest significant differences)
+  + Compares all pairwise group means. 
+  + Each difference is divided by the `\(SE\)` of the sum of means. 
+  + This produces a `\(q\)` statistic for each comparison. 
+  + And is compared against a studentized range distribution. 
+
+
+---
+# With `emmeans`
+
+
+```r
+pairs(m1_emm, adjust = "tukey")
+```
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.0982
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.7670
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0002
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.7918
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.0346
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.0670
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0004
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0010
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  0.9999
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: tukey method for comparing a family of 6 estimates
+```
+
+
+---
+# With `emmeans`
+
+
+```r
+pairs(m1_emm, adjust = "scheffe")
+```
+
+```
+##  contrast                    estimate    SE  df t.ratio p.value
+##  TreatA Hosp1 - TreatB Hosp1    1.370 0.523 174   2.619  0.2372
+##  TreatA Hosp1 - TreatC Hosp1    0.697 0.523 174   1.332  0.8787
+##  TreatA Hosp1 - TreatA Hosp2    2.947 0.523 174   5.632  &lt;.0001
+##  TreatA Hosp1 - TreatB Hosp2   -2.317 0.523 174  -4.428  0.0021
+##  TreatA Hosp1 - TreatC Hosp2    2.820 0.523 174   5.390  0.0001
+##  TreatB Hosp1 - TreatC Hosp1   -0.673 0.523 174  -1.287  0.8935
+##  TreatB Hosp1 - TreatA Hosp2    1.577 0.523 174   3.014  0.1119
+##  TreatB Hosp1 - TreatB Hosp2   -3.687 0.523 174  -7.047  &lt;.0001
+##  TreatB Hosp1 - TreatC Hosp2    1.450 0.523 174   2.772  0.1809
+##  TreatC Hosp1 - TreatA Hosp2    2.250 0.523 174   4.301  0.0033
+##  TreatC Hosp1 - TreatB Hosp2   -3.013 0.523 174  -5.760  &lt;.0001
+##  TreatC Hosp1 - TreatC Hosp2    2.123 0.523 174   4.059  0.0072
+##  TreatA Hosp2 - TreatB Hosp2   -5.263 0.523 174 -10.061  &lt;.0001
+##  TreatA Hosp2 - TreatC Hosp2   -0.127 0.523 174  -0.242  1.0000
+##  TreatB Hosp2 - TreatC Hosp2    5.137 0.523 174   9.819  &lt;.0001
+## 
+## P value adjustment: scheffe method with rank 5
+```
+
+
+---
+# Summary
++ We are know finished with discussing testing effects within `lm`.
+
++ This week we have looked at ways we can code categorical data to test experimental effects.
+
++ In the next block, we will consider:
+  + Non-continuous **dependent** variables
+  + Approaches to modelling and modelling issues
+  + Power
+
++ Last week of the course will be all Q&amp;A and discussing exam.
+
+
+---
+class: center, middle
+# Thanks for listening!
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"ratio": "16:9",
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+// add `data-at-shortcutkeys` attribute to <body> to resolve conflicts with JAWS
+// screen reader (see PR #262)
+(function(d) {
+  let res = {};
+  d.querySelectorAll('.remark-help-content table tr').forEach(tr => {
+    const t = tr.querySelector('td:nth-child(2)').innerText;
+    tr.querySelectorAll('td:first-child .key').forEach(key => {
+      const k = key.innerText;
+      if (/^[a-z]$/.test(k)) res[k] = t;  // must be a single letter (key)
+    });
+  });
+  d.body.setAttribute('data-at-shortcutkeys', JSON.stringify(res));
+})(document);
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
