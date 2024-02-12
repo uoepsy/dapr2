@@ -1,0 +1,316 @@
+---
+title: "<b> Interaction Analysis </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo = F, message=FALSE}
+library(tidyverse)
+library(gt)
+library(kableExtra)
+library(car)
+library(emmeans)
+library(sjPlot)
+library(interactions)
+
+data <- read.csv("laptop_vs_longhand.csv")
+```
+
+# Overview of the Week
+
+This week, we'll be reviewing what we've learned in weeks 1-4 and applying it to a practical example. Specifically, we'll cover:
+
+1. Interpetation of an interaction model with categorical variables.
+2. Multiple pairwise comparisons with corrections.
+
+
+---
+### Our example is based on the paper 
+
+* Mueller, P. A., & Oppenheimer, D. M. (2014). The pen is mightier than the keyboard: Advantages of longhand over laptop note taking. *Psychological Science, 25*(6), 1159–1168. [https://doi.org/10.1177/0956797614524581](https://doi.org/10.1177/0956797614524581)
+
+
+In the current study, participants were invited to take part in a study investigating the medium of note taking and study time on test scores. The sample comprised of 160 students who took notes on a lecture via one of two mediums - either on a laptop or longhand (i.e., using pen and paper). After watching the lecture and taking notes, they were randomly allocated to one of four study time conditions, either engaging in no, minimal, moderate, or extensive study of the notes taken on their assigned medium. After engaging in study for their allocated time, participants took a test on the lecture content. The test involved a series of questions, where participants could score a maximum of 100 points. 
+
+---
+### Research Aim
+
++ Explore the associations among study time and note-taking medium on test scores. 
+
+### Research Questions
+
+1. Do differences in test scores between study conditions differ by the note-taking medium used?
+2. Explore the differences between each pair of levels of each factor to determine which conditions significantly differ from each other.
+
+
+---
+### Setup
+
+Loading all the necessary packages and the data:
+
+```{r, eval = F}
+library(tidyverse)
+library(emmeans)
+library(kableExtra)
+library(car)
+library(sjPlot)
+
+data <- read_csv('laptop_vs_longhand.csv')
+```
+
+---
+### Checking the Data
+
+Looking at our data using the `summary` function:
+
+```{r}
+data %>%
+  summary(.)
+```
+
+
+---
+### Checking the Data
+
+You'll notice that we have a continuous outcome variable, `test_score`, and two categorical predictor variables, `medium`, `study`. We need to make `medium` and `study` factors:
+
+```{r}
+data$medium <- as_factor(data$medium)
+data$study <- as_factor(data$study)
+summary(data)
+```
+
+---
+### Next, looking at our continuous outcome (test scores) distribution and bar plots for factors (study and medium):
+
+---
+```{r}
+ggplot(data, aes(test_score)) + 
+  geom_histogram(colour = 'black', binwidth = 2)
+```
+
+---
+
+```{r}
+ggplot(data = data, aes(medium, fill = medium)) + 
+         geom_bar() +
+  theme(legend.position = 'none')
+```
+
+---
+```{r}
+ggplot(data = data, aes(study, fill = study)) + 
+         geom_bar() +
+         theme(legend.position = 'none')
+```
+
+---
+### Data description
+
+```{r}
+descript <- data %>% 
+    group_by(study, medium) %>%
+   summarise(
+       M_Score = round(mean(test_score), 2),
+       SD_Score = round(sd(test_score), 2),
+       SE_Score = round(sd(test_score)/sqrt(n()), 2),
+       Min_Score = round(min(test_score), 2),
+       Max_Score = round(max(test_score), 2)
+    )
+```
+
+---
+### Data description
+
+```{r}
+descript
+```
+
+---
+# Table of means
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3,
+  "No Study", "48.12",  "51.02",
+  "Minimal", "55.57",  "60.91",
+  "Moderate", "59.30",  "80.69", 
+  "Extensive","61.16", "90.58"
+  ), col.names = c("", "Laptop",  "Longhand"))
+```
+
+---
+### All variables in a plot with mean scores for each condition:
+
+---
+```{r}
+p2 <- ggplot(descript, aes(x = study, y = M_Score, color = medium)) + 
+  geom_point(size = 3) +
+  geom_linerange(aes(ymin = M_Score - 2 * SE_Score, ymax = M_Score + 2 * SE_Score)) +
+  geom_path(aes(x = as.numeric(study)))
+p2
+
+```
+
+---
+### Investigating RQ 1: Dummy Coding
+
++ The first research question we've specified, *"Do differences in test scores between study conditions differ by the note-taking medium used?"*
+
++ Before we run our model, we have to make a few decisions: coding and baseline comparisons to make across predictors
+
++ Dummy coding: `Laptop` as the baseline level for `medium` and `No` as the baseline level for `study`
+
++ We can use the `fct_relevel` function to order our levels accordingly:
+
+```{r}
+data$medium <- fct_relevel(data$medium , "Laptop")
+data$study <- fct_relevel(data$study , "No", "Minimal", "Moderate", "Extensive")
+summary(data)
+```
+
+---
+### Investigating RQ 1
+
+Given the first research question we've specified, *"Do differences in test scores between study conditions differ by the note-taking medium used?"*, we'll use the following model:
+
+$$
+\begin{align}
+\text{Test Score} &= \beta_0  \\
+      &+ \beta_1 \cdot M_\text{Longhand} \\  
+      &+ \beta_2 \cdot S_\text{Minimal} \\ 
+      &+ \beta_3 \cdot S_\text{Moderate} \\
+      &+ \beta_4 \cdot S_\text{Extensive} \\
+      &+ \beta_5 \cdot  (M_\text{Longhand} \cdot  S_\text{Minimal})  \\
+      &+ \beta_6 \cdot  (M_\text{Longhand} \cdot  S_\text{Moderate})  \\
+      &+ \beta_7 \cdot  (M_\text{Longhand} \cdot  S_\text{Extensive})  \\
+      &+ \epsilon  
+\end{align}
+$$
+
+
+---
+### Running our model:
+
+```{r}
+m1 <- lm(test_score ~ study*medium, data = data)
+summary(m1)
+```
+
+---
+### Assumptions
+
+#### Linearity
+We can assume linearity when working with categorical predictors (see [here](https://www.bookdown.org/rwnahhas/RMPH/mlr-linearity.html))
+
+#### Independence of Errors
+We are using between-subjects data, so we'll also assume independence of our error terms. 
+
+---
+#### Normality of Residuals (histogram)
+
+```{r}
+hist(m1$residuals)
+```
+
+---
+#### Normality of Residuals (QQ plots)
+
+```{r}
+plot(m1, which = 2)
+```
+
+---
+#### Equality of Variance (Homoskedasticity)
+Checkin for heteroskedasticity using residuals vs predicted values plots: `residualPlot` from the `car` package
+
+```{r}
+residualPlot(m1)
+```
+
+---
+```{r}
+summary(m1)
+```
+
+---
+.pull-left[
+```{r echo=FALSE}
+#| label: tbl-rq1-results
+#| tbl-cap: RQ1 - Regression Table for Total Scores Model
+tab_model(m1, 
+          pred.labels = c('Intercept', 'Study-Minimal', 'Study-Moderate', 'Study-Extensive', 'Medium-Longhand', 
+                          'Study-Minimal : Medium-Longhand', 'Study-Moderate : Medium-Longhand', 'Study-Extensive : Medium-Longhand'),
+          title = 'RQ1 - Regression Table for Total Scores Model')
+```
+]
+
+.pull-right[
+```{r echo=FALSE}
+  knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3,
+  "No Study", "48.12",  "51.02",
+  "Minimal", "55.57",  "60.91",
+  "Moderate", "59.30",  "80.69", 
+  "Extensive","61.16", "90.58"
+  ), col.names = c("", "Laptop",  "Longhand"))
+```
+]
+
+---
+
+```{r}
+plt_m1 <- cat_plot(model = m1, pred = study, modx = medium, 
+                  main.title = "Scores across Study and Medium",
+                  x.label = "Study", y.label = "Score", legend.main = "Medium")
+plt_m1
+```
+
+---
+### Pairwise comparisons with Tukey corrections
+
+```{r}
+m1_emm <- emmeans(m1, ~study*medium)
+pairs_res <- pairs(m1_emm)
+```
+
+---
+```{r}
+pairs_res 
+```
+
+
+
+
+
