@@ -85,6 +85,7 @@ library(emmeans)
 library(kableExtra)
 library(car)
 library(sjPlot)
+library(interactions)
 
 data <- read_csv('laptop_vs_longhand.csv')
 ```
@@ -158,7 +159,7 @@ descript
 ```
 
 ---
-# Table of means
+### Table of means
 
 ```{r, echo=FALSE}
 knitr::kable(tibble::tribble(
@@ -218,18 +219,21 @@ $$
       &+ \epsilon  
 \end{align}
 $$
++ Please note, the model, as specified here, is run as **medium*study** in R:
+  
+  + m1 <- lm(test_score ~ medium*study, data = data)
 
 
 ---
 ### Running our model:
 
 ```{r}
-m1 <- lm(test_score ~ study*medium, data = data)
+m1 <- lm(test_score ~ medium*study, data = data)
 summary(m1)
 ```
 
 ---
-### Assumptions
+### Checking assumptions before interpreting the model
 
 #### Linearity
 We can assume linearity when working with categorical predictors (see [here](https://www.bookdown.org/rwnahhas/RMPH/mlr-linearity.html))
@@ -265,20 +269,17 @@ summary(m1)
 ```
 
 ---
+### Interpretation with dummy coding 
+
 .pull-left[
-```{r echo=FALSE}
-#| label: tbl-rq1-results
-#| tbl-cap: RQ1 - Regression Table for Total Scores Model
-tab_model(m1, 
-          pred.labels = c('Intercept', 'Study-Minimal', 'Study-Moderate', 'Study-Extensive', 'Medium-Longhand', 
-                          'Study-Minimal : Medium-Longhand', 'Study-Moderate : Medium-Longhand', 'Study-Extensive : Medium-Longhand'),
-          title = 'RQ1 - Regression Table for Total Scores Model')
+```{r, echo=FALSE}
+round(summary(m1)$coefficients,2)[,1:2]
 ```
 ]
 
 .pull-right[
-```{r echo=FALSE}
-  knitr::kable(tibble::tribble(
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
    ~V1, ~V2, ~V3,
   "No Study", "48.12",  "51.02",
   "Minimal", "55.57",  "60.91",
@@ -287,6 +288,14 @@ tab_model(m1,
   ), col.names = c("", "Laptop",  "Longhand"))
 ```
 ]
+
++ **Laptop** is the reference level in **medium**
+
++ **No** is the reference level in **study**
+
++ main conditional effects betas: the differences in means with the reference groups
+
++ interaction betas: differences in differences 
 
 ---
 
@@ -298,7 +307,11 @@ plt_m1
 ```
 
 ---
-### Pairwise comparisons with Tukey corrections
+### Investigating Research Question 2
+
++ *Explore the differences between each pair of levels of each factor to determine which conditions significantly differ from each other.*
+
++ Pairwise comparisons with Tukey corrections
 
 ```{r}
 m1_emm <- emmeans(m1, ~study*medium)
@@ -311,6 +324,97 @@ pairs_res
 ```
 
 
+---
+### Modeling with effects coding
+
++ Recall how we ordered the levels of our factors for dummy coding
+
+```{r eval=FALSE}
+data$medium <- fct_relevel(data$medium , "Laptop")
+data$study <- fct_relevel(data$study , "No", "Minimal", "Moderate", "Extensive")
+```
+
+--- 
+### Run the model with the same order of levels using **effects coding**
+
+```{r}
+m_effc <- lm(test_score ~ medium*study, data = data,
+         contrasts = list(medium = contr.sum, 
+                          study = contr.sum))
+```
 
 
+---
 
+```{r}
+summary(m_effc)
+```
+
+---
+### Interpretation with effects coding
+
++ Please see *"s2 w5 calculations sheet.xlsx"* file on Learn
+
+---
+### Recoding levels of interest
+
++ What if we are more interested in the **Extensive** level of the **study** factor rather than in **No**
+
++ And in the **Longhand** level of **medium** rather than in **Laptop**
+
++ Recode our levels as follows:
+
+```{r}
+data$medium <- fct_relevel(data$medium , "Longhand")
+data$study <- fct_relevel(data$study , "Minimal", "Moderate", "Extensive", "No")
+```
+
+---
+### Re-running the model
+
+```{r}
+m_effc2 <- lm(test_score ~ medium*study, data = data,
+         contrasts = list(medium = contr.sum, 
+                          study = contr.sum))
+```
+
+---
+
+```{r}
+summary(m_effc2)
+```
+
+### Pairwise comparisons with Tukey corrections
+
+```{r}
+m_effc2_emm <- emmeans(m_effc2, ~study*medium)
+pairs_res2 <- pairs(m_effc2_emm)
+```
+
+---
+```{r}
+pairs_res2
+```
+
+---
+### Summary
+
++ Investigating interactions in a 4x2 data set
+
++ Coding factors with dummy coding
+
++ Running a linear model
+
++ Checking assumptions
+
++ Interpreting the model with dummy coding
+
++ Coding factors with effects coding
+
+  +  Re-coding the same factors with different levels of interest
+  
++ Investigating pairwise comparisons with Tukey corrections
+
+---
+class: center, middle
+# Thanks for listening and interacting!
