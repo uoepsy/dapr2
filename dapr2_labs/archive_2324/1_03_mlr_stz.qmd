@@ -1,0 +1,716 @@
+---
+title: "Multiple Linear Regression & Standardization"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+```
+
+:::lo
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Extend the ideas of single linear regression to consider regression models with two or more predictors
+1. Understand how to interpret significance tests for $\beta$ coefficients
+1. Understand how to standardize model coefficients and when this is appropriate to do
+1. Understand how to interpret standardized model coefficients in multiple linear regression models
+
+### <i class="fa fa-check-square-o fa-2"></i> Requirements
+1. Be up to date with lectures
+2. Have completed [Week 1](https://uoepsy.github.io/dapr2/2324/labs/1_01_slr.html) and [Week 2](https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html) lab exercises
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse**
+* **patchwork**
+* **sjPlot**
+* **ppcor**
+* **kableExtra**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io//rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv. 
+
+:::
+
+# Study Overview 
+
+> **Research Question** 
+>
+> Is there an association between wellbeing and time spent outdoors *after* taking into account the association between wellbeing and social interactions? 
+
+`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+  
+__Data Dictionary__
+
+The data in `wellbeing_rural.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) %>% gt::gt()
+```
+  
+  
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(patchwork)
+library(sjPlot)
+library(ppcor)
+library(kableExtra)
+
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+In the first section of this lab, you will focus on the statistics contained within the highlighted sections of the `summary()` output below. You will be both calculating these by hand and deriving via `R` code before interpreting these values in the context of the research question following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf). In the second section of this lab, you will focus on standardization. We will be building on last weeks lab example throughout these exercises.
+
+```{r echo = FALSE, out.width='85%'}
+knitr::include_graphics('images/mdl_output_params.PNG')
+```
+
+## Lab 2 Recap
+
+`r qbegin(1)`
+Fit the following multiple linear regression model, and assign the output to an object called `mdl`, and examine the summary output.
+
+$$
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon 
+$$
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r}
+mdl <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
+summary(mdl)
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Significance Tests for $\beta$ Coefficients
+
+`r qbegin(2)`
+Test the hypothesis that the population slope for outdoor time is zero --- that is, that there is no linear association between wellbeing and outdoor time (*after* controlling for the number of social interactions) in the population. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall the formula for obtaining a **test statistic**:
+
+A test statistic for the null hypothesis $H_0: \beta_j = 0$ is
+$$
+t = \frac{\hat \beta_j - 0}{SE(\hat \beta_j)}
+$$
+which follows a $t$-distribution with $n-k-1$ degrees of freedom (where $k$ = number of predictors and $n$ = sample size).
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+We calculate the test statistic for $\beta_2$ as:
+
+$$
+t = \frac{\hat \beta_2 - 0}{SE(\hat \beta_2)} = \frac{0.19909 - 0}{0.05060} = 3.934585
+$$
+
+and compare it with the 5% critical value from a $t$-distribution with $n-3$ degrees of freedom (since $k = 2$, we have $n-2-1$), which is:
+
+```{r}
+n <- nrow(mwdata)
+k <- 2
+tstar <- qt(0.975, df = n - k - 1)
+tstar
+#tstar = 1.972079
+```
+
+As $|t|$ ($|t|$ = 3.93) is much larger than $t^*$ ($t^*$ = 1.97), we can reject the null hypothesis as we have strong evidence against it.
+
+The $p$-value, shown below, also confirms this conclusion.
+```{r}
+2 * (1 - pt(3.934585, n - 3))
+```
+
+## R Function
+
+Please note that the same information was already contained in the row corresponding to the variable "outdoor_time" in the output of `summary(mdl)`, which reported the $t$-statistic under `t value` and the $p$-value under `Pr(>|t|)`:
+```{r}
+summary(mdl)
+```
+
+The result is exactly the same (up to rounding errors) as calculating manually.
+
+Before we interpret the results, note that sometimes $p$-values will be reported to $e^X$. For example, look in the `Pr(>|t|)` column for "(Intercept)". The value $2e^{-16}$ simply means $2 \times 10^{-16}$. This is a very small value (i.e., 0.0000000000000002), hence we would simply report it as <.001 following the [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We performed a $t$-test against the null hypothesis that outdoor time was not associated with wellbeing scores after controlling for social interactions. A significant association was found between outdoor time (hours per week) and wellbeing (WEMWBS scores) $t(197) = 3.94,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Obtain 95% confidence intervals for the regression coefficients, and write a sentence about each one.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall the formula for obtaining a **confidence interval**:
+
+A confidence interval for the population slope is
+$$
+\hat \beta_j \pm t^* \cdot SE(\hat \beta_j)
+$$
+where $t^*$ denotes the critical value chosen from t-distribution with $n-k-1$ degrees of freedom (where $k$ = number of predictors and $n$ = sample size) for a desired $\alpha$ level of confidence. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+For 95\% confidence we have $t^* = 1.97$:
+```{r}
+n <- nrow(mwdata)
+k <- 2
+tstar <- qt(0.975, df = n - k - 1)
+tstar
+```
+
+The confidence intervals are:
+```{r}
+tibble(
+  b0_LowerCI = round(28.62018 - (qt(0.975, n-3) * 1.48786), 3),
+  b0_UpperCI = round(28.62018 + (qt(0.975, n-3)* 1.48786), 3),
+  b1_LowerCI = round(0.33488 - (qt(0.975, n-3) * 0.08929), 3),
+  b1_UpperCI = round(0.33488 + (qt(0.975, n-3)* 0.08929), 3),
+  b2_LowerCI = round(0.19909 - (qt(0.975, n-3) * 0.05060), 3),
+  b2_UpperCI = round(0.19909 + (qt(0.975, n-3)* 0.05060), 3)
+      )
+
+```
+
+## R Function
+We can much more easily obtain the confidence intervals for the regression coefficients using the command `confint()`:
+
+```{r}
+confint(mdl, level = 0.95)
+```
+
+The result is exactly the same (up to rounding errors) as calculating manually. 
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ The average wellbeing score for all those with zero hours of outdoor time and zero social interactions per week was between `r round(confint(mdl, level=.95)[1,1],2)` and `r round(confint(mdl, level=.95)[1,2],2)`.  
++ When _holding weekly outdoor time constant_, each increase of one social interaction per week was associated with a difference in wellbeing scores between `r round(confint(mdl, level=.95)[2,1],2)` and `r round(confint(mdl, level=.95)[2,2],2)`, on average.  
++ When _holding the number of social interactions per week constant_, each one hour increase in weekly outdoor time was associated with a difference in wellbeing scores between `r round(confint(mdl, level=.95)[3,1],2)` and `r round(confint(mdl, level=.95)[3,2],2)`, on average.  
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Standardization
+
+`r qbegin(4)`
+
+Fit two regression models using the standardized response and explanatory variables. For demonstration purposes, fit one model using z-scored variables, and the other using the `scale()` function.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Both of these methods - z-scoring and `scale()` - will give us a standardized model. 
+
+*Z-Score*  
+Add to the "mwdata" dataset three variables called `z_wellbeing`, `z_social_int`, and `z_outdoor_time` representing the standardized welllbeing, social interactions and outdoor time variables, respectively.
+
+Recall the formula for the $z$-score:
+$$
+z_x = \frac{x - \bar{x}}{s_x}, \qquad z_y = \frac{y - \bar{y}}{s_y}
+$$
+
+*`scale()`*  
+Use the `scale()` function when specifying your `lm()` statement.
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Z-Score
+
+z-score variables:
+
+```{r}
+mwdata <- mwdata %>%
+  mutate(
+    z_wellbeing = (wellbeing - mean(wellbeing)) / sd(wellbeing),
+    z_social_int = (social_int - mean(social_int)) / sd(social_int),
+    z_outdoor_time = (outdoor_time - mean(outdoor_time)) / sd(outdoor_time)
+  )
+```
+
+Check that they are standardized:
+
+```{r}
+mwdata %>%
+  summarise(
+    M_z_wellbeing = round(mean(z_wellbeing),2), SD_z_wellbeing = sd(z_wellbeing), 
+    M_z_social_int = round(mean(z_social_int),2), SD_z_social_int = sd(z_social_int),
+    M_z_outdoor_time = round(mean(z_outdoor_time),2), SD_z_outdoor_time = sd(z_outdoor_time)
+  )
+#mean of 0, SD of 1 - all good to go
+```
+
+Run model:
+
+```{r}
+mdl_z <- lm(z_wellbeing ~ z_social_int + z_outdoor_time, data = mwdata)
+```
+
+## `scale()` function
+
+```{r}
+mdl_s <- lm(scale(wellbeing) ~ scale(social_int) + scale(outdoor_time), data = mwdata)
+```
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Examine the estimates from both standardized models - what do you notice?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Z-Score
+
+```{r}
+summary(mdl_z)
+round(summary(mdl_z)$coefficients, 2)
+```
+
+## `scale()` function
+
+```{r}
+summary(mdl_s)
+round(summary(mdl_s)$coefficients, 2)
+```
+
+:::
+
+From comparing either the `summary()` or rounded output, we can see that the estimates are the same under both approaches. That means you can use either approach to standardize the variables in your model. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+
+Examine the 'Coefficients' section of the `summary()` output from the standardized and unstandardized models - what do you notice? In other words, what is the same / different?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Unstandardized
+
+```{r}
+summary(mdl)
+round(summary(mdl)$coefficients, 2)
+```
+
+## Standardized 
+
+```{r}
+summary(mdl_z)
+round(summary(mdl_z)$coefficients, 2)
+```
+
+:::
+
+**Similarities**  
+
++ The $t$ and $p$-values for the two predictor variables in both models are the same. This is because the significance of these values remains the same for the standardized coefficients as for unstandardized coefficients  
+
+**Differences**  
+
++ The estimates and standard errors for the intercept and both predictor variables are different under the unstandardized and standardized models  
++ The $t$ and $p$-values are different in each model for the intercept. This is because:
+    + In the unstandardized model, the intercept is significantly different from 0 (it is 28.62), and hence has a very small $p$-value (< .001)  
+    + In the standardized model, the intercept is not significantly different from 0 (it is 0!), and hence has a $p$-value of 1. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+How do these standardized estimates relate to the semi-partial correlation coefficients?
+
+Produce a visualisation of the association between wellbeing and outdoor time, after accounting for social interactions.  
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+*Semi-partial (part) correlation coefficient*  
+To calculate semi-partial (part) correlation coefficients, you will need to use the `spcor.test()` from the **ppcor** package.  
+
+Recall that you can look at the estimates from either 'mdl_s' or 'mdl_z' - they contain the same standardized model estimates. 
+
+*Plotting*  
+To visualise just one association, you need to specify the `terms` argument in `plot_model()`. Don't forget you can look up the documentation by typing `?plot_model` in the console. 
+
+Since using `plot_model()`, We need to use 'mdl_z' here **not** 'mdl_s' - it won't work with a model that's used the `scale()` function.  
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+# Semi-partial (part) correlation coefficient
+
+First, lets recall the estimates from our standardized model (rounding to 2 decimal places):
+
+```{r}
+round(mdl_z$coefficients, 2)
+```
+
+Next, lets calculate the semi-partial correlation coefficients:
+
+```{r}
+#semi-partial (part) correlation between wellbeing & social interactions
+wb_soc <- spcor.test(mwdata$wellbeing, mwdata$social_int, mwdata$outdoor_time,  method="pearson")
+#round correlation coefficient estimate to 2 decimal places
+round(wb_soc$estimate, 2)
+
+#semi-partial (part) correlation between wellbeing & outdoor time
+wb_out <- spcor.test(mwdata$wellbeing, mwdata$outdoor_time, mwdata$social_int, method="pearson")
+#round correlation coefficient estimate to 2 decimal places
+round(wb_out$estimate, 2)
+
+```
+
+We can see that the slope estimates from the standardized model are equivalent to the semi-partial (part) correlation coefficients. 
+
+# Visualisation
+
+```{r}
+plot_model(mdl_z, type = "eff",
+           terms = c("z_outdoor_time"), 
+           show.data = TRUE)
+```
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+Plot the data and the fitted regression line from both the unstandardized and standardized models. To do so, for each model:
+
+- Extract the estimated regression coefficients e.g., via `betas <- coef(mdl)`
+- Extract the first entry of `betas` (i.e., the intercept) via `betas[1]`
+- Extract the second entry of `betas` (i.e., the slope) via `betas[2]`
+- Provide the intercept and slope to the function
+
+Note down what you observe from the plots - what is the same / different?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+This is very similar to [Lab 1 Q7](https://uoepsy.github.io/dapr2/2324/labs/1_01_slr.html#model-specification-and-fitting).
+
+*Extracting values*  
+The function `coef()` returns a vector (a sequence of numbers all of the same type). To get the first element of the sequence you append `[1]`, and `[2]` for the second.
+
+*Plotting*  
+In your `ggplot()`, you will need to specify `geom_abline()`. This might help get you started:
+
+<center>
+<code>
+geom_abline(intercept = **intercept**, slope = **slope**)
+</code>
+</center>
+
+
+You may also want to plot these side by side to more easily compare, so consider using `|` from **patchwork**. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+First extract the values required for both non-standardized and standardized models:
+```{r}
+#non-standardized (from 'mdl')
+betas <- coef(mdl)
+intercept <- betas[1]
+slope <- betas[2]
+
+#standardized (from 'mdl_z')
+betas_z <- coef(mdl_z)
+intercept_z <- betas_z[1]
+slope_z <- betas_z[2]
+```
+
+We can plot the models as follows:
+```{r}
+p1 <- ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
+  geom_point() +
+  geom_abline(intercept = intercept, slope = slope, color = 'blue') + 
+  labs(x = "Social Interactions \n(Number per Week)", y = "Wellbeing (WEMWBS) Scores")
+
+p2 <- ggplot(data = mwdata, aes(x = z_social_int, y = z_wellbeing)) +
+  geom_point() +
+  geom_abline(intercept = intercept_z, slope = slope_z, color = 'red') + 
+  labs(x = "Social Interactions \n(Number per Week; Z-Scored)", y = "Wellbeing (WEMWBS) Scores; Z-Scored")
+
+p1 | p2
+```
+
+**Similarities**  
+
++ The data points are distributed in the same pattern  
++ The slope of the line follows the same gradient
+
+**Differences**  
+
++ The x- and y-axis scales are different for each plot. This is because:  
+    + The unstandardized is in the original units where we interpret the slope as the change in $y$ units for a unit change in $x$  
+    + The standardized is in SD units where we interpret the slope as the SD change in $y$ for 1 SD change in $x$
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Writing Up & Presenting Results
+
+`r qbegin(9)`
+
+Provide key model results from the standardized model in a formatted table.
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#| label: tbl-w3-modresults
+#| tbl-cap: Regression Results for Wellbeing Model (both DV and IVs z-scored)
+tab_model(mdl_z,
+          dv.labels = "Wellbeing (WEMWBS Scores)",
+          pred.labels = c("z_social_int" = "Social Interactions (number per week)",
+                          "z_outdoor_time" = "Outdoor Time (hours per week)"),
+          title = "Regression Results for Wellbeing Model (both DV and IVs z-scored)")
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+Interpret the results from the standardized model the context of the research question.
+
+Make reference to the your regression table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Remember to inform the reader of the scale of your variables. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+A multiple regression model was used to determine if there was an association between well-being and time spent outdoors after taking into account the association between well-being and social interactions. All variables (wellbeing, social interactions, and outdoor time) were $z$-scored. As presented in @tbl-w3-modresults, outdoor time was significantly associated with wellbeing scores $(\beta = 0.26, SE = 0.07, p < .001)$ after controlling for the number of weekly social interactions. Results suggested that, holding constant social interactions, for every standard deviation increase in outdoor time, wellbeing scores increased on average by 0.26 standard deviations. Therefore, we should reject the null hypothesis since $p < .05$.
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
