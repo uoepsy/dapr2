@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="generator" content="quarto-1.3.340">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>DAPR2 - Multiple Linear Regression</title>
+<title>DAPR2 - Multiple Linear Regression &amp; Standardization</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -99,8 +99,7 @@ if(f.classList.contains('fa-circle-right')) {
     f.classList.remove('fa-circle-down')
 }
 }
-</script><script src="https://kit.fontawesome.com/120b08a6f5.js" crossorigin="anonymous"></script><script src="site_libs/kePrint-0.0.1/kePrint.js"></script><link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet">
-<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+</script><script src="https://kit.fontawesome.com/120b08a6f5.js" crossorigin="anonymous"></script><script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script><script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 </head>
 <body class="nav-sidebar floating">
 
@@ -203,14 +202,14 @@ if(f.classList.contains('fa-circle-right')) {
         <nav id="TOC" role="doc-toc" class="toc-active"><h2 id="toc-title">On this page</h2>
    
   <ul>
-<li><a href="#sec-studyview" id="toc-sec-studyview" class="nav-link active" data-scroll-target="#sec-studyview">Study Overview</a></li>
+<li><a href="#study-overview" id="toc-study-overview" class="nav-link active" data-scroll-target="#study-overview">Study Overview</a></li>
   <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a></li>
   <li>
 <a href="#exercises" id="toc-exercises" class="nav-link" data-scroll-target="#exercises">Exercises</a>
   <ul class="collapse">
-<li><a href="#study-analysis-plan-overview" id="toc-study-analysis-plan-overview" class="nav-link" data-scroll-target="#study-analysis-plan-overview">Study &amp; Analysis Plan Overview</a></li>
-  <li><a href="#descriptive-statistics-visualisations" id="toc-descriptive-statistics-visualisations" class="nav-link" data-scroll-target="#descriptive-statistics-visualisations">Descriptive Statistics &amp; Visualisations</a></li>
-  <li><a href="#model-fitting-interpretation" id="toc-model-fitting-interpretation" class="nav-link" data-scroll-target="#model-fitting-interpretation">Model Fitting &amp; Interpretation</a></li>
+<li><a href="#lab-2-recap" id="toc-lab-2-recap" class="nav-link" data-scroll-target="#lab-2-recap">Lab 2 Recap</a></li>
+  <li><a href="#significance-tests-for-beta-coefficients" id="toc-significance-tests-for-beta-coefficients" class="nav-link" data-scroll-target="#significance-tests-for-beta-coefficients">Significance Tests for <span class="math inline">\(\beta\)</span> Coefficients</a></li>
+  <li><a href="#standardization" id="toc-standardization" class="nav-link" data-scroll-target="#standardization">Standardization</a></li>
   <li><a href="#writing-up-presenting-results" id="toc-writing-up-presenting-results" class="nav-link" data-scroll-target="#writing-up-presenting-results">Writing Up &amp; Presenting Results</a></li>
   </ul>
 </li>
@@ -219,7 +218,7 @@ if(f.classList.contains('fa-circle-right')) {
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block default"><div class="quarto-title">
-<h1 class="title">Multiple Linear Regression</h1>
+<h1 class="title">Multiple Linear Regression &amp; Standardization</h1>
 </div>
 
 
@@ -238,32 +237,34 @@ if(f.classList.contains('fa-circle-right')) {
 <p>At the end of this lab, you will:</p>
 <ol type="1">
 <li>Extend the ideas of single linear regression to consider regression models with two or more predictors</li>
-<li>Understand and interpret the coefficients in multiple linear regression models</li>
+<li>Understand how to interpret significance tests for <span class="math inline">\(\beta\)</span> coefficients</li>
+<li>Understand how to standardize model coefficients and when this is appropriate to do</li>
+<li>Understand how to interpret standardized model coefficients in multiple linear regression models</li>
 </ol></section><section id="requirements" class="level3"><h3 class="anchored" data-anchor-id="requirements">
 <i class="fa fa-check-square-o fa-2"></i> Requirements</h3>
 <ol type="1">
 <li>Be up to date with lectures</li>
-<li>Have completed <a href="https://uoepsy.github.io/dapr2/2425/labs/1_01_slr.html">Week 1</a> lab exercises</li>
+<li>Have completed <a href="https://uoepsy.github.io/dapr2/2324/labs/1_01_slr.html">Week 1</a> and <a href="https://uoepsy.github.io/dapr2/2324/labs/1_02_mlr.html">Week 2</a> lab exercises</li>
 </ol></section><section id="required-r-packages" class="level3"><h3 class="anchored" data-anchor-id="required-r-packages">
 <i class="fab fa-r-project"></i> Required R Packages</h3>
 <p>Remember to load all packages within a code chunk at the start of your RMarkdown file using <code><a href="https://rdrr.io/r/base/library.html">library()</a></code>. If you do not have a package and need to install, do so within the console using <code>install.packages(" ")</code>. For further guidance on installing/updating packages, see Section C <a href="https://uoepsy.github.io/files/install-update-r#update-pkgs">here</a>.</p>
 <p>For this lab, you will need to load the following package(s):</p>
 <ul>
 <li><strong>tidyverse</strong></li>
-<li><strong>psych</strong></li>
 <li><strong>patchwork</strong></li>
 <li><strong>sjPlot</strong></li>
+<li><strong>ppcor</strong></li>
 <li><strong>kableExtra</strong></li>
 </ul></section><section id="presenting-results" class="level3"><h3 class="anchored" data-anchor-id="presenting-results">
 <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results</h3>
-<p>All results should be presented following <a href="https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf">APA guidelines</a>.If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the <a href="https://uoepsy.github.io/scs/rmd-bootcamp/">rmd bootcamp</a>.</p>
+<p>All results should be presented following <a href="https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf">APA guidelines</a>.If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the <a href="https://uoepsy.github.io//rmd-bootcamp/">rmd bootcamp</a>.</p>
 <p>The example write-up sections included as part of the solutions are <strong>not perfect</strong> - they instead should give you a good example of what information you should include and how to structure this. Note that you must <strong>not</strong> copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more <a href="https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct">here</a>.</p>
 </section><section id="lab-data" class="level3"><h3 class="anchored" data-anchor-id="lab-data">
 <i class="fa fa-file"></i> Lab Data</h3>
-<p>You can download the data required for this lab <a href="https://uoepsy.github.io/data/wellbeing_rural.csv">here</a> or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv</p>
+<p>You can download the data required for this lab <a href="https://uoepsy.github.io/data/wellbeing_rural.csv">here</a> or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv.</p>
 </section>
 </div>
-<section id="sec-studyview" class="level1"><h1>Study Overview</h1>
+<section id="study-overview" class="level1"><h1>Study Overview</h1>
 <blockquote class="blockquote">
 <p><strong>Research Question</strong></p>
 <p>Is there an association between wellbeing and time spent outdoors <em>after</em> taking into account the association between wellbeing and social interactions?</p>
@@ -1301,9 +1302,9 @@ Setup
 <div class="cell" data-layout-align="center">
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#Loading the required package(s)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://personality-project.org/r/psych/">psych</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://patchwork.data-imaginist.com">patchwork</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://strengejacke.github.io/sjPlot/">sjPlot</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va">ppcor</span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://haozhu233.github.io/kableExtra/">kableExtra</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Reading in data and storing to an object named 'mwdata'</span></span>
@@ -1316,12 +1317,68 @@ Setup
 
 </div>
 </section><section id="exercises" class="level1"><h1>Exercises</h1>
-<section id="study-analysis-plan-overview" class="level2"><h2 class="anchored" data-anchor-id="study-analysis-plan-overview">Study &amp; Analysis Plan Overview</h2>
+<p>In the first section of this lab, you will focus on the statistics contained within the highlighted sections of the <code><a href="https://rdrr.io/r/base/summary.html">summary()</a></code> output below. You will be both calculating these by hand and deriving via <code>R</code> code before interpreting these values in the context of the research question following <a href="https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf">APA guidelines</a>. In the second section of this lab, you will focus on standardization. We will be building on last weeks lab example throughout these exercises.</p>
+<div class="cell" data-layout-align="center">
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="images/mdl_output_params.PNG" class="img-fluid figure-img" style="width:85.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<section id="lab-2-recap" class="level2"><h2 class="anchored" data-anchor-id="lab-2-recap">Lab 2 Recap</h2>
 <div class="question-begin">
 Question 1
 </div>
 <div class="question-body">
-<p>Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.</p>
+<p>Fit the following multiple linear regression model, and assign the output to an object called <code>mdl</code>, and examine the summary output.</p>
+<p><span class="math display">\[
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon
+\]</span></p>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-3" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-3', 'sol-start-3')"> Solution </span>
+</div>
+<div id="sol-body-3" class="solution-body" style="display: none;">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mdl</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">social_int</span> <span class="op">+</span> <span class="va">outdoor_time</span>, data <span class="op">=</span> <span class="va">mwdata</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = wellbeing ~ social_int + outdoor_time, data = mwdata)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-15.7611  -3.1308  -0.4213   3.3126  18.8406 
+
+Coefficients:
+             Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  28.62018    1.48786  19.236  &lt; 2e-16 ***
+social_int    0.33488    0.08929   3.751 0.000232 ***
+outdoor_time  0.19909    0.05060   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 5.065 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="divider div-transparent div-dot">
+
+</div>
+</section><section id="significance-tests-for-beta-coefficients" class="level2"><h2 class="anchored" data-anchor-id="significance-tests-for-beta-coefficients">Significance Tests for <span class="math inline">\(\beta\)</span> Coefficients</h2>
+<div class="question-begin">
+Question 2
+</div>
+<div class="question-body">
+<p>Test the hypothesis that the population slope for outdoor time is zero — that is, that there is no linear association between wellbeing and outdoor time (<em>after</em> controlling for the number of social interactions) in the population.</p>
 <div class="callout callout-style-simple callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -1334,59 +1391,10 @@ Hint
 </div>
 <div id="callout-1" class="callout-1-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<ul>
-<li>Give the reader some background on the context of the study (you might be able to re-use some of the content you wrote for <a href="https://uoepsy.github.io/dapr2/2425/labs/1_01_slr.html">Lab 1 Q10</a> here)</li>
-<li>State what type of analysis you will conduct in order to address the research question</li>
-<li>Specify the model to be fitted to address the research question</li>
-<li>Specify your chosen significance (<span class="math inline">\(\alpha\)</span>) level</li>
-<li>State your hypotheses</li>
-</ul>
-<p>Much of the information required can be found in the <a href="#sec-studyview">Study Overview</a> codebook. The <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models">statistical models</a> flashcards may also be useful to refer to.</p>
-</div>
-</div>
-</div>
-</div>
-<p class="question-end">
-</p>
-<div class="solution-begin">
-<span id="sol-start-3" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-3', 'sol-start-3')"> Solution </span>
-</div>
-<div id="sol-body-3" class="solution-body" style="display: none;">
-<p>The <code>mwdata</code> dataset contained information on 200 hypothetical participants who lived in Edinburgh &amp; Lothians area. Using a between-subjects design, the researchers collected information on participants’ wellbeing (measured via WEMWBS), outdoor time (hours per week), social interactions (number per week), routine (whether or not one was followed), location of residence (City, Suburb, or Rural), average weekly steps (in thousands), and age (in years).</p>
-<p>Density plots and boxplots will be used to visualise the marginal distributions of wellbeing, social interactions, and outdoor time. To understand the strength of association among the variables, we will estimate the the correlation coefficients. To address the research question of whether there is an association between wellbeing and time spent outdoors after taking into account the association between wellbeing and social interactions, we are going to fit the following multiple linear regression model:</p>
-<p><span class="math display">\[
-\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{Outdoor Time} + \epsilon
-\]</span></p>
-<p>Effects will be considered statistically significant at <span class="math inline">\(\alpha=.05\)</span>.</p>
-<p>Our hypotheses are:</p>
-<p><span class="math inline">\(H_0: \beta_2 = 0\)</span>: There is no association between wellbeing and time spent outdoors after taking into account the association between wellbeing and social interactions</p>
-<p><span class="math inline">\(H_1: \beta_2 \neq 0\)</span>: There is an association between wellbeing and time spent outdoors after taking into account the association between wellbeing and social interactions</p>
-</div>
-<p class="solution-end">
-</p>
-<div class="divider div-transparent div-dot">
-
-</div>
-</section><section id="descriptive-statistics-visualisations" class="level2"><h2 class="anchored" data-anchor-id="descriptive-statistics-visualisations">Descriptive Statistics &amp; Visualisations</h2>
-<div class="question-begin">
-Question 2
-</div>
-<div class="question-body">
-<p>Alongside descriptive statistics, visualize the marginal distributions of the <code>wellbeing</code>, <code>outdoor_time</code>, and <code>social_int</code> variables.</p>
-<div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hint
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-2" class="callout-2-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>Review the many ways to numerically and visually explore your data by reading over the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#data-exploration">data exploration flashcards</a>.</p>
-<p>For examples, see flashcards on <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#data-exploration">descriptives statistics tables</a> and <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#visual-exploration">data visualisation - marginal</a>.</p>
+<p>Recall the formula for obtaining a <strong>test statistic</strong>:</p>
+<p>A test statistic for the null hypothesis <span class="math inline">\(H_0: \beta_j = 0\)</span> is <span class="math display">\[
+t = \frac{\hat \beta_j - 0}{SE(\hat \beta_j)}
+\]</span> which follows a <span class="math inline">\(t\)</span>-distribution with <span class="math inline">\(n-k-1\)</span> degrees of freedom (where <span class="math inline">\(k\)</span> = number of predictors and <span class="math inline">\(n\)</span> = sample size).</p>
 </div>
 </div>
 </div>
@@ -1399,92 +1407,64 @@ Hint
 <div id="sol-body-4" class="solution-body" style="display: none;">
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist">
-<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" aria-current="page">Numeric</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">Visual</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" aria-current="page">Manually</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false">R Function</a></li>
 </ul>
 <div class="tab-content">
 <div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
-<p>We can present our summary statistics for wellbeing, outdoor time, and social interactions as a well formatted table using <code><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable()</a></code>:</p>
+<p>We calculate the test statistic for <span class="math inline">\(\beta_2\)</span> as:</p>
+<p><span class="math display">\[
+t = \frac{\hat \beta_2 - 0}{SE(\hat \beta_2)} = \frac{0.19909 - 0}{0.05060} = 3.934585
+\]</span></p>
+<p>and compare it with the 5% critical value from a <span class="math inline">\(t\)</span>-distribution with <span class="math inline">\(n-3\)</span> degrees of freedom (since <span class="math inline">\(k = 2\)</span>, we have <span class="math inline">\(n-2-1\)</span>), which is:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mwdata</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> </span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="va">wellbeing</span>, <span class="va">outdoor_time</span>, <span class="va">social_int</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/pkg/psych/man/describe.html">describe</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Wellbeing, Social Interactions, and Outdoor Time Descriptive Statistics"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/pkg/kableExtra/man/kable_styling.html">kable_styling</a></span><span class="op">(</span>full_width <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div id="tbl-w2-desc" class="anchored">
-<table class="table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>Table&nbsp;1: Wellbeing, Social Interactions, and Outdoor Time Descriptive Statistics</caption>
-<thead><tr class="header">
-<th style="text-align: left;" data-quarto-table-cell-role="th"></th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">vars</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">n</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">mean</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">sd</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">median</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">trimmed</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">mad</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">min</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">max</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">range</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">skew</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">kurtosis</th>
-<th style="text-align: right;" data-quarto-table-cell-role="th">se</th>
-</tr></thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">wellbeing</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">200</td>
-<td style="text-align: right;">36.30</td>
-<td style="text-align: right;">5.39</td>
-<td style="text-align: right;">35</td>
-<td style="text-align: right;">36.07</td>
-<td style="text-align: right;">4.45</td>
-<td style="text-align: right;">22</td>
-<td style="text-align: right;">59</td>
-<td style="text-align: right;">37</td>
-<td style="text-align: right;">0.58</td>
-<td style="text-align: right;">0.92</td>
-<td style="text-align: right;">0.38</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">outdoor_time</td>
-<td style="text-align: right;">2</td>
-<td style="text-align: right;">200</td>
-<td style="text-align: right;">18.25</td>
-<td style="text-align: right;">7.10</td>
-<td style="text-align: right;">18</td>
-<td style="text-align: right;">18.14</td>
-<td style="text-align: right;">7.41</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">35</td>
-<td style="text-align: right;">34</td>
-<td style="text-align: right;">0.06</td>
-<td style="text-align: right;">-0.62</td>
-<td style="text-align: right;">0.50</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">social_int</td>
-<td style="text-align: right;">3</td>
-<td style="text-align: right;">200</td>
-<td style="text-align: right;">12.06</td>
-<td style="text-align: right;">4.02</td>
-<td style="text-align: right;">12</td>
-<td style="text-align: right;">11.96</td>
-<td style="text-align: right;">4.45</td>
-<td style="text-align: right;">3</td>
-<td style="text-align: right;">24</td>
-<td style="text-align: right;">21</td>
-<td style="text-align: right;">0.21</td>
-<td style="text-align: right;">-0.40</td>
-<td style="text-align: right;">0.28</td>
-</tr>
-</tbody>
-</table>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">mwdata</span><span class="op">)</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
+<span><span class="va">tstar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, df <span class="op">=</span> <span class="va">n</span> <span class="op">-</span> <span class="va">k</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">tstar</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.972079</code></pre>
 </div>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#tstar = 1.972079</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>As <span class="math inline">\(|t|\)</span> (<span class="math inline">\(|t|\)</span> = 3.93) is much larger than <span class="math inline">\(t^*\)</span> (<span class="math inline">\(t^*\)</span> = 1.97), we can reject the null hypothesis as we have strong evidence against it.</p>
+<p>The <span class="math inline">\(p\)</span>-value, shown below, also confirms this conclusion.</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fl">2</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">pt</a></span><span class="op">(</span><span class="fl">3.934585</span>, <span class="va">n</span> <span class="op">-</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.0001154709</code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<p>Please note that the same information was already contained in the row corresponding to the variable “outdoor_time” in the output of <code>summary(mdl)</code>, which reported the <span class="math inline">\(t\)</span>-statistic under <code>t value</code> and the <span class="math inline">\(p\)</span>-value under <code>Pr(&gt;|t|)</code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = wellbeing ~ social_int + outdoor_time, data = mwdata)
 
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-15.7611  -3.1308  -0.4213   3.3126  18.8406 
 
+Coefficients:
+             Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  28.62018    1.48786  19.236  &lt; 2e-16 ***
+social_int    0.33488    0.08929   3.751 0.000232 ***
+outdoor_time  0.19909    0.05060   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 5.065 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+</div>
+<p>The result is exactly the same (up to rounding errors) as calculating manually.</p>
+<p>Before we interpret the results, note that sometimes <span class="math inline">\(p\)</span>-values will be reported to <span class="math inline">\(e^X\)</span>. For example, look in the <code>Pr(&gt;|t|)</code> column for “(Intercept)”. The value <span class="math inline">\(2e^{-16}\)</span> simply means <span class="math inline">\(2 \times 10^{-16}\)</span>. This is a very small value (i.e., 0.0000000000000002), hence we would simply report it as &lt;.001 following the <a href="https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf">APA guidelines</a>.</p>
+</div>
 </div>
 </div>
 <div class="callout callout-style-simple callout-important no-icon">
@@ -1493,43 +1473,7 @@ Hint
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-body-container">
-<ul>
-<li>The marginal distribution of scores on the WEMWBS was unimodal with a mean of approximately 36.3. There was variation in WEMWBS scores (SD = 5.39)<br>
-</li>
-<li>The marginal distribution of weekly hours spent outdoors was unimodal with a mean of approximately 18.25. There was variation in weekly hours spent outdoors (SD = 7.1)</li>
-<li>The marginal distribution of numbers of social interactions per week was unimodal with a mean of approximately 12.06. There was variation in numbers of social interactions (SD = 4.02)</li>
-</ul>
-</div>
-</div>
-</div>
-</div>
-<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
-<p>You should be familiar now with how to visualise a marginal distribution:</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">wellbeing_plot</span> <span class="op">&lt;-</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_density.html">geom_density</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Score on WEMWBS (range 14-70)"</span>, y <span class="op">=</span> <span class="st">"Density"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">outdoortime_plot</span> <span class="op">&lt;-</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">outdoor_time</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_density.html">geom_density</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Time spent outdoors per week (hours)"</span>, y <span class="op">=</span> <span class="st">"Density"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">social_plot</span> <span class="op">&lt;-</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">social_int</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_density.html">geom_density</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Number of social interactions per week"</span>, y <span class="op">=</span> <span class="st">"Density"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># arrange plots vertically </span></span>
-<span><span class="va">wellbeing_plot</span> <span class="op">/</span> <span class="va">outdoortime_plot</span> <span class="op">/</span> <span class="va">social_plot</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div id="fig-marg-dist" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="1_02_mlrORANGE_files/figure-html/fig-marg-dist-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
-<figcaption class="figure-caption">Figure&nbsp;1: Marginal distribution plots of wellbeing sores, weekly hours spent outdoors, and social interactions</figcaption></figure>
-</div>
-</div>
-</div>
+<p>We performed a <span class="math inline">\(t\)</span>-test against the null hypothesis that outdoor time was not associated with wellbeing scores after controlling for social interactions. A significant association was found between outdoor time (hours per week) and wellbeing (WEMWBS scores) <span class="math inline">\(t(197) = 3.94,\ p &lt; .001\)</span>, two-sided. Thus, we have evidence to reject the null hypothesis.</p>
 </div>
 </div>
 </div>
@@ -1541,7 +1485,111 @@ Hint
 Question 3
 </div>
 <div class="question-body">
-<p>Produce plots of the associations between the outcome variable (wellbeing) and each of the explanatory variables.</p>
+<p>Obtain 95% confidence intervals for the regression coefficients, and write a sentence about each one.</p>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-2-contents" aria-controls="callout-2" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-2" class="callout-2-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Recall the formula for obtaining a <strong>confidence interval</strong>:</p>
+<p>A confidence interval for the population slope is <span class="math display">\[
+\hat \beta_j \pm t^* \cdot SE(\hat \beta_j)
+\]</span> where <span class="math inline">\(t^*\)</span> denotes the critical value chosen from t-distribution with <span class="math inline">\(n-k-1\)</span> degrees of freedom (where <span class="math inline">\(k\)</span> = number of predictors and <span class="math inline">\(n\)</span> = sample size) for a desired <span class="math inline">\(\alpha\)</span> level of confidence.</p>
+</div>
+</div>
+</div>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-5" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-5', 'sol-start-5')"> Solution </span>
+</div>
+<div id="sol-body-5" class="solution-body" style="display: none;">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true">Manually</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false">R Function</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
+<p>For 95% confidence we have <span class="math inline">\(t^* = 1.97\)</span>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">mwdata</span><span class="op">)</span></span>
+<span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">2</span></span>
+<span><span class="va">tstar</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, df <span class="op">=</span> <span class="va">n</span> <span class="op">-</span> <span class="va">k</span> <span class="op">-</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">tstar</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 1.972079</code></pre>
+</div>
+</div>
+<p>The confidence intervals are:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html">tibble</a></span><span class="op">(</span></span>
+<span>  b0_LowerCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">28.62018</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span> <span class="op">*</span> <span class="fl">1.48786</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  b0_UpperCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">28.62018</span> <span class="op">+</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span><span class="op">*</span> <span class="fl">1.48786</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  b1_LowerCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">0.33488</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.08929</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  b1_UpperCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">0.33488</span> <span class="op">+</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span><span class="op">*</span> <span class="fl">0.08929</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  b2_LowerCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">0.19909</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span> <span class="op">*</span> <span class="fl">0.05060</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  b2_UpperCI <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fl">0.19909</span> <span class="op">+</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html">qt</a></span><span class="op">(</span><span class="fl">0.975</span>, <span class="va">n</span><span class="op">-</span><span class="fl">3</span><span class="op">)</span><span class="op">*</span> <span class="fl">0.05060</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span>      <span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 6
+  b0_LowerCI b0_UpperCI b1_LowerCI b1_UpperCI b2_LowerCI b2_UpperCI
+       &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;      &lt;dbl&gt;
+1       25.7       31.6      0.159      0.511      0.099      0.299</code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
+<p>We can much more easily obtain the confidence intervals for the regression coefficients using the command <code><a href="https://rdrr.io/r/stats/confint.html">confint()</a></code>:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/confint.html">confint</a></span><span class="op">(</span><span class="va">mdl</span>, level <span class="op">=</span> <span class="fl">0.95</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                   2.5 %     97.5 %
+(Intercept)  25.68600170 31.5543598
+social_int    0.15880045  0.5109638
+outdoor_time  0.09931273  0.2988759</code></pre>
+</div>
+</div>
+<p>The result is exactly the same (up to rounding errors) as calculating manually.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-simple callout-important no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<ul>
+<li>The average wellbeing score for all those with zero hours of outdoor time and zero social interactions per week was between 25.69 and 31.55.<br>
+</li>
+<li>When <em>holding weekly outdoor time constant</em>, each increase of one social interaction per week was associated with a difference in wellbeing scores between 0.16 and 0.51, on average.<br>
+</li>
+<li>When <em>holding the number of social interactions per week constant</em>, each one hour increase in weekly outdoor time was associated with a difference in wellbeing scores between 0.1 and 0.3, on average.</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<p class="solution-end">
+</p>
+<div class="divider div-transparent div-dot">
+
+</div>
+</section><section id="standardization" class="level2"><h2 class="anchored" data-anchor-id="standardization">Standardization</h2>
+<div class="question-begin">
+Question 4
+</div>
+<div class="question-body">
+<p>Fit two regression models using the standardized response and explanatory variables. For demonstration purposes, fit one model using z-scored variables, and the other using the <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> function.</p>
 <div class="callout callout-style-simple callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -1554,8 +1602,14 @@ Hint
 </div>
 <div id="callout-3" class="callout-3-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Review how to visually explore bivariate associations via the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#visual-exploration">data visualisation flashcards</a>.</p>
-<p>For specifically visualising associations between variables, see the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#visual-exploration">bivariate examples flashcards</a>.</p>
+<p>Both of these methods - z-scoring and <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> - will give us a standardized model.</p>
+<p><em>Z-Score</em><br>
+Add to the “mwdata” dataset three variables called <code>z_wellbeing</code>, <code>z_social_int</code>, and <code>z_outdoor_time</code> representing the standardized welllbeing, social interactions and outdoor time variables, respectively.</p>
+<p>Recall the formula for the <span class="math inline">\(z\)</span>-score: <span class="math display">\[
+z_x = \frac{x - \bar{x}}{s_x}, \qquad z_y = \frac{y - \bar{y}}{s_y}
+\]</span></p>
+<p><em><code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code></em><br>
+Use the <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> function when specifying your <code><a href="https://rdrr.io/r/stats/lm.html">lm()</a></code> statement.</p>
 </div>
 </div>
 </div>
@@ -1563,41 +1617,262 @@ Hint
 <p class="question-end">
 </p>
 <div class="solution-begin">
-<span id="sol-start-5" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-5', 'sol-start-5')"> Solution </span>
+<span id="sol-start-6" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-6', 'sol-start-6')"> Solution </span>
 </div>
-<div id="sol-body-5" class="solution-body" style="display: none;">
+<div id="sol-body-6" class="solution-body" style="display: none;">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-3-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-1" role="tab" aria-controls="tabset-3-1" aria-selected="true">Z-Score</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-2" role="tab" aria-controls="tabset-3-2" aria-selected="false"><code>scale()</code> function</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-3-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-3-1-tab">
+<p>z-score variables:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">wellbeing_outdoor</span> <span class="op">&lt;-</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">outdoor_time</span>, y <span class="op">=</span> <span class="va">wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_smooth.html">geom_smooth</a></span><span class="op">(</span>method <span class="op">=</span> <span class="st">"lm"</span>, se <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Time spent outdoors \nper week (hours)"</span>, y <span class="op">=</span> <span class="st">"Wellbeing score (WEMWBS)"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="va">wellbeing_social</span> <span class="op">&lt;-</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">social_int</span>, y <span class="op">=</span> <span class="va">wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_smooth.html">geom_smooth</a></span><span class="op">(</span>method <span class="op">=</span> <span class="st">"lm"</span>, se <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Number of social interactions \nper week"</span>, y <span class="op">=</span> <span class="st">"Wellbeing score (WEMWBS)"</span><span class="op">)</span></span>
-<span></span>
-<span><span class="co"># place plots adjacent to one another</span></span>
-<span><span class="va">wellbeing_outdoor</span> <span class="op">|</span> <span class="va">wellbeing_social</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div id="fig-marg-relationship" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="1_02_mlrORANGE_files/figure-html/fig-marg-relationship-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
-<figcaption class="figure-caption">Figure&nbsp;2: Scatterplots displaying the relationships between scores on the WEMWBS and a) weekly outdoor time (hours), and b) weekly number of social interactions</figcaption></figure>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mwdata</span> <span class="op">&lt;-</span> <span class="va">mwdata</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span></span>
+<span>    z_wellbeing <span class="op">=</span> <span class="op">(</span><span class="va">wellbeing</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">wellbeing</span><span class="op">)</span>,</span>
+<span>    z_social_int <span class="op">=</span> <span class="op">(</span><span class="va">social_int</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">social_int</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">social_int</span><span class="op">)</span>,</span>
+<span>    z_outdoor_time <span class="op">=</span> <span class="op">(</span><span class="va">outdoor_time</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">outdoor_time</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">outdoor_time</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Check that they are standardized:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mwdata</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/summarise.html">summarise</a></span><span class="op">(</span></span>
+<span>    M_z_wellbeing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">z_wellbeing</span><span class="op">)</span>,<span class="fl">2</span><span class="op">)</span>, SD_z_wellbeing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">z_wellbeing</span><span class="op">)</span>, </span>
+<span>    M_z_social_int <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">z_social_int</span><span class="op">)</span>,<span class="fl">2</span><span class="op">)</span>, SD_z_social_int <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">z_social_int</span><span class="op">)</span>,</span>
+<span>    M_z_outdoor_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">z_outdoor_time</span><span class="op">)</span>,<span class="fl">2</span><span class="op">)</span>, SD_z_outdoor_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">z_outdoor_time</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 6
+  M_z_wellbeing SD_z_wellbeing M_z_social_int SD_z_social_int M_z_outdoor_time
+          &lt;dbl&gt;          &lt;dbl&gt;          &lt;dbl&gt;           &lt;dbl&gt;            &lt;dbl&gt;
+1             0              1              0               1                0
+# ℹ 1 more variable: SD_z_outdoor_time &lt;dbl&gt;</code></pre>
+</div>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#mean of 0, SD of 1 - all good to go</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Run model:</p>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mdl_z</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">z_wellbeing</span> <span class="op">~</span> <span class="va">z_social_int</span> <span class="op">+</span> <span class="va">z_outdoor_time</span>, data <span class="op">=</span> <span class="va">mwdata</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+<div id="tabset-3-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-2-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mdl_s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/scale.html">scale</a></span><span class="op">(</span><span class="va">wellbeing</span><span class="op">)</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/r/base/scale.html">scale</a></span><span class="op">(</span><span class="va">social_int</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/r/base/scale.html">scale</a></span><span class="op">(</span><span class="va">outdoor_time</span><span class="op">)</span>, data <span class="op">=</span> <span class="va">mwdata</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div>
 </div>
-<p>Both scatterplots indicated weak, positive, and linear associations both between wellbeing and outdoor time, and between wellbeing and the number of weekly social interactions.</p>
+</div>
 </div>
 <p class="solution-end">
 </p>
 <p><br></p>
 <div class="question-begin">
-Question 4
+Question 5
 </div>
 <div class="question-body">
-<p>Produce a correlation matrix of the variables which are to be used in the analysis, and write a short paragraph describing the associations.</p>
+<p>Examine the estimates from both standardized models - what do you notice?</p>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-7" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-7', 'sol-start-7')"> Solution </span>
+</div>
+<div id="sol-body-7" class="solution-body" style="display: none;">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true">Z-Score</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false"><code>scale()</code> function</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = z_wellbeing ~ z_social_int + z_outdoor_time, data = mwdata)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.9231 -0.5806 -0.0781  0.6144  3.4942 
+
+Coefficients:
+                 Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)    -4.168e-16  6.642e-02   0.000 1.000000    
+z_social_int    2.499e-01  6.663e-02   3.751 0.000232 ***
+z_outdoor_time  2.622e-01  6.663e-02   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9394 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>               Estimate Std. Error t value Pr(&gt;|t|)
+(Intercept)        0.00       0.07    0.00        1
+z_social_int       0.25       0.07    3.75        0
+z_outdoor_time     0.26       0.07    3.93        0</code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-4-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-4-2-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_s</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = scale(wellbeing) ~ scale(social_int) + scale(outdoor_time), 
+    data = mwdata)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.9231 -0.5806 -0.0781  0.6144  3.4942 
+
+Coefficients:
+                      Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)         -4.106e-16  6.642e-02   0.000 1.000000    
+scale(social_int)    2.499e-01  6.663e-02   3.751 0.000232 ***
+scale(outdoor_time)  2.622e-01  6.663e-02   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9394 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_s</span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                    Estimate Std. Error t value Pr(&gt;|t|)
+(Intercept)             0.00       0.07    0.00        1
+scale(social_int)       0.25       0.07    3.75        0
+scale(outdoor_time)     0.26       0.07    3.93        0</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p>From comparing either the <code><a href="https://rdrr.io/r/base/summary.html">summary()</a></code> or rounded output, we can see that the estimates are the same under both approaches. That means you can use either approach to standardize the variables in your model.</p>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 6
+</div>
+<div class="question-body">
+<p>Examine the ‘Coefficients’ section of the <code><a href="https://rdrr.io/r/base/summary.html">summary()</a></code> output from the standardized and unstandardized models - what do you notice? In other words, what is the same / different?</p>
+</div>
+<p class="question-end">
+</p>
+<div class="solution-begin">
+<span id="sol-start-8" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-8', 'sol-start-8')"> Solution </span>
+</div>
+<div id="sol-body-8" class="solution-body" style="display: none;">
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist">
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-5-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-1" role="tab" aria-controls="tabset-5-1" aria-selected="true">Unstandardized</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-5-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-2" role="tab" aria-controls="tabset-5-2" aria-selected="false">Standardized</a></li>
+</ul>
+<div class="tab-content">
+<div id="tabset-5-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-5-1-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = wellbeing ~ social_int + outdoor_time, data = mwdata)
+
+Residuals:
+     Min       1Q   Median       3Q      Max 
+-15.7611  -3.1308  -0.4213   3.3126  18.8406 
+
+Coefficients:
+             Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)  28.62018    1.48786  19.236  &lt; 2e-16 ***
+social_int    0.33488    0.08929   3.751 0.000232 ***
+outdoor_time  0.19909    0.05060   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 5.065 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl</span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>             Estimate Std. Error t value Pr(&gt;|t|)
+(Intercept)     28.62       1.49   19.24        0
+social_int       0.33       0.09    3.75        0
+outdoor_time     0.20       0.05    3.93        0</code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-5-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-2-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Call:
+lm(formula = z_wellbeing ~ z_social_int + z_outdoor_time, data = mwdata)
+
+Residuals:
+    Min      1Q  Median      3Q     Max 
+-2.9231 -0.5806 -0.0781  0.6144  3.4942 
+
+Coefficients:
+                 Estimate Std. Error t value Pr(&gt;|t|)    
+(Intercept)    -4.168e-16  6.642e-02   0.000 1.000000    
+z_social_int    2.499e-01  6.663e-02   3.751 0.000232 ***
+z_outdoor_time  2.622e-01  6.663e-02   3.935 0.000115 ***
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+Residual standard error: 0.9394 on 197 degrees of freedom
+Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+</div>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">)</span><span class="op">$</span><span class="va">coefficients</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>               Estimate Std. Error t value Pr(&gt;|t|)
+(Intercept)        0.00       0.07    0.00        1
+z_social_int       0.25       0.07    3.75        0
+z_outdoor_time     0.26       0.07    3.93        0</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<p><strong>Similarities</strong></p>
+<ul>
+<li>The <span class="math inline">\(t\)</span> and <span class="math inline">\(p\)</span>-values for the two predictor variables in both models are the same. This is because the significance of these values remains the same for the standardized coefficients as for unstandardized coefficients</li>
+</ul>
+<p><strong>Differences</strong></p>
+<ul>
+<li>The estimates and standard errors for the intercept and both predictor variables are different under the unstandardized and standardized models<br>
+</li>
+<li>The <span class="math inline">\(t\)</span> and <span class="math inline">\(p\)</span>-values are different in each model for the intercept. This is because:
+<ul>
+<li>In the unstandardized model, the intercept is significantly different from 0 (it is 28.62), and hence has a very small <span class="math inline">\(p\)</span>-value (&lt; .001)<br>
+</li>
+<li>In the standardized model, the intercept is not significantly different from 0 (it is 0!), and hence has a <span class="math inline">\(p\)</span>-value of 1.</li>
+</ul>
+</li>
+</ul>
+</div>
+<p class="solution-end">
+</p>
+<p><br></p>
+<div class="question-begin">
+Question 7
+</div>
+<div class="question-body">
+<p>How do these standardized estimates relate to the semi-partial correlation coefficients?</p>
+<p>Produce a visualisation of the association between wellbeing and outdoor time, after accounting for social interactions.</p>
 <div class="callout callout-style-simple callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -1610,301 +1885,12 @@ Hint
 </div>
 <div id="callout-4" class="callout-4-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Review the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#correlation">correlation flashcards</a>, and remember to interpret in the context of the research question.</p>
-</div>
-</div>
-</div>
-</div>
-<p class="question-end">
-</p>
-<div class="solution-begin">
-<span id="sol-start-6" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-6', 'sol-start-6')"> Solution </span>
-</div>
-<div id="sol-body-6" class="solution-body" style="display: none;">
-<p>We can either index the dataframe or select the variables of interest:</p>
-<div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist">
-<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-2-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-1" role="tab" aria-controls="tabset-2-1" aria-selected="true">Index dataframe (<code>[]</code>)</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-2-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-2-2" role="tab" aria-controls="tabset-2-2" aria-selected="false">Variable selection (<code>select()</code>)</a></li>
-</ul>
-<div class="tab-content">
-<div id="tabset-2-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-2-1-tab">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># correlation matrix of the three columns of interest (check which columns we need - in this case, 2,3, and 5)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/cor.html">cor</a></span><span class="op">(</span><span class="va">mwdata</span><span class="op">[</span>,<span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">5</span>,<span class="fl">3</span>,<span class="fl">2</span><span class="op">)</span><span class="op">]</span><span class="op">)</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>             wellbeing social_int outdoor_time
-wellbeing         1.00       0.24         0.25
-social_int        0.24       1.00        -0.04
-outdoor_time      0.25      -0.04         1.00</code></pre>
-</div>
-</div>
-</div>
-<div id="tabset-2-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-2-2-tab">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># select only the columns we want by variable name, and pass this to cor()</span></span>
-<span><span class="va">mwdata</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> </span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html">select</a></span><span class="op">(</span><span class="va">wellbeing</span>, <span class="va">social_int</span>, <span class="va">outdoor_time</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/stats/cor.html">cor</a></span><span class="op">(</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span>digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>             wellbeing social_int outdoor_time
-wellbeing         1.00       0.24         0.25
-social_int        0.24       1.00        -0.04
-outdoor_time      0.25      -0.04         1.00</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="callout callout-style-simple callout-important no-icon">
-<div class="callout-body d-flex">
-<div class="callout-icon-container">
-<i class="callout-icon no-icon"></i>
-</div>
-<div class="callout-body-container">
-<ul>
-<li>There was a weak, positive, linear association between WEMWBS scores and weekly outdoor time for the participants in the sample (<span class="math inline">\(r\)</span> = .25). Higher number of hours spent outdoors each week was associated, on average, with higher wellbeing scores<br>
-</li>
-<li>There was a weak, positive, linear association between WEMWBS scores and the weekly number of social interactions for the participants in the sample (<span class="math inline">\(r\)</span> = .24). More social interactions were associated, on average, with higher wellbeing scores</li>
-<li>There was a negligible negative correlation between weekly outdoor time and the weekly number of social interactions (<span class="math inline">\(r\)</span> = -.04)</li>
-</ul>
-</div>
-</div>
-</div>
-</div>
-<p class="solution-end">
-</p>
-<div class="divider div-transparent div-dot">
-
-</div>
-</section><section id="model-fitting-interpretation" class="level2"><h2 class="anchored" data-anchor-id="model-fitting-interpretation">Model Fitting &amp; Interpretation</h2>
-<div class="question-begin">
-Question 5
-</div>
-<div class="question-body">
-<p>Recall the model specified in Q1, and:</p>
-<ol type="1">
-<li>State the <em>parameters</em> of the model. How do we denote <em>parameter estimates</em>?<br>
-</li>
-<li>Fit the linear model in using <code><a href="https://rdrr.io/r/stats/lm.html">lm()</a></code>, assigning the output to an object called <code>mdl1</code>.</li>
-</ol>
-<div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hint
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-5" class="callout-5-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>As we did for simple linear regression, we can fit our multiple regression model using the <code><a href="https://rdrr.io/r/stats/lm.html">lm()</a></code> function. For a recap, see the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models">statistical models flashcards</a>.</p>
-</div>
-</div>
-</div>
-</div>
-<p class="question-end">
-</p>
-<div class="solution-begin">
-<span id="sol-start-7" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-7', 'sol-start-7')"> Solution </span>
-</div>
-<div id="sol-body-7" class="solution-body" style="display: none;">
-<p>A model for the association between <span class="math inline">\(x_1\)</span> = weekly numbers of social interactions, <span class="math inline">\(x_2\)</span> = weekly outdoor time, and <span class="math inline">\(y\)</span> = scores on the WEMWBS can be given by: <span class="math display">\[
-y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \epsilon \\ \quad \\
-\text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
-\]</span></p>
-<p>In the model specified above,</p>
-<ul>
-<li>
-<span class="math inline">\(\mu_{y|x_1, x_2} = \beta_0 + \beta_1 x + \beta_2 x_2\)</span> represents the systematic part of the model giving the mean of <span class="math inline">\(y\)</span> at each combination of values of <span class="math inline">\(x_1\)</span> and <span class="math inline">\(x_2\)</span>;</li>
-<li>
-<span class="math inline">\(\epsilon\)</span> represents the error (deviation) from that mean, and the errors are independent from one another.</li>
-</ul>
-<p>The parameters of our model are:</p>
-<ul>
-<li>
-<span class="math inline">\(\beta_0\)</span> (The intercept);</li>
-<li>
-<span class="math inline">\(\beta_1\)</span> (The slope across values of <span class="math inline">\(x_1\)</span>);</li>
-<li>
-<span class="math inline">\(\beta_2\)</span> (The slope across values of <span class="math inline">\(x_2\)</span>);<br>
-</li>
-<li>
-<span class="math inline">\(\sigma\)</span> (The standard deviation of the errors).</li>
-</ul>
-<p>When we estimate these parameters from the available data, we have a <em>fitted model</em> (recall that the h<span class="math inline">\(\hat{\textrm{a}}\)</span>ts are used to distinguish our <em>estimates</em> from the <em>true unknown parameters</em>):</p>
-<p><span class="math display">\[
-\widehat{Wellbeing} = \hat \beta_0 + \hat \beta_1 \cdot Social~Interactions + \hat \beta_2 \cdot Outdoor~Time
-\]</span> And we have residuals <span class="math inline">\(\hat \epsilon = y - \hat y\)</span> which are the deviations from the observed values and our model-predicted responses.</p>
-<p>Fitting the model in <code>R</code>:</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mdl1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/lm.html">lm</a></span><span class="op">(</span><span class="va">wellbeing</span> <span class="op">~</span> <span class="va">social_int</span> <span class="op">+</span> <span class="va">outdoor_time</span>, data <span class="op">=</span> <span class="va">mwdata</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div>
-<p class="solution-end">
-</p>
-<p><br></p>
-<div class="statbox">
-<p><strong>Visual</strong></p>
-<p>Note that for simple linear regression we talked about our model as a <em>line</em> in 2 dimensions: the systematic part <span class="math inline">\(\beta_0 + \beta_1 x\)</span> defined a line for <span class="math inline">\(\mu_y\)</span> across the possible values of <span class="math inline">\(x\)</span>, with <span class="math inline">\(\epsilon\)</span> as the random deviations from that line. But in multiple regression we have more than two variables making up our model.</p>
-<p>In this particular case of three variables (one outcome + two explanatory), we can think of our model as a <em>regression surface</em> (see <a href="#fig-reg-surface">Figure&nbsp;3</a>). The systematic part of our model defines the surface across a range of possible values of both <span class="math inline">\(x_1\)</span> <em>and</em> <span class="math inline">\(x_2\)</span>. Deviations from the surface are determined by the random error component, <span class="math inline">\(\hat \epsilon\)</span>.</p>
-<div class="cell" data-layout-align="center">
-<div class="cell-output-display">
-<div id="fig-reg-surface" class="quarto-figure quarto-figure-center anchored">
-<figure class="figure"><p><img src="1_02_mlrORANGE_files/figure-html/fig-reg-surface-1.png" class="img-fluid figure-img" style="width:100.0%"></p>
-<figcaption class="figure-caption">Figure&nbsp;3: Regression surface for wellbeing ~ social_int + outdoor_time, from two different angles</figcaption></figure>
-</div>
-</div>
-</div>
-<p>Don’t worry about trying to figure out how to visualise it if we had any more explanatory variables! We can only concieve of 3 spatial dimensions. One could imagine this surface changing over time, which would bring in a 4th dimension, but beyond that, it’s not worth trying!</p>
-</div>
-<p><br></p>
-<div class="question-begin">
-Question 6
-</div>
-<div class="question-body">
-<p>Using any of:</p>
-<ul>
-<li><code>mdl1</code></li>
-<li><code>mdl1$coefficients</code></li>
-<li><code>coef(mdl1)</code></li>
-<li><code>coefficients(mdl1)</code></li>
-<li><code>summary(mdl1)</code></li>
-</ul>
-<p>Write out the estimated parameter values of:</p>
-<ol type="1">
-<li>
-<span class="math inline">\(\hat \beta_0\)</span>, the estimated average wellbeing score associated with zero hours of outdoor time and zero social interactions per week.<br>
-</li>
-<li>
-<span class="math inline">\(\hat \beta_1\)</span>, the estimated increase in average wellbeing score associated with an additional social interaction per week (an increase of one), <em>holding weekly outdoor time constant</em>.<br>
-</li>
-<li>
-<span class="math inline">\(\hat \beta_2\)</span>, the estimated increase in average wellbeing score associated with one hour increase in weekly outdoor time, <em>holding the number of social interactions constant</em>
-</li>
-</ol>
-<div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hint
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-6" class="callout-6-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>To interpret and extract information, see the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models">simple &amp; multiple regression models - extracing information flashcards</a></p>
-</div>
-</div>
-</div>
-</div>
-<p class="question-end">
-</p>
-<div class="solution-begin">
-<span id="sol-start-8" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-8', 'sol-start-8')"> Solution </span>
-</div>
-<div id="sol-body-8" class="solution-body" style="display: none;">
-<div class="tabset-margin-container"></div><div class="panel-tabset">
-<ul class="nav nav-tabs" role="tablist">
-<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-3-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-1" role="tab" aria-controls="tabset-3-1" aria-selected="true">mdl1$coefficients</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-2" role="tab" aria-controls="tabset-3-2" aria-selected="false">coef(mdl1)</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-3" role="tab" aria-controls="tabset-3-3" aria-selected="false">coefficients(mdl1)</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-3-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-3-4" role="tab" aria-controls="tabset-3-4" aria-selected="false">summary(mdl1)</a></li>
-</ul>
-<div class="tab-content">
-<div id="tabset-3-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-3-1-tab">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">mdl1</span><span class="op">$</span><span class="va">coefficients</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code> (Intercept)   social_int outdoor_time 
-  28.6201808    0.3348821    0.1990943 </code></pre>
-</div>
-</div>
-</div>
-<div id="tabset-3-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-2-tab">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">mdl1</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code> (Intercept)   social_int outdoor_time 
-  28.6201808    0.3348821    0.1990943 </code></pre>
-</div>
-</div>
-</div>
-<div id="tabset-3-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-3-tab">
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coefficients</a></span><span class="op">(</span><span class="va">mdl1</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code> (Intercept)   social_int outdoor_time 
-  28.6201808    0.3348821    0.1990943 </code></pre>
-</div>
-</div>
-</div>
-<div id="tabset-3-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-3-4-tab">
-<p>Look under the “Estimate” column:</p>
-<div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl1</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-lm(formula = wellbeing ~ social_int + outdoor_time, data = mwdata)
-
-Residuals:
-     Min       1Q   Median       3Q      Max 
--15.7611  -3.1308  -0.4213   3.3126  18.8406 
-
-Coefficients:
-             Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)  28.62018    1.48786  19.236  &lt; 2e-16 ***
-social_int    0.33488    0.08929   3.751 0.000232 ***
-outdoor_time  0.19909    0.05060   3.935 0.000115 ***
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-Residual standard error: 5.065 on 197 degrees of freedom
-Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
-F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<ol type="1">
-<li>
-<span class="math inline">\(\hat \beta_0\)</span> = 28.62<br>
-</li>
-<li>
-<span class="math inline">\(\hat \beta_1\)</span> = 0.33<br>
-</li>
-<li>
-<span class="math inline">\(\hat \beta_2\)</span> = 0.2</li>
-</ol>
-</div>
-<p class="solution-end">
-</p>
-<p><br></p>
-<div class="question-begin">
-Question 7
-</div>
-<div class="question-body">
-<p>Within what distance from the model predicted values (the regression line) would we expect 95% of WEMWBS wellbeing scores to be?</p>
-<div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hint
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-7" class="callout-7-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>Either <code><a href="https://rdrr.io/r/stats/sigma.html">sigma()</a></code> or part of the output from <code><a href="https://rdrr.io/r/base/summary.html">summary()</a></code> will help you here (see <a href="https://uoepsy.github.io/dapr2/2425/labs/1_01_slr.html">Lab 1 Q5</a> for an example, or the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models">Simple &amp; Multiple Regression Models - Extracting Information flashcard</a>.</p>
+<p><em>Semi-partial (part) correlation coefficient</em><br>
+To calculate semi-partial (part) correlation coefficients, you will need to use the <code><a href="https://rdrr.io/pkg/ppcor/man/spcor.test.html">spcor.test()</a></code> from the <strong>ppcor</strong> package.</p>
+<p>Recall that you can look at the estimates from either ‘mdl_s’ or ‘mdl_z’ - they contain the same standardized model estimates.</p>
+<p><em>Plotting</em><br>
+To visualise just one association, you need to specify the <code>terms</code> argument in <code><a href="https://strengejacke.github.io/sjPlot/reference/plot_model.html">plot_model()</a></code>. Don’t forget you can look up the documentation by typing <code><a href="https://strengejacke.github.io/sjPlot/reference/plot_model.html">?plot_model</a></code> in the console.</p>
+<p>Since using <code><a href="https://strengejacke.github.io/sjPlot/reference/plot_model.html">plot_model()</a></code>, We need to use ‘mdl_z’ here <strong>not</strong> ‘mdl_s’ - it won’t work with a model that’s used the <code><a href="https://rdrr.io/r/base/scale.html">scale()</a></code> function.</p>
 </div>
 </div>
 </div>
@@ -1917,48 +1903,53 @@ Hint
 <div id="sol-body-9" class="solution-body" style="display: none;">
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist">
-<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-4-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-1" role="tab" aria-controls="tabset-4-1" aria-selected="true">sigma(mdl1)</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-4-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-4-2" role="tab" aria-controls="tabset-4-2" aria-selected="false">summary(mdl1)</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-6-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-1" role="tab" aria-controls="tabset-6-1" aria-selected="true">Semi-partial (part) correlation coefficient</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-6-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-6-2" role="tab" aria-controls="tabset-6-2" aria-selected="false">Visualisation</a></li>
 </ul>
 <div class="tab-content">
-<div id="tabset-4-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-4-1-tab">
+<div id="tabset-6-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-6-1-tab">
+<p>First, lets recall the estimates from our standardized model (rounding to 2 decimal places):</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/sigma.html">sigma</a></span><span class="op">(</span><span class="va">mdl1</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">$</span><span class="va">coefficients</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 5.065003</code></pre>
+<pre><code>   (Intercept)   z_social_int z_outdoor_time 
+          0.00           0.25           0.26 </code></pre>
 </div>
 </div>
-</div>
-<div id="tabset-4-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-4-2-tab">
-<p>Look at the “Residual standard error” entry of the <code>summary(mdl)</code> output:</p>
+<p>Next, lets calculate the semi-partial correlation coefficients:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/summary.html">summary</a></span><span class="op">(</span><span class="va">mdl1</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#semi-partial (part) correlation between wellbeing &amp; social interactions</span></span>
+<span><span class="va">wb_soc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/ppcor/man/spcor.test.html">spcor.test</a></span><span class="op">(</span><span class="va">mwdata</span><span class="op">$</span><span class="va">wellbeing</span>, <span class="va">mwdata</span><span class="op">$</span><span class="va">social_int</span>, <span class="va">mwdata</span><span class="op">$</span><span class="va">outdoor_time</span>,  method<span class="op">=</span><span class="st">"pearson"</span><span class="op">)</span></span>
+<span><span class="co">#round correlation coefficient estimate to 2 decimal places</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">wb_soc</span><span class="op">$</span><span class="va">estimate</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-lm(formula = wellbeing ~ social_int + outdoor_time, data = mwdata)
-
-Residuals:
-     Min       1Q   Median       3Q      Max 
--15.7611  -3.1308  -0.4213   3.3126  18.8406 
-
-Coefficients:
-             Estimate Std. Error t value Pr(&gt;|t|)    
-(Intercept)  28.62018    1.48786  19.236  &lt; 2e-16 ***
-social_int    0.33488    0.08929   3.751 0.000232 ***
-outdoor_time  0.19909    0.05060   3.935 0.000115 ***
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-
-Residual standard error: 5.065 on 197 degrees of freedom
-Multiple R-squared:  0.1265,    Adjusted R-squared:  0.1176 
-F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
+<pre><code>[1] 0.25</code></pre>
+</div>
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#semi-partial (part) correlation between wellbeing &amp; outdoor time</span></span>
+<span><span class="va">wb_out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/ppcor/man/spcor.test.html">spcor.test</a></span><span class="op">(</span><span class="va">mwdata</span><span class="op">$</span><span class="va">wellbeing</span>, <span class="va">mwdata</span><span class="op">$</span><span class="va">outdoor_time</span>, <span class="va">mwdata</span><span class="op">$</span><span class="va">social_int</span>, method<span class="op">=</span><span class="st">"pearson"</span><span class="op">)</span></span>
+<span><span class="co">#round correlation coefficient estimate to 2 decimal places</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Round.html">round</a></span><span class="op">(</span><span class="va">wb_out</span><span class="op">$</span><span class="va">estimate</span>, <span class="fl">2</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.26</code></pre>
+</div>
+</div>
+<p>We can see that the slope estimates from the standardized model are equivalent to the semi-partial (part) correlation coefficients.</p>
+</div>
+<div id="tabset-6-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-6-2-tab">
+<div class="cell" data-layout-align="center">
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://strengejacke.github.io/sjPlot/reference/plot_model.html">plot_model</a></span><span class="op">(</span><span class="va">mdl_z</span>, type <span class="op">=</span> <span class="st">"eff"</span>,</span>
+<span>           terms <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"z_outdoor_time"</span><span class="op">)</span>, </span>
+<span>           show.data <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_03_mlr_stz_files/figure-html/unnamed-chunk-22-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
 </div>
 </div>
 </div>
 </div>
 </div>
-<p>The estimated standard deviation of the errors is <span class="math inline">\(\hat \sigma\)</span> = 5.07. We would expect 95% of wellbeing scores to be within about 10.13 (<span class="math inline">\(2 \hat \sigma\)</span>) from the model fit.</p>
+</div>
 </div>
 <p class="solution-end">
 </p>
@@ -1967,16 +1958,19 @@ F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06</code></pre>
 Question 8
 </div>
 <div class="question-body">
-<p>Based on the model, predict the wellbeing scores for the following individuals who were not included in the original sample:</p>
+<p>Plot the data and the fitted regression line from both the unstandardized and standardized models. To do so, for each model:</p>
 <ul>
-<li>Leah: Social Interactions = 25; Outdoor Time = 3</li>
-<li>Sean: Social Interactions = 19; Outdoor Time = 36</li>
-<li>Mike: Social Interactions = 15; Outdoor Time = 20</li>
-<li>Donna: Social Interactions = 7; Outdoor Time = 1</li>
+<li>Extract the estimated regression coefficients e.g., via <code>betas &lt;- coef(mdl)</code>
+</li>
+<li>Extract the first entry of <code>betas</code> (i.e., the intercept) via <code>betas[1]</code>
+</li>
+<li>Extract the second entry of <code>betas</code> (i.e., the slope) via <code>betas[2]</code>
+</li>
+<li>Provide the intercept and slope to the function</li>
 </ul>
-<p>Who has the highest predicted wellbeing score, and who has the lowest?</p>
+<p>Note down what you observe from the plots - what is the same / different?</p>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -1985,9 +1979,17 @@ Hint
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>It might be helpful to review the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-predicted-values-for-other-unobserved-data">Model predicted values for other (unobserved) data</a>.</p>
+<p>This is very similar to <a href="https://uoepsy.github.io/dapr2/2324/labs/1_01_slr.html#model-specification-and-fitting">Lab 1 Q7</a>.</p>
+<p><em>Extracting values</em><br>
+The function <code><a href="https://rdrr.io/r/stats/coef.html">coef()</a></code> returns a vector (a sequence of numbers all of the same type). To get the first element of the sequence you append <code>[1]</code>, and <code>[2]</code> for the second.</p>
+<p><em>Plotting</em><br>
+In your <code><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot()</a></code>, you will need to specify <code><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_abline()</a></code>. This might help get you started:</p>
+<center>
+<code> geom_abline(intercept = <strong>intercept</strong>, slope = <strong>slope</strong>) </code>
+</center>
+<p>You may also want to plot these side by side to more easily compare, so consider using <code>|</code> from <strong>patchwork</strong>.</p>
 </div>
 </div>
 </div>
@@ -1998,20 +2000,55 @@ Hint
 <span id="sol-start-10" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-10', 'sol-start-10')"> Solution </span>
 </div>
 <div id="sol-body-10" class="solution-body" style="display: none;">
-<p>First we need to pass the data into R:</p>
+<p>First extract the values required for both non-standardized and standardized models:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">wellbeing_query</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html">tibble</a></span><span class="op">(</span>social_int <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">25</span>, <span class="fl">19</span>, <span class="fl">15</span>, <span class="fl">7</span><span class="op">)</span>,</span>
-<span>                          outdoor_time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">36</span>, <span class="fl">20</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co">#non-standardized (from 'mdl')</span></span>
+<span><span class="va">betas</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">mdl</span><span class="op">)</span></span>
+<span><span class="va">intercept</span> <span class="op">&lt;-</span> <span class="va">betas</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span><span class="va">slope</span> <span class="op">&lt;-</span> <span class="va">betas</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span>
+<span></span>
+<span><span class="co">#standardized (from 'mdl_z')</span></span>
+<span><span class="va">betas_z</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/coef.html">coef</a></span><span class="op">(</span><span class="va">mdl_z</span><span class="op">)</span></span>
+<span><span class="va">intercept_z</span> <span class="op">&lt;-</span> <span class="va">betas_z</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
+<span><span class="va">slope_z</span> <span class="op">&lt;-</span> <span class="va">betas_z</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>And next use <code><a href="https://rdrr.io/r/stats/predict.html">predict()</a></code> to get their estimated wellbeing scores:</p>
+<p>We can plot the models as follows:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/stats/predict.html">predict</a></span><span class="op">(</span><span class="va">mdl1</span>, newdata <span class="op">=</span> <span class="va">wellbeing_query</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>       1        2        3        4 
-37.58952 42.15034 37.62530 31.16345 </code></pre>
+<div class="sourceCode" id="cb47"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">p1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">social_int</span>, y <span class="op">=</span> <span class="va">wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_abline</a></span><span class="op">(</span>intercept <span class="op">=</span> <span class="va">intercept</span>, slope <span class="op">=</span> <span class="va">slope</span>, color <span class="op">=</span> <span class="st">'blue'</span><span class="op">)</span> <span class="op">+</span> </span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Social Interactions \n(Number per Week)"</span>, y <span class="op">=</span> <span class="st">"Wellbeing (WEMWBS) Scores"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">mwdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">z_social_int</span>, y <span class="op">=</span> <span class="va">z_wellbeing</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html">geom_abline</a></span><span class="op">(</span>intercept <span class="op">=</span> <span class="va">intercept_z</span>, slope <span class="op">=</span> <span class="va">slope_z</span>, color <span class="op">=</span> <span class="st">'red'</span><span class="op">)</span> <span class="op">+</span> </span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Social Interactions \n(Number per Week; Z-Scored)"</span>, y <span class="op">=</span> <span class="st">"Wellbeing (WEMWBS) Scores; Z-Scored"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">p1</span> <span class="op">|</span> <span class="va">p2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure"><p><img src="1_03_mlr_stz_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" style="width:80.0%"></p>
+</figure>
 </div>
 </div>
-<p>Sean has the highest predicted wellbeing score (42.15), and Donna the lowest (31.16).</p>
+</div>
+<p><strong>Similarities</strong></p>
+<ul>
+<li>The data points are distributed in the same pattern<br>
+</li>
+<li>The slope of the line follows the same gradient</li>
+</ul>
+<p><strong>Differences</strong></p>
+<ul>
+<li>The x- and y-axis scales are different for each plot. This is because:
+<ul>
+<li>The unstandardized is in the original units where we interpret the slope as the change in <span class="math inline">\(y\)</span> units for a unit change in <span class="math inline">\(x\)</span><br>
+</li>
+<li>The standardized is in SD units where we interpret the slope as the SD change in <span class="math inline">\(y\)</span> for 1 SD change in <span class="math inline">\(x\)</span>
+</li>
+</ul>
+</li>
+</ul>
 </div>
 <p class="solution-end">
 </p>
@@ -2023,23 +2060,7 @@ Hint
 Question 9
 </div>
 <div class="question-body">
-<p>Provide key model results in a formatted table.</p>
-<div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Hint
-</div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
-</div>
-<div id="callout-9" class="callout-9-contents callout-collapse collapse">
-<div class="callout-body-container callout-body">
-<p>Use <code><a href="https://strengejacke.github.io/sjPlot/reference/tab_model.html">tab_model()</a></code> from the <strong>sjPlot</strong> package. For a quick guide, review the <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#tables">tables flashcard</a>.</p>
-</div>
-</div>
-</div>
+<p>Provide key model results from the standardized model in a formatted table.</p>
 </div>
 <p class="question-end">
 </p>
@@ -2048,15 +2069,15 @@ Hint
 </div>
 <div id="sol-body-11" class="solution-body" style="display: none;">
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://strengejacke.github.io/sjPlot/reference/tab_model.html">tab_model</a></span><span class="op">(</span><span class="va">mdl1</span>,</span>
+<div class="sourceCode" id="cb48"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://strengejacke.github.io/sjPlot/reference/tab_model.html">tab_model</a></span><span class="op">(</span><span class="va">mdl_z</span>,</span>
 <span>          dv.labels <span class="op">=</span> <span class="st">"Wellbeing (WEMWBS Scores)"</span>,</span>
-<span>          pred.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"social_int"</span> <span class="op">=</span> <span class="st">"Social Interactions (number per week)"</span>,</span>
-<span>                          <span class="st">"outdoor_time"</span> <span class="op">=</span> <span class="st">"Outdoor Time (hours per week)"</span><span class="op">)</span>,</span>
-<span>          title <span class="op">=</span> <span class="st">"Regression Table for Wellbeing Model"</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span>          pred.labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"z_social_int"</span> <span class="op">=</span> <span class="st">"Social Interactions (number per week)"</span>,</span>
+<span>                          <span class="st">"z_outdoor_time"</span> <span class="op">=</span> <span class="st">"Outdoor Time (hours per week)"</span><span class="op">)</span>,</span>
+<span>          title <span class="op">=</span> <span class="st">"Regression Results for Wellbeing Model (both DV and IVs z-scored)"</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="tbl-w3-modresults" class="anchored">
 <table data-quarto-postprocess="true" class="table table-sm table-striped small">
-<caption>Table&nbsp;2: Regression Table for Wellbeing Model</caption>
+<caption>Table&nbsp;1: Regression Results for Wellbeing Model (both DV and IVs z-scored)</caption>
 <colgroup>
 <col style="width: 25%">
 <col style="width: 25%">
@@ -2076,22 +2097,22 @@ Hint
 </tr>
 <tr class="odd">
 <td style="text-align: left; padding: 0.2cm; vertical-align: top;">(Intercept)</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">28.62</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">25.69&nbsp;–&nbsp;31.55</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;"><strong>&lt;0.001</strong></td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">-0.00</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">-0.13&nbsp;–&nbsp;0.13</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">1.000</td>
 </tr>
 <tr class="even">
 <td style="text-align: left; padding: 0.2cm; vertical-align: top;">Social Interactions<br>
 (number per week)</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.33</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.16&nbsp;–&nbsp;0.51</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.25</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.12&nbsp;–&nbsp;0.38</td>
 <td style="text-align: left; padding: 0.2cm; vertical-align: top;"><strong>&lt;0.001</strong></td>
 </tr>
 <tr class="odd">
 <td style="text-align: left; padding: 0.2cm; vertical-align: top;">Outdoor Time (hours per<br>
 week)</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.20</td>
-<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.10&nbsp;–&nbsp;0.30</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.26</td>
+<td style="text-align: left; padding: 0.2cm; vertical-align: top;">0.13&nbsp;–&nbsp;0.39</td>
 <td style="text-align: left; padding: 0.2cm; vertical-align: top;"><strong>&lt;0.001</strong></td>
 </tr>
 <tr class="even">
@@ -2117,10 +2138,10 @@ week)</td>
 Question 10
 </div>
 <div class="question-body">
-<p>Interpret your results in the context of the research question.</p>
-<p>Make reference to the regression table.</p>
+<p>Interpret the results from the standardized model the context of the research question.</p>
+<p>Make reference to the your regression table.</p>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2129,9 +2150,9 @@ Hint
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Make sure to include a decision in relation to your null hypothesis - based on the evidence, should you reject or fail to reject the null?</p>
+<p>Remember to inform the reader of the scale of your variables.</p>
 </div>
 </div>
 </div>
@@ -2142,8 +2163,7 @@ Hint
 <span id="sol-start-12" class="fa-solid fa-circle-right solution-icon clickable" onclick="toggle_visibility('sol-body-12', 'sol-start-12')"> Solution </span>
 </div>
 <div id="sol-body-12" class="solution-body" style="display: none;">
-<p>From <a href="#fig-marg-dist">Figure&nbsp;1</a>, we can see that wellbeing <span class="math inline">\((M = 36.3, SD = 5.39)\)</span>, social interactions <span class="math inline">\((M = 12.06, SD = 4.02)\)</span>, and outdoor time <span class="math inline">\((M = 18.25, SD = 7.1)\)</span> followed unimodal distributions. There were weak, positive, linear associations between WEMWBS scores and the weekly number of social interactions <span class="math inline">\((r = .24)\)</span>, and between WEMWBS scores and outdoor time <span class="math inline">\((r = .25)\)</span> in the sample.</p>
-<p>A multiple regression model was used to determine if there was an association between well-being and time spent outdoors after taking into account the association between well-being and social interactions. As presented in <a href="#tbl-w3-modresults">Table&nbsp;2</a>, outdoor time was significantly associated with wellbeing scores <span class="math inline">\((\beta = 0.20, SE = 0.05, p &lt; .001)\)</span> after controlling for the number of weekly social interactions. Results suggested that, holding constant social interactions, for every additional hour spent outdoors each week, wellbeing scores increased by 0.20 points. Therefore, we should reject the null hypothesis since <span class="math inline">\(p &lt; .05\)</span>.</p>
+<p>A multiple regression model was used to determine if there was an association between well-being and time spent outdoors after taking into account the association between well-being and social interactions. All variables (wellbeing, social interactions, and outdoor time) were <span class="math inline">\(z\)</span>-scored. As presented in <a href="#tbl-w3-modresults">Table&nbsp;1</a>, outdoor time was significantly associated with wellbeing scores <span class="math inline">\((\beta = 0.26, SE = 0.07, p &lt; .001)\)</span> after controlling for the number of weekly social interactions. Results suggested that, holding constant social interactions, for every standard deviation increase in outdoor time, wellbeing scores increased on average by 0.26 standard deviations. Therefore, we should reject the null hypothesis since <span class="math inline">\(p &lt; .05\)</span>.</p>
 </div>
 <p class="solution-end">
 </p>
@@ -2168,7 +2188,7 @@ date: "07/09/2024"
 output: bookdown::pdf_document2
 ---</code></pre>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-7-contents" aria-controls="callout-7" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2177,7 +2197,7 @@ What to do if you cannot knit to PDF
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div id="callout-7" class="callout-7-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>If you are having issues knitting directly to PDF, try the following:</p>
 <ul>
@@ -2193,7 +2213,7 @@ What to do if you cannot knit to PDF
 </div>
 </div>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2202,33 +2222,32 @@ Hiding Code and/or Output
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-12" class="callout-12-contents callout-collapse collapse">
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Review <a href="https://uoepsy.github.io/scs/rmd-bootcamp/05-echoeval.html">Lesson 5 of the rmd bootcamp</a> for a detailed description/worked examples.</p>
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist">
-<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-5-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-1" role="tab" aria-controls="tabset-5-1" aria-selected="true">Hiding R Code</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-5-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-2" role="tab" aria-controls="tabset-5-2" aria-selected="false">Hiding R Output</a></li>
-<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-5-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-5-3" role="tab" aria-controls="tabset-5-3" aria-selected="false">Hiding R Code and Output</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-7-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-1" role="tab" aria-controls="tabset-7-1" aria-selected="true">Hiding R Code</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-7-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-2" role="tab" aria-controls="tabset-7-2" aria-selected="false">Hiding R Output</a></li>
+<li class="nav-item" role="presentation"><a class="nav-link" id="tabset-7-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-7-3" role="tab" aria-controls="tabset-7-3" aria-selected="false">Hiding R Code and Output</a></li>
 </ul>
 <div class="tab-content">
-<div id="tabset-5-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-5-1-tab">
+<div id="tabset-7-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-7-1-tab">
 <p>To not show the code of an R code chunk, and only show the output, write:</p>
-<div class="sourceCode" id="cb27"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, echo=FALSE}</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb50"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, echo=FALSE}</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="tabset-5-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-2-tab">
+<div id="tabset-7-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-7-2-tab">
 <p>To show the code of an R code chunk, but hide the output, write:</p>
-<div class="sourceCode" id="cb28"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, results='hide'}</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb51"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, results='hide'}</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="tabset-5-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-5-3-tab">
+<div id="tabset-7-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-7-3-tab">
 <p>To hide both code and output of an R code chunk, write:</p>
-<div class="sourceCode" id="cb29"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, include=FALSE}</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb52"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="in">```{r, include=FALSE}</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="co"># code goes here</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div>
 </div>
@@ -2236,7 +2255,7 @@ Hiding Code and/or Output
 </div>
 </div>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-13-contents" aria-controls="callout-13" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-9-contents" aria-controls="callout-9" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2245,11 +2264,11 @@ Tinytex
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-13" class="callout-13-contents callout-collapse collapse">
+<div id="callout-9" class="callout-9-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>You must make sure you have <strong>tinytex</strong> installed in R so that you can “Knit” your Rmd document to a PDF file:</p>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"tinytex"</span><span class="op">)</span></span>
+<div class="sourceCode" id="cb53"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html">install.packages</a></span><span class="op">(</span><span class="st">"tinytex"</span><span class="op">)</span></span>
 <span><span class="fu">tinytex</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/tinytex/man/install_tinytex.html">install_tinytex</a></span><span class="op">(</span><span class="op">)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div>
