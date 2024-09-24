@@ -1,0 +1,831 @@
+---
+title: "Model Fit and Comparisons"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+library(patchwork)
+library(checkdown)
+
+set.seed(1)
+```
+
+:::lo
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand how to calculate the interpret $R^2$ and adjusted-$R^2$ as a measure of model quality.
+1. Understand the calculation and interpretation of the $F$-test of model utility.
+1. Understand measures of model fit using $F$.  
+1. Understand the principles of model selection and how to compare models via $F$ tests, $AIC$, and $BIC$.
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed [Week 1](https://uoepsy.github.io/dapr2/2425/labs/1_01_slr.html) and [Week 2](https://uoepsy.github.io/dapr2/2425/labs/1_02_mlr.html), and [Week 3](https://uoepsy.github.io/dapr2/2425/labs/1_02_mlr_stz.html) lab exercises
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse**
+* **sjPlot**
+* **kableExtra**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv 
+
+:::
+
+# Study Overview 
+
+> **Research Question(s)** 
+>
+> *Section I*
+>
+> + Is there an association between wellbeing and time spent outdoors after taking into account the association between wellbeing and social interactions? 
+>
+> *Section II* 
+>
+> + RQ1: Is the number of weekly social interactions a useful predictor of wellbeing scores?
+> + RQ2: Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above social interactions?
+
+`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and well-being. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+  
+__Data Dictionary__
+
+The data in `wellbeing_rural.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) %>% gt::gt()
+```
+  
+  
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(sjPlot)
+library(kableExtra)
+
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+## Section I: Model Fit
+
+In the first section of this lab, you will focus on the statistics contained within the highlighted sections of the `summary()` output below. You will be both calculating these by hand and deriving via `R` before interpreting these values in the context of the research question.
+
+```{r echo = FALSE, out.width='85%'}
+knitr::include_graphics('images/mdl_output_model.PNG')
+```
+
+<br>
+
+`r qbegin(1)`
+
+Fit the following multiple linear regression model, and assign the output to an object called `mdl`, and examine the summary output.
+
+$$
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon 
+$$
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+We can fit our multiple regression model using the `lm()` function. 
+
+For a recap, see the [statistical models flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models), specifically the multiple linear regression models - description & specification card. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r}
+mdl <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
+summary(mdl)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+What is the proportion of the total variability in wellbeing scores explained by the model?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+The proportion of the total variability explained is given by $R^2$. Since the model includes 2 predictors, you should report the Adjusted-$R^2$.
+
+For a more detailed overview, see the [R-squared and Adjusted R-squared flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-fit). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+In `R` we can write:
+```{r}
+#Define n & k
+n <- nrow(mwdata)
+k <- 2
+
+#Predicted scores
+wellbeing_fitted <- mwdata %>%
+  mutate(
+    wellbeing_pred = predict(mdl),
+    wellbeing_resid = wellbeing - wellbeing_pred)
+
+# Sums of Squares, and R / Adjusted R Squared
+wellbeing_fitted %>%
+  summarise(
+    SSModel = sum((wellbeing_pred - mean(wellbeing))^2),
+    SSTotal = sum((wellbeing - mean(wellbeing))^2),
+    SSResid = sum(wellbeing_resid^2)
+  ) %>% 
+  summarise(
+    RSquared = SSModel / SSTotal,
+    AdjRSquared = 1-((1-(RSquared))*(n-1)/(n-k-1))
+  )
+```
+
+The output displays the Adjusted $R^2$ value in the following column:
+
+```
+AdjRSquared
+ <dbl>
+ 0.118
+```
+
+## R Function
+
+```{r}
+#look in second bottom row - Multiple R Squared and Adjusted R Squared both reported here
+summary(mdl)
+```
+
+The output of `summary()` displays the Adjusted $R^2$ value in the following line:
+
+```
+Adjusted R-squared:  0.1176 
+```
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Approximately 12\% of the total variability in wellbeing scores is accounted for by social interactions and outdoor time.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+What do you notice about the unadjusted and adjusted $R^2$ values?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Are they similar or quite different? Why might this be?
+
+Think about when you would report $R^2$ and Adjusted-$R^2$ - the [R-squared and Adjusted R-squared flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-fit) has some detail on this, but it will also be useful to think about how each is calculated. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+The values of the unadjusted (0.1265) and adjusted $R^2$ (0.1176) values are quite similar. This is because the sample size is quite large $(n = 200)$, and the number of predictors $(k = 2)$ is small. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Perform a model utility test at the 5\% significance level and report your results. 
+
+In other words, conduct an $F$-test against the null hypothesis that the model is ineffective at predicting wellbeing scores using social interactions and outdoor time by computing the $F$-statistic using its definition.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+The $F$-ratio is used to test the null hypothesis that all regression slopes are zero.  
+
+See the [F-ratio flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-fit) for a more detailed overview. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+```{r}
+#df(model) = k 
+df1 <- 2
+
+#df(residual) = n - k - 1
+df2 <- nrow(mwdata) - 2 - 1
+
+f_star <- qf(0.95, df1, df2)
+
+#check value
+f_star
+```
+
+```{r}
+model_utility <- wellbeing_fitted %>%
+  summarise(
+    SSModel = sum((wellbeing_pred - mean(wellbeing))^2),
+    SSResid = sum(wellbeing_resid^2),
+    MSModel = SSModel / df1,
+    MSResid = SSResid / df2,
+    FObs = MSModel / MSResid
+  )
+model_utility
+```
+
+We can also compute the p-value:
+
+```{r}
+pvalue <- 1 - pf(model_utility$FObs, df1, df2)
+pvalue
+```
+
+The value `1.643779e-06` simply means $1.6 \times 10^{-6}$, so it's a really small number (i.e., 0.000001643779).
+
+## R Function
+
+```{r}
+#look in bottom row
+summary(mdl)
+```
+
+The relevant row is the following:
+
+```
+
+F-statistic: 14.26 on 2 and 197 DF,  p-value: 1.644e-06
+
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We performed an $F$-test of model utility at the 5\% significance level, where $F(2,197) = 14.26, p <.001$.
+
+The large $F$-statistic and small $p$-value $(p <.001)$ suggested that we have very strong evidence against the null hypothesis.
+
+In other words, the data provide strong evidence that the number of social interactions and outdoor time are predictors of wellbeing scores.
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Section II: Model Comparisons
+
+In the second section of this lab, you will focus on model comparison where you will formally test a number of research questions:
+
+> + RQ1: Is the number of weekly social interactions a useful predictor of wellbeing scores?
+> + RQ2: Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above the number of weekly social interactions?
+
+<br>
+
+`r qbegin(5)`
+
+Fit the below 3 models required to address the 2 research questions stated above. Note down which model(s) will be used to address each research question, and examine the results of each model. 
+
+Name the models as follows: "wb_mdl0", "wb_mdl1", "wb_mdl2"
+
+<br>
+$$
+\text{Wellbeing} = \beta_0  + \epsilon
+$$
+
+<br>
+
+$$
+\text{Wellbeing} = \beta_0  + \beta_1 \cdot Social~Interactions + \epsilon
+$$
+
+<br>
+
+$$
+\text{Wellbeing} = \beta_0  + \beta_1 \cdot Social~Interactions + \beta_2 \cdot Outdoor~Time + \epsilon
+$$
+<br>
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+We can fit our multiple regression models individually using the `lm()` function. For a recap, see the [statistical models flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#statistical-models), specifically the multiple linear regression models - description & specification card.  
+
+The `summary()` function will be useful to examine the model output. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## wb_mdl0
+
+```{r}
+#null/intercept only model
+wb_mdl0 <- lm(wellbeing ~ 1, data = mwdata)
+summary(wb_mdl0)
+```
+
+## wb_mdl1
+
+```{r}
+#model with social interactions
+wb_mdl1 <- lm(wellbeing ~ social_int, data = mwdata)
+summary(wb_mdl1)
+```
+
+## wb_mdl2
+
+```{r}
+#model with social interactions and outdoor time
+wb_mdl2 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
+summary(wb_mdl2)
+```
+
+:::
+
+The models required to address each research question (RQ) are:
+
++ RQ1: Models wb_mdl0 and wb_mdl1 
++ RQ2: Models wb_mdl1 and wb_mdl2
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+
+RQ1: Is the number of weekly social interactions a useful predictor of wellbeing scores? 
+
+Check that the $F$-statistic and the $p$-value are the the same from the model comparison as that which are given at the bottom of `summary(wb_mdl1)`. 
+
+Provide the key model results from the two models in a single formatted table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Remember that the null model tests the null hypothesis that all beta coefficients are zero. By comparing *wb_mdl0* to *wb_mdl1*, we can test whether we should include the IV of 'social_int'.   
+
+When considering what method(s) you can use to compare the models, remember to determine whether the models are [nested or non-nested](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-comparisons).
+
+You can use **KableExtra** to present your model comparison results in a well formatted table. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#tables).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Model Comparison
+
+Run model comparison via `anova()`, and present results in well formatted table:
+
+```{r}
+#| label: tbl-wb0-wb1-comp-results
+#| tbl-cap: Model Comparison - wb_mdl0 vs wb_mdl1
+anova(wb_mdl0, wb_mdl1) %>%
+    kable(caption = "Model Comparison - wb_mdl0 vs wb_mdl1", align = "c", digits = c(2,2,2,2,2,4)) %>%
+    kable_styling(full_width = FALSE)
+```
+
+## Comparing `summary()` and `anova()` Outputs
+
+The output of `anova(wb_mdl0, wb_mdl1)` displays the $F$-statistic and the $p$-value in the following line:
+
+```
+  Res.Df    RSS Df Sum of Sq     F    Pr(>F)  
+2    198 5451.1  1    334.49 12.15 0.0006045 ***
+```
+
+We can check that the $F$-statistic and the $p$-value are the the same as that which is given at the bottom of `summary(wb_mdl1)`:
+
+```
+F-statistic: 12.15 on 1 and 198 DF,  p-value: 0.0006045
+```
+
+The $F$-statistic and the $p$-value from `anova(wb_mdl0, wb_mdl1)` and `summary(wb_mdl1)` both match! This is because the $F$-test from a model with a single predictor (i.e, 'wb_mdl1') is really just a comparison against the null model (i.e, 'wb_mdl0').
+
+```{r include=FALSE}
+mc_1 <- anova(wb_mdl0, wb_mdl1)
+names(mc_1)[6] <- "p"
+```
+
+## Table of Model Results 
+
+```{r}
+#| label: tbl-wb0-wb1-results
+#| tbl-cap: Regression Table for Wellbeing Models wb0 and wb1
+tab_model(wb_mdl0, wb_mdl1,
+          dv.labels = c("Wellbeing (WEMWBS Scores)", "Wellbeing (WEMWBS Scores)"),
+          pred.labels = c("social_int" = "Social Interactions (number per week)"),
+          title = "Regression Table for Wellbeing Models wb0 and wb1")
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The number of social interactions was found to explain a significant amount of variance in wellbeing scores $(F(`r paste(mc_1$Df[2])` ,`r paste(mc_1$Res.Df[2])`) = `r round(mc_1$F[2],2)`, p`r map_chr(mc_1$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`)$. The model with social interactions was significantly better fitting than the intercept-only model, and thus social interactions is a useful predictor of wellbeing scores. Full regression results are presented in @tbl-wb0-wb1-results. 
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Look at the amount of variation in wellbeing scores explained by models "wb_mdl1" and "wb_mdl2". 
+
+From this, can we answer the second research question of whether weekly outdoor time explains a significant amount of variance in wellbeing scores over and above social interactions?  
+
+Provide justification/rationale for your answer. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+You will need to review the $R^2$ and Adjusted $R^2$ values.
+
+Consider whether comparing these numeric values would constitute a *statistical* comparison. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Let's look at the amount of variance explained by each model:
+
+```{r}
+summary(wb_mdl1)$r.squared
+summary(wb_mdl2)$adj.r.squared
+```
+
+The model *with* weekly outdoor time as a predictor explains 12\% of the variance, and the model *without* explains 6\%. But, from only looking at the proportion of variance accounted for in each model, we cannot determine which model is statistically a better fit.  
+
+To answer the question 'Does including weekly outdoor time as a predictor provide a significantly better fit of the data?' we need to **statistically compare** wb_mdl1 to wb_mdl2. 
+
+
+`r solend()`
+
+<br> 
+
+`r qbegin(8)`
+
+Does weekly outdoor time explain a significant amount of variance in wellbeing scores over and above social interactions?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+To address RQ2, you need to statistically compare "wb_mdl1" and "wb_mdl2".  
+
+When considering what method(s) you can use to compare the models, remember to determine whether the models are [nested or non-nested](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-comparisons).
+
+You can use **KableExtra** to present your model comparison results in a well formatted table. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#tables).
+
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Model Comparison
+
+To statistically compare models, we could use an incremental $F$-test to compare the models since the models are nested and from the same dataset:
+
+```{r}
+#| label: tbl-wb1-wb2-comp-results
+#| tbl-cap: Model Comparison - wb_mdl1 vs wb_mdl2
+anova(wb_mdl1, wb_mdl2) %>%
+    kable(caption = "Model Comparison - wb_mdl1 vs wb_mdl2", align = "c", digits = c(2,2,2,2,2,4)) %>%
+    kable_styling(full_width = FALSE)
+```
+
+## Table of Model Results 
+
+Present results from both models:
+
+```{r}
+#| label: tbl-wb1-wb2-results
+#| tbl-cap: Regression Table for Wellbeing Models wb1 and wb2
+tab_model(wb_mdl1, wb_mdl2,
+          dv.labels = c("Wellbeing (WEMWBS Scores)", "Wellbeing (WEMWBS Scores)"),
+          pred.labels = c("social_int" = "Social Interactions (number per week)",
+                          "outdoor_time" = "Outdoor Time (hours per week)"),
+          title = "Regression Table for Wellbeing Models wb1 and wb2")
+```
+
+:::
+
+```{r include=FALSE}
+mc_3 <- anova(wb_mdl1, wb_mdl2)
+names(mc_3)[6]<-"p"
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+As presented in @tbl-wb1-wb2-comp-results, weekly outdoor time was found to explain a significant amount of variance in wellbeing scores over and above weekly social interactions $(F(`r paste(mc_3$Df[2])` ,`r paste(mc_3$Res.Df[2])`) = `r round(mc_3$F[2],2)`, p`r map_chr(mc_3$p[2], ~ifelse(.<001,"<.001",paste0("=",round(.,2))))`)$.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Compare the two following models, each looking at the associations of Wellbeing scores and different predictor variables. 
+
+$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social~Interactions} + \beta_2 \cdot \text{Age} + \epsilon$  
+
+$\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Outdoor~Time} + \epsilon$ 
+
+Report which model you think best fits the data, and justify your answer. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Are the models are [nested or non-nested](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-comparisons)? This will impact what method(s) you can use to compare the models. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=TRUE, toggle=params$TOGGLE)`
+
+```{r}
+#fit models
+wb_socint_age <- lm(wellbeing ~ social_int + age, data = mwdata)
+wb_outdoor <- lm(wellbeing ~ outdoor_time, data = mwdata)
+```
+
+```{r}
+#AIC values
+AIC(wb_socint_age, wb_outdoor)
+
+#BIC values
+BIC(wb_socint_age, wb_outdoor)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We used $AIC$ and $BIC$ model selection to distinguish between two possible models describing the association between several personal factors and wellbeing scores. The model with outdoor time included as a single predictor was better fitting $(AIC = 1233.29)$ than the alternative model with weekly number of social interactions and age $(AIC = 1236.58)$ included. Based on the BIC value of the former model $(BIC = 1243.18)$, we concluded that it was better fitting than the alternative, latter model $(BIC = 1249.77)$. 
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+The code below fits 6 different models based on our `mwdata`:
+
+```{r eval=FALSE}
+model1 <- lm(wellbeing ~ social_int, data = mwdata)
+model2 <- lm(wellbeing ~ social_int + outdoor_time, data = mwdata)
+model3 <- lm(wellbeing ~ social_int + age, data = mwdata)
+model4 <- lm(wellbeing ~ social_int + outdoor_time + age, data = mwdata)
+model5 <- lm(wellbeing ~ social_int + outdoor_time + age + steps_k, data = mwdata)
+model6 <- lm(wellbeing ~ social_int + outdoor_time, data = wb_data)
+```
+
+For each of the below pairs of models, what methods are/are not available for us to use for comparison and why?  
+
++ `model1` vs `model2`
++ `model2` vs `model3`
++ `model1` vs `model4`
++ `model3` vs `model5`
++ `model2` vs `model6`
+
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+[This flowchart](https://uoepsy.github.io/dapr2/2425/labs/1_b1_reading.html#model-comparisons) might help you to reach your decision.
+
+You may need to examine the dataset, and check for accuracy (e.g., are there any impossible / out of range values?) and completeness (e.g., are there any missing values?). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## `model1` vs `model2`
+
++ These models are nested - `model2` contains all the variables of `model1` and they are fitted on the same dataset.  
++ We can therefore use an $F$-test or AIC and BIC.  
+    
+## `model2` vs `model3`
+
++ These models are __not__ nested, but they are fitted on the same dataset.  
++ We can therefore use AIC or BIC, but we cannot use an $F$-test.  
+    
+## `model1` vs `model4`
+
++ These models are nested - `model4` contains all the variables of `model1` and they are fitted on the same dataset.  
++ We can therefore use an $F$-test or AIC and BIC.  
+    
+## `model3` vs `model5`
+
++ These models are __not__ nested, and they are __not__ fitted on the same dataset. The "steps_k" variable contains missing values (over 30% of the data is missing for this variable), and so these whole rows are excluded from `model5` (but they are included in `model3`). 
++ We cannot compare these models.   
+  
+## `model2` vs `model6`  
+
++ These models are nested, but they are __not__ fitted on the same dataset: `model2` uses the 'mwdata' dataset, whilst `model6` uses the 'wb_data' dataset.
++ We cannot compare these models.   
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
