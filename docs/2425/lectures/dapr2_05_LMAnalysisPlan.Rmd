@@ -1,0 +1,279 @@
+---
+title: 'Week 5: Practical Example'
+output: bookdown::html_document2
+---
+
+```{r, echo = F, message=F}
+library(tidyverse)
+library(gt)
+library(psych)
+library(kableExtra)
+library(sjPlot)
+library(patchwork)
+
+
+dat <- read.csv('https://uoepsy.github.io/data/FOMOdataset.csv')
+```
+
+# Overview of the Week
+
+This week, we'll be reviewing what we've learned so far and applying it to a practical example. Our example is based on the paper [Individual differences in Fear of Missing Out (FoMO): Age, and the Big Five personality trait domains, facets, and items](https://www.sciencedirect.com/science/article/pii/S0191886920307376#ec0005). This paper looks at how fear of missing out (FOMO) is related to the Big Five personality traits, age, and gender. Although the data we will be using in these analysis are simulated, they are based on the data found in the paper. Because we haven't yet covered linear modeling using categorical variables, the gender variable is replaced with a continuous variable that measures the number of followers participants have on Instagram.
+
+We're going to use these data to review simple linear models, multiple linear models, standardisation, confidence intervals, and model evaluation and comparison.
+
+
+# Study Overview 
+
+## Description {-}
+
+Participants were invited to an online study investigating relationship between digital technology use and individual differences. The final sample comprised 3370 people. Data were collected using a FOMO scale and a personality inventory. The 10-item FOMO scale measured the extent of experiencing apprehension regarding missing out on interesting events of others on a 5-point scale (1 = “not at all true of me” to 5 = “extremely true of me”), producing a possible range of scores between 10 and 50. The Big Five Inventory (BFI) is a 45-item personality assessment questionnaire that uses a five-point response scale (1 = “very inapplicable” to 5 = “very applicable”). The BFI consists of five domains: Neuroticism, Extraversion, Openness to Experience, Agreeableness, and Conscientiousness.  
+<br />
+  
+### Research Question 1 {-}
+Does age predict FOMO?
+<br />
+
+### Research Question 2 {-}
+Does the total number of Instagram followers predict FOMO over and above age?
+<br />
+
+### Research Question 3 {-}
+Does personality predict FOMO?
+<br />
+
+## Data Dictionary {-}
+
+```{r, echo = F}
+tibble(
+Variable = names(dat),
+Description = c("Self-reported experience of FOMO; the total sum of 10 questions measured with a 5-point response scale (possible range = 10-50)", "Participant's age in years", "Self-reported measure of Neuroticism; the total sum of 8 questions measured with a 5-point response scale (possible range = 8-40)", "Self-reported measure of Extraversion; the total sum of 8 questions measured with a 5-point response scale (possible range = 8-40)", "Self-reported measure of Openness; the total sum of 10 questions measured with a 5-point response scale (possible range = 10-50)", "Self-reported measure of Agreeableness; the total sum of 8 questions measured with a 5-point response scale (possible range = 8-40)", "Self-reported measure of Conscientiousness; the total sum of 9 questions measured with a 5-point response scale (possible range = 9-45)", "Total number Instagram followers")
+) %>% gt()|> opt_horizontal_padding(scale = 3)
+```
+
+
+
+# Setup
+First, let's load the data and all necessary packages:
+
+```{r, message = F, eval = F}
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(sjPlot)
+library(patchwork)
+
+dat <- read.csv('https://uoepsy.github.io/data/FOMOdataset.csv')
+```
+
+# Checking the Data
+
+Before we run any analyses, it's a good idea to have a look at your data. You can check to make sure your data look the way you would expect them to. This lets you quickly identify and potentially correct any major issues with your data. There are lots of possible methods you could use, but in this example we'll use the `summary` function, along with some histograms we'll create using `ggplot`. 
+
+```{r}
+dat %>%
+  summary()
+```
+
+`summary` will give us the range and the mean for each of our numeric variables, and also allow us to check whether our variables were imported in a way we would expect. Have a look to see whether everything looks ok (e.g., are there any unexpected values, given the measurable range of scores?). In this example, the data are all clean and ready to use, but in future weeks (and in your dissertation), you'll likely come across messier data and need to know how to handle it.  
+
+Next, we'll create separate histograms for the `FOMO`, `Age`, and `TotalFollowers` variables. You can produce a single, basic histogram using the following code:
+
+```{r FOMOhist, message = F, fig.cap='The distribution of the FOMO variable'}
+ggplot(dat, aes(FOMO)) + geom_histogram()
+```
+
+The histogram in Figure \@ref(fig:FOMOhist) shows the distribution of FOMO scores in the dataset. The median of the FOMO variable is `r median(dat$FOMO)`.
+
+
+We can alter the aesthetics to suit our preferences:
+
+```{r}
+ggplot(dat, aes(Age)) + geom_histogram(binwidth = 2, color='black') +
+    theme(axis.title = element_text(size = 14, face='bold'), 
+        axis.text = element_text(size = 12))
+```
+```{r}
+ggplot(dat, aes(TotalFollowers)) + 
+  geom_histogram(binwidth = 50, color='black', fill='darkred') +
+  labs(x="Total Followers on Instagram", y='Count') +
+  theme(axis.title = element_text(size = 14, face='bold'), 
+        axis.text = element_text(size = 12))
+```
+
+We can also produce multiple histograms at once. This is especially useful if the variables reflect a similar theme (as is the case with our Big 5 data). To produce this grid of plots, you'll first need to reformat the data slightly using the `gather` function, which converts the dataset into 2 columns - one with the original column names and another with the values from the columns. Note that I'm using `select` to pass only the Big 5 columns to `gather`.
+
+```{r}
+dat %>% 
+  select(c('O', 'C', 'E', 'A', 'N')) %>%
+  gather() %>%
+  head()
+```
+
+The reformatted data can then be passed to `ggplot`, and the `facet_wrap` function can be used to group the data by the `key` variable (which contains the names of the original columns):
+```{r}
+dat %>%
+  select(c('O', 'C', 'E', 'A', 'N')) %>%
+  gather() %>%
+    ggplot(., aes(value)) + geom_histogram(binwidth = 2, color='black', fill='darkred') + 
+    theme(axis.title = element_text(size = 12, face='bold'), 
+        axis.text = element_text(size = 10),
+        strip.text = element_text(size = 12, face = 'bold')) +
+    facet_wrap(~key)
+```
+
+<br />
+
+We can also look at the association between each of our variables by producing scatterplots using the `pairs.panels` function from the `psych` package. This also provides another way to visualise each variable's distribution.
+
+```{r}
+pairs.panels(dat)
+```
+
+
+Typically, when we report our results, we need to present descriptive data about our variables. These are typically best presented in table format. Rather than individually calculating descriptive data for each variable, we can use the `describe` function to summarise the descriptives. Note the use of `rename` to adjust the column names.
+
+```{r}
+(descriptives <- dat %>%
+  rename('Fear of Missing Out' = FOMO, 'Neuroticism' = N, 'Extraversion' = E, 
+         'Openness' = O, 'Agreeableness' = A, 'Conscientiousness' = C,
+         'Total Instagram Followers' = TotalFollowers) %>%
+  describe())
+```
+
+`describe`, from the `psych` package, produces a wide range of descriptive data. We won't need to include all of it in our table. In this example, we'll just produce a table with the mean and standard deviation of our variables. We can use the `select` function to specify our mean and standard deviation columns:
+
+```{r}
+descriptives %>%
+  select(c('mean', 'sd')) %>%
+  rename('Mean'= mean, 'SD' = sd) %>%
+  kable(digits=2) %>%
+  kable_styling(full_width = F) %>%
+  column_spec(1, bold = T)
+```
+
+# Research Question 1
+
+Now that we've looked over our data and confirmed everything looks ok, we can start to address our research questions. Our first question is **Does age predict fear of missing out?**  
+
+Before we run any analyses, we need to specify $\alpha$. We will set $\alpha=.05$ for all the following tests.  
+```{r}
+m1 <- lm(FOMO~Age, dat)
+summary(m1)
+```
+We can also compute the confidence interval for $\beta_1$:
+
+```{r}
+confint(m1)
+```
+
+What conclusions should we draw about RQ1?
+
+
+# Research Question 2
+Next, we'll investigate our second research question, **Does the total number of people one follows on Instagram predict FOMO over and above age?**
+
+This is done by adding the number of Instagram followers to the model, and comparing the full model to the restricted model, using an incremental $F$-test.
+
+Full model: $FOMO = \beta_0 + \beta_1 \cdot Age + \beta_2 \cdot Followers + \epsilon$
+
+Restricted model: $FOMO = \beta_0 + \beta_1 \cdot Age + \epsilon$
+
+```{r}
+m2 <- lm(FOMO~Age+TotalFollowers, dat)
+anova(m1, m2)
+```
+
+What conclusions can we draw about RQ2? 
+
+```{r}
+summary(m2)
+```
+
+```{r}
+confint(m2)
+```
+
+
+# Research Question 3
+To address our 3rd research question, we use a different set of predictors: **Is personality a meaningful predictor of fear of missing out?** In this case, we will be standardising our variables:
+
+```{r}
+dat$FOMOz <- scale(dat$FOMO)
+dat$Oz <- scale(dat$O)
+dat$Cz <- scale(dat$C)
+dat$Ez <- scale(dat$E)
+dat$Az <- scale(dat$A)
+dat$Nz <- scale(dat$N)
+```
+
+
+```{r}
+m3 <- lm(FOMOz~Oz+Cz+Ez+Az+Nz, dat)
+summary(m3)
+```
+Let's create a nicer-looking results table (to use in our write-up). We're using the `tab_model` function from the `sjPlot` package.
+
+```{r}
+tab_model(m3,
+          dv.labels = "FOMO (Z-Scored)",
+          pred.labels = c("Nz" = "Neuroticism (Z-Scored)",
+                          "Ez" = "Extraversion (Z-Scored)",
+                          "Oz" = "Openness (Z-Scored)",
+                          "Az" = "Agreeableness (Z-Scored)",
+                          "Cz" = "Conscientiousness (Z-Scored)"),
+          title = "RQ3 - Regression Table for FOMO Model")
+```
+
+<br />
+
+Let's check confidence intervals as well.
+
+```{r}
+confint(m3)
+```
+How should we interpret these results?  
+
+
+
+We might be interested in visualising the association between the significant predictors and the outcome variable in a bit more detail, while holding other predictors and covariates constant. We can do this using the `plot_model` function in `sjPlot`.
+
+```{r, message = FALSE}
+N_plot <- plot_model(m3, type = "eff",
+           terms = c("Nz"),
+           show.data = TRUE,
+           axis.title = c("Neuroticsm \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FOMO & N")
+```
+```{r, message = FALSE}
+C_plot <- plot_model(m3, type = "eff",
+           terms = c("Cz"),
+           show.data = TRUE,
+           axis.title = c("Conscientiousness \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FOMO & C")
+```
+
+```{r, message = FALSE}
+A_plot <- plot_model(m3, type = "eff",
+           terms = c("Az"),
+           show.data = TRUE,
+           axis.title = c("Agreeableness \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FOMO & A")
+```
+
+We can easily print out the three plots side by side, thanks to the `patchwork` package.
+
+```{r}
+N_plot | C_plot | A_plot
+```
+
+
+# Bonus: Comparing models from RQ2 to RQ3
+To compare between `m2` and `m3`, we can't use an incremental $F$-test, since the models are non-nested. We can instead use AIC or BIC:
+
+```{r}
+AIC(m2, m3)
+```
+```{r}
+BIC(m2, m3)
+```
+Which model seems to be a better fit?
