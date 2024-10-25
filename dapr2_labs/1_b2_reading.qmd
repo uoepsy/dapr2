@@ -1,5 +1,5 @@
 ---
-title: "Block 1 Flash Cards"
+title: "Blocks 1 & 2 Flash Cards"
 link-citations: true
 code-annotations: hover
 params: 
@@ -21,6 +21,9 @@ library(tidyverse)
 library(sjPlot)
 library(kableExtra)
 library(psych)
+library(performance)
+library(car)
+library(emmeans)
 
 #data
 handheight <- read_csv('https://uoepsy.github.io/data/handheight.csv')
@@ -31,7 +34,7 @@ mwdata  <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
 :::lo
 ### <i class="fa fa-graduation-cap"></i> Flash Card Aims
 
-The purpose of these flashcards is to complement your Semester 1 Weeks 1 - 5 core learning materials i.e., your lecture and lab materials, by offering additional guidance and examples on key concepts/topics. It’s designed to deepen your understanding, clarify complex concepts, and help you make connections between different areas of study. Think of it as an extra resource that supports what you’re learning in the classroom. 
+The purpose of these flashcards is to complement your Semester 1 Weeks 1 - 11 core learning materials i.e., your lecture and lab materials, by offering additional guidance and examples on key concepts/topics. It’s designed to deepen your understanding, clarify complex concepts, and help you make connections between different areas of study. Think of it as an extra resource that supports what you’re learning in the classroom. 
 
 You may want to consider using the below as a supporting document whilst your work through lab exercises, and/or refer to in order to aid revision. 
 
@@ -43,6 +46,9 @@ Within this reading, the following packages are used:
 * **sjPlot**
 * **kableExtra**
 * **psych**
+* **emmeans**
+* **performance**
+* **car**
 
 ### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
 Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
@@ -116,7 +122,7 @@ When we pull out descriptive statistics, it is useful to present these in a well
 
 This allows us to give our table a clear caption (via `caption = "insert caption here"`, align values within columns e.g., center aligned via `align = "??"`), and we can also round to however many decimal places we desire (standard for APA is 2 dp; via `digits = ??`). 
 
-We can also add in the function `kable_styling()`. This is really helpful for customsing your table e.g., the font size, position, and whether or not you want the table full width (as well as lots of other things - check out the helper function!). 
+We can also add in the function `kable_styling()`. This is really helpful for customising your table e.g., the font size, position, and whether or not you want the table full width (as well as lots of other things - check out the helper function!). 
 
 For an overview of how to make tables in RMarkdown, see [Lesson 4 of the RMD bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/04-prettytab.html)
 
@@ -130,7 +136,9 @@ For an overview of how to make tables in RMarkdown, see [Lesson 4 of the RMD boo
 
 We can use the `summarise()` function to numerically summarise/describe our data. Some key values we may want to consider extracting are (though not limited to): the mean (via `mean()`, standard deviation (via `sd()`), minimum value (via `min()`), maximum value (via `max()`), standard error (via `se()`), and skewness (via `skew()`). 
 
-For example:
+::: {.panel-tabset}
+
+## Numeric values only example:
 
 ```{r}
 library(tidyverse)
@@ -150,11 +158,36 @@ iris %>%
 ```
 
 
+## Categorical and numeric values example:
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# grouping by Species
+# taking the mean and standard deviation of sepal length via the summarize function
+# returning a table of sepal length grouped by species with a caption, where numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+iris %>%
+    group_by(Species) %>%
+    summarize(
+        M_Length = mean(Sepal.Length),
+        SD_Length = sd(Sepal.Length)
+    ) %>%
+    kable(caption = "Sepal Length (in cm) Grouped by Species Descriptives Table", digits = 2) %>%
+    kable_styling(full_width = FALSE)
+```
+
+:::
+
 ##### The **psych** way
 
 The `describe()` function will produce a table of descriptive statistics. If you would like only a subset of this output (e.g., mean, sd), you can use `select()` after calling `describe()` e.g., `describe() %>% select(mean, sd)`.
 
-For example:
+::: {.panel-tabset}
+
+## Numeric values only example:
 
 ```{r}
 library(psych)
@@ -170,6 +203,33 @@ describe(iris$Sepal.Length) %>%
     kable(caption = "Sepal Length Descriptives (in cm)", digits = 2) %>%
     kable_styling(full_width = FALSE)
 ```
+
+
+## Categorical and numeric values options:
+
+*Note that this is quite an overly complex way to return these summary statistics - using the `tidyverse()` way is much more intuitive and straightforward!*
+
+```{r}
+library(psych)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# we want to get descriptive statistics of the iris dataset, specifically the sepal length column by Species
+# we want to return a matrix (hence mat = TRUE), then convert this to a dataframe
+# we specifically want to select the mean and standard deviation from the descriptive statistics available (try this without including this argument to see what values you all get out)
+# returning a table with a new column names of Group, Mean, SD; adding a caption; numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+
+
+describeBy(Sepal.Length ~ Species, data = iris, mat = TRUE, digits = 2) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>% 
+  select(group1, mean, sd) %>%
+    kable(col.names = c("Group", "Mean", "SD"), caption = "Sepal Length Descriptives (in cm)", digits = 2) %>%
+    kable_styling(full_width = FALSE)
+```
+
+:::
 
 :::
 
@@ -494,6 +554,103 @@ ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length)) +
     labs(x = "Petal Length (in cm)", y = "Sepal Length (in cm)")
 ```
 
+#### Boxplot
+
+We can use a boxplot to visualise the association between one numeric variable and one categorical variable - these will be our y- and x-axis values respectively.
+
+**Basic:**
+
+We need to specify `+ geom_boxplot()` to get a boxplot: 
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Sepal.Length)) +
+    geom_boxplot() +
+    labs(x = "Species", y = "Sepal Length (in cm)")
+```
+
+**Change boxplot fill colours by group:**
+
+Within `aes()`, we can specify `fill = ` to fill the boxes with a color:
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Sepal.Length, fill = Species)) +
+    geom_boxplot() +
+    labs(x = "Species", y = "Sepal Length (in cm)")
+```
+
+**Change boxplot line colours by group:**
+
+Within `aes()`, we can specify `color = ` to colour the lines with a color:
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Sepal.Length, color = Species)) +
+    geom_boxplot() +
+    labs(x = "Species", y = "Sepal Length (in cm)")
+```
+
+**Adding jitter:**
+
+We can add jittered points to a boxplot to better see the underlying distribution of the data (by adding a little random variation to each data point) via `geom_jitter()`: 
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Sepal.Length, color = Species)) +
+    geom_boxplot() +
+    geom_jitter() + 
+    labs(x = "Species", y = "Sepal Length (in cm)")
+```
+
+**Change legend position:**
+
+We can add the argument `+ theme(legend.position = )` to move (or even remove) the legend by specifying, for example, ` "right" `, ` "left" `, ` "top" `, ` "bottom" `, or  `"none" ` to remove. 
+
+```{r}
+# legend at bottom of plot
+ggplot(data = iris, aes(x = Species, y = Sepal.Length, color = Species)) +
+    geom_boxplot() +
+    labs(x = "Species", y = "Sepal Length (in cm)") + 
+    theme(legend.position = "bottom")
+```
+
+#### Facets
+
+When we have two numeric variables, as well as categorical variables, we can use `facet_wrap()` / `facet_grid()` to help divide/arrange our plots. If we had two categorical variables, by simply stringing them together to further group our plots by specifying `facet_wrap( ~ cat_variable1 + cat_variable2)`
+
+**Basic:**
+
+We need to specify `+ geom_point()` to get a scatterplot, and *either* `+ facet_wrap()` or  `+ facet_grid()` to separate by your categorical variable: 
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length)) +
+    geom_point() +
+    facet_wrap(~Species) + 
+    labs(x = "Petal Length (in cm)", y = "Sepal Length (in cm)")
+```
+
+**Add a line of best fit:**
+
+We can superimpose (i.e., add) a line of best fit by including the argument `+ geom_smooth()`. Since we want to fit a straight line, we want to use `method = "lm"`. We can also specify whether we want to display confidence intervals around our line by specifying `se = TRUE / FALSE`. Note that a line is fitted for every level of your categorical variable:
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE) +
+        facet_wrap(~Species) + 
+    labs(x = "Petal Length (in cm)", y = "Sepal Length (in cm)")
+```
+
+**Subplot layout:**
+
+You can change the overall layout of the subplots by specifying `dir = ` within the `facet_wrap()` argument, where `“h”` will return a horizontal layout (this is the default) and `“v”` for vertical.
+
+You can also change the layout of the subplot labels by specifying `strip.position = ` within the `facet_wrap()` argument, where labels can be arranged to display at the `“top”` (this is the default), `“bottom”`, `“left”` or `“right”`. 
+
+```{r}
+ggplot(data = iris, aes(x = Petal.Length, y = Sepal.Length)) +
+    geom_point() +
+    facet_wrap(~Species, dir = "v", strip.position = "right") + 
+    labs(x = "Petal Length (in cm)", y = "Sepal Length (in cm)")
+```
+
 :::
 
 `r optend()`
@@ -577,7 +734,7 @@ $$
 
 `r optbegin("Deterministic Models - Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
 
-Let's create a dataset called `squares`, containing the perimeter of four squares having sides of length $0, 2, 5, 9$ metres, and then plot the `squares` data as points on a scatterplot. 
+Let's create a dataset called `squares`, containing the perimeter of four squares having sides of length $0, 2, 5, 9$ meters, and then plot the `squares` data as points on a scatterplot. 
 
 First, let's make our squares data. Here we will use two important functions - `tibble()` and `c()`. The `tibble()` function allows us to construct a data frame. To store a sequence of numbers into R, we can **c**ombine the values using `c()`. A sequence of elements all of the same type is called a *vector*.
 
@@ -714,7 +871,7 @@ There are basically two pieces of information that we need to pass to the `lm()`
 1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV) and $x$ the independent variable (IV).
 2. The data: Specify which dataframe contains the variables specified in the formula.
 
-In `R`, the syntax of the lm() function can be specified as follows (where DV = dependent variable, IV = independent variable, and dataframe_name = the name of your dataset):
+In `R`, the syntax of the `lm()` function can be specified as follows (where DV = dependent variable, IV = independent variable, and dataframe_name = the name of your dataset):
 
 ::: {.panel-tabset}
 
@@ -763,6 +920,8 @@ Including the 1 explicitly is not necessary because it is included by default (y
 
 `r optend()`
 
+## Numeric Outcomes & Predictors
+
 `r optbegin("Simple Linear Regression Models - Example", olabel=FALSE,toggle=params$TOGGLE)`
 
 Imagine that you were tasked to investigate whether there was an association between recall accuracy and age. You have been provided with data from twenty participants who studied passages of text (c500 words long), and were tested a week later. The testing phase presented participants with 100 statements about the text. They had to answer whether each statement was true or false, as well as rate their confidence in each answer (on a sliding scale from 0 to 100). The dataset contains, for each participant, the percentage of items correctly answered, their age (in years), and their average confidence rating. 
@@ -784,8 +943,6 @@ recall_simp <- lm(recall_accuracy ~ age, data = recalldata)
 #look at model coefficients
 recall_simp
 ```
-
-
 
 When we call the name of the fitted model, `recall_simp`, you can see the estimated regression coefficients $\hat \beta_0$ and $\hat \beta_1$. The line of best-fit is thus given by:^[Yes, the error term is gone. This is because the line of best-fit gives you the prediction of the average recall accuracy for a given age, and not the individual recall accuracy of an individual person, which will almost surely be different from the prediction of the line.] 
 
@@ -864,7 +1021,264 @@ For example “the increase in [outcome] for a one unit increase in [predictor] 
 
 `r optend()`
 
-`r optbegin("Simple & Multiple Regression Models - Extracting Information", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Simple Linear Regression Models - Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+
+As we saw above, the line representing the relationship between side and perimeter of squares is able to predict the actual perimeter value from the measurement of the side of a square.  
+
+This is possible because the association between side and perimeter is an **exact** one. That is, any squares having the same side will have the same perimeter, and there will be no variation in those values.
+
+The line that best fits the association between recall accuracy and age (see @fig-recallage-fitted-model), instead, is only able to predict the **average** accuracy for a given value of age.
+
+This is because there will be a distribution of recall accuracy at each value of age. The line will fit the trend/pattern in the values, but there will be individual-to-individual variability that we must accept around that average pattern.
+
+```{r}
+#| label: fig-recallage-fitted-model
+#| fig-cap: "Association between Recall Accuracy and Age"
+
+ggplot(recalldata, aes(x = age, y = recall_accuracy)) + 
+    geom_point(size = 3, alpha = 0.5) +
+    geom_smooth(method = lm, se = FALSE) + 
+    labs(x = "Age (in years)", y = "Recall Accuracy (%)")
+```
+
+`r optend()`
+
+`r optbegin("Multiple Linear Regression Models - Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+
+When we have 2+ predictors, we can’t just plot our data an add `geom_smooth(method=lm)`, because that would give a visualisation of a linear model with just one predictor (whichever one is on the x-axis).  
+
+Instead, we can use the function `plot_model()` from **sjPlot**. Here's an example with our recall accuracy model, with two predictors (recall confidence and age):
+
+```{r echo = FALSE}
+recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
+```
+
+```{r}
+#| label: fig-recalmod
+#| fig-cap: "Association between Recall Accuracy, Recall Confidence and Age"
+
+plot_model(recall_mdl,
+           type = "eff",
+           terms = "recall_confidence",
+           show.data = TRUE)
+
+plot_model(recall_mdl,
+           type = "eff",
+           terms = "age",
+           show.data = TRUE)
+```
+
+`r optend()`
+
+## Numeric Outcomes & Categorical Predictors
+
+`r optbegin("Categorical Predictors - Overview", olabel=FALSE,toggle=params$TOGGLE)`
+
+We can include categorical predictors in a linear regression, but the interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as “the change in $y$ associated with a 1-unit increase in $x$”, for categorical explanatory variables, coefficients can be considered to examine differences in group means. 
+
+`r optend()`
+
+`r optbegin("Binary Predictors", olabel=FALSE,toggle=params$TOGGLE)`
+
+Binary variables have two categories (more commonly referred to as levels), and these levels (e.g., Yes/No, Dog/Cat, Right/Left, Smoker/Non-Smoker) are simply entered in the model as a series of 0s and 1s. Numeric variables that represent categorical data are typically referred to as __dummy variables__.  
+
+Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.
+
+However, “zero” for this predictor variable now corresponds to a whole level. This is known as the “reference level”. Accordingly, the 1-unit change in our predictor (the move from “zero” to “one”) corresponds to the difference between the two levels. 
+
+When used as predictors in multiple regression models, binary variables behave much the same way. The coefficient will give us the estimated change in $y$ when moving from one level to the other, whilst holding other predictors constant (for more info, see the **Multiple Linear Regression Models - Description & Specification** flashcard, specifically the section on interpretation of multiple regression coefficients).
+
+`r optend()`
+
+`r optbegin("Categorical Predictors with k levels", olabel=FALSE,toggle=params$TOGGLE)`
+
+When we have a _categorical_ explanatory variable with __more than 2 levels__, our model gets a bit more complex - it needs not just one, but _a number of_ dummy variables. For a categorical variable with $k$ levels, we can express it in $k-1$ dummy variables.  
+
+For example, the "species" column below has three levels, and can be expressed by the two variables "species_dog" and "species_parrot": 
+
+```{r echo=FALSE, out.width="80%"}
+data.frame(
+  species = c("cat","cat","dog","parrot","dog","cat","..."),
+  species_dog = c(0,0,1,0,1,0,"..."),
+  species_parrot = c(0,0,0,1,0,0,"...")
+)
+```
+
++ The "cat" level is expressed whenever both the "species_dog" and "species_parrot" variables are 0.
++ The "dog" level is expressed whenever the "species_dog" variable is 1 and the "species_parrot" variable is 0.
++ The "parrot" level is expressed whenever the "species_dog" variable is 0 and the "species_parrot" variable is 1.  
+
+`R` will do all of this re-expression for us. If we include in our model a categorical explanatory variable with 3 different levels, the model will estimate 2 parameters - one for each dummy variable. We can interpret the parameter estimates (the coefficients we obtain using `coefficients()`,`coef()` or `summary()`) as the estimated increase in the outcome variable associated with an increase of one in each dummy variable (holding all other variables equal).  
+
+```{r echo=FALSE}
+set.seed(348)
+catplot <- tibble(
+  species = rep(c("cat","dog","parrot"), each = 15),
+  outcome = c(rnorm(15,60,5), rnorm(15,50,5), rnorm(15,55,5))
+)
+cstat = coef(lm(outcome~species,catplot))
+pander::pander(summary(lm(outcome~species,catplot))$coefficients)
+```
+
+Recall that the intercept is the estimated outcome when all predictors are zero. In our example then, this represents the cat. We think of the "cat" category in this example as the _reference level_ - it is the category against which other categories are compared against. Therefore, in the above example, an increase in 1 of "species_dog" is the difference between a "cat" and a "dog". An increase in one of "species_parrot" is the difference between a "cat" and a "parrot". 
+
+```{r echo=FALSE, message=FALSE, warning = FALSE}
+ggplot(catplot, aes(x=species, y=outcome))+
+  #geom_boxplot(fatten=NULL)+
+  geom_jitter(height=0,width=.05, alpha=.4)+
+  geom_point(x=1,y=cstat[1], col="blue",size=3)+
+  annotate("text",x=1,y=cstat[1],label=expression(paste(beta[0], " (intercept)")), col="blue", hjust=1.1)+
+  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue")+
+  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
+  geom_segment(aes(x=2,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue", lty="dashed")+
+  annotate("text",x=2.15,y=mean(c(cstat[1],sum(cstat[1:2]))),label=expression(paste(beta[1], " (slope)")), col="blue", hjust=.35)+
+  
+  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue")+
+  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
+  geom_segment(aes(x=3,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue", lty="dashed")+
+  annotate("text",x=3.15,y=mean(c(cstat[1],sum(cstat[c(1,3)]))),label=expression(paste(beta[2], " (slope)")), col="blue", hjust=.35)
+```
+
+
+`r optend()`
+
+`r optbegin("Categorical Predictors - Interpretation", olabel=FALSE,toggle=params$TOGGLE)`
+
+Let's apply this to a different example - the iris dataset, and specifically, the Species categorical variable:
+
+```{r}
+#check what levels we have
+levels(iris$Species)
+```
+
+From the above, we can see that Species has 3 levels - "setosa", "versicolor", and "virginica". If we put these into a model, assuming `R`'s default ordering, we know that "setosa" will be taken as our reference group:
+
+```{r}
+#fit model
+spec_model <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model)
+```
+
+Let's first map our coefficients and estimates:
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  5.0060 | $\beta_0 = \hat \mu_1$
+| Speciesversicolor      | 0.9300  | $\beta_0 + \beta_1 = \hat \mu_2$ |
+| Speciesvirginica         | 1.5820  | $\beta_0 + \beta_2 = \hat \mu_3$ |
+
++ The estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu_1 = 5.01$. The estimated average sepal length for the species setosa was approximately 5.01.
+
++ The second estimate corresponds to `Speciesversicolor` and was $\hat \beta_1 = 0.93$. The difference in mean sepal length between `setosa` and `versicolor` species was estimated to be $0.93~cm$. Thus, $\hat \mu_2 = 5.01 + 0.93 = 5.94$. We could say - the species iris versicolor had a sepal length of approximately 5.94cm, and this was approximately 0.93cm longer than the iris setosa. This difference was statistically significant $(p < .001)$.
+
++ The third estimate corresponds to `Speciesvirginica` and was $\hat \beta_2 = 1.58$. The difference in mean sepal length between `setosa` and `virginica` species was estimated to be $1.58~cm$. Thus, $\hat \mu_2 = 5.01 + 1.58 = 6.59$. We could say - the species iris virginica had a sepal length of approximately 6.59cm, and this was approximately 1.58cm longer than the iris setosa. This difference was statistically significant $(p < .001)$.
+
+`r optend()`
+
+`r optbegin("Specifying Reference Levels", olabel=FALSE,toggle=params$TOGGLE)`
+
+When you have a categorical variable coded as a factor, `R` will default to using alphabetical ordering - hence in our example above "cat" was the reference level (as opposed to "dog" or "parrot"), and in the other "setosa" was the reference level (as opposed to "versicolor" or "virginica").
+
+We could override this by making it a factor with an ordering to it’s levels (see the use of `factor()` and `levels()`). Functions like `fct_relevel()` might be handy too. 
+
+For example, let's say we wanted to change the reference level in our "spec_model" above, there are a few different ways that we can do this.
+
+First we should check the current ordering of the levels:
+
+```{r}
+levels(iris$Species)
+```
+
+We can then change the reference level to be versicolor (using one of the below methods):
+
+::: {.panel-tabset}
+
+### `fct_relevel()`
+
+```{r}
+iris <- iris %>% 
+  mutate(
+    Species = fct_relevel(Species, "versicolor")
+  )
+```
+
+
+### `relevel()`
+
+```{r eval = FALSE}
+iris$Species <- relevel(iris$Species, "versicolor")
+```
+
+### `factor()`
+
+```{r eval = FALSE}
+iris$Species <- iris$Species %>% 
+  factor(., levels = c("versicolor", "setosa", "virginica"))
+```
+
+:::
+
+And then re-run our model:
+
+```{r}
+#fit model
+spec_model2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model2)
+```
+
+`r optend()`
+
+`r optbegin("Dummy vs Effects Coding", olabel=FALSE,toggle=params$TOGGLE)`
+
+
+Possible side-constraints on the parameters are:
+
+|       Name      |             Constraint            |             Meaning of $\beta_0$            |         R         |
+|:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
+| Sum to zero (Effects Coding) | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
+| Reference group (Dummy Coding) |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
+
+
+**Dummy Coding**
+
+By default `R` uses the reference group constraint - i.e., dummy coding  (sometimes called treatment contrast coding). If your factor has $g$ levels, your regression model will have $g-1$ dummy variables (`R` creates them for you, as we've seen in the examples above). 
+
+When we use this approach, the intercept is the estimated $y$ when all predictors (i.e., $x$'s) are zero. Because the reference level is kind of like “0” in our contrast matrix, this is part of the intercept estimate. We get out a coefficient for each subsequent level, which are the estimated differences from each level to the reference group.
+
+
+**Effects Coding**
+
+Effects coding (sometimes called sum-to-zero coding) is the next most commonly used in psychological research. These are a way of comparing each level to the overall (or grand) mean. This involves a bit of trickery that uses -1s and 1s rather than 0s and 1s, in order to make “0” be mid-way between all the levels - the average of the levels.
+
+When we use this approach, the intercept is the estimated average $y$ when averaged across all levels of the predictor variable. In other words, it is the estimated grand mean of $y$. The coefficients represent the estimated difference for that level from the overall grand mean.
+
+:::blue
+
+In **R**
+
+If we want to use effects coding, we can apply:
+
+```{r eval = FALSE}
+contrasts(iris$Species) <- "contr.sum"
+```
+
+We can switch back to the default reference group constraint by applying either of these:
+
+```{r eval = FALSE}
+# Option 1
+contrasts(iris$Species) <- NULL
+
+# Option 2
+contrasts(iris$Species) <- "contr.treatment"
+```
+
+:::
+
+`r optend()`
+
+## General
+
+`r optbegin("Extracting Information", olabel=FALSE,toggle=params$TOGGLE)`
 
 ::: {.panel-tabset}
 
@@ -1027,52 +1441,93 @@ There are a couple of equivalent ways to obtain the estimated standard deviation
 
 `r optend()`
 
-`r optbegin("Simple Linear Regression Models - Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+## Manual Contrasts
 
-As we saw above, the line representing the relationship between side and perimeter of squares is able to predict the actual perimeter value from the measurement of the side of a square.  
+Dummy and effects coding allow us to  test the significance of the difference between means of groups and some other mean (either reference group or grand mean respectively). However, in some cases, we may want to test more specific hypotheses that require us to test the difference between particular *combinations* of groups. In such cases, we can use manual contrasts.
 
-This is possible because the association between side and perimeter is an **exact** one. That is, any squares having the same side will have the same perimeter, and there will be no variation in those values.
+`r optbegin("Manual Contrasts - Rules", olabel=FALSE,toggle=params$TOGGLE)`
 
-The line that best fits the association between recall accuracy and age (see @fig-recallage-fitted-model), instead, is only able to predict the **average** accuracy for a given value of age.
+There are some rules that we need to follow when using manual contrasts:
 
-This is because there will be a distribution of recall accuracy at each value of age. The line will fit the trend/pattern in the values, but there will be individual-to-individual variability that we must accept around that average pattern.
-
-```{r}
-#| label: fig-recallage-fitted-model
-#| fig-cap: "Association between Recall Accuracy and Age"
-
-ggplot(recalldata, aes(x = age, y = recall_accuracy)) + 
-    geom_point(size = 3, alpha = 0.5) +
-    geom_smooth(method = lm, se = FALSE) + 
-    labs(x = "Age (in years)", y = "Recall Accuracy (%)")
-```
++ **Rule 1**: Weights are -1 $\geq$ x $\leq$ 1
++ **Rule 2**: The group(s) in one chunk are given negative weights, the group(s) in the other get positive weights
++ **Rule 3**: The sum of the weights of the comparison must be 0
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
++ **Rule 5**: For a given comparison, weights assigned to group(s) are equal to 1 divided by the number of groups in that chunk.
++ **Rule 6**: Restrict yourself to running $k$ - 1 comparisons (where $k$ = number of groups)
++ **Rule 7**: Each contrast can only compare 2 chunks of variance
++ **Rule 8**: Once a group singled out, it can not enter other contrasts 
 
 `r optend()`
 
-`r optbegin("Multiple Linear Regression Models - Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Manual Contrasts - In R", olabel=FALSE,toggle=params$TOGGLE)`
 
-When we have 2+ predictors, we can’t just plot our data an add `geom_smooth(method=lm)`, because that would give a visualisation of a linear model with just one predictor (whichever one is on the x-axis).  
+After specifying our hypotheses, to test our contrasts, we can use the **emmeans** package and follow the below structure:
 
-Instead, we can use the function `plot_model()` from **sjPlot**. Here's an example with our recall accuracy model, with two predictors (recall confidence and age):
++ **Step 1**: Fit and run the model using ``lm()`
++ **Step 2**: Use the `emmeans()` function to obtain the estimated means of each group. You can visualise these by using `plot()` on the obtained  estimated means of the groups
++ **Step 3**: Check the order of your levels via `levels()`
++ **Step 4**: Define the contrast by specifying the weights following the rules outlined above (as well as paying attention to the ordering of the levels)
++ **Step 5**: Test the pre-specified group contrast(s) via `contrast()` 
++ **Step 6**: Obtain confidence intervals via `confint()`
+
+After completing these steps, the last task would be to interpret the results of the contrast analysis in the context of the hypothesis. 
+
+`r optend()`
+
+`r optbegin("Manual Contrasts - Example", olabel=FALSE,toggle=params$TOGGLE)`
+
+Let's apply this to an example. Suppose we wanted to want to address the following question:
+
+- Does the sepal length of an Iris grown in Western states (i.e., Iris setosa) differs from the sepal length of an Iris grown in Eastern states (i.e., iris versicolor and virginica).  
+
+We could specify our hypothesis as:
+
+$$
+\begin{aligned}
+    \quad H_0 &: \mu_\text{Western} = \mu_\text{Eastern} \\
+    \quad H_0 &: \mu_\text{Western} = \frac{1}{2} (\mu_\text{Versicolor} + \mu_\text{Virginica}) \\
+\\
+    \quad H_1 &: \mu_\text{Western} \neq \mu_\text{Eastern} \\
+    \quad H_1 &: \mu_\text{Western} \frac{1}{2} (\mu_\text{Versicolor} + \mu_\text{Virginica}) \\
+\\ 
+\end{aligned}
+$$
 
 ```{r echo = FALSE}
-recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
+iris$Species <- relevel(iris$Species, "setosa")
 ```
+
+And then conduct our manual contrast analysis:
 
 ```{r}
-#| label: fig-recalmod
-#| fig-cap: "Association between Recall Accuracy, Recall Confidence and Age"
+# Step 1: Fit and run the model 
+spec_model <- lm(Sepal.Length ~ Species, data = iris)
 
-plot_model(recall_mdl,
-           type = "eff",
-           terms = "recall_confidence",
-           show.data = TRUE)
+# Step 2: Use`emmeans()`& `plot()`
+seplength_mean <- emmeans(spec_model, ~ Species)
+seplength_mean 
 
-plot_model(recall_mdl,
-           type = "eff",
-           terms = "age",
-           show.data = TRUE)
+plot(seplength_mean)
+
+# Step 3: Check levels order via `levels()`
+levels(iris$Species)
+
+# Step 4: Define contrast & weights - want to compare Iris setosa to iris versicolor and iris virginica
+seplength_comp <- list("Western State Iris - Eastern State Iris" = c(-1, 1/2, 1/2))
+
+# Step 5: run contrast analysis
+seplength_comp_test <- contrast(seplength_mean, method = seplength_comp)
+seplength_comp_test
+
+# Step 6: confidence intervals
+confint(seplength_comp_test)
 ```
+
+
+And write up our findings in the context of the hypothesis / research question:
+
+We performed a test against $H_0: \mu_1 - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that iris sepal length was significantly different between Western and Eastern states in the US $(t(147) = 14.09, p < .001, \text{two-sided})$, and this difference was estimated to be 1.26cm. We are 95\% confident that an Iris grown in an Eastern state, on average, would be between 1.08cm and 1.43cm longer than those grown in a Western state $(CI_{95}[1.08, 1.43])$.
 
 `r optend()`
 
@@ -1691,6 +2146,8 @@ Based on both AIC and BIC, the model predicting recall accuracy that included bo
 
 # Model Assumptions
 
+Linear models rely on numerous underlying assumptions about the data. These assumptions ensure that the association between variables is appropriately captured, and that inferences drawn from the model are accurate and valid. Model diagnostics can help further assess whether these assumptions hold. When these assumptions are violated, there are numerous techniques that can be employed, such as through data transformations or using robust alternatives, to ensure reliable model interpretations.
+
 `r optbegin("Linearity", olabel=FALSE,toggle=params$TOGGLE)`
 
 ### Simple Linear Regression
@@ -1714,39 +2171,56 @@ In **R**:
 
 ::: {.panel-tabset}
 
-### Simple Linear RegressionFIX THIS 
+### Simple Linear Regression
 
-```{r eval = FALSE}
+```{r}
 #specify model
-mymodel <- lm(y ~ x1, data = mydata)
+recall_simp <- lm(recall_accuracy ~ age, data = recalldata)
 
 #create plot
+ggplot(recalldata, aes(x = age, y = recall_accuracy)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE, colour = "blue") + #fit straight line to data
+    geom_smooth(method = "loess", se = FALSE, colour = "red") + #fit loess line to data
+    labs(x = "Age", y = "Recall Accuracy")
 
 ```
 
-For interpretation - the loess line should closely follow the data.
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+The loess line should closely follow the data.
+
+:::
 
 ### Multiple Linear Regression
 
 We can create these plots for all predictors in the model by using the `crPlots()` function from the **car** package:
 
-```{r eval = FALSE}
+```{r}
 #specify model
-mymodel <- lm(y ~ x1 + x2, data = mydata)
+recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
 
 #create plots
-crPlots(mymodel)
+crPlots(recall_mdl)
 ```
 
-For interpretation - you are looking for the pink line to follow a linear relationship (i.e., follow the blue line).
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+You are looking for the pink line to follow a linear trend line (i.e., follow the blue line). In other words, the loess line should closely follow the linear line. 
 
 :::
+
+:::
+
 
 :::
 
 `r optend()`
-
-
 
 `r optbegin("Independence (of errors)", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -1758,9 +2232,9 @@ There are many sources of possible dependence, and often these are issues of stu
 
 One form of dependence is **autocorrelation** - this is when observations influence those adjacent to them. It is common in data for which *time* is a variable of interest (e.g, the humidity today is dependent upon the rainfall yesterday). 
 
+Testing for the independence of errors can be pretty difficult, unless you know the potential source of correlation between cases (more on this in DAPR3!). 
+
 `r optend()`
-
-
 
 `r optbegin("Normality (of errors)", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -1768,11 +2242,32 @@ The normality assumption is the condition that the errors $\epsilon$ are normall
 
 We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.  
 
-For interpretation - remember that departures from a linear trend in QQ plots indicate a lack of normality.
+::: {.panel-tabset}
+
+### Histogram
+
+```{r}
+hist(recall_mdl$residuals)
+```
+
+
+### QQPlot
+
+```{r}
+plot(recall_mdl, which = 2)
+```
+
+:::
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+Remember that departures from a linear trend in QQ plots indicate a lack of normality.
+
+:::
 
 `r optend()`
-
-
 
 `r optbegin("Equal Variances (Homoscedasticity)", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -1827,15 +2322,30 @@ p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))
 
 In **R**
 
-We can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the **car** package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test").  
+We can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the **car** package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test"). 
+
+```{r}
+library(car)
+residualPlots(recall_mdl)
+```
+
+Alternatively, we can use:
+
+```{r}
+plot(recall_mdl, which = 1)
+```
 
 :::
 
-For interpretation - if the assumption is met, you should see a random scatter of $(x,y)$ points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+If the assumption is met, you should see a random scatter of $(x,y)$ points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.
+
+:::
 
 `r optend()`
-
-
 
 `r optbegin("Useful Assumption Plots", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -1846,28 +2356,51 @@ For interpretation - if the assumption is met, you should see a random scatter o
 
 ```{r}
 #| echo: false
-mydata <- read_csv("https://uoepsy.github.io/data/wellbeing.csv")
-mymodel <- lm(wellbeing ~ outdoor_time + social_int, data = mydata) 
+recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
 ```
 
 We can run `plot(mymodel)` which will cycle through these plots (asking us to press enter each time to move to the next plot), or we can arrange these plots in a matrix via `par(mfrow)`, for example in a 2 x 2 matrix as shown below (make sure to always reset your graphical parameters! If needed, we could also extract specific plots using, for instance: `plot(mymodel, which = 3)` for the third plot.
 
+:::blue
+**In R**
+
+
 ```{r}
 par(mfrow=c(2,2))
-plot(mymodel)
+plot(recall_mdl)
 par(mfrow=c(1,1))
 ```
+
+:::
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
 
 - Top Left: For the __Residuals vs Fitted__ plot, we want the red line to be horizontal at close to zero across the plot. We don't want the residuals (the points) to be fanning in/out.  
 - Top Right: For the __Normal Q-Q__ plot, we want the residuals (the points) to follow closely to the diagonal line, indicating that they are relatively normally distributed.^[QQplots plot the values against the associated percentiles of the normal distribution. So if we had ten values, it would order them lowest to highest, then plot them on the y against the 10th, 20th, 30th.. and so on percentiles of the standard normal distribution (mean 0, SD 1)]
 - Bottom Left: For the __Scale-Location__ plot, we want the red line to be horizontal across the plot. These plots allow us to examine the extent to which the variance of the residuals changes across the fitted values. If it is angled, we are likely to see fanning in/out of the points in the residuals vs fitted plot.
 - Bottom Right: The __Residuals vs Leverage__ plot indicates points that might be of individual interest as they may be unduly influencing the model. There are funnel-shaped lines on this plot (sometimes out of scope of the plotting window). Ideally, we want our residuals inside the funnel - the further the residual is to the right (the more leverage it has), the closer to the 0 we want it to be.  
 
-_(Note, if we have only categorical predictors in our model, many of these will show vertical lines of points. This doesn't indicate that anything is wrong, and the same principles described above continue to apply)_
+*Note, if we have only categorical predictors in our model, many of these will show vertical lines of points. This doesn't indicate that anything is wrong, and the same principles described above continue to apply*
+
+:::
 
 ### `check_model(modelname)`
 
-The `check_model()` function from the **performance** packae is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. However, it is important to xheck each assumption individually with plots that are more suitable for a statistics report.
+The `check_model()` function from the **performance** package is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. However, it is important to check each assumption individually with plots that are more suitable for a statistics report.
+
+:::blue
+**In R**
+
+
+```{r}
+library(performance)
+check_model(recall_mdl)
+```
+
+:::
 
 :::
 
@@ -1885,11 +2418,20 @@ $$
 VIF_j = \frac{1}{1-R_j^2} \\
 $$
 
-Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values $>5$ as moderate multicollinearity and values $>10$ as severe multicollinearity.    
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values $>5$ as moderate multicollinearity and values $>10$ as severe multicollinearity. 
+
+:::
 
 :::blue
 
-In **R**, the `vif()` function from the `car` package will provide VIF values for each predictor in your model. 
+In **R**  
+  
+The `vif()` function from the **car** package will provide VIF values for each predictor in your model. 
 
 :::
 
@@ -2247,8 +2789,6 @@ It is based on sampling repeatedly with replacement (to avoid always getting the
 
 `r optbegin("Overview", olabel=FALSE,toggle=params$TOGGLE)`
 
-:::frame
-
 The basic principle is:
 
 <center>
@@ -2260,7 +2800,6 @@ __the original sample is to the bootstrap samples.__
 
 </center>
 
-:::
 
 Because we only have one sample of size $n$, and we do not have access to the data for the entire population, we consider our original sample as our best approximation to the population. 
 
@@ -2301,24 +2840,27 @@ Follow these steps:
   
 * 5: Compute confidence intervals via the `Confint()` function. Use your preferred confidence level (usually, and by default, 95%) by specifying `level = `. If you select 95% confidence intervals, by also specifying the `type = "perc"` argument, `R` will return the values that comprise 95% of all values in between them, i.e. the value with 2.5% of observations below it and the value with 2.5% of observations above it and 97.5% of observations below it.  
   
-* 6: Provide interpretation in the context of your research question and report results in APA format. *Note: the actual estimates are those from our original model, it is just the bounds of the interval that bootstrapping is providing us with)*. 
+* 6: Provide interpretation in the context of your research question and report results in APA format. *(Note: the actual estimates are those from our original model, it is just the bounds of the interval that bootstrapping is providing us with)*. 
 
 :::blue
 
 **In R**
 
-```{r eval = FALSE}
+```{r}
 
 #specify model
-mymodel <- lm(y ~ x1 + x2, data = mydata)
+recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
 
-#load car package
+#step 1: load car package
 library(car)
 
-#bootstrap model (asking to resample 1000 times, i.e., getting a distribution of 1000 values for the coefficients)
-bootmymodel <- Boot(mymodel, R = 1000)
+#step 2/3: bootstrap model (asking to resample 1000 times, i.e., getting a distribution of 1000 values for the coefficients)
+bootmymodel <- Boot(recall_mdl, R = 1000)
 
-#confidence intervals
+#step 4: check summary
+summary(bootmymodel)
+
+#step 5: confidence intervals
 Confint(bootmymodel, level = 0.95, type = "perc")
 ```
 
@@ -2334,7 +2876,7 @@ You can visualise the uncertainty in the estimates by plotting histograms using 
 
 **In R**
 
-```{r eval = FALSE}
+```{r eval}
 hist(bootmymodel, ci = "perc", legend = "separate")
 ```
 
