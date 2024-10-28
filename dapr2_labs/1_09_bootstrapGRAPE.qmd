@@ -1,0 +1,765 @@
+---
+title: "Bootstrapping"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+set.seed(3)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand the principles of bootstrapping
+2. Understand how to apply the bootstrap confidence interval to inference in linear models
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from [Week 2](https://uoepsy.github.io/dapr2/2425/labs/1_02_mlr.html) and [Week 9](https://uoepsy.github.io/dapr2/2425/labs/1_08_assump_diag.html)
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych**
+* **patchwork**
+* **sjPlot**
+* **kableExtra**
+* **car**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/science-faith-attitude.csv) or read it in via this link https://uoepsy.github.io/data/science-faith-attitude.csv 
+
+:::
+
+# Study Overview
+
+> **Research Question**
+>
+> Is there an association between peoples' attitudes towards science and faith and their scientific knowledge after accounting for their age?
+
+`r optbegin("Attitudes Codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+Using Eurobarometer measures, researchers were interested in understanding opinions about science, technology, social values, and services of
+general interest. Specifically, researchers wanted to explore whether peoples' attitudes towards science and faith was associated with their scientific knowledge after accounting for their age. To examine these associations, we will use a subset of data from the [2005 Eurobarometer 63.1 survey](https://www.gesis.org/en/eurobarometer-data-service/survey-series/standard-special-eb/study-overview/eurobarometer-631-za-4233-jan-feb-2005). 
+
+__Data Dictionary__
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ebsurvey <- read_csv("https://uoepsy.github.io/data/science-faith-attitude.csv")
+tibble(
+variable = names(ebsurvey),
+description = c("Participant ID", "Nation ID:  1 = France, 2 = Belgium, 3 = The Netherlands, 4 = Germany West, 5 = Italy, 6 = Luxembourg, 7 = Denmark, 8 = Ireland, 9 = Great Britain, 10 = Northern Ireland, 11 = Greece, 12 = Spain, 13 = Portugal, 14 = Germany East, 15 = Norway, 16 = Finland, 17 = Sweden, 18 = Austria, 19 = Cyprus (Republic), 20 = Czech Republic, 21 = Estonia, 22 = Hungary, 23 = Latvia, 24 = Lithuania, 25 = Malta, 26 = Poland, 27 = Slovakia, 28 = Slovenia, 29 = Bulgaria, 30 = Romania, 31 = Turkey, 32 = Croatia, 33 Cyprus (TCC; not included), 34 = Iceland, 35 = Switzerland", "Score on a science quiz composed of 13 true/false items. Scores can range 0-13.", "Individual's age (in years)", "Whether participant idenitfied as male (1) or female (0)", "Attitude to science and faith. Response to the question - We rely too much on science and not enough on faith. Responses were recorded on a 5-point scale from strongly disagree (0) to strongly agree (4)", "Number of explicitly mentioned target phrases in response to the question - Please tell me, in your own words, what it means to study something scientifically?" )
+) %>% gt::gt()
+```
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/science-faith-attitude.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read in the science-faith-attitude dataset into R, assigning it to an object named `ebsurvey` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#load packages
+library(tidyverse) 
+library(psych)
+library(patchwork)
+library(sjPlot)
+library(kableExtra)
+library(car)
+
+#read in data
+ebsurvey <- read_csv("https://uoepsy.github.io/data/science-faith-attitude.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+## Study Overview & Data Management
+
+`r qbegin(1)`
+
+Examine the dataset, and perform any necessary and appropriate data management steps.
+
+Note, to address the research question, we only need to refer to the `kstot`, `age`, and `toomuchscience` variables. Subset the data to only have those 3 columns.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+- To subset the data to only include the 3 variables of interest, we can use the `select()` function  
+- Check that the dataset is complete (i.e., are there any `NA` values?). We can check this using `is.na()`  
+    - There are numerous ways to deal with this. Two common commands are `na.omit()` and `drop_na()`. The former will remove all rows from a dataset that contain `NA` values in any column. In the latter, we can specify which columns we want to identify `NA` values in, and remove only rows containing `NA` values for those specific columns. In other words, the latter can help to preserve more data  
+- If needed, provide better variable names
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+# Inspect top 6 rows
+head(ebsurvey)
+
+# Check data dimensions
+dim(ebsurvey)
+```
+
+There are `r nrow(ebsurvey)` observations on `r ncol(ebsurvey)` variables.
+
+However, today we will be only using the `kstot`, `age`, and `toomuchscience` variables, and so we subset the data to only include these:
+
+```{r}
+ebsurvey <- ebsurvey %>%
+    select(kstot, age, toomuchscience)
+```
+
+Are there any `NA` values in the data?
+```{r}
+#check for NAs
+anyNA(ebsurvey)
+
+#how many NAs?
+table(is.na(ebsurvey))
+#11390 NAs in data set 
+
+#Omit the NAs - we are interested in all three columns so do not need to specify within drop_na()
+ebsurvey <- ebsurvey %>%
+    drop_na()
+
+# Check new data dimensions
+dim(ebsurvey)
+```
+
+Give the variables more meaningful names. Rename `kstot` to `science_knowledge` and rename `toomuchscience` to `attitude`:
+
+```{r}
+ebsurvey <- ebsurvey %>%
+    rename(science_knowledge = kstot,
+           attitude = toomuchscience)
+head(ebsurvey)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+- Give the reader some background on the context of the study
+- State what type of analysis you will conduct in order to address the research question
+- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variable)
+- Specify your chosen significance ($\alpha$) level
+- State your hypotheses
+
+Much of the information required can be found in the [Study Overview] codebook. The [statistical models](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#statistical-models) flashcards may also be useful to refer to. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The `ebsurvey` dataset, excluding missing values, included 10,503 individual respondents who were measured on 3 different attributes of interest: (1) score on a science "quiz" composed of 13 true/false items; (2) attitudes towards science and faith (question phrasing: "We rely too much on science and not enough on faith" with responses recorded on a 5-point scale from strongly disagree to strongly agree); and (3) their age (in years).
+
+Histograms will be used to visualise the marginal distributions of attitudes towards science and faith, scientific knowledge, and age. To understand the strength of association among the variables, we will estimate the the correlation coefficients. To address the research question of whether there is an association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age, we are going to fit the following multiple linear regression model:
+
+$$
+ \text{Attitude} = \beta_0  + \beta_1 \cdot \text{Science Knowledge} + \beta_2 \cdot \text{Age} + \epsilon
+$$
+Effects will be considered statistically significant at $\alpha = .05$.
+
+Our hypotheses are:
+
+$H_0: \beta_1 = 0$: There is no association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age
+
+$H_1: \beta_1 \neq 0$: There is an association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Descriptive Statistics & Visualisations
+
+`r qbegin(3)`
+
+Alongside descriptive statistics, visualize the marginal distributions of the `attitude`, `science_knowledge`, and `age` variables. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#data-exploration).
+
+For examples, see flashcards on [descriptives statistics tables](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#data-exploration) and [data visualisation - marginal](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#visual-exploration).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Numeric
+
+```{r}
+#| label: tbl-w9-desc
+#| tbl-cap: Attitude, Scientfic Knowledge, and Age Descriptive Statistics
+
+# drop columns 5, 6, 7 and 13 from describe output
+ebsurvey %>% 
+    describe() %>%
+    select(-c(5:7, 13)) %>%
+    kable(caption = "Attitude, Scientfic Knowledge, and Age Descriptive Statistics", align = "c", digits = 2) %>%
+    kable_styling(full_width = FALSE)
+
+```
+
+## Visual
+
+::: {.panel-tabset}
+
+### Attitude Towards Science & Faith
+
+```{r}
+#| label: fig-w9-attitude
+#| fig-cap: "Bar Chart of Attitude Scores"
+ggplot(ebsurvey, aes(x = attitude)) +
+    geom_bar() +
+    labs(x = 'We Rely too Much on Science and not Enough on Faith', 
+         y = 'Frequency')
+```
+
+:::{.callout-important icon=false appearance="minimal"}
+
+The mean score on the science and faith attitude variable is just over 2. There are only 5 discrete values possible in the distribution, based on the response options available, but the distribution looks approximately normal, with a slight negative skew (see @fig-w9-attitude).
+
+:::
+
+### Science Knowledge
+
+```{r}
+#| label: fig-w9-sciknow
+#| fig-cap: "Histogram of Scientific Knowledge Scores"
+ggplot(ebsurvey, aes(x = science_knowledge)) +
+    geom_histogram() +
+    labs(x = 'Science Knowledge Quiz Scores', 
+         y = 'Frequency')
+```
+
+:::{.callout-important icon=false appearance="minimal"}
+
+@fig-w9-sciknow shows that the majority of values on the science knowledge quiz score cluster between about 5 and 11. There is a slight negative skew to the distribution. Overall there is little reason for concern as to the appropriateness of the variable for inclusion.
+
+:::
+
+### Age
+
+```{r}
+#| label: fig-w9-age
+#| fig-cap: "Histogram of Age"
+ggplot(ebsurvey, aes(x = age)) +
+    geom_histogram() +
+    labs(x = 'Age (years)', 
+         y = 'Frequency')
+```
+
+:::{.callout-important icon=false appearance="minimal"}
+
+The mean age in the sample is about 45 years with a standard deviation of just over 17 years. The distribution looks approximately normal, with a slight positive skew (see @fig-w9-age).
+
+:::
+
+:::
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Produce plots of the associations between the outcome variable and each of the explanatory variables.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+Review how to visually explore bivariate associations via the [data visualisation flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#visual-exploration). For specifically visualising associations between variables, see the [bivariate examples flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#visual-exploration).  
+
+Note that using `geom_point()` here might not be the best idea - all we would see from the plot is all combinations of Attitude towards Science and Faith and a) Age and b) Science Knowledge that were observed in the data, and this is not very informative:
+
+```{r message = FALSE, warning=FALSE, echo = FALSE}
+#| label: fig-biv-relationship-demo
+#| fig-cap: "Scatterplots displaying the associations between Attitude towards Science and Faith and a) Age, and b) Science Knowledge"
+p1_ex <- ggplot(data = ebsurvey, aes(x = age, y = attitude)) +
+    geom_point() +
+    labs(x = 'Age (in years)', y = "Attitude towards Science and Faith")
+
+p2_ex <- ggplot(data = ebsurvey, aes(x = science_knowledge, y = attitude)) +
+    geom_point()  +
+    labs(x = "Science Knowledge Quiz Scores", y = "Attitude towards Science and Faith")
+
+p1_ex | p2_ex
+```
+
+Instead, you may want to consider using `geom_jitter()` to add a little bit of noise (or jitter)  to the plot. Within the `geom_jitter()` argument, take some time to experiment with the `size = ` and `alpha = ` arguments to find optimal values to aid interpretation. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message = FALSE, warning=FALSE}
+#| label: fig-biv-relationship
+#| fig-cap: "Scatterplots displaying the associations between Attitude towards Science and Faith and a) Age, and b) Science Knowledge"
+p1 <- ggplot(data = ebsurvey, aes(x = age, y = attitude)) +
+    geom_jitter(size = .5, alpha = .3) +
+    labs(x = 'Age (in years)', y = "Attitude towards Science and Faith")
+
+p2 <- ggplot(data = ebsurvey, aes(x = science_knowledge, y = attitude)) +
+    geom_jitter(size = .5, alpha = .3)  +
+    labs(x = "Science Knowledge Quiz Scores", y = "Attitude towards Science and Faith")
+
+p1 | p2 
+```
+
+:::{.callout-important icon=false appearance="minimal"}
+
+It does not seem like there is a strong linear dependence of attitude to science and faith on a person's age or their scientific knowledge. We can make some rough observations:
+
++ The majority of respondents scored 2 or 3 (i.e., responded as neutral or agree) on the attitudes towards science and faith question
++ Very few people strongly disagreed with the attitudes towards science and faith question, but this appeared to be slightly more common in younger respondents
++ Very few people had scientific knowledge quiz scores <5. Lower scientific knowledge quiz scores appeared to be associated with responses of 3 or 4 (i.e., responded as agree or strongly agree) on the attitudes towards science and faith question. 
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Produce a correlation matrix of the variables which are to be used in the analysis, and write a short paragraph describing the associations. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the [correlation flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#correlation), and remember to interpret in the context of the research question. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Recall that we can either index the dataframe or select the variables of interest:
+
+::: {.panel-tabset}
+
+## Index dataframe (`[]`)
+
+```{r}
+# correlation matrix of the three columns of interest (check which columns we need - in this case, 1,2,3)
+round(cor(ebsurvey[,c(1:3)]), digits = 2)
+```
+
+## Variable selection (`select()`)
+
+```{r}
+#| label: tbl-w9-cors
+#| tbl-cap: Correlation Matrix
+# select only the columns we want by variable name, and pass this to cor()
+ebsurvey %>% 
+  select(attitude, science_knowledge, age) %>%
+  cor() %>%
+    kable(digits = 2, caption = "Correlation Matrix") %>%
+    kable_styling(full_width = FALSE)
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ There was a weak, positive, linear association between attitude towards science and faith and age for the participants in the sample $(r = .05)$
++ There was a weak, negative, linear association between attitude towards science and faith and scientific knowledge for the participants in the sample $(r = -.18)$
++ There was a weak, negative, linear association between scientific knowledge and age for the participants in the sample $(r = -.12)$. The correlation is relatively small in absolute terms, and we therefore have little concern about multicollinearity influencing this regression analysis
++ Overall, there were very weak linear associations among the variables of interest
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Fitting & Interpretation 
+
+`r qbegin(6)`
+
+Fit the specified model, and assign it the name "att_mdl".  
+
+$$
+ \text{Attitude} = \beta_0  + \beta_1 \cdot \text{Science Knowledge} + \beta_2 \cdot \text{Age} + \epsilon
+$$
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+For a recap, see the [multiple linear regression model flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#numeric-outcomes-predictors). 
+
+:::
+
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+att_mdl <- lm(attitude ~ science_knowledge + age, data = ebsurvey)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Check the assumptions of your model. Note any violations of the model assumptions.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the [assumptions flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions) and consider the most efficient way to do this (might be a good idea to review the *useful assumption plots*.  
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r out.width = '95%'}
+#| label: fig-assumpt-w9
+#| fig-cap: "Assumption Plots for Attitudes Model"
+par(mfrow = c(2,2)) # set 2 by 2 panels
+plot(att_mdl)
+par(mfrow = c(1,1)) # go back to 1 by 1 panels
+```
+
+Based on the visual inspection of the plots, the assumptions appear to be violated.
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+Bootstrap your model, computing 1000 bootstrap samples. 
+
+Provide key model results in a formatted table, and interpret your coefficients in the context of the research question.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the [bootstrap flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#bootstrap). 
+
+You can't use `tab_model()` here, but instead will need to use `kable()` and `kable_styling()`. Check over the [tables flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#tables), and in particular review the RMD bootcamp lesson which is signposted to. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#Run model
+boot_mdl <- Boot(att_mdl, R = 1000)
+```
+
+```{r}
+#| label: tbl-w9-modresults
+#| tbl-cap: Bootstrap Regression Results for Attitudes Model
+summary(boot_mdl) %>%
+    kable(digits = 3, caption = 'Bootstrap Regression Results for Attitudes Model') %>%
+    kable_styling(full_width = FALSE)
+```
+
+::: {.panel-tabset}
+
+## Intercept
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint - Interpretation 
+
+The intercept of a multiple regression model can be interpreted as the average expected value of the dependent variable when all of the independent variables equal zero.
+
+:::
+
++ As presented in @tbl-w9-modresults, the estimated intercept was approximately 2.79. This represents the expected attitude towards science and faith score when all other variables were zero. 
++ In this case, only a handful of respondents had a scientific knowledge quiz score of zero, and nobody was aged zero. Hence, in this example, the intercept itself isn't very informative. 
+    + A way to improve the model here to aid interpretation would be to mean centre age, and then refit the model with the mean centred age variable!
+
+## Scientific knowledge
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint - Interpretation 
+
+This represents the average marginal effect of $X1$ on $Y$, and can be interpreted as the expected change in $Y$ for a one-unit increase in $X1$ controlling for $X2$. See [Semester 1 Week 5 Lab](https://uoepsy.github.io/dapr2/2324/labs/1_05_writeup_recap.html#section-b-block-1-weeks-1---4-recap) for a recap on interpretation. 
+
+:::
+
++ As presented in @tbl-w9-modresults, the estimated value for the scientific knowledge slope was estimated to be approximately -0.08
++ Results suggested that, holding age constant, for every one point increase in scientific knowledge quiz scores, attitude scores decreased by 0.08 points.
++ Keeping in mind the valence of the question wording, this means that those who were more knowledgeable of science tended to be more favorable towards science – i.e. disagreeing with the statement.
+
+## Age
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint - Interpretation 
+
+This represents the average marginal effect of $X2$ on $Y$, and can be interpreted as the expected change in $Y$ for a one-unit increase in $X2$ controlling for $X1$. See [Semester 1 Week 5 Lab](https://uoepsy.github.io/dapr2/2324/labs/1_05_writeup_recap.html#section-b-block-1-weeks-1---4-recap) for a recap on interpretation. 
+
+:::
+
++ As presented in @tbl-w9-modresults, the estimated value for the age slope was estimated to be approximately 0.002
++ Results suggested that, holding science knowledge constant, for every one year increase in age, attitude scores increased by 0.002 points.
++ Keeping in mind the valence of the question wording, this means that older people tend to be less favorable towards science – i.e. agreeing with the statement.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Obtain 95% confidence intervals for your bootstrapped model estimates.  
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Review the [bootstrap flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#bootstrap). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+You can use your preferred confidence level here, but by default this is 95%:
+
+```{r}
+Confint(boot_mdl, level = 0.95, type = "perc")
+```
+
+If you want to make it into a nice table, we can use `kable()`:
+
+```{r}
+#| label: tbl-w9-confint
+#| tbl-cap: Bootstrap 95% CIs
+Confint(boot_mdl, type = "perc") %>%
+    kable(digits = 3, caption = 'Bootstrap 95% CIs') %>%
+    kable_styling(full_width = FALSE)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
++ We are 95% confident that the population intercept is between 2.68 and 2.90  
++ We are 95% confident that the population slope for science knowledge is between -0.09 and -0.07  
++ We are 95% confident that the population slope for age is between 0.001 and 0.004  
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Writing Up & Presenting Results
+
+`r qbegin(10)`
+
+Interpret the results from your bootstrapped model in the context of the research question.
+
+Make reference to your key result table(s) and plot(s).
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Make sure to include a decision in relation to your null hypothesis - based on the evidence, should you reject or fail to reject the null?  
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We used a subset of data from the [2005 Eurobarometer 63.1 survey](https://www.gesis.org/en/eurobarometer-data-service/survey-series/standard-special-eb/study-overview/eurobarometer-631-za-4233-jan-feb-2005) to investigate whether there was an association between people’s scientific knowledge and their attitudes towards science and faith after accounting for their age. 
+
+To answer the research hypothesis, we fitted the following regression model:
+$$
+\text{Attitude} = \beta_0 + \beta_1 \cdot \text{Science Knowledge} + \beta_2 \cdot \text{Age} + \epsilon
+$$
+
+```{r echo=FALSE}
+b0 <- signif(coef(att_mdl)[1],2)
+b1 <- signif(coef(att_mdl)[2],2)
+b2 <- signif(coef(att_mdl)[3],2)
+```
+
+Which resulted in the following estimated regression coefficients for the original sample:
+
+$$
+\widehat{\text{Attitude}} = `r b0` `r b1` \cdot \text{Science Knowledge} + `r b2` \cdot \text{Age}
+$$
+
+The model did not satisfy the regression assumptions (see @fig-assumpt-w9) and for this reason we assessed statistical significance using the bootstrap approach with $R = 1000$ resamples.
+
+The 95% bootstrap confidence intervals are provided in @tbl-w9-confint. Results suggested that there was a negative and statistically significant association between attitudes towards science and faith and scientific knowledge after controlling for age $(\beta = -0.08, CI_{95}[-0.09, -0.07])$. Since the 95% CI did not contain zero, we rejected the null hypothesis as there was evidence of an association between peoples' attitudes towards science and faith and their scientific knowledge after accounting for their age. Specifically, results suggested that for every additional quiz question people got correct, we expected their attitude score to be lower by about 0.08 points, holding age constant. In other words, respondents with greater scientific knowledge tended to be more favorable towards it, regardless of their age. 
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+Review [Lesson 5 of the rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/05-echoeval.html) for a detailed description/worked examples.
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
+
