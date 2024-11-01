@@ -1,0 +1,974 @@
+---
+title: "<b> Sum-to-zero (Effects) coding & Manual Contrasts </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(car)
+library(patchwork)
+library(kableExtra)
+library(effsize)
+library(simglm)
+library(emmeans)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+```
+
+
+# Course Overview
+
+.pull-left[
+
+```{r echo = FALSE, results='asis'}
+block1_name = "Introduction to Linear Models"
+block1_lecs = c("Intro to Linear Regression",
+                "Interpreting Linear Models",
+                "Testing Individual Predictors",
+                "Model Testing & Comparison",
+                "Linear Model Analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical Predictors & Dummy Coding",
+                "	Effects Coding & Coding Specific Contrasts",
+                "Assumptions & Diagnostics",
+                "Bootstrapping",
+                "	Categorical Predictor Analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week=7)
+```
+
+]
+
+.pull-right[
+
+
+```{r echo = FALSE, results='asis'}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regresison Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
+```
+
+
+]
+
+---
+
+
+# This Week's Learning Objectives
+1. Understand the difference between dummy and sum-to-zero coding
+
+2. Understand the core principle of different coding schemes
+
+3. Interpret the output from a model using sum-to-zero coding
+
+4. Review rules for constructing contrasts
+
+5. Continue using `emmeans` to investigate manual contrasts
+
+
+---
+class: inverse, center, middle
+
+# Part 1: Why can't we always use dummy coding?
+
+---
+# Why not always use dummy coding?
++ Last week we discussed dummy coding:
+  + Dummy coding creates a set of $k$-1 dummy variables (coded `0` or `1`)
+  + Each variable's $\beta$ reflects the difference between the group coded `1`, and the reference group (coded `0` across all dummy variables)
+  + As such, we say it uses a reference group constraint to estimate our group means
+
++ This is a neat and (comparatively) straight-forward way to deal with categorical variables
+
++ But it doesn't always give us the exact test we need. We might want to compare to:
+  + The overall mean of different groups (the grand mean)
+  + Group 1 vs groups 2, 3, 4 combined
+  + etc.
+
+
+---
+# Why not always use dummy coding?
++ Different coding schemes answer different research questions
+
++ This week we will consider the two examples on the previous slide:
+
+  1. Comparing a specific group to the overall mean of groups in your sample (grand mean). This is **sum-to-zero** or **effects coding**
+  2. Comparing specific combinations of groups. These are **manual contrasts**
+
++ Let's start with the grand mean with our class study example
+
+---
+# Effects coding (sum to zero coding)
+
+.pull-left[
+```{r, echo=FALSE, message=FALSE, fig.height=4.5}
+set.seed(1)
+gpM <- test_study3 %>%
+  group_by(method) %>%
+  summarise(
+    score = round(mean(score))
+  ) %>%
+  mutate(
+    GM = c(rep(mean(score),3))
+  )
+
+test_study3 %>%
+  ggplot(., aes(x=method, y=score, colour = method, shape = method)) +
+  geom_jitter(width = 0.1, size = 2, alpha = .7) + 
+  geom_hline(yintercept = mean(test_study3$score), lty = 2, colour = "darkgrey") +
+  theme_classic() +
+  geom_errorbar(data = gpM, width=0.8,aes(ymax= after_stat(y),ymin= after_stat(y))) +
+  theme(legend.position = 'none',
+        axis.text=element_text(size = 12),
+        axis.title = element_text(size = 14, face = 'bold'))
+```
+]
+
+.pull-right[
+
++ To interpret the plot:
+  + Coloured points: individual test scores for students in each group
+  + Solid coloured lines: group means
+  + Dashed grey line: the grand mean (the mean of all the group means)
+
++ We can see already a key difference from dummy coding
+  + Rather than all groups being compared to the mean of `read`, all will be compared to the grey line
+
+]
+
+--
+
+> **Test your understanding:** If our coefficients reflect the comparison of each group to the grand mean, what direction of coefficient would we expect for each group? 
+
+--
+
+> Where is the biggest absolute difference?
+
+---
+# Model with the grand mean
++ If we write our model including the grand mean, we get:
+
+$$y_{ij} = \mu + \beta_j + \epsilon_{ij}$$
++ where
+  + $y_{ij}$ is the score for a given individual ( $i$ ) in a given group ( $j$ )
+  + $\mu$ is the grand mean
+  + $\beta_j$ is a group specific effect
+  + $\epsilon_{ij}$ is the individual deviation from the group mean
+  
++ Let's briefly consider the constraints we apply, before looking at how we do this in R
+
+---
+# Model with the grand mean
++ Each group mean is:
+
+$$\mu_{read} = \mu + \beta_{read}$$
+
+$$\mu_{self-test} = \mu + \beta_{self-test}$$
+
+$$\mu_{summarise} = \mu + \beta_{summarise}$$
+
++ And as with dummy coding, this means we have 4 things to estimate ( $\mu$ , $\beta_{read}$ , $\beta_{self-test}$ , $\beta_{summarise}$ ), but only 3 group means
+
+---
+# Sum to zero constraint
+
++ In sum to zero coding, we fix this with the following constraint:
+
+$$\sum_{j=1}^m \beta_j = 0$$
+
++ Or alternatively written for the 3 group case:
+
+$$\beta_1 + \beta_2 + \beta_3 = 0$$
+
+
+---
+# Sum to zero constraint
++ This constraints leads to the following interpretations:
+
++ $\beta_0$ is the grand mean or $\mu$
+
++ $\beta_j$ are the differences between the coded group and the grand mean:
+
+$$\beta_j = \mu_j - \mu$$
+
+---
+# Why the grand mean?
+
+$$\beta_1 + \beta_2 + \beta_3 = 0$$
+
++ Substitute $\beta_0$ :
+
+$$(\mu_1 - \beta_0) + (\mu_2 - \beta_0) + (\mu_3 - \beta_0) = 0$$
+
+$$\mu_1 + \mu_2 + \mu_3 = 3\beta_0$$
+
+$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} $$
+$$\beta_0 = \mu$$
+
+---
+# Sum to zero constraint
+
++ Finally, we can get back to our group means from the coefficients as follows: 
+
+$$\mu_1 = \beta_0 + \beta_1$$
+
+$$\mu_2 = \beta_0 + \beta_2$$
+
+$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+
+---
+class: center, middle
+
+# Questions?
+
+---
+class: inverse, center, middle
+
+# Part 2: Calculating coefficients with sum-to-zero coding
+
+
+
+---
+# Group Means
+
+```{r}
+test_study3 %>%
+  select(1,2,6) %>%
+  group_by(method) %>%
+  summarise(
+    mean = round(mean(score),3),
+    sd = round(sd(score),1),
+    N = n()
+  )
+```
+
+
+---
+# Effects (sum to zero) model
+
++ We need to change the contrast scheme from default before running `lm`
+
+```{r}
+contrasts(test_study3$method) <- contr.sum 
+contrasts(test_study3$method)
+```
+
+---
+# Effects (sum to zero) model
+```{r}
+summary(lm(score ~ method, data = test_study3))
+```
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+```{r, echo=FALSE}
+Eres <- summary(lm(score ~ method, data = test_study3))
+round(Eres$coefficients[,1],3)
+```
+
++ Coefficients from group means
+
+
+$$\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3}$$ 
+
+$$\beta_1 = \mu_1 - \mu$$
+
+$$\beta_2 = \mu_2 - \mu$$
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+test_study3 %>%
+  select(1,2,6) %>%
+  group_by(method) %>%
+  summarise(
+    mean = round(mean(score),3)
+  ) %>%
+  mutate(
+    Gmean = round(mean(mean),3),
+    Coefficients = mean - Gmean
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+
+---
+# Effects (sum to zero) model
+
+.pull-left[
+```{r, echo=FALSE}
+Eres <- summary(lm(score ~ method, data = test_study3))
+round(Eres$coefficients[,1],3)
+```
+
++ Group means from coefficients:
+
+
+<br>
+$$\mu_1 = \beta_0 + \beta_1$$
+
+<br>
+<br>
+
+$$\mu_2 = \beta_0 + \beta_2$$
+
+<br>
+<br>
+
+
+$$\mu_3 = \beta_0 - (\beta_1 + \beta_2)$$
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE}
+test_study3 %>%
+  select(1,2,6) %>%
+  group_by(method) %>%
+  summarise(
+    mean = round(mean(score),3)
+  ) %>%
+  mutate(
+    Gmean = round(mean(mean),3),
+    Coefficients = mean - Gmean
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+```{r}
+25.062 + -1.648
+```
+
+```{r}
+25.062 + 2.514
+```
+
+```{r}
+25.062 - (-1.648 + 2.514)
+```
+
+
+]
+
+
+---
+# The wide world of contrasts 
++ We have now seen two examples of coding schemes (dummy and effect).
+
++ There are **lots** of different coding schemes we can use for categorical variables to make different comparisons.
+  + If you are interested, see the excellent resource on [UCLA website](https://stats.idre.ucla.edu/r/library/r-library-contrast-coding-systems-for-categorical-variables/)
+
++ But always remember...
+
+**The data is the same, the tested contrast differs**
+
+---
+class: inverse, center, middle
+
+# Part 3: The data doesn't change, what we compare does
+
+---
+# The data is the same, the tested contrasts differ
+
++ We can run our model for `method` using both dummy and sum-to-zero coding schemes
+
+```{r}
+contrasts(test_study3$method) <- contr.treatment
+m_dummy <- lm(score ~ method, data = test_study3)
+
+# Change the contrasts and run again
+contrasts(test_study3$method) <- contr.sum
+m_zero <- lm(score ~ method, data = test_study3)
+
+```
+
++ We see that the model coefficients are different, because the tested contrast differs:
+
+.pull-left[
+```{r}
+coef(m_dummy)
+```
+]
+
+.pull-right[
+```{r}
+coef(m_zero)
+```
+]
+
+---
+# The data is the same, the tested contrasts differ
+
+However, if we create a small data frame:
+
+```{r}
+treat <- tibble(method = c("read", "self-test", "summarise"))
+```
+
+and add the predicted values from our models:
+
+```{r}
+treat %>%
+  mutate(
+    pred_dummy = predict(m_dummy, newdata = .),
+    pred_zero = predict(m_zero, newdata = .)
+  )
+```
+
+You can see that no matter what coding or contrasts we use, we are still modelling the same group means!
+
+
+---
+class: center, middle
+
+# Questions?
+
+---
+class: inverse, center, middle
+
+# Part 4: Setting up our own specific tests
+
+
+---
+# Why do we need manual contrasts?
++ We have looked now at dummy and sum-to-zero coding 
+
++ These provide us with coefficients which test the significance of the difference between means of groups and some other mean (either reference group or the grand mean)
+  + The other coding schemes we linked to do exactly the same thing
+
++ ***Sometimes*** we have a research question that requires the test of the difference between particular combinations of groups for which there is no *"off the shelf"* test 
+
++ For such situations, we can apply a set of rules and test what are referred to as manual contrasts
+
+--
+
++ We can structure a wide variety of contrasts so long as they can be written:
+  + As a linear combination of weighted group means
+  + With the associated weights on coefficients summing to zero
+
+
+---
+# New example
++ Suppose we were interested in the effect of various relationship statuses on an individuals subjective well-being (`swb`)
+
++ Our predictor is `status` which has 5 levels:
+  + Married or Civil Partnership
+  + Cohabiting relationship
+  + Single
+  + Widowed
+  + Divorced
+
++ Let's say we have data on 500 people
+
+---
+# Data
+```{r, echo=FALSE}
+n <- round(500*(c(.55, .2, .1, .05, .1)),0)
+set.seed(7284)
+wb_tib <- tibble(
+  swb = c(rnorm(n[1], 11, 3.6),
+          rnorm(n[2], 12, 4.2),
+          rnorm(n[3], 8, 2.2),
+          rnorm(n[4], 6, 1.1),
+          rnorm(n[5], 9.5, 2.5)),
+  status = factor(c(rep("Married/CP", n[1]),
+             rep("Cohab", n[2]),
+             rep("Single", n[3]),
+             rep("Widowed", n[4]),
+             rep("Divorced", n[5]))
+             )
+)
+
+wb_tib %>%
+  group_by(status) %>%
+  summarise(
+    n = n(),
+    mean = round(mean(swb),2),
+    sd = round(sd(swb),2)
+  ) %>%
+  kable(.)%>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+# Our questions
++ Suppose we want to know if there are `swb` differences between:
+
+1. Those who are currently or previously married or in a civil partnership, vs those who have never been married or in a civil partnership
+    + Group 1: `Married/CP`, `Divorced`, `Widowed`
+    + Group 2: `Single`, `Cohab`
+
+2. Those who are currently married or in a civil partnership, vs those who have previously been
+    + Group 1: `Married/CP`
+    + Group 2: `Divorced`, `Widowed`
+
+--
+
++ To test this, we need to:
+  + group the levels of our factor `status`
+  + calculate a mean of these new sub-groups making sure all levels contribute equally to their respective groups
+  + then test the difference between these means
+
++ Manual contrasts can do this for us, if we follow some rules
+
+---
+# Rules for manual contrasts
+
++ **Rule 1**: Weights ( $c$) range between -1 and 1
+
++ **Rule 2**: The group(s) in one chunk are given negative weights, the group(s) in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) are equal to 1 divided by the number of groups in that chunk
+
++ **Rule 6**: Restrict yourself to running $k$ - 1 comparisons (where $k$ = number of groups)
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+```{r, echo=FALSE}
+contrasts <- tibble(
+  group = c("Cohab", "Divorced", "Married/CP", "Single", "Widowed"),
+  contrast1 = ' ',
+  contrast2 = ' ')
+
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running $k$ - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not.
+
+2. Those who are currently married or in a civil partnership vs those who have previously been.
+
+
+```{r, echo=FALSE}
+contrasts <- tibble(
+  group = c("Cohab", "Divorced", "Married/CP", "Single", "Widowed"),
+  contrast1 = round(c(-0.5, 1/3, 1/3, -0.5, 1/3),2),
+  contrast2 = ' '
+  )
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk
+
++ **Rule 6**: Restrict yourself to running $k$ - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Applying rules
+
+.pull-left[
+
++ Let's construct two contrasts:
+
+1. Those who are currently or previously married or in a civil partnership vs not
+
+2. Those who are currently married or in a civil partnership vs those who have previously been
+
+```{r, echo=FALSE}
+contrasts <- tibble(
+  group = c("Cohab", "Divorced", "Married/CP", "Single", "Widowed"),
+  contrast1 = round(c(-0.5, 1/3, 1/3, -0.5, 1/3),2),
+  contrast2 = round(c(0, -0.5, 1, 0, -0.5),2)
+  )
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+]
+
+.pull-right[
++ **Rule 1**: Weights range between -1 and 1
+
++ **Rule 2**: Groups in one chunk are given negative weights, groups in the other get positive weights
+
++ **Rule 3**: The sum of the weights of the comparison must be 0
+
++ **Rule 4**: If a group is not involved in the comparison, weight is 0
+
++ **Rule 5**: For a given comparison, weights assigned to group(s) = 1 divided by the number of groups in that chunk.
+
++ **Rule 6**: Restrict yourself to running $k$ - 1 comparisons
+
++ **Rule 7**: Each contrast can only compare 2 chunks
+
++ **Rule 8**: Once a group is singled out, it can not enter other contrasts 
+]
+
+---
+# Orthogonal vs. Non-orthogonal Contrasts
++ Orthogonal contrasts test independent sources of variation
+  + If we follow the rules above, we will have orthogonal contrasts
+
++ Non-orthogonal contrasts test non-independent sources of variation
+  + This presents some further statistical challenges in terms of making inferences
+  + We will come back to this discussion later in the course
+
+---
+# Checking if contrasts are orthogonal
++ The sum of the products of the weights will = 0 for any pair of orthogonal comparisons
+
+$$\sum{c_{1j}c_{2j}} = 0$$
+
+---
+# From our example
+
+```{r, echo=FALSE}
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
++ Below we can see the product of $c_1c_2$ for each level, and the row-wise sums for each contrast and the products
+  + The 0 for contrast 1 and 2 show we have set correct weights
+  + The 0 for the product shows the contrasts are orthogonal
+
+```{r, echo=FALSE}
+tibble(
+  Contrast = c("Contrast1", "Contrast2", "Product"),
+  Cohab = c(-0.5, 0, 0),
+  Divorced = c(0.33, -0.5, -0.165),
+  Married_CP = c(0.33, 1, 0.33),
+  Single = c(-0.5, 0, 0),
+  Widowed = c(0.33, -0.5, -.165),
+  Sum = c(0,0,0)
+  ) %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+---
+class: inverse, center, middle
+
+# Part 5: Testing manual contrasts using emmeans
+
+
+---
+# Using `emmeans` to test contrasts
+
++ We will use the package `emmeans` to test our contrasts
+  + We will also be using this in the next few weeks to look at analysing experimental designs
+
++ **E**stimated
++ **M**arginal
++ **Means**
+
++ Essentially this package provides us with a lot of tools to help us model contrasts and linear functions
+
+---
+# Working with `emmeans`
++ First we run our model:
+
+```{r}
+status_res <- lm(swb ~ status, wb_tib)
+```
+
++ Next we use the `emmeans` to get the estimated means of our groups.
+
+```{r}
+
+status_mean <- emmeans(status_res, ~status)
+status_mean
+```
+
+
+---
+# Visualise estimated means
+
+.pull-left[
+```{r, eval=FALSE}
+plot(status_mean)
+```
+
++ We then use these means to test contrasts
+
+]
+
+.pull-right[
+```{r, echo=FALSE}
+plot(status_mean)
+```
+
+]
+
+---
+# Defining the contrast
+
++ **KEY POINT**: The order of your categorical variable matters as `emmeans` uses this order 
+
+
+```{r, echo=FALSE}
+contrasts %>% 
+  kable(.) %>%
+  kable_styling(., full_width = F)
+```
+
+
+```{r}
+levels(wb_tib$status)
+```
+
+```{r}
+status_comp <- list("Married or CP vs not" = c(-1/2, 1/3, 1/3, -1/2, 1/3),
+                    "Current vs Not current" = c(0, -1/2, 1, 0, -1/2))
+
+```
+
+
+---
+# Requesting the test
++ In order to test our effects, we use the `contrast` function from `emmeans`
+
+```{r}
+status_comp_test <- contrast(status_mean, status_comp)
+status_comp_test
+```
++ We can see we have p-values, but we can also request confidence intervals
+
+```{r}
+confint(status_comp_test)
+```
+
+
+---
+# Interpreting the results
++ The estimate is the difference between the average of the group means within each chunk
+
+
+```{r}
+confint(status_comp_test)
+```
++ So for `Married or CP vs not` :
+
+```{r}
+((10.63 + 6.00 + 9.37)/3) - ((11.44 + 8.06)/2)
+```
++ So those who are not currently or previously married or in a civial partnership have higher SWB.
+  + And this is significant
+
+---
+class: center, middle
+
+# Questions?
+
+---
+# Summary of today
+
++ We have considered different ways in which we can code categorical predictors
+
++ Take home:
+  + Use of coding schemes allows us to compare groups (or levels) in lots of ways
+  + Our $\beta$'s will represent differences in group means
+  + The scheme we use determines which group or combination of groups we are comparing
+  + **In all cases the underlying data is unchanged**
+
++ We also looked at the use of `emmeans` in testing manual contrasts
+  + Run the model
+  + Estimate the means
+  + Define the contrast
+  + Test the contrast
+
++ Coding schemes are a very flexible tool for testing hypotheses
+
+
+---
+
+## This week 
+
+.pull-left[
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+]
+
+.pull-right[
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+]
+
+
+---
+class: inverse, center, middle
+
+# Thanks for listening
