@@ -1243,7 +1243,12 @@ Let's apply this to a different example - the iris dataset, and specifically, th
 levels(iris$Species)
 ```
 
-From the above, we can see that Species has 3 levels - "setosa", "versicolor", and "virginica". If we put these into a model, assuming `R`'s default ordering, we know that "setosa" will be taken as our reference group:
+
+::: {.panel-tabset}
+
+### Dummy Coding
+
+From the above, we can see that Species has 3 levels - "setosa", "versicolor", and "virginica". If we put these into a model, assuming `R`'s default ordering, we know that `R` will automatically apply dummy (or treatment coding), and "setosa" will be taken as our reference group:
 
 ```{r}
 #fit model
@@ -1265,9 +1270,49 @@ Let's first map our coefficients and estimates:
 
 + The third estimate corresponds to `Speciesvirginica` and was $\hat \beta_2 = 1.58$. The difference in mean sepal length between `setosa` and `virginica` species was estimated to be $1.58~cm$. Thus, $\hat \mu_2 = 5.01 + 1.58 = 6.59$. We could say - the species iris virginica had a sepal length of approximately 6.59cm, and this was approximately 1.58cm longer than the iris setosa. This difference was statistically significant $(p < .001)$.
 
+### Effects Coding
+
+First we need to tell `R` to apply effects (or sum-to-zero) coding and check the ordering of the levels:
+
+```{r}
+contrasts(iris$Species) <- "contr.sum"
+contrasts(iris$Species) 
+```
+
+Then we can run our model:
+
+```{r}
+#fit model
+spec_model2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model2)
+```
+
+```{r echo = FALSE}
+contrasts(iris$Species) <- "contr.treatment"
+contrasts(iris$Species) 
+```
+
+Let's first map our coefficients and estimates:
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  5.84333  | $\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$
+| Species1      | -0.83733  | $\beta_1 = \mu_1 - \mu$|
+| Species2      | 0.09267   | $\beta_2 = \mu_2 - \mu$ |
+
++ The first estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu = 5.84$. The estimated average sepal length across iris species was approximately $5.84~cm$.
+
++ The second estimate corresponds to `Species1` and was $\hat \beta_1 = -0.84$. The difference in mean sepal length between `setosa` $(\hat \mu_1)$ and the grand mean $(\hat \mu_0)$  was estimated to be $0.84~cm$. In other words, the iris species of setosa had a sepal length $0.84~cm$ shorter than average, where its length was estimated to be $5.84333 + (-0.83733) = 5~cm$. This difference in length was statistically significant $(p < .001)$.
+
++ The third estimate corresponds to `Species2` and was $\hat \beta_2 = 0.09$. The difference in mean sepal length between `versicolor` $(\hat \mu_2)$ and the grand mean $(\hat \mu_0)$  was estimated to be $0.09~cm$. In other words, the iris species of versicolor had a sepal length $0.09~cm$ longer than average, where its length was estimated to be $5.84333 + 0.09267 = 5.94~cm$. This difference in length was not statistically significant $(p = .121)$.
+
++ The estimate for `Species3`, representing the difference of “virginica” to the grand mean is *not shown* by `summary()`. Because of the side-constraint, we know that $\mu_3 = \beta_0 - (\beta_1 + \beta_2)$. The difference in sepal length between `virginica` and the grand mean was estimated to be $-(-0.83733 + 0.09267) = 0.74466$. In other words, the virginica iris species had a sepal length $0.74~cm$ longer than average, where its length was estimated to be $5.84333 - (-0.83733  + 0.09267) = 6.59~cm$.  
+
+:::
+
 `r optend()`
 
-<br> 
+<br>   
 
 `r optbegin("Specifying Reference Levels", olabel=FALSE,toggle=params$TOGGLE)`
 
