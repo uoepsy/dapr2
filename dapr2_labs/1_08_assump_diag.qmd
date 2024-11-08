@@ -1,0 +1,800 @@
+---
+title: "Assumptions and Diagnostics"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: FALSE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+library(tidyverse)
+library(plotly)
+library(patchwork)
+library(pander)
+library(car)
+library(performance)
+library(kableExtra)
+set.seed(953)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Be able to state the assumptions underlying a linear model
+2. Specify the assumptions underlying a linear model with multiple predictors
+3. Assess if a fitted model satisfies the assumptions of your model
+4. Assess the effect of influential cases on linear model coefficients and overall model evaluations
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed [Week 2](https://uoepsy.github.io/dapr2/2425/labs/1_02_mlr.html) lab exercises
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **car**
+* **performance**
+* **kableExtra**
+* **sjPlot**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv 
+:::
+
+# Lab Overview
+
+In the previous labs, we have fitted a number of regression models, including some with multiple predictors. In each case, we first specified the model, then visually explored the marginal distributions and associations among variables which would be used in the analysis. Finally, we fit the model, and began to examine the fit by studying what the various parameter estimates represented, and the spread of the residuals.
+
+But before we draw inferences using our model estimates or use our model to make predictions, we need to be satisfied that our model meets a specific set of assumptions. If these assumptions are not satisfied, the results will not hold.
+
+In this lab, we will check the assumptions of one of the multiple linear regression models that we have previously fitted in Block 1 using the 'mwdata' dataset (see [Week 2](https://uoepsy.github.io/dapr2/2425/labs/1_02_mlr.html)). 
+
+# Study Overview {#sec-studyview}
+
+> **Research Question** 
+>
+> Is there an association between wellbeing and time spent outdoors *after* taking into account the association between wellbeing and social interactions? 
+
+`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)`  
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+  
+__Data Dictionary__
+
+The data in `wellbeing_rural.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) %>% gt::gt()
+```
+  
+  
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+4. Fit the following model:
+
+$$
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{Outdoor Time} + \epsilon
+$$
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(car)
+library(performance)
+library(kableExtra)
+library(sjPlot)
+
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+
+# wellbeing model
+wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) 
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises
+
+## Assumptions
+
+`r qbegin(1)`
+
+Let's start by using `check_model()` for our `wb_mdl1` model - we can refer to these plots as a guide as we work through the assumptions questions of the lab.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+See the [useful assumptions plots > check_model() flaschard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+
+:::
+
+:::{.callout-note appearance="simple" collapse="true"}
+
+These plots **cannot** be used in your reports - they are to be used as a guide only.
+
+:::
+
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+check_model(wb_mdl1)
+```
+
+The `check_model()` function is a useful way to check the assumptions of models, as it also returns some useful notes to aid your interpretation. There does appear to be evidence that some assumptions may have been violated, **but** to be sure we need to check each assumption individually with plots that are more suitable for a statistics report. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Check if the fitted model satisfies the linearity assumption for `wb_mdl1`. 
+
+Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+How you check this assumption depends on the number of predictors in your model:
+
++ Single predictor: Use either residual vs fitted values plot (`plot(model, which = 1)`), and/or a scatterplot with loess lines  
++ Multiple predictors: Use component-residual plots (also known as partial-residual plots) to check the assumption of linearity  
+
+For more information, as well as tips to aid your interpretation, review the [linearity flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r, fig.width = 10, out.width = '85%'}
+crPlots(wb_mdl1)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The smoother (the pink line) follows quite closely to a linear relationship (the dashed blue line), though there was some deviation. Overall, the evidence suggested that the linearity assumption was met.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(3)`
+
+Check if the fitted model `wb_mdl1` satisfy the equal variance (homoscedasticity) assumption. 
+
+Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plot.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Use `residualPlots()` to plot residuals against the predictor. Since we are only interested in visually assessing our assumption checks, we can suppress the curvature test output by specifying `tests = FALSE`.
+
+For more information, as well as tips to aid your interpretation, review the [equal variances (homoscedasticity) flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+
+:::{.callout-hint collapse="true"}
+
+**Quick Tip if plotting using `plot(model)`** 
+
+As the residuals can be positive or negative, we can make it easier to assess equal spread by improving the 'resolution' of the points.
+
+We can make all residuals positive by discarding the sign (take the absolute value), and then take the square root to make them closer to each other.
+
+A plot of $\sqrt{|\text{Standardized residuals}|}$ against the fitted values can be obtained via `plot(model, which = 3)`.
+
+:::
+ 
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+We can visually assess by plotting the Pearson residuals against the fitted values:
+
+```{r, fig.width = 8, out.width = '90%'}
+residualPlots(wb_mdl1, tests = FALSE)
+```
+
+Or by plotting the $\sqrt{|\text{Standardized residuals}|}$ against the fitted values:
+
+```{r}
+plot(wb_mdl1, which = 3)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Partial residual plots did show non-linear trends between residuals and predictors, hence there is evidence of non-constant variance i.e., heteroscedasticity. Thus, the data did not meet the assumption of equal variance, as the spread of the standardized residuals did not appear to be constant (for the most part) as the fitted values varied.
+
+In the second plot, all points are above 0, but the majority of the points are not very close to each other. The line does not appear to be relatively flat, and so this also suggested that the error variance does change across the fitted values.
+
+:::
+
+`r solend()`
+
+<br> 
+
+`r qbegin(4)`
+
+Assess whether there is autocorrelation in the error terms.
+  
+Write a sentence summarising whether or not you consider the assumption of independence to have been met (you may have to assume certain aspects of the study design).  
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Review the [independence (of errors) flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Since our data were collected from a between-persons study design, we can assume (i.e., based on design, we believe) the errors to be independent.
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Check if the fitted model `wb_mdl1` satisfies the normality assumption. 
+  
+Write a sentence summarising whether or not you consider the assumption to have been met. Justify your answer with reference to the plots. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For more information, as well as tips to aid your interpretation, review the [normality (of errors) flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+ 
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+:::{.panel-tabset}
+
+### Histogram
+
+```{r}
+ggplot(data = mwdata, aes(x = wb_mdl1$residuals)) +
+    geom_histogram() 
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The histogram indicated that the residuals (the differences between observed and predicted values) followed close to a normal distribution. 
+
+:::
+
+### QQ Plot
+
+```{r}
+plot(wb_mdl1, which = 2)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The QQplot indicated that the residuals followed close to a normal distribution, as the points followed a linear pattern and there was no substantial skew or departure from normality. There was some evidence of heavier tails, and we may want to examine some observations more closely (i.e., 16, 78, 109).
+
+:::
+
+:::
+
+`r solend()`
+
+<br>
+
+## Multicollinearity 
+
+`r qbegin(6)`
+
+For `wb_mdl1`, calculate the variance inflation factor (VIF) for the predictors in the model.  
+
+Write a sentence summarising whether or not you consider multicollinearity to be a problem here.  
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For more information, as well as tips to aid your interpretation, review the [multicollinearity flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+vif(wb_mdl1)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The VIF values for all predictors are <5, indicating that multicollinearity is not adversely affecting model estimates. 
+
+:::
+
+`r solend()`
+
+## Diagnostics 
+
+`r qbegin(7)`
+
+Create a new tibble which contains:  
+
+1. The original variables from the model (Hint, what does `wb_mdl1$model` give you?)
+2. The fitted values from the model $\hat y$  
+3. The residuals $\hat \epsilon$
+4. The studentised residuals
+5. The hat values
+6. The Cook's Distance values
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For following will likely be useful to consider when creating your `tibble()`:
+
+1. Think about what `wb_mdl1$model` gives you
+2. `fitted()`
+3. `residuals()`
+4. `rstudent()`
+5. `hatvalues()`
+6. `cooks.distance()`
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mdl_diagnost <- 
+  tibble(
+  wb_mdl1$model,
+  fitted = fitted(wb_mdl1),
+  resid = residuals(wb_mdl1),
+  studres = rstudent(wb_mdl1),
+  hats = hatvalues(wb_mdl1),
+  cooksd = cooks.distance(wb_mdl1)
+)
+```
+
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+From the tibble above, comment on the following:
+
+* Looking at the studentised residuals, are there any outliers? 
+* Looking at the hat values, are there any observations with high leverage? 
+* Looking at the Cook's Distance values, are there any highly influential points?  
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Alongside the lecture materials, review the [individual case diagnostics flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions) and consider the commonly used cut-off criteria.
+
+:::
+
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Outliers
+
+In a standard normal distribution, 95% of the values are roughly between -2 and 2. Because of this, studentised residuals of $>2$ or $< -2$ indicate potential outlyingness. 
+
+We can ask `R` how many of the *absolute* values (by specifying `abs()`) are $>2$:
+```{r}
+table(abs(mdl_diagnost$studres) > 2)
+```
+
+We have 11 `TRUE` observations, which tells us that they have |studentised residuals| $>2$. 
+
+We can identify which of our observations have these values:
+
+```{r}
+which(abs(mdl_diagnost$studres) > 2)
+```
+
+So we know that observations (or rows) 16, 50, 53, 58, 62, 76, 78, 109, 126, 151, and 163 have absolute values that have studentised residuals of $>2$ or $< -2$.
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    studres = rstudent(wb_mdl1)) %>%
+  dplyr::filter(., studres > 2 | studres < -2) %>%
+  arrange(., desc(studres)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+There were `r sum(abs(mdl_diagnost$studres) > 2)` observations identified as potential outliers.
+
+:::
+
+## High Leverage
+
+Hat values of more than $2 \bar{h}$ (2 times the average hat value) are considered high leverage. The average hat value, $\bar{h}$ is calculated as $\frac{k + 1}{n}$, where $k$ is the number of predictors, and $n$ is the sample size.
+
+For our model:
+$$
+\bar h = \frac{k+1}{n} = \frac{2+1}{200} = \frac{3}{200} = 0.015
+$$
+We can ask whether any of observations have hat values which are greater than $2 \bar h$:
+
+```{r}
+table(mdl_diagnost$hats > (2*0.015))
+```
+
+We have 16 `TRUE` observations, which tells us that they have high leverage.
+
+We can identify which of our observations have these values:
+
+```{r}
+which(mdl_diagnost$hats > (2*0.015))
+```
+
+So we know that observations (or rows) 25, 56, 59, 60, 72, 73, 75, 79, 127, 131, 149, 159, 165, 169, 176, and 197 have hat values which are greater than $2 \bar h$.
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    hats = hatvalues(wb_mdl1)) %>%
+  dplyr::filter(., hats > (2*0.015)) %>%
+  arrange(., desc(hats)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+There were `r sum(mdl_diagnost$hats > (2*0.015))` observations that had high leverage (> $2 \bar h$).  
+
+:::
+
+## Influential Points
+
+We are using a Cook's Distance cut-off of $\frac{4}{n-k-1}$, where $k$ is the number of predictors, and $n$ is the sample size.  
+
+For our model:
+$$
+D_{cutoff} = \frac{4}{n-k-1} = \frac{4}{200 - 2 - 1} = \frac{4}{197} = 0.020
+$$
+
+We can ask whether any of observations have a high influence on our model estimates:
+
+```{r}
+table(mdl_diagnost$cooksd > 0.020)
+```
+
+Yes, we have 11 `TRUE` observations, which tells us that they are above the $D_{cutoff} = 0.020$.
+
+We can identify which of our observations have these values:
+
+```{r}
+which(mdl_diagnost$cooksd > 0.020)
+```
+
+So we know that observations (or rows) 16, 53, 58, 76, 78, 109, 125, 126, 149, 151, and 169 have $D > 0.020$. 
+
+We could also *filter* our newly created tibble to these observations to examine the values further:
+
+```{r}
+mwdata %>%
+    mutate(
+    cooksd = cooks.distance(wb_mdl1)) %>%
+  dplyr::filter(., cooksd > 4/(200-2-1)) %>%
+  arrange(., desc(cooksd)) %>%
+  kable(.)  %>%   
+    kable_styling(., full_width = F)
+```
+
+You can also display the Cook's Distance values themselves using `plot(model, which = 4)`, and add a horizontal line at the $D_{cutoff} = 0.020$ using `abline(h = ???)`:
+
+```{r}
+plot(wb_mdl1, which = 4, abline(h=0.020, col="blue"))
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+There were `r sum(mdl_diagnost$cooksd > 0.020)` observations that had a high influence on our model estimates.
+
+:::
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(9)`
+
+Use the function `influence.measures()` to extract these delete-1 measures^[leave-one-out deletion diagnostics] of influence.  
+
+Choose a couple of these measures to focus on, exploring in more detail (you may want to examine values or even try plotting distributions). 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+ 
+Review the [individual case diagnostics flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions).  
+
+The function `influence.measures()` returns an `infl`-type object. To plot this, we need to find a way to extract the actual numbers from it.  
+
+What do you think `names(influence.measures(wb_mdl1))` shows you? How can we use `influence.measures(wb_mdl1)$<insert name here>` to extract the matrix of numbers?  
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Extracting `influence.measures()`
+
+```{r}
+#extract measures
+inf_mes <- influence.measures(wb_mdl1)
+
+#examine top ten rows, and round to 3 decimal places
+round(inf_mes$infmat[1:10,], 3)
+
+```
+
+
+## Examine `DFBETA` values
+
+DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it's included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients.
+
+A commonly used cut-off or threshold to compare $|DFBETA|$ values (absolute values) against is $\frac{2}{\sqrt{n}}$ (see Belsley et al., (1980) p. 28 for more info)^[Belsley, D. A., Kuh, E., & Welsch, R. E. (2005). Regression diagnostics: Identifying influential data and sources of collinearity. John Wiley & Sons. DOI: 10.1002/0471725153]. 
+
+For our model:
+
+$$
+|DFBETA_{cutoff}| \quad = \quad \frac{2}{\sqrt{n}} \quad = \quad  \frac{2}{\sqrt{200}}  = 0.141
+$$
+
+In order to extract these in order to arrange in descending order, we need to save our delete-1 measures of influence as a dataframe (via `as.data.frame()`). Then we can then arrange our DFBETA values in descending order (via `arrange(desc(???))`). To avoid returning 200 rows of output (i.e., the length of the dataframe), we can ask for the first 15 rows via (`head(., 15)`):
+
+```{r}
+#save as a dataframe
+inf_mes1 <- as.data.frame(inf_mes$infmat)
+
+#arrange dfbeta values in descending order using the absolute value, and show first 10 rows
+inf_mes1 %>%
+    arrange(desc(abs(dfb.1_))) %>%
+    head(., 15)
+```
+
+We can see that we have `r sum(abs(inf_mes1$dfb.1_) > (2/sqrt(200)))` $|DFBETA|$ values > $\frac{2}{\sqrt{200}}$, from observations (or rows) 16, 53, 56, 75, 76, 85, 101, 109, 149, 173, and 179 that we may want to examine further:
+
+```{r}
+which(abs(inf_mes1$dfb.1_) > (2/sqrt(200)))
+```
+
+## Plotting COVRATIO statistics
+
+Values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence.  
+
+For our model, this is:
+$$
+1 \pm \frac{3(k+1)}{n} \quad = \quad 1 \pm\frac{3(2+1)}{200} \quad = \quad 1\pm \frac{9}{200} \quad = \quad 1\pm0.045
+$$
+
+The "infmat" bit of an `infl`-type object contains the numbers, as we can see from out output above. To use it with `ggplot()`, we will need to turn it into a dataframe (`as.data.frame()`), or a tibble (`as_tibble()`):   
+
+```{r message=FALSE, warning=FALSE}
+infdata <- inf_mes$infmat %>%
+  as_tibble()
+```
+
+Now we can build our plot. It would be useful to add vertical lines at the values $\quad 1\pm0.045$. To do so, we can use the `geom_vline()` function: 
+
+```{r message=FALSE, warning=FALSE}
+ggplot(data = infdata, aes(x = cov.r)) + 
+  geom_histogram() +
+  geom_vline(aes(xintercept = c(1-0.045), col = "blue")) +
+  geom_vline(aes(xintercept = c(1+0.045), col = "red")) + 
+  theme(legend.position = "none")  #remove legend
+```
+
+It looks like a few observations may be having quite a strong influence on the standard errors here. We can check specifically how many observations are potentially having a having strong influence using the cut off $1\pm0.045$:
+
+```{r}
+table(infdata$cov.r < 1 - 0.045 | infdata$cov.r > 1 + 0.045)
+```
+
+We can identify these 15 observations to investigate further:
+
+```{r}
+which(infdata$cov.r < 1 - 0.045 | infdata$cov.r > 1 + 0.045)
+```
+
+We know that observations (or rows) 16, 25, 50, 58, 62, 72, 73, 78, 79, 109, 127, 151, 159, 165, and 176 have $\text{COVRATIO  }  1\pm0.045$. 
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+What approaches would be appropriate to take given the issues highlighted above with the violations of assumptions and case diagnostic results?
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+There are lots of different options available to us. We may want to consider one of the approaches described in the [next steps: what to do with violations of assumptions / problematic case diagnostic results flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b2_reading.html#model-assumptions). 
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
+
