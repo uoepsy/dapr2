@@ -1,0 +1,1236 @@
+---
+title: "<b> Assumptions & Diagnostics </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(car)
+#library(fGarch)
+library(performance)
+
+theme_set(theme_gray(base_size = 15))
+
+baseColour <- '#BF1932'
+
+salary2 <- read_csv("data/salary2.csv")
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.retina = 1.5, out.width = '90%')
+```
+
+
+# Course Overview
+
+.pull-left[
+
+```{r echo = FALSE, results='asis'}
+block1_name = "Introduction to Linear Models"
+block1_lecs = c("Intro to Linear Regression",
+                "Interpreting Linear Models",
+                "Testing Individual Predictors",
+                "Model Testing & Comparison",
+                "Linear Model Analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical Predictors & Dummy Coding",
+                "	Effects Coding & Coding Specific Contrasts",
+                "Assumptions & Diagnostics",
+                "Bootstrapping",
+                "	Categorical Predictor Analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week=8)
+```
+
+]
+
+.pull-right[
+
+
+```{r echo = FALSE, results='asis'}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regresison Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
+```
+
+
+]
+
+---
+
+
+## Learning Objectives
+
+1. Be able to state the assumptions underlying a linear model
+
+2. Understand how to test linear model assumptions
+
+3. Understand the difference between outliers and influential points
+
+4. Test and assess the effect of influential cases on linear model coefficients and overall model evaluations
+
+
+---
+class: center, middle, inverse
+
+## Part 1: Assumptions of Linear Model
+
+---
+## Linear model assumptions 
++ So far, we have discussed evaluating linear models with respect to:
+	+ Overall model fit ( $F$ -ratio, $R^2$)
+	+ Individual predictors
+
++ However, the linear model is also built on a set of assumptions
+
++ If these assumptions are violated, the conclusions we draw from our model will not be valid
+
++ Thus, before drawing conclusions about our research questions and hypotheses, we also need to assess the extent to which linear model assumptions are met
+
+
+---
+## Assumptions (LINE)
+
++ What are the assumptions of linear models?
+
+	+ **L**inearity
+	+ **I**ndependence of errors
+	+ **N**ormality of errors
+	+ **E**qual variance (Homoscedasticity)
+
+---
+## Visualisations vs tests
++ There exist a variety of ways to assess assumptions, which broadly split into _statistical tests_ and _visualisations_
+
+--
+
++ We will focus on **visualisations**:
+	+ Easier to see the nature and magnitude of the assumption violation
+	+ Visualisations for checking model assumptions easy to produce in R
+
+--
+
++ Statistical tests often suggest assumptions are violated even when problem is small
+  + This has to do with the statistical power of the tests
+  + Harder to diagnose the exact problem from a test than a visualisation
+
+
+---
+## Visualisations made easy
++ For many assumption and diagnostic plots, we will make use of the `plot()` function
+  + If we give `plot()` a linear model object (e.g. `m1` or `m2`), we can automatically generate assumption plots
+
++ We will also make use of some individual functions for specific visualisations
+
++ Alternatively, we can also use `check_model()` from the `performance` package
+  + This provides `ggplot` figures as well as some notes to aid interpretation
+  + Caution that these plots are **not in a format to use directly in reports**
+  + However it is a useful quick way to check models when we are working through stages of an analysis
+
+---
+## **L** - Linearity 
++ **Assumption**: The relationship between each numerical $x$, and $y$ is linear
+  + Assuming a linear relation when the true relation is non-linear can result in under-estimating that relation
+
+--
+
+.pull-left[
+.center[**Linear Relationship**]
+```{r, echo=FALSE, message=FALSE, fig.height=4}
+set.seed(221020)
+df2 <- tibble(
+  y = rnorm(100, 10, 2),
+  x = 5 + .8*y + rnorm(100, 0, .5),
+  x2 = 5 + .6*(y^2.5) + rnorm(100, 0,10)
+)
+
+(linPlot <- df2 %>%
+  ggplot(., aes(x=x, y=y)) +
+  geom_point() +
+  labs(x= "X", y="Y") +
+  theme(axis.text=element_text(size = 12),
+        axis.title=element_text(size = 14, face = 'bold')))
+
+```
+
+]
+
+.pull-right[
+.center[**Nonlinear Relationship**]
+```{r, message=FALSE, echo=FALSE, fig.height=4}
+(nlPlot <- df2 %>%
+  ggplot(., aes(x=x2, y=y)) +
+  geom_point() +
+  labs(x= "X", y="Y") +
+  theme(axis.text=element_text(size = 12),
+        axis.title=element_text(size = 14, face = 'bold')))
+```
+
+]
+
+--
+
++ **Investigated with**:
+
+  1. Scatterplots with loess lines (single variables)
+  2. Component-residual plots (multiple predictors in the model)
+
+
+---
+##  Scatterplots with loess lines 
+
+.pull-left[
++ A *loess line* is a method for helping visualise the shape of relationships
+    
++ Stands for...
+    + **LO**cally
+    + **E**stimated
+    + **S**catterplot
+    + **S**moothing
+    
++ Essentially, produces a line or curve that closely follows the data
+
+]
+
+.pull-right[
+.center[**Linear**]
+```{r, echo = F, fig.height=3}
+linPlot + geom_smooth(method = 'lm', colour = "#0F4C81", se = F) +
+  geom_smooth(colour = baseColour, se = F)
+```
+
+.center[**Nonlinear**]
+```{r, echo = F, fig.height=3}
+nlPlot + geom_smooth(method = 'lm', colour = "#0F4C81", se = F) +
+  geom_smooth(colour = baseColour, se = F)
+```
+
+]
+
+---
+## Visualisation of Loess Lines
+
+.pull-left[
+```{r, eval=F}
+ggplot(df2, aes(x=x, y=y2)) +
+  geom_point() +
+  geom_smooth(method = "lm", #<<
+              se=F, colour = 'blue') +
+  geom_smooth(method = 'loess', #<<
+              se=F, colour = "red") +
+    labs(x='X', y = 'Y')
+```
+]
+
+
+.pull-right[
+```{r, warning=FALSE, echo = F, fig.height = 5}
+nlPlot + geom_smooth(method = 'lm', colour = "#0F4C81", se = F) + 
+  geom_smooth(colour = baseColour, se = F)
+```
+]
+
+---
+## Component-residual plots 
+
++ Component-residual plots are also called partial-residual plots 
+  
++ They allow us to check for linearity between each predictor and outcome, controlling for the other predictors
+
++ Component-residual plots have the predictor values on the X-axis and partial residuals on the Y-axis
+
+--
+
++ *Partial residuals* for each X variable are:
+
+$$\epsilon_i + B_jX_{ij}$$
++ Where :
+  + $\epsilon_i$ is the residual from the linear model including all the predictors
+  
+  + $B_jX_{ij}$ is the partial (linear) relation between $x_j$ and $y$
+
+---
+## `crPlots()` 
+
+```{r, echo = F}
+df3 <- read.csv('https://uoepsy.github.io/data/anx_perf.csv')
+colnames(df3) <- c('x2', 'y')
+set.seed(816)
+df3$x1 <- df3$y+sample(-15:15, nrow(df3), replace = T)*.25
+m1 <- lm(y ~ x1 + x2, data = df3)
+```
+
+.pull-left[
+
++ Component-residual plots can be obtained using the `crPlots()` function from `car` package
+
++ The plots for continuous predictors show a linear (dashed) and loess (solid) line
+
++ The loess line should follow the linear line closely, with deviations suggesting non-linearity
+
+```{r, warning=FALSE, eval = F}
+m1 <- lm(y ~ x1 + x2, data = df3)
+crPlots(m1)
+```
+]
+
+
+.pull-right[
+```{r, warning=FALSE, echo = F, fig.height=6}
+crPlots(m1)
+```
+]
+
+---
+count: false
+
+## `crPlots()` 
+
+.pull-left[
+
++ Component-residual plots can be obtained using the `crPlots()` function from `car` package
+
++ The plots for continuous predictors show a linear (dashed) and loess (solid) line
+
++ The loess line should follow the linear line closely, with deviations suggesting non-linearity
+
+```{r, warning=FALSE, eval = F}
+m1 <- lm(y ~ x1 + x2, data = df3)
+crPlots(m1)
+```
+
+> **Test your understanding:** Do both $x1$ and $x2$ meet the assumption of linearity?
+]
+
+
+.pull-right[
+```{r, warning=FALSE, echo = F, fig.height=6}
+crPlots(m1)
+```
+]
+
+---
+## Dealing with violations of linearity
+
++ Reassess your model
+
+  + Including higher order regression terms can help capture more complex relationships
+  
+  + Quadratic, cubic, or higher degree polynomial terms are better suited to model nonlinear data
+  
+  + More on this in DapR3
+
+---
+##  **I** - Independence of errors 
++ **Assumption**: The errors are not correlated with one another
+
++ Difficult to test unless we know the potential source of correlation between cases
+
+  + When we do, we can use a variant of the linear model to account for this
+  
+  + We will see more of this in year 3
+
++ Essentially, for now, we will evaluate this based on study design
+
+  + If a design is between-person, we will assume the errors to be independent
+  
+---
+## **N** - Normally distributed errors 
++ **Assumption**: The errors ( $\epsilon_i$ ) are normally distributed, with a mean of 0
+
++ **Investigated with**:
+  1. Histograms
+  2. QQ-plots
+
+---
+## Histograms
++ Used to plot the frequency distribution of a variable
+
++ To test the assumption that error is normally distributed, you plot the residuals ( $\epsilon_i$ ):
+
+.pull-left[
+.center[**Seems Normal Enough**]
+```{r, echo = FALSE, fig.height=4}
+m1 <- lm(y~x, df2)
+m2 <- lm(y~x2, df2)
+
+df <- data.frame(m1res=m1$residuals, m2res=m2$residuals)
+
+ggplot(df, aes(m1res)) + geom_histogram(aes(y =..density..), bins=15, fill = baseColour, colour = 'white') +
+  labs(x='Model 1 Residuals', y = '') +
+  scale_x_continuous(limits = c(-2, 2)) +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14, face = 'bold')) +
+  stat_function(fun = dnorm, args = list(mean = mean(df$m1res), sd = sd(df$m1res)))
+
+```
+]
+
+.pull-right[
+.center[**Not So Normal**]
+```{r, echo=FALSE, fig.height=4}
+ggplot(df, aes(m2res)) + geom_histogram(aes(y =..density..), bins=15, fill = baseColour, colour = 'white') +
+  labs(x='Model 2 Residuals', y = ' ') +
+  scale_x_continuous(limits = c(-2, 2)) +
+  theme(axis.text = element_text(size = 12),
+        axis.title = element_text(size = 14, face = 'bold')) +
+  stat_function(fun = dnorm, args = list(mean = mean(df$m2res), sd = sd(df$m2res)))
+```
+]
+
+---
+## Histograms
+
+.pull-left[
+```{r, fig.height=4}
+hist(m1$residuals)
+```
+]
+
+.pull-left[
+```{r, fig.height=4}
+hist(m2$residuals)
+```
+
+]
+
+---
+## Q-Q Plots
+
+.pull-left[
+
++ Quantile-quantile plots compare actual and expected quantiles for the model's residuals
+
++ Plot the standardised residuals from the model against their theoretically expected values
+
++ If residuals are normally distributed, points should fall neatly on the diagonal of the plot
+
++ Non-normally distributed residuals cause deviations of points from the diagonal
+
+  + The specific shape of these deviations are characteristic of the distribution of the residuals
+]
+
+.pull-right[
+```{r, echo = F, fig.height=4.5}
+set.seed(820)
+gaussianDat <- rnorm(1000)
+qqnorm(gaussianDat)
+  qqline(gaussianDat, col = "blue", lwd = 2)
+```
+]
+---
+## Q-Q Plots
+
+.pull-left[
+
+```{r, fig.height=4.5}
+plot(m1, which = 2)
+```
+.center[**Looks alright**]
+]
+
+.pull-right[
+```{r, fig.height=4.5}
+plot(m2, which = 2)
+```
+.center[**Nope.**]
+]
+
+---
+## **Test your Understanding:**
+
+> Do you think any of these suggest a violated assumption?
+
+.pull-left[
+
+```{r, echo=FALSE, fig.height=3.5}
+qqnorm(m1$residuals)
+qqline(m1$residuals, col = "blue", lwd = 2)
+```
+
+
+```{r, echo = F, fig.height=3.5}
+m3 <- lm(y~x2, df3)
+qqnorm(m3$residuals)
+qqline(m3$residuals, col = "blue", lwd = 2)
+```
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, fig.height=3.5}
+set.seed(526)
+bimodal <- c(rnorm(100, -1, .25), rnorm(100, 1, .25))
+
+qqnorm(bimodal)
+qqline(bimodal, col = "blue", lwd = 2)
+```
+
+```{r, echo=F, fig.height=3.5}
+set.seed(113)
+thinTails <- rnorm(100, sd = .7)
+
+qqnorm(thinTails)
+qqline(thinTails, col = "blue", lwd = 2)
+```
+]
+
+---
+## Dealing with non-normality
+
++ Has been suggested that data be transformed, but...
+
+--
+
+> "We find that violations of the normality of residuals assumption are rarely problematic for hypothesis testing and parameter estimation, and we argue that the commonly recommended solutions may bear greater risks than the one to be solved." - Knief & Forstmeier, 2021, [here](https://link.springer.com/article/10.3758/s13428-021-01587-5)
+
++ Unless there is a significant violation, it may be best to report it and carry on with the analysis
+
+---
+##  **E** - Equal variance (Homoscedasticity) 
+
++ **Assumption**: The equal variances assumption is that the variance is constant across values of the predictors $x_1$, ... $x_k$, and across values of the outcome $\hat{y}$
+	+ Heteroscedasticity refers to when this assumption is violated (non-constant variance)
+
+--
+
+.pull-left[
+```{r, echo = F, fig.height=4}
+set.seed(208)
+eDat <- data.frame(y=rnorm(1000))
+eDat <- as.data.frame(eDat[order(eDat$y),])
+colnames(eDat) <- 'y'
+eDat$x1 <- eDat$y+rnorm(1000, 0, 2)
+eDat$x2 <- eDat$y+c(rnorm(200, 0, .25), rnorm(200, 0, 1), rnorm(200, 0, 2), rnorm(400, 0, 4))
+
+ggplot(eDat, aes(x1, y)) + geom_point(alpha = 0.7) +
+  geom_smooth(method = 'lm', colour = baseColour, se=F) + 
+  labs(x='Values', y = 'Residuals') +
+  theme(axis.text = element_blank(), axis.ticks = element_blank(),
+        axis.title = element_text(size = 14, face='bold'))
+```
+]
+
+.pull-right[
+```{r, echo = F, fig.height=4}
+ggplot(eDat, aes(y, x2)) + geom_point(alpha = .7) +
+  geom_smooth(method = 'lm', colour = baseColour, se=F) + 
+  labs(x='Values', y = 'Residuals') +
+  theme(axis.text = element_blank(), axis.ticks = element_blank(),
+        axis.title = element_text(size = 14, face='bold'))
+```
+]
+
+--
+
++ **Investigated by**:
+  + Plotting residual values against the predicted values
+  + Plotting residual values against the predictors
+
+---
+##  Residual-vs-predicted values plot 
+
+.pull-left[
++ In R, we can plot the residuals vs predicted values using `residualPlot()` function in the `car` package.
+
+  + Categorical predictors should show a similar spread of residual values across their levels
+  
+  + The plots for continuous predictors should look like a random array of dots
+  
+	  + The solid line should follow the dashed line closely
+]
+
+.pull-right[
+```{r, echo = F}
+m4 <- lm(y~x1, eDat)
+m5 <- lm(x2~y, eDat)
+residualPlot(m4)
+```
+
+]
+
+---
+## Residual-vs-predicted values plot 
+
+.pull-left[
+```{r}
+residualPlot(m5)
+```
+
+]
+
+.pull-right[
+```{r}
+plot(m5, which = 1)
+```
+]
+
+
+---
+## Dealing with heteroscedasticity
+
+
++ Violations of heteroscedasticity suggest that the model is not equally good at predicting the outcome along the values of the predictor(s) or outcome
+
+  + Additional variables or interaction terms may improve equal variance
+
+--
+
++ If problem is severe, you could use *weighted least squares regression* instead of ordinary least squares
+
+  + Each observation is assigned a weight that determines how much it influences the parameter estimates
+  
+  + Less weight is given to the observations with higher variance in their fitted values
+
+
+---
+
+## Summary of assumptions
+
++ **Linearity**: The relationship between each numerical $x$, and $y$ is linear
+
++ **Independence of errors**: The errors are not correlated with one another
+
++ **Normally distributed errors**: The errors ( $\epsilon_i$ ) are normally distributed around 0
+
++ **Equal variance**: The equal variances assumption is constant across values of the predictors $x_1$, ... $x_k$, and across values of the fitted values $\hat{y}$
+
+
+---
+class: center, middle
+# Questions?
+
+---
+class: center, middle, inverse
+
+
+
+## Part 2: Linear Model Diagnostics
+---
+## Linear model diagnostics
+
++ So far in the course, we have discussed evaluating linear models:
+	+ Evaluating model fit ( $R^2$ and $F$-ratio )
+	+ Evaluating individual predictors
+	+ Evaluating assumptions
+
++ Another important aspect of evaluating linear models pertains to the cases (individuals, or rows in the data)
+	+ Do some individuals have a lot of influence on the results?
+
++ Linear model diagnostics allow us to explore individual cases in the context of a model
+
+
+---
+##  Three important cases to consider
+
++ **Model outliers**
+	
+	+ Cases for which there is a large discrepancy between their predicted value ( $\hat{y_i}$ ) and their observed value ( $y_i$ )
+
+--
+
++ **High leverage cases**
+	
+	+ Cases with an unusual value of the predictor ( $x_i$ )
+
+--
+
++ **High influence cases**
+	
+	+ Cases that are having a large impact on the estimates of the model
+
+---
+## Some data for today
+
+.pull-left[
++ We'll look at data predicting salary from years of service and performance ratings.
+
+$$y_i = \beta_0 + \beta_1 x_{1} + \beta_2 x_{2} + \epsilon_i$$
+
++ $y$ = Salary (unit = thousands of pounds)
+
++ $x_1$ = Years of service
+
++ $x_2$ = Average performance ratings
+
++ We will run all diagnostics on the object `m1`: 
+
+```{r}
+m1 <- lm(salary ~ perf + serv, data = salary2)
+```
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE}
+salary2 %>%
+  slice(1:10) %>%
+  kable(.) %>%
+  kable_styling(full_width = F)
+```
+
+
+]
+
+
+---
+##  Model outliers
+
++ Linear model outliers are cases that have unusual outcome values given their predictor values
+
+	+ They will show a large difference between the predicted ( $\hat{y_i}$ ) and the observed value ( $y_i$ )
+
+> **Test your understanding:** What quantity have we calculated that would summarise this difference?
+
+--
+
++ Outliers will demonstrate large **residuals** ( $\epsilon_i$ )
+
+  + If you got stuck here, look back at the introduction to linear models
+
+---
+##  Why are we interested in linear model outliers?
+
+.pull-left[
++ They can (but do not necessarily) have a strong influence on the model
+
++ It may be informative to follow-up and investigate outliers
+	+ Is it a data entry error?
+	+ Does the case somehow not belong with the rest of the data? (E.g., a male in a sample of females)
+]
+
+.pull-right[
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=6}
+salary2 %>% 
+  ggplot(., aes(x=serv, y=salary)) +
+  geom_point() +
+  geom_smooth(method = "lm", se=F, colour = "#0F4C81") +
+  geom_point(aes(x=4, y=16), col=baseColour, size = 3) +
+  labs(x="Years Service", y="Salary", title = "Possible Model Outlier (red dot)") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'))
+```
+
+]
+
+
+---
+##  How do we determine if a case is an outlier?
+
++ We judge linear model outlying-ness of a case on the basis of the size of its residual
+
++ Unstandardised residuals are:
+
+$$y_i - \hat{y_i}$$
+
++ They are in the same units as the DV
+
++ Fine for comparison across cases within the same linear model
+
++ Difficult to compare across models where the DVs will have different units
+
+---
+##  Standardised residuals
+
++ **Standardised residuals**
+	+ Divide the unstandardised residuals by an estimate of their standard deviation
+	+ This converts the residuals to z-score units
+	+ However, their calculation includes the potential outlier (the standard deviation is bigger than it would be without the outlier)
+
++ **Studentised residuals**
+	+ A version of the standardised residual excluding the specific case from the calculation of the standard deviation
+	+ Values **above +2 or below -2** indicate potential outlyingness (these values are 2 or more standard deviations away from the model's estimate)
+
+---
+##  Identifying studentised residuals > 2 
+
+.pull-left[
+```{r, eval=FALSE}
+salary2 %>%
+  mutate(
+    resid = rstudent(m1) #<<
+  ) %>%
+  dplyr::filter(resid > 2 | resid < -2) #<<
+```
+
++ Steps:
+  + Extract the studentized residuals from our model
+  + Identify those that are more extreme than $\pm 2$
+
+]
+
+--
+
+.pull-right[
+```{r, echo=FALSE}
+salary2 %>%
+  mutate(
+    resid = rstudent(m1) #<<
+  ) %>%
+  dplyr::filter(., resid > 2 | resid < -2) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+---
+##  Leverage 
+
+.pull-left[
++ High leverage cases are those with an unusual predictor value or combination of predictor values
+	
+	+ In simple linear model: an $x$ value far from the $\bar{x}$ 
+
++ **Why are we interested in leverage?** 
+
+  + High leverage cases have potential to influence $\hat \beta_0$ and $\hat \beta_1$ 
+]
+
+.pull-right[
+```{r, echo=FALSE, message=FALSE, fig.height=6}
+salary2 %>% 
+  ggplot(., aes(x=serv, y=salary)) +
+  geom_point() +
+  geom_smooth(method = "lm", se=F, colour = "#0F4C81") +
+  geom_point(aes(x=8, y=100), col=baseColour, size = 3) +
+  labs(x="Years of Service", y="Salary", title = "Possible High Leverage Point (red dot)") +
+  theme(axis.text = element_text(size = 14),
+        axis.title = element_text(size = 16, face = 'bold'))
+  
+
+```
+]
+
+---
+##  Finding a case with high leverage
+
++ **Hat values** ( $h_i$ ) are used to assess leverage in linear model
+
++ For a simple linear model, the hat value for case $i$ for a particular predictor would be:
+
+$$h_i = \frac{1}{n} + \frac{(x_i - \bar{x})^2}{\sum_{i=1}^n(x_i - \bar{x})^2}$$
+
++ Where:
+  + $n$ is the sample size
+  + $(x_i - \bar{x})^2$ is the squared deviation of the predictor value for that case, $x_i$, from the mean $\bar x$
+  + $\sum_i^n(x_i - \bar{x})^2$ is the sum of all these squared deviations, for all cases
+
+
+
+---
+##  Finding a case with high leverage
+
++ The mean of hat values ( $\bar{h}$ ) is then:
+
+$$\bar{h} = (k+1)/n$$
+
+  + $k$ is the number of predictors
+  + $n$ is the sample size
+
++ In simple linear regression $k = 1$ as there is just one predictor, hence $\bar h = (1 + 1) / n = 2 /n$
+
++ As a rough heuristic, values more than $2\bar{h}$ are considered high leverage
+
+---
+##  Hat values in R 
+
+.pull-left[
+```{r, eval=FALSE}
+salary2 %>%
+  mutate(
+    hat = hatvalues(m1) #<<
+  ) %>%
+  dplyr::filter(., hat > 2*((2+1)/100)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+
++ Steps to identify large $h_i$ values:
+  + Extract the $h_i$ from our model.
+  + Identify those outside $2\bar{h}$
+]
+
+--
+
+.pull-right[
+
+```{r, echo=FALSE}
+salary2 %>%
+  mutate(
+    hat = hatvalues(m1) #<<
+  ) %>%
+  dplyr::filter(., hat > 2*((2+1)/100)) %>% #<<
+  kable(.)  %>%
+  kable_styling(., full_width = F)
+```
+
+]
+
+
+---
+class: center, middle
+
+## Questions?
+
+
+---
+##  Influence
+
++ High leverage cases, when they are also linear model outliers, may have high **influence**
+  + Cases with high influence have a strong effect on the coefficients ( $\beta$ )
+  + If we deleted such a case, the linear model coefficients would change
+  + The degree of change is one way to judge the magnitude of influence
+
++ If a handful of influential cases are responsible for the linear model results, the conclusions might not generalise very well
+
++ Multiple ways to consider influence. We will look at:
+  1. Cook's Distance
+  1. Dfbeta
+
+---
+##  Cook's Distance 
+ 
++ **Cook's Distance** of a data point $i$:
+
+
+$$D_i = \frac{(\text{StandardizedResidual}_i)^2}{k+1} \times \frac{h_i}{1-h_i}$$
++ Where
+
+$$\frac{(\text{StandardizedResidual}_i)^2}{k+1} = \text{Outlyingness}$$
++ and
+
+$$\frac{h_i}{1-h_i} = \text{Leverage}$$
+
++ So 
+
+$$D_i = \text{Outlyingness} \times \text{Leverage}$$
+
+
+---
+##  Cook's Distance
+
++ Cook's distance refers to **the average distance the $\hat{y}$ values will move if a given case is removed**
+  + If removing one case changes the predicted values a lot (moves the regression line), then that case is influencing our results
+
+
++ Many different suggestions for cut-offs:
+  + $D_i > 1$ 
+  + $D_i > \frac{4}{n-k-1}$
+  + Or relative to all $D_i$ values in data set
+
+---
+##  Cook's Distance in R
+
+.pull-left[
+```{r}
+salary2 %>%
+  mutate(
+    cook = cooks.distance(m1)) %>% #<<
+  dplyr::filter(., cook > 4/(100-2-1)) %>% #<<
+  arrange(., desc(cook)) %>%
+  kable(.)  %>%   kable_styling(., full_width = F) 
+```
+
+]
+
+.pull-right[
+```{r, fig.height=5}
+plot(m1, which = 4)
+```
+
+]
+
+
+---
+## Influence on coefficients
++ Cook's distance summarises the total influence of an observation
+
++ In the context of a `lm` with 2+ predictors, we may want to look in a little more detail
+
+  + **DFFit**: The difference between the predicted outcome value for an observation with versus without the observation included
+
+  + **DFbeta**: The difference between the value for a coefficient with and without an observation included
+
+  + **DFbetas**: A standardised version of DFbeta
+  + **DFbetas** obtained by dividing **DFbeta** by an estimate of the standard error of the regression coefficient (SE calculated with the observation in question removed)
+
+---
+## In R
+
++ We can extract these measures using the `influence.measures()` function:
+
+```{r}
+dfs_m1 <- influence.measures(m1)
+round(dfs_m1$infmat[1:10,],3)
+```
+
+
+---
+##  Influence on standard errors 
++ Influential cases can impact the $SE$ as well as the estimation of coefficients
+  + This means it impacts our inferences
+
++ Recall, the standard error for a regression slope:
+
+$$SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}$$
+
++ $\sum(x_ij  -\bar{x_j})^2$ is the sum of squared deviations of each $x$ value from the mean of $x$
+
++ This term implies that increasing the variance in $x$ will decrease the standard error of the slope estimate
+
++ High leverage cases (which are far from the mean of $x$ ) can increase $x$ variance
+
+---
+##  COVRATIO 
++ Influence on standard errors can be measured using the **COVRATIO** statistic
+	+ COVRATIO value <1 show that precision is decreased (SE increased)  by a case
+	+ COVRATIO value >1 show that precision is increased (SE decreased) by a case
+
++ Cases can be considered to have a strong influence on the standard errors of $\beta$s if COVRATIOS are:
+  + larger than $1+\frac{3(k +1)}{n}$
+  + or smaller than $1-\frac{3(k +1)}{n}$
+
+---
+##  COVRATIO in R 
+
+.pull-left[
++ COVRATIO values can be extracted using the `covratio()` function:
+
+```{r}
+cr <- covratio(m1)
+cr[1:5]
+```
+]
+
+--
+
+.pull-right[
++ And we can check cases using the cutoffs:
+
+```{r}
+which(cr > (1+(3*(2+1))/100))
+```
+```{r}
+which(cr < (1-(3*(2+1))/100))
+```
+]
+
+
+---
+## Multi-collinearity 
++ This is not an assumption of linear model or a case diagnostic, but it is something we need to consider
+  
++ Multi-collinearity refers to the correlation between predictors
+
++ When there are large correlations between predictors, the standard errors of $\beta$s are increased
+  + If predictors are correlated with each other, we are less certain about the effect of each individual predictor on the outcome
+	+ Therefore, we don't want our predictors to be too correlated
+
+--
+
++ We can assess this using the **Variance Inflation Factor**, which quantifies the extent to which $SE$ is increased by predictor inter-correlations
+
+.pull-left[
++ It can be obtained in R using the `vif()` function:
+```{r}
+vif(m1)
+```
+]
+
+--
+
+.pull-right[
++ Ideally, we want values to be close to 1
+
++ VIFs > 10 indicate a problem, as the SE of $\beta_i$ is more than $\sqrt{10} = 3.16$ times larger than it would be if other predictors were removed from the model
+]
+
+---
+##  What to do about multi-collinearity 
+
++ In practice, multi-collinearity is not often a major problem
+
++ When issues arise, consider:
+	
+	+ Combining highly correlated predictors into a single composite
+		  + E.g. create a sum or average of the two predictors
+	
+	+ Dropping an IV that is obviously statistically and conceptually redundant with another from the model
+
+---
+class: center, middle
+## Questions?
+
+
+---
+##  What should be done when we identify issues?
+
++ Easier to identify unusual cases than it is to decide what to do about them
+
+--
+
++ In general, not a good idea to delete cases automatically for exceeding a threshold
+	+ Especially if they don't show large influence
+
++ Think of linear model diagnostics more as a way of learning about the limitations of the model
+	+ Which cases can't it explain very well?
+	+ Why is that?
+	+ Do results depend quite strongly on certain cases?
+
+--
+
++ When unusual cases arise, try the following:
+  1. Try to identify why a case is unusual
+  2. Run a sensitivity analysis
+
+---
+##  Investigating and dealing with unusual cases
+
++ Is there a data entry error?
+	+ Is the value within the plausible range of values for a variable?
+	+ Can it be corrected? If not, the incorrect value should be deleted
+
++ Are there unusual values as a result of skewness?
+
++ Is the data legitimate but extreme?
+  + Avoid changing or removing legitimate values when possible, because they may reflect natural variance in the population
+  + Before making any changes, check influence values and run a sensitivity analysis
+  + After taking these steps, if a very small proportion of observations are strongly influencing the overall model, consider ways to reduce their influence rather than removing them entirely (e.g. **windsorising**)
+	+ There may be model specification problems (e.g. missing variables, interactions - coming soon)
+
+
+
+???
++ Replacing the extreme value with the next largest value for that variable
++ Avoids missingness/ preserves information
++ Note that deleting or winsorising values can change the model, therefore, different cases might then show up as outlying, high leverage, or influential
++ Iterative approach to removing/winsorising cases is needed
+
+
+---
+## Sensitivity Analyses
+
++ Sensitivity analysis refers to the idea of checking whether you get similar results irrespective of the methodological decisions you make
+
++ Sensitivity analysis can be used to check whether you get the same pattern of results. Do the estimated regression coefficients change substantially:
+	+ With versus without including certain unusual cases?
+	+ With versus without transforming a variable?
+
++ If results are highly similar, you have more confidence that the results aren't very dependent on those decisions
+
++ If they differ a lot, this should be reported as a limitation
+
+
+---
+## Diagnostics Summary
+
++ We have looked at case diagnostics for `lm`
+
++ Outliers can be assessed via studentized residuals
+
++ Leverage can be assessed via hat values
+
++ Influence can be assessed via Cook's distance
+  + As well as dfbeta and COVRATIO
+
++ In short, we do not want a small number of observations having undue influence over our results, so we should always look closely at diagnostics
+
+---
+class: center, middle
+## Questions?
+
+
+
+---
+
+## This week 
+
+.pull-left[
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+]
+
+.pull-right[
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+]
+
