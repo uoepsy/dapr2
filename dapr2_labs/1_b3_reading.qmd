@@ -24,17 +24,19 @@ library(psych)
 library(performance)
 library(car)
 library(emmeans)
+library(interactions)
 
 #data
 handheight <- read_csv('https://uoepsy.github.io/data/handheight.csv')
 recalldata <- read_csv('https://uoepsy.github.io/data/recalldata.csv')
 mwdata  <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
+tips <- read_csv("https://uoepsy.github.io/data/RestaurantTips.csv")
 ```
 
 :::lo
 ### <i class="fa fa-graduation-cap"></i> Flash Card Aims
 
-The purpose of these flashcards is to complement your Semester 1 Weeks 1 - 11,and Semster 2 Weeks 1 - 5 core learning materials i.e., your lecture and lab materials, by offering additional guidance and examples on key concepts/topics. It’s designed to deepen your understanding, clarify complex concepts, and help you make connections between different areas of study. Think of it as an extra resource that supports what you’re learning in the classroom. 
+The purpose of these flashcards is to complement your Semester 1 Weeks 1 - 11,and Semester 2 Weeks 1 - 5 core learning materials i.e., your lecture and lab materials, by offering additional guidance and examples on key concepts/topics. It’s designed to deepen your understanding, clarify complex concepts, and help you make connections between different areas of study. Think of it as an extra resource that supports what you’re learning in the classroom. 
 
 You may want to consider using the below as a supporting document whilst your work through lab exercises, and/or refer to in order to aid revision. 
 
@@ -1124,10 +1126,6 @@ We can use various functions to convert between different types of data, such as
 
 
 
-```{r echo = FALSE}
-tips <- read_csv("https://uoepsy.github.io/data/RestaurantTips.csv")
-```
-
 As a first step, it is a good idea to look at the structure of the dataset you are working with. For the purpose of this example, our dataset is called "tips" (you might recall this from DAPR1):
 
 ```{r}
@@ -1423,11 +1421,24 @@ summary(spec_model2)
 
 `r optbegin("Specifying Interaction Models", olabel=FALSE,toggle=params$TOGGLE)`
 
+Interaction models allow us to model the idea of “the association between $x_1$ and $y$ changes depending on the level of $x_2$” by including a product (multiplication) term between the two predictors.
+
 **Formula:**  
 
 $$
 y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon
 $$
+:::frame
+
+If we fit the interaction `x1:x2`, we almost always want to also fit the separate effects `x1` and `x2`:
+
+:::quote
+"Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
+--- @Ramsey2012
+:::
+
+:::
+
 
 :::blue
 
@@ -1436,7 +1447,7 @@ In **R**:
 
 There are basically two pieces of information that we need to pass to the `lm()` function:
 
-1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV), $x_1$ the first independent variable (IV1), and $x_2$ the second independent variable (IV2).
+1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV), $x_1$ the first independent variable (IV1), and $x_2$ the second independent variable (IV2). We then also need to include the interaction term between $x_1$ and $x_2$.
 
 2. The data: Specify which dataframe (`data = `) contains the variables specified in the formula.
 
@@ -1480,7 +1491,9 @@ This means that we can no longer talk about the "effect of $x_1$ _holding $x_2$ 
 When we fit the model $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon$ using `lm()`:  
 
 - the parameter estimate $\hat \beta_1$ is the _marginal effect_ of $x_1$ on $y$ where $x_2 = 0$  
-- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$  
+- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$ 
+In other words, when we fit a model with an interaction in R, we get out coefficients for both predictors, and for the interaction. The coefficients for each individual predictor reflect the effect on the outcome when the other predictor is zero.
+
 :::
 
 <div style="margin-left: 15px">
@@ -1549,18 +1562,142 @@ lm(y ~ c1 + x1 + x2 + x1:x2)
 
 `r optbegin("Examples & Visualisations", olabel=FALSE,toggle=params$TOGGLE)`
 
+```{r}
+library(palmerpenguins)
+```
+
+For our examples, we are going to use the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218].
+
 ::: {.panel-tabset}
 
 #### Num x Cat
 
-```{r}
+> **Research Question** 
+>
+> Does the association between body mass and flipper length differ between species of penguin?  
 
+
+```{r}
+penguins %>%
+  ggplot(., aes(x = flipper_length_mm, y = body_mass_g, colour = species)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
 ```
 
 
+```{r}
+mdl_nc <- lm(body_mass_g ~ flipper_length_mm * species, data = penguins)
+summary(mdl_nc)
+```
+
+```{r}
+library(interactions)
+plt_mdl_nc <- probe_interaction(model = mdl_nc,
+                                pred = flipper_length_mm,
+                                modx = species,
+                                interval = T,
+                                main.title = "Predicted Body Mass across Flipper Length by Species",
+                                x.label = "Flipper Length (in mm)",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Penguin Species")
+plt_mdl_nc$interactplot
+```
+
 #### Num x Num
 
+> **Research Question** 
+>
+> Does the influence of bill length on body mass vary depending on flipper length?
+
+```{r}
+penguins %>%
+  ggplot(., aes(x = flipper_length_mm, y = body_mass_g, colour = factor(bill_length_mm))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
+```
+
+
+```{r}
+#scatterplot3d(penguins$flipper_length_mm, penguins$body_mass_g, penguins$bill_length_mm, pch = 19, color = "blue", main = "3D Scatterplot")
+```
+
+
+```{r}
+#plot_ly(penguins, x = ~flipper_length_mm, y = ~body_mass_g, z = ~bill_length_mm, type = 'scatter3d', mode = 'markers+lines')
+```
+
+
+```{r}
+mdl_nn <- lm(body_mass_g ~ flipper_length_mm * bill_length_mm, data = penguins)
+summary(mdl_nn)
+```
+
+```{r}
+library(interactions)
+plt_mdl_nn <- probe_interaction(model = mdl_nn,
+                                pred = flipper_length_mm,
+                                modx = bill_length_mm,
+                                cond.int = T,
+                                interval = T,
+                                jnplot = T,
+                                main.title = "Bill Length Moderating the Effect of Flipper Length on Body Mass",
+                                x.label = "Flipper Length (in mm)",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Bill Length (in mm)")
+```
+
+```{r}
+#Interaction Plot
+plt_mdl_nn$interactplot
+```
+
+```{r}
+#Simple Slopes Only
+plt_mdl_nn$simslopes$slopes
+```
+
+```{r}
+#Johnson-Neyman Plot Only
+plt_mdl_nn$simslopes$jnplot
+```
+
+```{r}
+#Both Simple Slopes & Johnson-Neyman Plot
+plt_mdl_nn$simslopes
+```
+
 #### Cat x Cat
+
+> **Research Question** 
+>
+> Do differences in body mass between species differ by sex?
+
+```{r}
+penguins %>%
+  ggplot(., aes(x = species, y = body_mass_g, colour = sex)) +
+  geom_boxplot() +
+  labs(x = "Species", y = "Body Mass (in g)")
+```
+
+```{r}
+mdl_cc <- lm(body_mass_g ~ species * sex, data = penguins)
+summary(mdl_cc)
+```
+
+```{r}
+library(interactions)
+plt_mdl_cc <- cat_plot(model = mdl_cc,
+                                pred = species,
+                                modx = sex,
+                                main.title = "Body Mass across Species and Sex",
+                                x.label = "Species",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Sex")
+plt_mdl_cc
+```
+
 
 :::
 
