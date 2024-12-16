@@ -1,0 +1,870 @@
+---
+title: "Interactions I: Num x Cat"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(patchwork)
+library(kableExtra) 
+library(plotly)
+library(pander)
+set.seed(953)
+```
+
+:::lo
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand the concept of an interaction
+2. Be able to interpret the meaning of a numeric $\times$ categorical interaction
+3. Be able to visualize and probe interactions
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed all labs from Semester 1
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **kableExtra**
+* **psych** 
+* **sjPlot**
+* **patchwork** 
+* **sandwich**
+* **interactions**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv 
+
+:::
+
+# Study Overview {#sec-studyview} 
+
+> **Research Question** 
+>
+> Does the association between wellbeing and the number of social interactions differ between rural and non-rural residents?  
+
+`r optbegin("Wellbeing/Rurality data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Background__
+
+Researchers were specifically interested in how the number of social interactions influenced mental health and wellbeing differently for those living in rural communities compared to those in cities and suburbs. They wanted to assess whether the effect of social interactions on wellbeing _was moderated by_ (depends upon) whether or not a person lived in a rural area.
+
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), was used to measure mental health and well-being. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+  
+__Data Dictionary__
+
+The data in `wellbeing_rural.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and well-being. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) %>% gt::gt()
+```
+  
+  
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing_rural dataset into R, assigning it to an object named `mwdata`
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(kableExtra)
+library(psych)
+library(sjPlot)
+library(patchwork)
+library(sandwich)
+library(interactions)
+
+#Reading in data and storing in object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>  
+
+
+# Exercises 
+
+## Study & Analysis Plan Overview 
+
+`r qbegin(1)`
+
+Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+- Give the reader some background on the context of the study
+- State what type of analysis you will conduct in order to address the research question
+- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variable)
+- Specify your chosen significance ($\alpha$) level
+- State your hypotheses
+
+Much of the information required can be found in the [Study Overview] codebook.  
+
+The [statistical models](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#statistical-models) flashcards may also be useful to refer to. Specifically the [interaction models flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#interaction-models) and [numeric x categorical example flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example) might be of most use.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The `mwdata` dataset contained information on 200 hypothetical participants who lived in Edinburgh & Lothians area. Using a between-subjects design, the researchers collected information on participants' wellbeing (measured via WEMWBS), outdoor time (hours per week), social interactions (number per week), routine (whether or not one was followed), location of residence (City, Suburb, or Rural), average weekly steps (in thousands), and age (in years).
+
+Density plots and histograms will be used to visualise the marginal distributions of wellbeing and social interactions, and the strength of association between the two variables estimated via the correlation coefficient. To understand how these associations differ between rural and non-rural locations, scatterplots will be used. 
+
+To address the research question of whether the association between the number of social interactions and wellbeing differs between rural and non-rural residents, we are going to fit the following interaction model (where not rural will be specified as the reference group for location). 
+
+$$
+\begin{align}
+\text{Wellbeing} ~=~ & \beta_0 + \beta_1 \cdot \text{Social Interactions} + \beta_2 \cdot \text{Location}_\text{Rural} \\
+& + \beta_3 \cdot (\text{Social Interactions} \cdot \text{Location}_\text{Rural}) + \epsilon \\
+\end{align}
+\quad 
+$$
+
+Effects will be considered statistically significant at $\alpha=.05$
+
+Our hypotheses are:
+
+$H_0: \beta_3 = 0$
+
+The association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area. 
+
+$H_1: \beta_3 \neq 0$
+
+The association between wellbeing and social interactions is moderated by whether or not a person lives in a rural area. 
+
+`r solend()`
+
+<br>
+
+`r qbegin(2)`
+
+Check coding of variables (e.g., that categorical variables are coded as factors). 
+
+Note that the "location" variable currently has three levels (Rural/Suburb/City). In order to address the research question, we only want two (Rural/Not Rural) locations - you will need to fix this.
+
+As specified in Q1, we want 'not rural' as the reference group, so make sure to specify this.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+One way to do this would be to use `ifelse()` to define a variable which takes one value ("Rural") if the observation meets from some condition, or another value ("Not Rural") if it does not. 
+
+Type `?ifelse` in the *console* if you want to see the help function. You can use it to add a new variable either inside `mutate()`, or using `data$new_variable_name <- ifelse(test, x, y)` syntax.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Create a new variable for Rural/Not Rural, and then assign as a factor:
+```{r}
+#if location is rural, assign name 'rural'. If another value (i.e., city or suburb) assign name 'not rural'.
+# In other words, if location = rural assign name rural; if location != rural then assign name not rural.
+mwdata <- mwdata %>% 
+  mutate(
+    isRural = ifelse(location == "rural", "rural", "not rural"),
+    isRural = as_factor(isRural)
+  )
+```
+
+Check coding of variables within `mwdata` and ensure `isRural` is a factor with two levels, 'rural' and 'not rural':
+```{r}
+# check structure of dataset (alternatively run is.factor() for specific variable)
+str(mwdata) 
+
+#check that isRural is now a factor
+is.factor(mwdata$isRural) 
+```
+
+```{r}
+#specify 'not rural' as reference group
+mwdata$isRural <- relevel(mwdata$isRural, 'not rural')
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Descriptive Statistics & Visualisations
+
+`r qbegin(3)`
+
+Provide a table of descriptive statistics and visualise your data.
+
+Remember to interpret your findings in the context of the study (i.e., comment on any observed differences among groups). 
+
+In particular:
+
+1. Explore the associations among the variables included in your analysis
+2. Produce a visualisation of the association between weekly number of social interactions and well-being, with separate _facets_ for rural vs non-rural respondents **OR** with _different colours_ for each level of the `isRural` variable.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#data-exploration).
+
+For examples, see flashcards on [descriptives statistics tables - categorical and numeric values examples](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#data-exploration) and [numeric x categorical example - visualise data](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example), paying particular attention to the type of data that you're working with.
+
+More specifically:    
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.  
+  
+2. If you use the `select()` function and get an error along the lines of `Error in select...unused arguments...`, you will need to specify `dplyr::select()` (this just tells `R` which package to use the select function from).  
+  
+3. The `pairs.panels()` function from the **psych** package can plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots, but is only useful for *continuous* variables.    
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Numeric
+We can present our summary statistics for wellbeing and social interactions grouped by location in a well formatted table using `kable()`: 
+
+```{r}
+#| label: tbl-w1-desc
+#| tbl-cap: Wellbeing, Social Interactions, and Location Descriptive Statistics
+mwdata %>%
+    select(isRural, wellbeing, social_int) %>%
+    group_by(isRural) %>%
+    summarise(Wellbeing_M = mean(wellbeing),
+              Wellbeing_SD = sd(wellbeing),
+              SocialInt_M = mean(social_int),
+              SocialInt_SD = sd(social_int)) %>%
+    kable(caption = "Wellbeing, Social Interactions, and Location Descriptive Statistics", align = "c", digits = 2, booktabs = TRUE) %>%
+    kable_styling(full_width = FALSE)
+```
+
+
+::: {.callout-important icon=false collapse=true}
+# A quick non-APA style table - i.e., not for use in reports
+For a quick overview of several summary statistics at once for all columns of our dataframe, but separately for each level of location (i.e.,rural and non-rural), you can use `describeBy()` from the **psych** package:
+
+```{r}
+describeBy(mwdata, mwdata$isRural)
+```
+
+:::
+
+## Visual 
+
+::: {.panel-tabset}
+
+### Wellbeing & Social Interactions
+
+Let's first plot the continuous variables included within our model (note that we could use this for the whole dataset, but we don't want to include irrelevant / non-continuous variables):
+
+```{r}
+mwdata %>% 
+  select(wellbeing, social_int) %>%
+  pairs.panels()
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Wellbeing and social interactions appear to follow unimodal distributions. There was a weak, positive association between wellbeing and social interactions $(r = .24)$. 
+
+::: 
+
+### Wellbeing & Location
+
+Now lets look at wellbeing scores by location:
+
+```{r}
+ggplot(data = mwdata, aes(x = isRural, y = wellbeing)) +
+  geom_boxplot() + 
+  labs(x = "Location", y = "Wellbeing (WEMWBS Scores)")
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Those in rural locations appear to have lower wellbeing scores in comparison to those in non-rural locations.
+
+::: 
+
+### Wellbeing, Social Interactions & Location
+
+Next, lets produce our plots with a facet for rural vs non-rural residents: 
+
+```{r message=FALSE, warning = FALSE}
+ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE) +
+  facet_wrap(~isRural, labeller = "label_both") + 
+  labs(x = "Social Interactions (number per week)", y = "Wellbeing (WEMWBS Scores)")
+```
+
+Or instead of facets, we could use different colors for each location (rural vs non-rural):
+
+```{r message=FALSE, warning = FALSE}
+ggplot(data = mwdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
+  geom_point() + 
+  geom_smooth(method="lm", se=FALSE) +
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural")) + 
+    labs(x = "Social Interactions (number per week)", y = "Wellbeing (WEMWBS Scores)")
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Those in non-rural locations appear to have higher wellbeing scores across almost all levels of social interactions. The slopes appear to be different for each location, where the greatest difference in wellbeing scores by location is most visible the highest number of social interactions. This suggests that there may be an interaction. 
+
+::: 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### How do we know there might be an interaction? 
+
+The lines in the two plots above do not run in *parallel* - this suggested the presence of an interaction. Specifically in our example, the non-parallel lines suggested an interaction effect based on location, as the number of social interactions did not appear to have the same influence on rural and non-rural residents' wellbeing scores. 
+
+However, the only way we can determine whether there is actually an interaction is by including an interaction term in our model, and testing this. 
+
+:::
+
+:::
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Fitting & Interpretation 
+
+`r qbegin(4)`
+
+Fit the specified model, and assign it the name "rural_mod".   
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+We can fit interaction models using the `lm()` function. 
+  
+For an overview, see the [interaction models flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#interaction-models).   
+  
+For an example, review the [interaction models > numeric x categorical example > model building flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#fit model including interaction between social_int and isRural
+rural_mod <- lm(wellbeing ~  social_int * isRural, data = mwdata)
+
+#check model output
+summary(rural_mod)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`  
+
+Look at the parameter estimates from your model, and write a description of what each one corresponds to on the plot shown in @fig-annotate-int (it may help to sketch out the plot yourself and annotate it, and refer to the drop down options below).  
+
+```{r fig-annotate-int, echo=FALSE, message = FALSE, fig.cap="Multiple regression model: Wellbeing ~ Social Interactions * is Rural<br><small>Note that the dashed lines represent predicted values below the minimum observed number of social interactions, to ensure that zero on the x-axis is visible</small>"}
+#| label: fig-annotate-int
+#| fig-cap: "Multiple regression model: Wellbeing ~ Social Interactions * is Rural"
+nd = expand_grid(social_int=0:13,isRural=c("rural","not rural"))
+nd = nd %>% mutate(wellbeing = predict(rural_mod, newdata = .))
+sjPlot::plot_model(rural_mod, type="int")+
+  scale_fill_manual(NULL, values=c(NA,NA))+xlim(0,28)+
+  geom_line(inherit.aes=FALSE,data=nd,aes(x=social_int,col=isRural,y=wellbeing), lty="longdash")+
+  scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1))
+```
+
+`r optbegin("Options for Mapping Parameter Estimates to Plot", olabel=FALSE, toggle=params$TOGGLE)`
+
+Here are some options to choose from:
+
++ The point at which the red line cuts the y-axis (where social_int = 0)
++ The point at which the blue line cuts the y-axis (where social_int = 0)
++ The vertical distance from the red to the blue line _at the y-axis_ (where social_int = 0)
++ The vertical distance from the blue to the red line _at the y-axis_ (where social_int = 0)
++ The vertical distance from the blue to the red line _at the center of the plot_
++ The vertical distance from the red to the blue line _at the center of the plot_
++ The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the red line
++ The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the blue line
++ How the slope of the line changes when you move from the red to the blue line
+
+`r optend()`
+
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Recall that we can obtain our parameter estimates using various functions such as `summary()`,`coef()`, `coefficients()`, etc. 
+
+For an overview of how to interpret coefficients, review the [interaction models > interpreting coefficients flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#interaction-models).  
+  
+For a specific example of coefficient interpretation, review the [interaction models > numeric x categorical example > results interpretation flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Obtain parameter estimates:
+
+```{r}
+coefficients(rural_mod)
+```
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(rural_mod)[1],2)`  
+
++ On plot: The point at which the red line cuts the y-axis.    
++ Interpretation: The intercept, or predicted wellbeing score when the number of social interactions per week was 0, and when location was not rural.  
+    - A non-rural resident who had zero social interactions per week was expected to have a wellbeing score of `r round(coef(rural_mod)[1],2)`.  
+    
+## `social_int`   
+
+$\beta_1$ = `social_int` = `r round(coef(rural_mod)[2],2)`  
+
++ On plot: The slope (vertical increase on the y-axis associated with a 1 unit increase on the x-axis) of the red line.  
++ Interpretation: The simple slope of social interactions (number per week) for location reference group (not rural).   
+    - For someone who lives in a non-rural location, every 1 additional social interaction per week was associated with a `r round(coef(rural_mod)[2],2)` point change in their wellbeing score.
+
+## `isRuralrural`   
+
+$\beta_2$ = `isRuralrural` = `r round(coef(rural_mod)[3],2)`  
+
++ On plot: The vertical distance from the red to the blue line _at the y-axis_ (where social_int = 0).  
++ Interpretation: The simple effect of location (or the difference in wellbeing scores between rural and non rural residents) when number of social interactions was 0.  
+    - For residents who had zero social interactions per week, living in a rural location was associated with wellbeing scores `r round(coef(rural_mod)[3],2)` points higher than living in non-rural locations (note that this difference was not significantly different from zero).  
+
+## `social_int:isRuralrural`   
+
+$\beta_3$ = `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`  
+
++ On plot: How the slope of the line differs when you move from the red to the blue line.    
++ Interpretation: The interaction between social interactions (number per week) and location (rural/not rural). This is the estimated difference in simple slopes of social interactions for rural vs non-rural residents.   
+    - Compared to living in non-rural locations, living in a rural location was associated with a `r round(abs(coef(rural_mod)[4]),2)` lesser increase in wellbeing scores for every every 1 additional social interaction per week.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+
+No participants in our dataset had zero hours of social interactions per week (the lowest was 3), and we're likely not interested in differences between rural and non-rural residents who have never interacted with others.
+
+Mean center the continuous IV(s), and re-run your model with mean centered variable(s).
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+There are a couple of different ways that we can re-centre. See the [data transformations > centering flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#data-transformations) for a recap. Note, it would be best to create a new mean-centered variable to then use within the model in this instance. 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Create mean centered variable for 'social_int', named 'mc_social_int':
+
+```{r}
+mwdata <-
+ mwdata %>%
+  mutate(
+   mc_social_int = social_int - mean(social_int)
+    )
+```
+
+Re-run model with 'mc_social_int':
+
+```{r}
+#fit model including interaction between social_int and isRural
+rural_mod1 <- lm(wellbeing ~  mc_social_int * isRural, data = mwdata)
+
+#check model output
+summary(rural_mod1)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Note any differences between the `summary()` output between the original ("rural_mod") and mean centred ("rural_mod1") models. Pay particular attention to your coefficients and their significance values. How have your coefficients changed? Why do you think these differences have been observed?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+These plots illustrate the difference between the "rural_mod" and "rural_mod1" models. 
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+#| label: fig-mc_difference
+#| fig-cap: "Difference when social interactions is not vs is mean centered.<br><small>Note that the lines without SE intervals on the left plot represent \npredicted values below the minimum observed number of social \ninteractions, to ensure that zero on the x-axis is visible</small>"
+nd = expand_grid(social_int=-1:13,isRural=c("rural","not rural"))
+nd = nd %>% mutate(wellbeing = predict(rural_mod, newdata = .))
+
+p1 <- ggplot(data = mwdata, aes(x = social_int, y = wellbeing, colour = isRural)) +
+    geom_point() +
+    geom_smooth(method="lm", se=TRUE) +
+    geom_smooth(method="lm", se=FALSE, fullrange=TRUE) +
+    geom_point(aes(x=0, y=30.9986), colour="#F8766D", size = 7) +
+    geom_point(aes(x=0, y=32.3852), colour="#00BFC4", size = 7) +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) +
+    scale_fill_manual(NULL, values=c(NA,NA))+xlim(-5,30)+
+    geom_line(inherit.aes=FALSE,data=nd,aes(x=social_int,col=isRural,y=wellbeing), lty="solid", lwd=1) + 
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) +
+    labs(x = "Social Interactions \n(n per week)", y = "Wellbeing (WEMWBS Scores)", caption = "") +
+    theme(plot.caption = element_text(size = 8, hjust = 0, face = "italic"), legend.position="none") +
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural"))
+
+p2 <- ggplot(data = mwdata, aes(x = mc_social_int, y = wellbeing, colour = isRural)) +
+    geom_point() +
+    geom_smooth(method="lm", se=TRUE) +
+    geom_smooth(method="lm", se=FALSE, fullrange=TRUE) +
+    geom_point(aes(x=0, y=38.8263), colour="#F8766D", size = 7) +
+    geom_point(aes(x=0, y=34), colour="#00BFC4", size = 7) +
+    geom_vline(xintercept = 0, colour="black", linetype = "longdash", size = 0.5) +
+    scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 1)) +
+    labs(x = "Mean Centred Social \nInteractions (n per week)", y = "Wellbeing (WEMWBS Scores)") +
+    scale_colour_discrete(
+    name ="Location",
+    labels=c("Not Rural", "Rural"))+
+    guides(fill="none")
+
+
+(p1 | p2) + plot_layout(guides = "collect")
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+By comparing the `summary()` outputs, you should see that the coefficients for `(Intercept)` and `isRuralrural` differed between the two models, whilst the coefficients for `social_int` and `mc_social_int` were the same, as were the interaction estimates `social_int:isRuralrural`.
+
+::: {.callout-important icon=false collapse=true}
+
+## Compare Model Estimates
+
+Original Model - `rural_mod`:
+
+```
+Call:
+lm(formula = wellbeing ~ social_int * isRural, data = mwdata)
+
+Coefficients:
+                        Estimate Std. Error t value Pr(>|t|)    
+(Intercept)              30.9986     1.4284  21.702  < 2e-16 ***
+social_int                0.6488     0.1160   5.593 7.42e-08 ***
+isRuralrural              1.3866     2.0510   0.676  0.49981    
+social_int:isRuralrural  -0.5176     0.1615  -3.206  0.00157 ** 
+```
+Model with mean centered social interactions - `rural_mod1`:
+
+```
+Call:
+lm(formula = wellbeing ~ mc_social_int * isRural, data = mwdata)
+
+Coefficients:
+                           Estimate Std. Error t value Pr(>|t|)    
+(Intercept)                 38.8263     0.4581  84.754  < 2e-16 ***
+mc_social_int                0.6488     0.1160   5.593 7.42e-08 ***
+isRuralrural                -4.8581     0.6478  -7.500 2.17e-12 ***
+mc_social_int:isRuralrural  -0.5176     0.1615  -3.206  0.00157 ** 
+```
+:::
+
+Recall that when there is an interaction A$\times$B, the coefficients A and B are no longer *main effects*. Instead, they are *conditional effects* upon the other being zero. 
+
+If we have the interaction `y ~ x1 + x2 + x1:x2` (where  $y$ = wellbeing; $x_1$ = social interactions; and $x_2$ = whether or not the respondent lives in a rural location.), then:   
+
++ In our "rural_mod", the coefficient for `x2` represents the the association between $y$ and $x_2$ for someone with a score of 0 on $x_1$  
++ In our "rural_mod1", where `x1` is mean centered, this will now make the coefficient for `x2` represent the the association between $y$ and $x_2$ for someone at the average of $x_1$ (i.e., in our current example, 12.06)  
+
+Whilst the difference in rural vs non-rural may not have been significantly different when the number of weekly social interactions is zero, there did appear to be a significant difference at the average number of social interactions (as you can see from the plot below - note that this is the same plot as in the hint). Note that we can see that the model doesn’t change, it is just extracting different information (the distance to move from the blue dot to the red dot is different):
+
+```{r echo = FALSE, message=FALSE, warning=FALSE}
+#| label: fig-mc_difference-2
+#| fig-cap: "Difference when social interactions is not vs is mean centered" 
+(p1 | p2) + plot_layout(guides = "collect")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Visualise Interaction Model
+
+`r qbegin(8)`
+
+Using the `probe_interaction()` function from the **interactions** package, visualise the interaction effects from your model.
+
+Try to summarise the interaction effects in a short and concise sentence. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an overview and example, review the [interaction models > numeric x categorical example > model visualisation flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r warning=FALSE, message=FALSE}
+plt_rural_mod <- probe_interaction(model = rural_mod1, 
+                  pred = mc_social_int, 
+                  modx = isRural, 
+                  interval = T,
+                  main.title = "Predicted Wellbeing Scores across \n Social Interactions by Location",
+                  x.label = "Number of Social Interactions per Week (Mean Centred)",
+                  y.label = "Wellbeing (WEMWBS Scores)",
+                  legend.main = "Location")
+```
+
+Let's look at our plot:
+
+```{r}
+#| label: fig-int
+#| fig-cap: "Predicted Wellbeing Scores across Social Interactions by Location"
+plt_rural_mod$interactplot
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+This suggested that for individuals living in rural locations, wellbeing scores increased at a slower rate across the number of weekly social interactions in comparison to those in rural locations. In other words, for each additional social interaction per week, wellbeing scores of those living in non-rural locations increased at a greater rate than those in rural. 
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Writing Up & Presenting Results
+
+`r qbegin(9)`
+
+Provide key model results in a formatted table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#tables).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#| label: tbl-rural-mc-modresults
+#| tbl-cap: Regression Table for Wellbeing Model
+#create table for results
+tab_model(rural_mod1,
+          dv.labels = "Wellbeing (WEMWBS Scores)",
+          pred.labels = c("mc_social_int" = "Social Interactions (number per week; mean centred)",
+                          "isRuralrural" = "Location - Rural",
+                          "mc_social_int:isRuralrural" = "Social Interactions (number per week; mean centred) * Location - Rural"),
+          title = "Regression Table for Wellbeing Model")
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+Interpret your results in the context of the research question and report your model in full.
+
+Make reference to the interaction plot and regression table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an example of coefficient interpretation, review the [interaction models > numeric x categorical example > results interpretation flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b3_reading.html#numeric-x-categorical-example). 
+
+:::
+
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Full regression results including 95% Confidence Intervals are shown in @tbl-rural-mc-modresults. The $F$-test for model utility was significant $(F(3,196) = 27.49, p < .001)$, and the model explained approximately 28.54% of the variability in wellbeing (WEMWBS Scores).
+
+There was a significant conditional association between wellbeing (WEMWBS Scores) and the number of weekly social interactions $(\beta = 0.65,~ SE = 0.12,~ t(196) = 5.59,~ p < .001)$, which suggested that for those living in non-rural locations, wellbeing scores increased by 0.65 for every additional social interaction per week. A significant conditional association was also evident between wellbeing and location $(\beta = -4.86,~ SE = 0.65,~ t(196) = -7.50,~ p < .001)$, which suggested that for those who have the average number of social interactions per week $(M = 12.06)$, wellbeing scores were 4.86 points lower for those in rural areas in comparison to those in non-rural.
+
+The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), and this was significant $(\beta = -0.52,~ SE = 0.16,~ t(196) = -3.21, ~p = .002)$. The expected increase in wellbeing (WEMWBS Scores) for every additional social interaction per week was 0.52 points less for those living in rural locations in comparison to those in non-rural. This interaction is visually presented in @fig-int. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+
+:::
+
+`r solend()`
+
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
