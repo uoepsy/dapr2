@@ -170,7 +170,7 @@ library(tidyverse)
 library(kableExtra)
 
 # using the pre-loaded iris dataset
-# grouping by Species
+# grouping by Species. NOTE: we can group by 2 variables - we would just separate by a comma within group_by( , )
 # taking the mean and standard deviation of sepal length via the summarize function
 # returning a table of sepal length grouped by species with a caption, where numbers are rounded to 2 dp
 # asking for a table that is not the full width of the window display
@@ -1421,22 +1421,20 @@ summary(spec_model2)
 
 `r optbegin("Specifying Interaction Models", olabel=FALSE,toggle=params$TOGGLE)`
 
-Interaction models allow us to model the idea of “the association between $x_1$ and $y$ changes depending on the level of $x_2$” by including a product (multiplication) term between the two predictors.
+Interaction models allow us to model the idea of “the association between $x_1$ and $y$ differs depending on the level of $x_2$” by including a product (multiplication) term between the two predictors.
 
 **Formula:**  
 
 $$
 y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon
 $$
-:::frame
+
 
 If we fit the interaction `x1:x2`, we almost always want to also fit the separate effects `x1` and `x2`:
 
 :::quote
 "Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
 --- @Ramsey2012
-:::
-
 :::
 
 
@@ -1560,22 +1558,44 @@ lm(y ~ c1 + x1 + x2 + x1:x2)
 
 <br> 
 
-`r optbegin("Examples & Visualisations", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Example Data", olabel=FALSE,toggle=params$TOGGLE)`
 
-```{r}
+```{r echo = FALSE}
 library(palmerpenguins)
 ```
 
-For our examples, we are going to use the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218].
+For the examples in this section , we are going to use the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218]. We can have a concise overview of the dataset using `str()` (to see the structure) and `head()` (and to view the first 6 rows):
 
 ::: {.panel-tabset}
 
-#### Num x Cat
+#### `str()`
+
+```{r}
+str(penguins)
+```
+
+#### `head()`
+
+```{r}
+head(penguins)
+```
+
+:::
+
+Each of the three examples has a different research question, but the same process is followed.
+
+`r optend()`
+
+
+### Numeric x Categorical Example
 
 > **Research Question** 
 >
 > Does the association between body mass and flipper length differ between species of penguin?  
 
+`r optbegin("Visualise Data", olabel=FALSE,toggle=params$TOGGLE)` 
+
+Since we have a continuous DV, one continuous IV and one categorical (with 3 levels) IV, one of the most appropriate visualisations would be a scatterplot where we have a separate line of best fit mapped for each level of species:
 
 ```{r}
 penguins %>%
@@ -1585,109 +1605,474 @@ penguins %>%
   labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
 ```
 
+Alternatively, we could create the same above scatterplot, and then divide into different facets by species:
+
+```{r, warning=FALSE}
+penguins %>%
+  ggplot(., aes(x = flipper_length_mm, y = body_mass_g, colour = species)) +
+  geom_point() +
+  facet_wrap(~species) + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
+```
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Specification", olabel=FALSE,toggle=params$TOGGLE)`
+
+Before we specify our model, we must select (and provide justification for this choice) the reference group(s) for our categorical variable(s). In this specific example, there is no natural reference category, nor one that maps to our RQ, so we will go with `R`'s default coding and have Adelie as our reference group for species. 
+$$
+\begin{align}
+\text{Body Mass} ~=~ & \beta_0 + \beta_1 \cdot \text{Flipper Length} + \beta_2 \cdot \text{Species}_\text{Chinstrap} + \beta_3 \cdot \text{Species}_\text{Gentoo} \\
+& + \beta_4 \cdot (\text{Flipper Length} \cdot \text{Species}_\text{Chinstrap}) \\
+& + \beta_5 \cdot (\text{Flipper Length} \cdot \text{Species}_\text{Gentoo}) + \epsilon \\
+\end{align}
+\quad 
+$$
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Building", olabel=FALSE,toggle=params$TOGGLE)` 
+
+No penguins in our dataset had a flipper length of zero mm. We might want to mean centre this predictor variable so that we can consider the difference in body mass between penguin species with average flipper lengths. Before we build our model, we should mean centre this IV:
 
 ```{r}
-mdl_nc <- lm(body_mass_g ~ flipper_length_mm * species, data = penguins)
+penguins <- penguins %>%
+    mutate(
+   mc_flipper_length_mm = scale(flipper_length_mm, scale = FALSE)
+   )
+```
+
+Recall that the default in `R` is to apply dummy coding, and thus `R` computes the dummy variables for us! Since we are using the default reference group, we can simply run our model (with our newly created mean centered flipper length variable): 
+ 
+```{r}
+mdl_nc <- lm(body_mass_g ~ mc_flipper_length_mm * species, data = penguins)
+```
+
+Each row in the `summary()` output of the model will correspond to one of the estimated $\beta$’s in the equation above.  
+
+```{r}
 summary(mdl_nc)
 ```
 
+
+`r optend()`
+
+<br>
+
+`r optbegin("Results Interpretation", olabel=FALSE,toggle=params$TOGGLE)` 
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_nc)[1],2)`  
+
++ The intercept, or predicted body mass when flipper length was average and species was Adelie.  
+    - An Adelie penguin with an average flipper length was expected to have a body mass of $`r round(coef(mdl_nc)[1],2)`g$.  
+    
+## `mc_flipper_length_mm`   
+
+$\beta_1$ = `mc_flipper_length_mm` = `r round(coef(mdl_nc)[2],2)`  
+
++ The simple slope of flipper length (in mm) for species reference group (Adelie).   
+    - For an Adelie penguin, every 1 additional mm in flipper length was associated with a significant $`r round(coef(mdl_nc)[2],2)`g$ increase in their body mass $(p < .001)$.
+    
+## `speciesChinstrap`   
+
+$\beta_2$ = `speciesChinstrap` = `r round(coef(mdl_nc)[3],2)`  
+
++ The simple effect of species (or the difference in body mass between Adelie and Chinstrap penguins) when flipper length was average.
+    - A Chinstrap penguin with an average flipper length had a body mass $151.42g$ lighter than an Adelie penguin with the same flipper length. Note that this difference was not statistically different from zero $(p = .062)$.
+
+## `speciesGentoo`   
+
+$\beta_3$ = `speciesGentoo` = `r round(coef(mdl_nc)[4],2)`  
+
++ The simple effect of species (or the difference in body mass between Adelie and Gentoo penguins) when flipper length was average. 
+    - A Gentoo penguin with an average flipper length had a body mass $`r round(coef(mdl_nc)[4],2)`g$ heavier than an Adelie penguin with the same flipper length. Note that this difference was not statistically different from zero $(p = .242)$.  
+
+## `mc_flipper_length_mm:speciesChinstrap`   
+
+$\beta_4$ = `mc_flipper_length_mm:speciesChinstrap` = `r round(coef(mdl_nc)[5],2)`  
+
++  The interaction between flipper length (in mm; mean centered) and species (levels: Adelie/Chinstrap). This is the estimated difference in simple slopes of flipper length for Adelie vs. Chinstrap penguins.  
+    - In comparison to Adelie penguins, for a Chinstrap penguin every 1 additional mm in flipper length was associated with a $`r round(coef(mdl_nc)[5],2)`g$ point greater change in their body mass. Note that this adjustment was not statistically different from zero $(p = .825)$.  
+
+## `mc_flipper_length_mm:speciesGentoo`   
+
+$\beta_5$ = `mc_flipper_length_mm:speciesGentoo` = `r round(coef(mdl_nc)[6],2)`  
+
++  The interaction between flipper length (in mm; mean centered) and species (levels: Adelie/Gentoo). This is the estimated difference in simple slopes of flipper length for Adelie vs. Gentoo penguins.  
+    - In comparison to Adelie penguins, for a Gentoo penguin every 1 additional mm in flipper length was associated with a $`r round(coef(mdl_nc)[6],2)`g$ greater increase in their body mass. Note that this adjustment was statistically significant $(p = .002)$.  
+
+:::
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Visualisation", olabel=FALSE,toggle=params$TOGGLE)` 
+
+We can do this using the `probe_interaction()` function from the **interactions** package.  
+
+In terms of of specification, it might be useful to look up the helper function (i.e., `?probe_interaction`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The continuous predictor variable that will appear on the x-axis  
+- `modx = `: The categorical moderator variable  
+- `interval = `: If we say `TRUE`, then confidence/prediction intervals will be plotted around the line   
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
 ```{r}
 library(interactions)
+
 plt_mdl_nc <- probe_interaction(model = mdl_nc,
-                                pred = flipper_length_mm,
+                                pred = mc_flipper_length_mm,
                                 modx = species,
                                 interval = T,
                                 main.title = "Predicted Body Mass across Flipper Length by Species",
-                                x.label = "Flipper Length (in mm)",
+                                x.label = "Flipper Length (in mm; Mean Centered)",
                                 y.label = "Body Mass (in g)",
                                 legend.main = "Penguin Species")
 plt_mdl_nc$interactplot
 ```
 
-#### Num x Num
+`r optend()`
+
+<br> 
+
+### Numeric x Numeric Example
 
 > **Research Question** 
 >
 > Does the influence of bill length on body mass vary depending on flipper length?
 
+`r optbegin("Visualise Data", olabel=FALSE,toggle=params$TOGGLE)` 
+
+Using `pairs.panels()` is likely the most useful way to visualise the associations among numeric variables. It returns a scatterplot of matrices (SPLOM) returning you (1) the marginal distribution of each variable via a histogram, (2) the correlation between variables, and (3) bivariate scatterplots. 
+
 ```{r}
 penguins %>%
-  ggplot(., aes(x = flipper_length_mm, y = body_mass_g, colour = factor(bill_length_mm))) +
-  geom_point() +
-  geom_smooth(method = "lm", se = FALSE) + 
-  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
+    select(body_mass_g, flipper_length_mm, bill_length_mm) %>%
+    pairs.panels()
 ```
 
+If you *really* wanted to, you could create a 3D plot showing the associations among all three variables at once. We wouldn't really recommend doing this - they can be very difficult to interpret correctly, and given their interactive nature, definitely NOT something that you'd want to include in a stats report. But, for demonstration purposes only, we could create one using the **plotly** package:
 
 ```{r}
-#scatterplot3d(penguins$flipper_length_mm, penguins$body_mass_g, penguins$bill_length_mm, pch = 19, color = "blue", main = "3D Scatterplot")
+library(plotly)
+plot_ly(penguins, x = ~flipper_length_mm, y = ~body_mass_g, z = ~bill_length_mm, type = 'scatter3d', mode = 'markers+lines')
 ```
 
+`r optend()`
+
+<br>
+
+`r optbegin("Model Specification", olabel=FALSE,toggle=params$TOGGLE)` 
+
+$$
+\begin{align}
+\text{Body Mass} ~=~ & \beta_0 + \beta_1 \cdot \text{Flipper Length} + \beta_2 \cdot \text{Bill Length} \\  
+& + \beta_3 \cdot (\text{Flipper Length} \cdot \text{Bill Length}) + \epsilon
+\end{align}
+$$ 
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Building", olabel=FALSE,toggle=params$TOGGLE)` 
+
+No penguins in our dataset had zero mm flipper or bill lengths. We might want to mean centre both of these predictor variables so that we can consider the difference in body mass between penguins with average flipper lengths and average bill lengths. Before we build our model, we should mean centre our two IVs:
 
 ```{r}
-#plot_ly(penguins, x = ~flipper_length_mm, y = ~body_mass_g, z = ~bill_length_mm, type = 'scatter3d', mode = 'markers+lines')
+penguins <- penguins %>%
+    mutate(
+   mc_flipper_length_mm = scale(flipper_length_mm, scale = FALSE),
+   mc_bill_length_mm = scale(bill_length_mm, scale = FALSE)
+   )
 ```
 
+We can then specify our model using these two mean centred IVs: 
 
 ```{r}
-mdl_nn <- lm(body_mass_g ~ flipper_length_mm * bill_length_mm, data = penguins)
+mdl_nn <- lm(body_mass_g ~ mc_flipper_length_mm * mc_bill_length_mm, data = penguins)
 summary(mdl_nn)
 ```
 
+`r optend()`
+
+<br>
+
+`r optbegin("Results Interpretation", olabel=FALSE,toggle=params$TOGGLE)` 
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_nn)[1],2)`  
+
++ The intercept, or predicted body mass of penguins for average flipper and bill length.  
+    - A penguin with average flipper and bill length was expected to have a body mass of $`r round(coef(mdl_nn)[1],2)`g$.  
+    
+## `mc_flipper_length_mm`   
+
+$\beta_1$ = `mc_flipper_length_mm` = `r round(coef(mdl_nn)[2],2)`  
+
++ The simple slope of flipper length (in mm) when bill length was average.     
+    - For a penguin with an average bill length, every 1mm increase in flipper length was associated with a significant $(p < .001)$ increase of $`r round(coef(mdl_nn)[2],2)`g$ in their body mass.
+    
+## `mc_bill_length_mm`   
+
+$\beta_2$ = `mc_bill_length_mm` = `r round(coef(mdl_nn)[3],2)`  
+
++ The simple slope of bill length (in mm) when flipper length was average.     
+    - For a penguin with an average flipper length, every 1mm increase in bill length was associated with a significant $(p < .05)$ increase in their body mass by $`r round(coef(mdl_nn)[3],2)`g$. 
+
+## `mc_flipper_length_mm:mc_bill_length_mm`   
+
+$\beta_3$ = `mc_flipper_length_mm:mc_bill_length_mm` = `r round(coef(mdl_nn)[4],2)`  
+
++ The interaction between flipper and bill length on body mass - the change in the slope of flipper length as a function of bill length.    
+    - For every 1mm increase in bill length, when flipper length increased by 1mm, the slope with body mass was adjusted by 1.20 $(\beta = `r round(coef(mdl_nn)[4],2)`,~p < .001)$. 
+    
+    
+:::
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+
+We can do this using the `probe_interaction()` function from the **interactions** package.  
+
+In terms of of specification, it might be useful to look up the helper function (i.e., `?probe_interaction`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The continuous predictor variable that will appear on the x-axis  
+- `modx = `: The continuous moderator variable  
+- `interval = `: If we say `TRUE`, then confidence/prediction intervals will be plotted around the line   
+- `jnplot = `: Since we are looking at a numeric x numeric interaction, we want to specify that this is `TRUE`
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
 ```{r}
 library(interactions)
+
 plt_mdl_nn <- probe_interaction(model = mdl_nn,
-                                pred = flipper_length_mm,
-                                modx = bill_length_mm,
+                                pred = mc_flipper_length_mm,
+                                modx = mc_bill_length_mm,
                                 cond.int = T,
                                 interval = T,
                                 jnplot = T,
                                 main.title = "Bill Length Moderating the Effect of Flipper Length on Body Mass",
-                                x.label = "Flipper Length (in mm)",
+                                x.label = "Flipper Length (in mm; Mean Centered)",
                                 y.label = "Body Mass (in g)",
-                                legend.main = "Bill Length (in mm)")
+                                legend.main = "Bill Length (in mm; Mean Centered)")
 ```
 
+From the above, we can choose to extract different information/visualisations of simple slopes (this will likely be dependent upon the question(s) you are trying to answer) - the interaction plot, simple slopes analysis only, johnson-neyman plot only, or both simple slopes and johnson-neyman plot: 
+
+::: {.panel-tabset}
+
+# Interaction Plot
+
+The default simple slopes analysis selects $z$-values for us at which to test the slope. The defaults are: the mean of $Z$, and $+1~SD$ and $-1~SD$ from the mean:
+
 ```{r}
-#Interaction Plot
 plt_mdl_nn$interactplot
 ```
 
+# Simple Slopes Only
+
+Here we can look a the significance of each slope:
+
 ```{r}
-#Simple Slopes Only
 plt_mdl_nn$simslopes$slopes
 ```
 
+# Johnson-Neyman Plot Only
+
+The Johnson-Neyman plot allows us to visualise the regions of significance - i.e., it identifies the range of the moderator variable $(Z)$ where the effect of the independent variable $(X)$ on the dependent variable $(Y)$ is statistically significant (e.g., $p < .05$). Outwith these regions, the effect of the independent variable is not significant.
+
+Pointers to help with interpretation of the plot:
+
++ x-axis = Values of moderator variable $(Z)$  
++ y-axis = The conditional effect (slope) of the independent variable $(X)$ on the dependent variable $(Y)$  
++ Bold black line (range of observed data) = The actual range of the moderator variable $(Z)$ values within the dataset. This helps with interpretation of results, and more importantly, avoid extrapolation - i.e., should help to ensure that the interpretations of the plot are data-driven and based on the actually observed data  
++ Zero line = The horizontal line at $y = 0$ indicates the point where the effect of the IV $(X)$ on the DV $(Y)$ is neither positive or negative  
++ Shaded areas = Regions where the effect is significant (e.g., *outside* the bounds of 95% confidence intervals that include zero) are highlighted in blue. Regions where the effect is non-significant (e.g., crosses the zero line, *inside* the bounds of the 95% confidence intervals that include zero) are highlighted in red  
+
 ```{r}
-#Johnson-Neyman Plot Only
 plt_mdl_nn$simslopes$jnplot
 ```
 
+# Both Simple Slopes & Johnson-Neyman Plot
+
+When we return both the simple slopes analysis and Johnson-Neyman plot, we can see that some text is also provided to aid our interpretation of the plot:
+
 ```{r}
-#Both Simple Slopes & Johnson-Neyman Plot
 plt_mdl_nn$simslopes
 ```
 
-#### Cat x Cat
+In our example, we could say:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+The association between body mass (in g) and flipper length (in mm; mean centered) was significant when bill length (in mm; mean centered) was more than 83.07mm below the mean or greater than -23.71mm above the mean.
+
+:::
+
+:::
+
+`r optend()`
+
+
+### Categorical x Categorical Example
 
 > **Research Question** 
 >
 > Do differences in body mass between species differ by sex?
 
+`r optbegin("Visualise Data", olabel=FALSE,toggle=params$TOGGLE)` 
+
+Since we have a continuous DV, and we have two categorical IVs, one of the most appropriate visualisations would be a boxplot:
+
 ```{r}
 penguins %>%
-  ggplot(., aes(x = species, y = body_mass_g, colour = sex)) +
-  geom_boxplot() +
+    drop_na() %>% #we need this here as we have some missing data for this particular example!
+    ggplot(., aes(x = species, y = body_mass_g, fill = sex)) +
+    geom_boxplot() +
   labs(x = "Species", y = "Body Mass (in g)")
 ```
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Specification", olabel=FALSE,toggle=params$TOGGLE)` 
+
+Before we specify our model, we must select (and provide justification for this choice) the reference group(s) for our categorical variable(s). In this specific example, there is no natural reference category, nor one that maps to our RQ, so we will go with `R`'s default coding and have Adelie as our reference group for species, and female for sex.
+
+$$
+\begin{aligned}
+\text{Body Mass} &= \beta_0 + \beta_1 \cdot \text{Species}_\text{Chinstrap} + \beta_2 \text{Species}_\text{Gentoo} + \beta_3 \cdot \text{Sex}_\text{Male}  \\
+      &+ \beta_4 \cdot (\text{Species}_\text{Chinstrap} \cdot \text{Sex}_\text{Male}) + \beta_5 \cdot (\text{Species}_\text{Gentoo} \cdot \text{Sex}_\text{Male}) + \epsilon
+\end{aligned}
+$$
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Building", olabel=FALSE,toggle=params$TOGGLE)` 
+
+Recall that the default in `R` is to apply dummy coding, and thus `R` computes the dummy variables for us! Since we are using the default reference group, we can simply run our model.   
+  
+Each row in the `summary()` output of the model will correspond to one of the estimated $\beta$’s in the equation above.  
 
 ```{r}
 mdl_cc <- lm(body_mass_g ~ species * sex, data = penguins)
 summary(mdl_cc)
 ```
 
+
+`r optend()`
+
+<br>
+
+`r optbegin("Results Interpretation", olabel=FALSE,toggle=params$TOGGLE)` 
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_cc)[1],2)`  
+
++ The intercept, or predicted body mass of a female Adelie (i.e., when both predictor variables are at their reference levels).  
+    - A female Adelie penguin was expected to have a body mass of $`r round(coef(mdl_cc)[1],2)`g$.  
+    
+## `speciesChinstrap`   
+
+$\beta_1$ = `speciesChinstrap` = `r round(coef(mdl_cc)[2],2)`  
+
++ The difference in body mass between female Adelie and Chinstrap penguins.  
+    - In comparison to female Adelie penguins, Chinstrap penguins of the same sex were significantly $(p < .05)$ heavier by $`r round(coef(mdl_cc)[2],2)`g$.
+
+## `speciesGentoo`   
+
+$\beta_2$ = `speciesGentoo` = `r round(coef(mdl_cc)[3],2)`  
+
++ The difference in body mass between female Adelie and Gentoo penguins.  
+    - In comparison to female Adelie penguins, Gentoo penguins of the same sex were significantly $(p < .001)$ heavier by $`r round(coef(mdl_cc)[3],2)`g$.
+
+## `sexmale`   
+
+$\beta_3$ = `sexmale` = `r round(coef(mdl_cc)[4],2)`  
+
++ The difference in body mass between female and male Adelie penguins.  
+    - In comparison to female Adelie penguins, male Adelie penguins were significantly heavier by $`r round(coef(mdl_cc)[4],2)`g$  $(p < .001)$.
+
+## `speciesChinstrap:sexmale`  
+
+$\beta_4$ = `speciesChinstrap:sexmale` = `r round(coef(mdl_cc)[5],2)`  
+
++ The difference in body mass for Adelie and Chinstrap penguins between females and males differed by $`r round(coef(mdl_cc)[5],2)`g$. 
+    - The difference in body mass between female and male penguins was $262.89g$ less for Chinstrap penguins in comparison to Adele penguins. This difference was statistically significant $p < .05$. 
+    - The difference in body mass between female and male penguins was significantly less for the Chinstrap species in comparison to Adelie (where there was an additional $262.89g$ lesser difference between the two sexes).  
+    
+    
+## `speciesGentoo:sexmale`  
+    
+$\beta_5$ = `speciesGentoo:sexmale` = `r round(coef(mdl_cc)[6],2)`  
+
++ The difference in body mass for Adelie and Gentoo penguins between females and males differed by $`r round(coef(mdl_cc)[6],2)`g$. 
+    - The difference in body mass between female and male penguins was $130.45g$ more for Gentoo penguins in comparison to Adele penguins. This difference was not statistically significant $p = .089$.   
+    - The difference in body mass between female and male penguins was more for the Gentoo species in comparison to Adelie (where there was an additional $130.45g$ greater difference between the two sexes), though this difference was not statistically significant.  
+    
+:::
+
+
+`r optend()`
+
+<br>
+
+`r optbegin("Model Visualisation", olabel=FALSE,toggle=params$TOGGLE)`
+
+We can do this using the `cat_plot()` function from the **interactions** package.
+
+In terms of of specification, it might be useful to look up the helper function  (i.e., `?cat_plot`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The categorical predictor variable that will appear on the x-axis  
+- `modx = `: The categorical moderator variable  
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
 ```{r}
 library(interactions)
+
 plt_mdl_cc <- cat_plot(model = mdl_cc,
                                 pred = species,
                                 modx = sex,
@@ -1698,14 +2083,11 @@ plt_mdl_cc <- cat_plot(model = mdl_cc,
 plt_mdl_cc
 ```
 
-
-:::
-
 `r optend()`
 
 <br> 
 
-`r optbegin("Interactions & Coding Constraints", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Coding Constraints", olabel=FALSE,toggle=params$TOGGLE)`
 
 ```{r}
 #| include: false
@@ -1916,6 +2298,79 @@ modplot+
 
 `r optend()`
 
+<br> 
+
+`r optbegin("Simple Effects", olabel=FALSE,toggle=params$TOGGLE)`
+
+Simple effects involve examining the effect of one independent variable at a specific level of a second independent variable. This can allow us to better understand the nature of the interaction as we can examine group differences within one level of one of the independent variables. 
+
+Going back to our penguins example, we could ask:
+
++ Is there an effect of sex for chinstrap penguins? Or in other words, is there a difference in body mass between male and female chinstrap penguins?
+
+To test simple effects, we can use the **emmeans** package. 
+
+:::blue
+
+In **R**
+
+```{r}
+#load the emmeans package
+library(emmeans)
+
+#obtain estimates of simple comparisons of cell means
+mdl_cc_emm <- emmeans(mdl_cc, ~species*sex)
+
+#return cell means
+mdl_cc_emm
+
+#specify that we want to compare sex for each species
+mdl_cc_simple <- pairs(mdl_cc_emm, simple = "sex")
+
+#return comparison 
+mdl_cc_simple
+
+```
+
+:::
+
+
+We can also visualise the interaction using `emmip()`. Here we need to specify the model object, what we want on the x- and y-axis, and whether we want 95% CIs to be displayed.
+
+:::blue
+
+In **R**
+
+```{r}
+#| label: fig-penguin-simp
+#| fig-cap: "Predicted Penguin Weight by Species and Sex"
+
+
+## first argument is the model object we need to use to visualise the slopes
+## species is on the x axis
+## separate lines for each level of sex
+## return 95% CIs is set to true (default is false)
+
+emmip(mdl_cc, sex ~ species,
+      CIs = TRUE,
+      ylab = "Predicted Weight (g)",
+      xlab = "Species")
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+A simple effects analysis examined the whether there was a difference in body mass between make and female chinstrap penguins. Males $(M = 3939~g)$ were estimated to be heaver than females $(M = 3527~g)$ with an estimated difference of $412~g$, and this difference was statistically significant $p < .001$. This difference is visually presented in  @fig-penguin-simp. 
+
+:::
+
+`r optend()`
+
+<br> 
+
 
 ## General
 
@@ -2103,7 +2558,7 @@ There are some rules that we need to follow when using manual contrasts:
 
 <br> 
 
-`r optbegin("In R", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("In R - Additive Model", olabel=FALSE,toggle=params$TOGGLE)`
 
 After specifying our hypotheses, to test our contrasts, we can use the **emmeans** package and follow the below structure:
 
@@ -2120,11 +2575,14 @@ After completing these steps, the last task would be to interpret the results of
 
 <br> 
 
-`r optbegin("Example", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Example - Additive Model", olabel=FALSE,toggle=params$TOGGLE)`
 
-Let's apply this to an example. Suppose we wanted to address the following question:
+Suppose we wanted to address the following question:
 
-- Does the sepal length of an iris grown in Western states (i.e., iris setosa) differ from the sepal length of an Iris grown in Eastern states (i.e., iris versicolor and virginica).  
+> **Research Question** 
+>
+> Does the sepal length of an iris grown in Western states (i.e., iris setosa) differ from the sepal length of an Iris grown in Eastern states (i.e., iris versicolor and virginica)?
+
 
 We could specify our hypothesis as:
 
@@ -2149,35 +2607,228 @@ And then conduct our manual contrast analysis:
 ```{r}
 # Step 1: Fit and run the model 
 spec_model <- lm(Sepal.Length ~ Species, data = iris)
+```
 
+```{r}
 # Step 2: Use`emmeans()`& `plot()`
 seplength_mean <- emmeans(spec_model, ~ Species)
 seplength_mean 
 
 plot(seplength_mean)
+```
 
+```{r}
 # Step 3: Check levels order via `levels()`
 levels(iris$Species)
+```
 
+```{r}
 # Step 4: Define contrast & weights - want to compare Iris setosa to iris versicolor and iris virginica
 seplength_comp <- list("Western State Iris - Eastern State Iris" = c(-1, 1/2, 1/2))
+```
 
+```{r}
 # Step 5: run contrast analysis
 seplength_comp_test <- contrast(seplength_mean, method = seplength_comp)
 seplength_comp_test
+```
 
+```{r}
 # Step 6: confidence intervals
 confint(seplength_comp_test)
+```
+
+```{r}
+# Bonus Step: Run inferential test and return CIs in one command
+summary(seplength_comp_test, infer = TRUE)
+```
+
+And write up our findings in the context of the hypothesis / research question:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+We performed a test against $H_0: \mu_1 - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that iris sepal length was significantly different between Western and Eastern states in the US $(t(147) = 14.09, p < .001, \text{two-sided})$, and this difference was estimated to be 1.26cm. We are 95\% confident that an Iris grown in an Eastern state, on average, would be between 1.08cm and 1.43cm longer than those grown in a Western state $(CI_{95}[1.08, 1.43])$.
+
+:::
+
+`r optend()`
+
+<br>
+ 
+`r optbegin("In R - Interaction Model", olabel=FALSE,toggle=params$TOGGLE)`
+
+After specifying our hypotheses, to test our contrasts, we can use the **emmeans** package and follow the below structure:
+
++ **Step 1**: Fit and run the model using `lm()`
++ **Step 2**: Specify the coefficients to be used in the contrast analysis and present in a table
++ **Step 3**: Use the `emmeans()` function to obtain the estimated means of each group. You can visualise these by using `plot()` on the obtained  estimated means of the groups
++ **Step 4**: Define the contrast by specifying the weights following the rules outlined above (as well as paying attention to the ordering of the groups as specified in the output of Step 3)
++ **Step 5**: Test the pre-specified group contrast(s) via `contrast()` 
++ **Step 6**: Obtain confidence intervals via `confint()`
+
+After completing these steps, the last task would be to interpret the results of the contrast analysis in the context of the hypothesis. 
+
+`r optend()`
+
+<br>
+
+`r optbegin("Example - Interaction Model", olabel=FALSE,toggle=params$TOGGLE)`
+
+Suppose we wanted to address the following question:
+
+> **Research Question** 
+>
+> Does the difference in body mass between male and female penguins differ between those residing exclusively on the Antarctic Continent (i.e., Adelie) and those living in both Antarctica and the sub-Antarctic islands (i.e., Gentoo and Chinstrap)?  
+
+We could specify our hypothesis as:
+
+$$
+\begin{aligned}
+    H_0 &: \mu_\text{(Male, Antarctic Continent)} - \mu_\text{(Female, Antarctic Continent)} = \\
+    &\mu_\text{(Male, Northern Antarctica | sub-Antarctic islands)} - \mu_\text{(Female, Northern Antarctica | sub-Antarctic islands)} 
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+    H_1 &: \mu_\text{(Male, Antarctic Continent)} - \mu_\text{(Female, Antarctic Continent)} \neq \\
+    &\mu_\text{(Male, Northern Antarctica | sub-Antarctic islands)}) - (\mu_\text{(Female, Northern Antarctica | sub-Antarctic islands)})
+\end{aligned}
+$$
+
+Or equivalently as:
+
+$$
+\begin{aligned}
+H_0 &: \mu_\text{(Male, Adelie)} - \mu_\text{(Female, Adelie)} = \\
+   & \frac{1}{2} (\mu_\text{(Male, Gentoo)} + \mu_\text{(Male, Chinstrap)}) - \frac{1}{2}(\mu_\text{(Female, Gentoo)} + \mu_\text{(Female, Chinstrap)}) \\
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+H_1 &: \mu_\text{(Male, Adelie)} - \mu_\text{(Female, Adelie)} \neq \\
+    &\frac{1}{2} (\mu_\text{(Male, Gentoo)} + \mu_\text{(Male, Chinstrap)}) - \frac{1}{2}(\mu_\text{(Female, Gentoo)} + \mu_\text{(Female, Chinstrap)}) \\
+\end{aligned}
+$$
+
+
+And then conduct our manual contrast analysis:
+
+```{r}
+# Step 1: Fit and run the model 
+mdl_cc <- lm(body_mass_g ~ species * sex, data = penguins)
+```
+
+```{r}
+# Step 2: Specify the coefficients to be used in the contrast analysis, and present in a formatted table
+
+#TWO EQUALLY VALID WAYS TO DO THIS - SELECT ONLY ONE:
+#Option 1:
+species_coef  <- c('Adelie' = -1, 'chinstrap' = 0.5, 'Gentoo' = 0.5)
+sex_coef  <- c('male' = -1, 'female' = 1)
+contr_coef <- outer(species_coef, sex_coef)
+contr_coef
+
+#Option 2:
+species_coef  <- c('Adelie' = -1, 'chinstrap' = 0.5, 'Gentoo' = 0.5)
+sex_coef  <- c('male' = -1, 'female' = 1)
+contr_coef_2 <- species_coef %o% sex_coef
+contr_coef_2
+
+#Convert into a well-formatted table:
+contr_coef %>% 
+    kable(., caption = "Penguin Contrast Weights") %>%
+    kable_styling(full_width = FALSE) 
+```
+
+```{r}
+# Step 3: Use`emmeans()`& `plot()`
+species_sex_mean <- emmeans(mdl_cc, ~ species*sex)
+species_sex_mean
+
+plot(species_sex_mean)
+```
+
+```{r}
+# Step 4/5: Define contrast & weights, and give a name to this contrast 
+species_sex_comp <- contrast(species_sex_mean,
+                             method = list('Penguin Hyp' = c(-1, 0.5, 0.5, 1, -0.5, -0.5))
+                     )
+```
+
+```{r}
+# Step 6: examine output and return inferential stats - CIs, t-ratio, p-value
+
+#OPTION 1:
+#examine output
+species_sex_comp
+#obtain confidence intervals
+confint(species_sex_comp)
+
+#OPTION 2:
+summary(species_sex_comp, infer = TRUE)
 ```
 
 
 And write up our findings in the context of the hypothesis / research question:
 
-We performed a test against $H_0: \mu_1 - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that iris sepal length was significantly different between Western and Eastern states in the US $(t(147) = 14.09, p < .001, \text{two-sided})$, and this difference was estimated to be 1.26cm. We are 95\% confident that an Iris grown in an Eastern state, on average, would be between 1.08cm and 1.43cm longer than those grown in a Western state $(CI_{95}[1.08, 1.43])$.
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+At the 5\% significance level, there was no evidence that the difference in body weight between male and female penguins differed by where the species was based geographically $(t(327) = 0.95, p = .342, \text{two-sided})$.
+
+:::
 
 `r optend()`
 
 ## Multiple Comparisons
+
+`r optbegin("Pairwise Comparisons", olabel=FALSE,toggle=params$TOGGLE)`
+
+We can use pairwise comparisons when we want to compare *all* levels of an independent variable with *all* the levels of the other. In other words, we can compare all *pairwise* means between groups to determine whether there is a statistical difference between each pair of groups compared. 
+
+For example, let's say that you had 2 categorical variables - `Day` (5 levels: Mon, Tue, Wed, Thurs, and Fri) and `Time` (3 levels: Morning, Afternoon, and Evening) where your outcome variable was `productivity` level (scored on a scale 0-50). If we were to conduct all possible pairwise comparisons, this would lead to the following pairs of groups being compared on productivity:
+
++ Mon - Morning  
++ Mon - Afternoon   
++ Mon - Evening  
++ Tue - Morning  
++ Tue - Afternoon   
++ Tue - Evening  
++ Wed - Morning  
++ Wed - Afternoon   
++ Wed - Evening  
++ Thurs - Morning  
++ Thurs - Afternoon   
++ Thurs - Evening  
++ Fri - Morning  
++ Fri - Afternoon   
++ Fri - Evening  
+
+:::blue
+
+In **R**
+
+```{r, eval =FALSE}
+#run comparisons
+pair_comp <- pairs(<INSERT OBJECT NAME>)
+
+#examine output
+pair_comp
+
+#plot comparisons
+plot(pair_comp)
+```
+
+:::
+
+`r optend()`
+
+<br>
 
 `r optbegin("Why does the Number of Tests Matter?", olabel=FALSE,toggle=params$TOGGLE)` 
 
@@ -2237,11 +2888,69 @@ To make this more confusing, many of the tests in a family are not **independent
 - It should be used if you have not planned contrasts in advance.
 - For testing pairs of treatment means it is too conservative (you should use Bonferroni or Šídák).
 
+**Others**  
+  
+- In the wider literature, Holm's step-down and Hochberg's step-up mentioned. Do feel free to read about these in your spare time - there are lots of resources online.  
+
 :::blue
 
 In **R**
 
-You can easily change which correction you are using via the `adjust = ` argument.
+You can easily change which correction you are using via the `adjust = ` argument. For example, using our categorical x categorical interaction model (`mdl_cc`) using the penguins dataset: 
+
+::: {.panel-tabset}
+
+### Bonferroni
+
+```{r}
+bonf_pair_comp <- pairs(mdl_cc_emm, adjust = "bonferroni")
+
+bonf_pair_comp
+
+plot(bonf_pair_comp)
+```
+
+### Šídák
+
+```{r}
+sidak_pair_comp <- pairs(mdl_cc_emm, adjust = "sidak")
+
+sidak_pair_comp
+
+plot(sidak_pair_comp)
+```
+
+### Tukey
+
+```{r}
+tukey_pair_comp <- pairs(mdl_cc_emm, adjust = "tukey")
+
+tukey_pair_comp
+
+plot(tukey_pair_comp)
+```
+
+### Scheffe
+
+```{r}
+scheffe_pair_comp <- pairs(mdl_cc_emm, adjust = "scheffe")
+
+scheffe_pair_comp
+
+plot(scheffe_pair_comp)
+```
+
+### No Adjustment
+
+```{r}
+none_pair_comp <- pairs(mdl_cc_emm, adjust = "none")
+
+none_pair_comp
+
+plot(none_pair_comp)
+```
+
+::: 
 
 :::
 
@@ -2967,13 +3676,10 @@ You are looking for the pink line to follow a linear trend line (i.e., follow th
 
 :::
 
-:::frame
 
-[**Important to Note for Interaction Models**]{style="color:red;"}
+[**Important to Note for Interaction Models**]{style="color:darkred;"}
 
 ***When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot.
-
-:::
 
 `r optend()`
 
@@ -3181,6 +3887,9 @@ $$
 VIF_j = \frac{1}{1-R_j^2} \\
 $$
 
+[**Important to Note for Interaction Models**]{style="color:darkred;"}
+
+Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables will help to reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself).
 
 :::frame
 
@@ -3196,16 +3905,13 @@ In **R**
   
 The `vif()` function from the **car** package will provide VIF values for each predictor in your model. 
 
-:::
-
-:::frame
-
-[**Important to Note for Interaction Models**]{style="color:red;"}
-
-Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables will help to reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself).
+```{r, eval=FALSE}
+vif(INSERT_MODEL_NAME)
+```
 
 
 :::
+
 
 `r optend()`
 
