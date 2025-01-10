@@ -1,0 +1,924 @@
+---
+title: "<b>Interactions 1 </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(sjPlot)
+library(patchwork)
+library(kableExtra)
+
+salary <- read_csv("data/salary_lec.csv", col_types = c("ddd"))
+salary_swap_depts <- read_csv("data/salary_lec_swap_depts.csv", col_types = c("ddd"))
+```
+
+# Course Overview
+
+.pull-left[
+
+<!---
+I've just copied the output of the Sem 1 table here and removed the bolding on the last week, so things look consistent with the trailing opacity produced by the course_table.R script otherwise.
+-->
+
+
+<table style="border: 1px solid black;>
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Introduction to Linear Models</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Intro to Linear Regression</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Interpreting Linear Models</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Testing Individual Predictors</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Model Testing & Comparison</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Linear Model Analysis</td></tr>
+
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Analysing Experimental Studies</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictors & Dummy Coding</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        	Effects Coding & Coding Specific Contrasts</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Assumptions & Diagnostics</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Bootstrapping</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictor Analysis</td></tr>
+</table>
+
+
+
+]
+
+.pull-right[
+
+
+```{r echo = FALSE, results='asis'}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regresison Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=1)
+```
+
+
+]
+
+
+---
+
+
+
+# Week's Learning Objectives
+
+1. Understand the concept of an interaction
+
+2. Interpret interactions between a continuous and a binary variable
+
+3. Understand the principle and calculation of simple slopes
+
+4. Understand the impact of centering on estimates of interaction coefficients
+
+5. Fit a linear model with an interaction
+
+
+---
+#  Lecture notation
+
++ For the next two lectures, we will work with the following equation and notation:
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ $y$ is a continuous outcome
+
++ $x$ will always be the continuous predictor
+
++ $z$ will be either a continuous or a binary predictor
+	+ Dependent on the type of interaction we are discussing
+
++ $xz$ is their product or interaction predictor
+
+---
+#  General definition
+
++ When the effects of one predictor on the outcome differ across levels of another predictor
+
++ Interactions are symmetrical
+  + We can talk about interaction of X with Z, or Z with X
+  + The coefficient for the interaction expresses the degree to which the effect of X on Y is dependent on Z, or the degree to which the effect of Z on Y is dependent on X
+  + The wording of our interpretation depends on our research question
+
+---
+#  General definition
+
++ Categorical $\times$ continuous interaction:
+
+  + The slope of the regression line between a continuous predictor and the outcome is different across levels of a categorical predictor
+
+--
+
++ Continuous $\times$ continuous interaction:
+
+	+ The slope of the regression line between a continuous predictor and the outcome changes as the values of a second continuous predictor change
+	+ Sometimes referred to as moderation
+
+--
+
++ Categorical $\times$ categorical interaction:
+
+	+ There is a difference in the differences between groups across levels of a second factor
+	+ We will discuss this in the context of linear models for experimental designs
+
+
+---
+#  Interpretation: Categorical $\times$ Continuous
+
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ Where $z$ is a binary predictor:
+
+  + $\beta_0$ = Value of $y$ when $x$ and $z$ are 0 (expected $y$ value for the reference group of $z$, when the numerical variable $x$ is 0)
+
+  + $\beta_1$ = Effect of $x$ (slope) when $z$ = 0 (reference group)
+
+  + $\beta_2$ = Difference in intercepts between $z$ = 0 and $z$ = 1, when $x$ = 0.
+
+  + $\beta_3$ = Difference in slopes across levels of $z$
+
+
+---
+#  Example: Categorical $\times$ Continuous
+
+.pull-left[
++ Suppose I am conducting a study on how years of service within an organisation predicts salary in two different departments: Accounts and Store managers
+
++ y = salary (in thousands of pounds)
+
++ x = years of service
+
++ z = department (0=Store managers, 1=Accounts)
+]
+
+.pull-right[
+
+```{r}
+salary %>%
+  slice(1:10)
+```
+
+]
+
+---
+#  Visualise the data
+
+.pull-left[
+
+```{r eval=FALSE}
+  ggplot(salary, aes(x=service, y=salary)) +
+  geom_point() +
+  xlim(0,8) +
+  labs(x = "Years of Service",
+       y = "Salary (Thousands)")
+```
+
+
+]
+
+.pull-right[
+
+```{r echo=FALSE, fig.height=5}
+  ggplot(salary, aes(x = service, y = salary)) +
+  geom_point() +
+  xlim(0,8) +
+  labs(x = "Years of Service",
+       y = "Salary (Thousands)")
+```
+
+]
+
+
+
+---
+#  Visualise the data
+
+.pull-left[
+
+```{r eval=FALSE, message=FALSE, warning=FALSE}
+  ggplot(salary, aes(x = service, y = salary,
+                colour = factor(dept))) +
+  geom_point() +
+  xlim(0,8) +
+  labs(x = "Years of Service",
+       y = "Salary (Thousands)") +
+  scale_colour_discrete(
+    name ="Department",
+    breaks=c("1", "0"),
+    labels=c("Accounts", "Store Manager"))
+```
+
+
+]
+
+.pull-right[
+
+```{r echo=FALSE, fig.height = 5}
+salary %>%
+  ggplot(., aes(x = service, y = salary,
+                colour = factor(dept))) +
+  geom_point() +
+  xlim(0,8) +
+  labs(x = "Years of Service",
+       y = "Salary (Thousands)") +
+  scale_colour_discrete(
+    name = "Department",
+    breaks = c("1", "0"),
+    labels = c("Accounts", "Store Manager"))
+```
+
+]
+
+
+---
+# Example: Full model results
+
+```{r, eval=FALSE}
+int <- lm(salary ~ service + dept + service*dept, data = salary)
+summary(int)
+```
+
+---
+# Example: Full model results
+
+```{r, echo=FALSE}
+int <- lm(salary ~ service + dept + service*dept, data = salary)
+summary(int)
+```
+
+---
+#  Example: Categorical $\times$ Continuous
+
++ **Intercept** ( $\beta_0$ ):
+
+	+ Predicted salary for a store manager (`dept`=0) with 0 years of service is 16.90
+	+ Remember the units: this corresponds to £16,900
+
+--
+
++ **Service** ( $\beta_1$ ):
+
+	+ For each additional year of service for a store manager (`dept` = 0), salary increases by 2.73.
+	+ £2,730
+
+--
+
++ **Dept** ( $\beta_2$ ):
+
+	+ Difference in salary between store managers (`dept` = 0) and accounts (`dept` = 1) with 0 years of service is 4.54 (although note that this difference is not statistically significant)
+	+ £4,540
+
+--
+
++ **Service:dept** ( $\beta_3$ ):
+
+	+ The difference in slope. For each year of service, those in accounts (`dept` = 1) increase by an additional 3.11 compared to store managers (`dept` = 0)
+	+ £3,110
+
+---
+#  Example: Categorical $\times$ Continuous
+
+.pull-left[
++ **Intercept** ( $\beta_0$ ): Predicted salary for a store manager (`dept`=0) with 0 years of service is 16.90
+
++ **Service** ( $\beta_1$ ): For each additional year of service for a store manager (`dept` = 0), salary increases by 2.73
+
++ **Dept** ( $\beta_2$ ): Difference in salary between store managers (`dept` = 0) and accounts (`dept` = 1) with 0 years of service is 4.54
+
++ **Service:dept** ( $\beta_3$ ): The difference in slope. For each year of service, those in accounts (`dept` = 1) increase by an additional 3.11
+
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  labs(x = "Years of Service", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+]
+
+---
+class: center, middle
+# Questions?
+
+---
+# Which group to code as 0?
+
++ Depends on the research question: a control group, "baseline" - a group to compare the other group(s) to
+  
++ Let's compare
+  + Left column: store managers (`dept`=0), accounts (`dept`=1); right column: accounts (`dept`=0), store managers (`dept`=1)
+
+.pull-left[
+```{r, eval=FALSE}
+salary %>% slice(1:10)
+```
+
+```{r, echo=FALSE}
+salary %>% slice(1:10)
+```
+]
+
+.pull-right[
+```{r, eval=FALSE}
+salary_swap_depts %>% slice(1:10)
+```
+
+```{r, echo=FALSE}
+salary_swap_depts %>% slice(1:10)
+```
+]
+
+---
+# The original model
++ Store managers (`dept`=0), accounts (`dept`=1)
+
+
+```{r, eval=FALSE}
+int <- lm(salary ~ service + dept + service*dept, data = salary)
+summary(int)
+```
+
+---
+# Results (original)
+
+```{r, echo=FALSE, height="80%"}
+int <- lm(salary ~ service + dept + service*dept, data = salary)
+summary(int)
+```
+
+---
+# New model
++ Store managers (`dept`=1), accounts (`dept`=0)
+
+```{r, eval=FALSE}
+int_swap <- lm(salary ~ service + dept + service*dept, data = salary_swap_depts)
+summary(int_swap)
+```
+
+---
+# Results (new)
+```{r, echo=FALSE}
+int_swap <- lm(salary ~ service + dept + service*dept, data = salary_swap_depts)
+summary(int_swap)
+```
+
+---
+# What changed?
++ Compare the betas for the original and the new model
+  + What changed?
+  
+  + What did not?
+  
+  + Why?
+  
+---
+#  Plotting interactions
++ Back to the original model: store managers (`dept`=0), accounts (`dept`=1)
+
+.pull-left[
+
++ Simple slopes:
+  + **Regression of the outcome Y on a predictor X at specific values of an interacting variable Z**
+
++ So specifically for our example:
+
+	+ Slopes for salary on years of service at specific values of department
+
+	+ As department is binary, it takes only two values (0 and 1)
+
+	+ So we have two simple slopes, one for store managers and one for accounts
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  labs(x = "Years of Service", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+
+]
+
+
+---
+#  Simple slopes
+
+
+
++ Regression equation:
+
+$$\hat{y} = \beta_0 + \beta_1x + \beta_2z + \beta_3xz$$
+
++ A simple slope is the regression of the outcome Y on a predictor X at a specific value of an interacting variable Z
+
++ When calculating simple slopes, we can re-order the regression equation to match the above definition:
+
+
+$$\hat{y} = (\beta_1 + \beta_3z)x + (\beta_2z + \beta_0)$$
+
+
++ $(\beta_1 + \beta_3z)x$ captures coefficients for the slope
+
++ $(\beta_2z + \beta_0)$ captures coefficients for the intercept
+
+---
+#  Example: Categorical $\times$ Continuous
+
++ So in our example (for `Dept` = 1, Accounts):
+
+$$\hat{y} = (\beta_1 + \beta_3z)x + (\beta_2z + \beta_0)$$
+
+$$\hat{y} = (\beta_1 + \beta_3*1)x + (\beta_2*1 + \beta_0)$$
+
+$$\hat{salary} = (2.73 + (3.11*1))service + ((4.54*1) + 16.90)$$
+
+$$\hat{salary} = (5.84)service + (21.44)$$
+
+---
+#  Example: Categorical $\times$ Continuous
+
++ So in our example (for `Dept` = 0, Store managers):
+
+
+$$\hat{y} = (\beta_1 + \beta_3z)x + (\beta_2z + \beta_0)$$
+
+$$\hat{y} = (\beta_1 + \beta_3*0)x + (\beta_2*0 + \beta_0)$$
+
+$$\hat{salary} = (\beta_1)service + (\beta_0)$$
+
+$$\hat{salary} = (2.73)service + (16.90)$$
+
+---
+#  Example: Categorical $\times$ Continuous
+
+.pull-left[
+
++ Accounts:
+
+$$\hat{salary} = (5.84)service + (21.44)$$
+
++ Store Managers:
+
+$$\hat{salary} = (2.73)service + (16.90)$$
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  labs(x = "Years of Service", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+
+]
+
+
+---
+class: center, middle
+# Questions?
+
+
+---
+#  Marginal effects
+
++ Recall when we have a linear model with multiple predictors, we interpret the $\beta_j$ as the effect "holding all other variables constant"
+
++ Also note, with interactions, the effect of $x$ on $y$ changes dependent on the value of $z$.
+  + More formally, it is that the effect of $x$ is conditional on $z$ and vice versa
+
++ What this means is that we can no longer talk about holding an effect constant
+  + In the presence of an interaction, by definition, this effect changes
+
++ So whereas in a linear model without an interaction $\beta_j$ = main effects, with an interaction we refer to **marginal** or **conditional** main effects
+
+---
+# Practical implication for modelling
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ When we include a higher-order term/interaction in our models ( $\beta_3$ ), it is critical we include the main effects ( $\beta_1$ , $\beta_2$ ).
+  + Without marginal main effects, the single term represents all effects.
+  + Consider dropping $\beta_2$ in our example (difference in the intercept for groups coded 0 and 1)
+  + The slopes would then be fitted to have a common intercept - unreasonably assuming values of Y do not differ between groups of Z when X is 0. The model would not capture the data accurately.
+
++ If there is a known interaction, we should always include it, otherwise our estimates of $\beta_1$ and $\beta_2$ will be inaccurate.
+  + Can also lead to model assumption violations
+
+---
+#  Specifying Interactions in R
+
++ How we specify the interactions in R impacts whether it defaults to including marginal/conditional main effects or not
+
++ For interactions we can use `*` or `:`
+
++ These options all provide identical full model results:
+
+```{r, eval=FALSE}
+lm(salary ~ service + dept +service*dept , data = df )
+
+lm(salary ~ service + dept +service:dept , data = df )
+
+lm(salary ~ service*dept , data = df )
+```
+
++ This does not:
+
+```{r, eval=FALSE}
+lm(salary ~ service:dept , data = df )
+```
+
+
+---
+#  Centring predictors
+
+**Why centre?**
++ More meaningful interpretation
+
+  + Interpretation of models with interactions involves evaluation when other variables = 0.
+
+  + This makes it quite important that 0 is meaningful in some way
+  	+ Note this is simple with categorical variables
+  	+ We code our reference group as 0 in all dummy variables
+
+  + For continuous variables, we need a meaningful 0 point
+
+---
+#  Example of age
++ Suppose I have age as a variable in my study with a range of 30 to 85.
+
++ Age = 0 is not that meaningful
+	+ Essentially means all my parameters are evaluated at point of birth
+
++ So what might be meaningful?
+	+ Average age? (mean-centring)
+	+ A fixed point? (e.g. 66 if studying retirement)
+
+---
+#  Centring predictors
+
+**Why centre?**
++ Meaningful interpretation
+
++ Reduce multi-collinearity
+	+ $x$ and $z$ are by definition correlated with the product term $XZ$
+	+ This produces something call **multi-collinearity**
+	+ We will talk more about this next week
+	+ In short, it something we want to avoid
+
+---
+# Impact of centring
++ Remember that our $\beta$ are marginal effects when the other variables = 0
+
++ When we centre, we move where 0 is
+
++ So this affects our estimates
+
+
++ Let's illustrate by centring our Years of Service variable in different ways
+
+---
+#  Example: Centre on minimum value
+
+.pull-left[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int$coefficients[2], intercept = int$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int$coefficients[2] + int$coefficients[4]), intercept = (int$coefficients[1] + int$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  ylim(0, 80) +
+  labs(x = "Years of Service", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary <- salary %>%
+  mutate(
+    service_min = service - min(service),
+    service_mean = scale(service, scale = F)
+  )
+
+int2 <- lm(salary ~ service_min + dept + service_min*dept, data = salary)
+int3 <- lm(salary ~ service_mean + dept + service_mean*dept, data = salary)
+
+salary %>%
+  ggplot(., aes(x = service_min, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int2$coefficients[2], intercept = int2$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int2$coefficients[2] + int2$coefficients[4]), intercept = (int2$coefficients[1] + int2$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  ylim(0, 80) +
+  labs(x = "Years of Service (compared to shortest-employed employee)", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+
+]
+
+
+---
+#  Example: Centre on minimum value
+
+.pull-left[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+res_int2 <- summary(int2)
+round(res_int2$coefficients,2)
+
+```
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary <- salary %>%
+  mutate(
+    service_min = service - min(service),
+    service_mean = scale(service, scale = F)
+  )
+
+int2 <- lm(salary ~ service_min + dept + service_min*dept, data = salary)
+int3 <- lm(salary ~ service_mean + dept + service_mean*dept, data = salary)
+
+salary %>%
+  ggplot(., aes(x = service_min, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int2$coefficients[2], intercept = int2$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int2$coefficients[2] + int2$coefficients[4]), intercept = (int2$coefficients[1] + int2$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  ylim(0, 80) +
+  labs(x = "Years of Service (compared to shortest-employed employee)", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+]
+
+---
+#  Example: Mean centre
+
+
+.pull-left[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int$coefficients[2], intercept = int$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int$coefficients[2] + int$coefficients[4]), intercept = (int$coefficients[1] + int$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(0,8) +
+  ylim(0, 80) +
+  labs(x = "Years of Service", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+
+```
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service_mean, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int3$coefficients[2], intercept = int3$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int3$coefficients[2] + int3$coefficients[4]), intercept = (int3$coefficients[1] + int3$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(-3,3) +
+  ylim(0, 80) +
+  labs(x = "Years of Service (compared to mean)", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+]
+
+
+---
+#  Example: Mean centre
+
+
+.pull-left[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+res_int3 <- summary(int3)
+round(res_int3$coefficients,2)
+
+```
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+salary %>%
+  ggplot(., aes(x = service_mean, y = salary, colour = factor(dept))) +
+  geom_point() +
+  geom_abline(slope = int3$coefficients[2], intercept = int3$coefficients[1], col = "#F8766D") +
+  geom_abline(slope = (int3$coefficients[2] + int3$coefficients[4]), intercept = (int3$coefficients[1] + int3$coefficients[3]), col = "#00BFC4") +
+  #geom_smooth(method="lm", se=FALSE)+
+  xlim(-3,3) +
+  ylim(0, 80) +
+  labs(x = "Years of Service (compared to mean)", y = "Salary (Thousands)") +
+  scale_colour_discrete(name  ="Department",
+                            breaks=c("1", "0"),
+                            labels=c("Accounts", "Store Manager"))
+```
+]
+
+
+---
+#  Comparing coefficients from the three models
+
+```{r, echo=FALSE}
+int_min <- lm(salary ~ service_min*dept, data = salary)
+int_mean <- lm(salary ~ service_mean*dept, data = salary)
+
+res <- tibble(
+  Coefficient = c("Intercept", "Service", "Department", "Interaction"),
+  Original= c(round(int$coefficients[1],2), round(int$coefficients[2],2), round(int$coefficients[3],2),round(int$coefficients[4],2)),
+  Minimum = c(round(int_min$coefficients[1],2), round(int_min$coefficients[2],2), round(int_min$coefficients[3],2),round(int_min$coefficients[4],2)),
+  Mean = c(round(int_mean$coefficients[1],2), round(int_mean$coefficients[2],2), round(int_mean$coefficients[3],2),round(int_mean$coefficients[4],2))
+)
+
+res %>%
+  kable(.) %>%
+  kable_styling(., full_width = F)
+
+
+```
+
+
+  + What changes?
+  
+  + What does not?
+  
+  + Why?
+
+---
+# Summary 
+
++ Interactions tell us whether an effect of a predictor on an outcome changes dependent on the value of a second predictor
+
++ We have considered categorical $\times$ continuous interactions for now
+  + Different slopes for different groups
+  
++ We considered how the choice of a reference/control group changes the model
+
++ We looked at how to visualise and calculate simple slopes
+
++ Discussed centring data
+
+
+---
+#  Optional Interactions Reading
+
++ Aiken, L. S., & West, S. G. (1991). *Multiple regression: Testing and interpreting interactions* . Newbury Park, CA: Sage .
+
++ McClelland , G. H., & Judd, C. M. (1993). Statistical difficulties of detecting interactions and moderator effects. *Psychological bulletin* , *114* (2), 376 .
+
++ Preacher, K. J. (2015). Advances in mediation analysis: A survey and synthesis of new developments. *Annual Review of Psychology* , *66* , 825-852.
+
+---
+
+## This week 
+
+.pull-left[
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+]
+
+.pull-right[
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+]
+
