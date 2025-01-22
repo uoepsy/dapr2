@@ -1,0 +1,882 @@
+---
+title: "<b> Interactions 3 </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+library(ggmosaic)
+library(kableExtra)
+library(performance)
+library(interactions)
+
+
+set.seed(19981)
+dept <- rbinom(100, 1, 0.4)
+location <- rbinom(100, 1, 0.35)
+serv <- rnorm(100, 0, 1.4)
+serv <- serv+3.5
+dl <- dept*location
+
+omit <- rbinom(100, 1, .3)
+
+b0 = 20
+b1 = 3.1
+b2 = -4.5
+b3 = -4.2
+b4 = -6.5
+b5 = 2
+
+eps <- rnorm(100, 0, 4)
+
+salary <- b0 + (b1*serv) + (b2*dept) + (b3*location) + (b4*dl) + (b5*omit) + eps
+salary <- salary+20
+
+salary3 <- tibble(
+  ID = paste("ID", 101:200, sep=""),
+  salary = salary,
+  department = factor(dept,labels = c("Accounts", "Manager")),
+  location = factor(location, labels = c("Edinburgh", "Dundee")),
+  serv = serv
+)
+
+test <- lm(salary ~ department*location, salary3)
+```
+
+# Course Overview
+
+.pull-left[
+
+<!---
+I've just copied the output of the Sem 1 table here and removed the bolding on the last week, so things look consistent with the trailing opacity produced by the course_table.R script otherwise.
+-->
+
+
+<table style="border: 1px solid black;>
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Introduction to Linear Models</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Intro to Linear Regression</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Interpreting Linear Models</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Testing Individual Predictors</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Model Testing & Comparison</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Linear Model Analysis</td></tr>
+
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Analysing Experimental Studies</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictors & Dummy Coding</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        	Effects Coding & Coding Specific Contrasts</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Assumptions & Diagnostics</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Bootstrapping</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictor Analysis</td></tr>
+</table>
+
+
+
+]
+
+.pull-right[
+
+
+```{r echo = FALSE, results='asis'}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regresison Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=3)
+```
+
+
+]
+
+
+---
+
+
+# Week's Learning Objectives
+
+1. Interpret interactions between two categorical variables (with dummy coding)
+  + Begin with 2x2 (two binary variables)
+  + Move on to look at examples with more levels
+
+2. Visualise and probe interactions
+
+3. Be able to read interaction plots
+
+---
+#  General definition 
+
++ When the effects of one predictor on the outcome differ across levels of another predictor
+
++ Categorical $\times$ categorical interaction:
+	+ There is a difference in the differences between groups across levels of a second factor
+
++ This idea of a difference in differences can be quite tricky to think about
+  + So we will start with some visualisation, and then look at two examples
+
+---
+# Visualising interactions
++ In our class example we have looked at predicting salary from years of service (a continous variable) and department (a categorical variable)
+
++ Suppose our company also had two sites, Edinburgh and Dundee, and we wanted to see if the salaries across departments differed depending on location
+
++ The table below contains hypothetical average salaries in thousands of pounds for each group
+
+```{r,, echo=FALSE}
+eg1 <- matrix(c(50,40,30,20),ncol=2,byrow=TRUE)
+colnames(eg1) <- c("Edinburgh","Dundee")
+rownames(eg1) <- c("Accounts","Manager")
+eg1 <- as.table(eg1)
+kable(eg1)
+```
+
+---
+# Basic plot
+
+.pull-left[
+```{r,, echo=FALSE}
+dat1 <- tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = c("Accounts","Manager","Accounts","Manager"),
+  salary = c(50, 30, 40, 20)
+)
+```
+
+```{r, echo = FALSE}
+kable(eg1)
+```
+
++ Let's look at the plot:
+  + x-axis shows locations
+  + y-axis is our salaries
+  + The colours represent departments
+  
+]
+
+.pull-right[
+
+```{r, echo=FALSE, fig.height=6}
+dat1 %>%
+  ggplot(., aes(x = location, y = salary, group = department, colour = department, shape = department)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,60))
+```
+]
+
+
+---
+# Difference in differences (1)
+
+
+.pull-left[
+
+```{r,, echo=FALSE}
+dat1 <- tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = c("Accounts","Manager","Accounts","Manager"),
+  salary = c(50, 30, 40, 20)
+)
+```
+
+```{r, echo = FALSE}
+kable(eg1)
+```
+
++ In each plot we look at, think about subtracting the average store managers salary (blue triangle) from the average accounts salary (red circle)
+
++ For both Edinburgh and Dundee, this difference is £20,000
+
++ Note, the lines are parallel
+  + When the lines are parallel, there is no interaction
+  + The effect of one variable (department) does not vary along values or levels of the other variable (location)
+
+]
+
+
+.pull-right[
+
+```{r, echo=FALSE, fig.height=6}
+dat1 %>%
+  ggplot(., aes(x = location, y = salary, group = department, colour = department, shape = department)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,60)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=20, yend=40), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=30, yend=50), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 30, label = "20") +
+  annotate("text", x = 2.2 , y = 40, label = "20") +
+  ggtitle("No difference")
+
+```
+
+]
+
+
+---
+# Difference in differences (2)
+
+
+.pull-left[
+
+Let's imagine our group means look like this instead: 
+
+```{r,, echo=FALSE}
+dat2 <- tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = c("Accounts","Manager","Accounts","Manager"),
+  salary = c(50, 40, 40, 20)
+)
+```
+
+```{r, echo = FALSE}
+eg2 <- matrix(c(50,40,40,20),ncol=2,byrow=TRUE)
+colnames(eg2) <- c("Edinburgh", "Dundee")
+rownames(eg2) <- c("Accounts","Manager")
+eg2 <- as.table(eg2)
+kable(eg2)
+```
+
++ This time we can see the difference differs
+  + £20,000 in Dundee
+  + £10,000 in Edinburgh
+  
++ Note the lines are no longer parallel
+  + Suggests interaction
+  + But not crossing (so ordinal interaction)
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE, fig.height=6}
+dat2 %>%
+  ggplot(., aes(x = location, y = salary, group = department, colour = department, shape = department)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,60)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=20, yend=40), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=40, yend=50), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 30, label = "20") +
+  annotate("text", x = 2.2 , y = 45, label = "10") +
+  ggtitle("Difference")
+
+```
+
+]
+
+---
+# Difference in differences (3)
+
+.pull-left[
+
+Now consider the following group means:
+
+```{r,, echo=FALSE}
+dat3 <- tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = c("Accounts","Manager","Accounts","Manager"),
+  salary = c(40, 60, 40, 20)
+)
+```
+
+```{r, echo = FALSE}
+eg3 <- matrix(c(40,60,40,20),ncol=2,byrow=FALSE)
+colnames(eg3) <- c("Edinburgh","Dundee")
+rownames(eg3) <- c("Accounts","Manager")
+eg3 <- as.table(eg3)
+kable(eg3)
+```
+
++ This time we can see the difference differs
+  + postive difference of £20,000 in Dundee
+  + negative difference of £20,000 in Edinburgh
+  
++ Note the lines are no longer parallel
+  + Suggests interaction
+  + Now crossing (so disordinal interaction)
+
+]
+
+.pull-right[
+
+```{r, echo=FALSE, fig.height=6}
+dat3 %>%
+  ggplot(., aes(x = location, y = salary, group = department, colour = department, shape = department)) +
+  geom_line() +
+  geom_point(aes(size = 1.5), show.legend = FALSE) +
+  ylim(c(0,60)) +
+  geom_segment(aes(x= 0.9 , xend = 0.9 , y=20, yend=40), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  geom_segment(aes(x= 2.1 , xend = 2.1 , y=40, yend=60), 
+               arrow=arrow(type = "closed", end = "both", length = unit(0.2, "cm")), 
+               colour = "black", linetype = "dashed") +
+  annotate("text", x = 0.8 , y = 30, label = "20") +
+  annotate("text", x = 2.2 , y = 50, label = "-20") +
+  ggtitle("Big difference")
+
+```
+
+]
+
+---
+class: center, middle
+# Questions?
+
+
+---
+#  Lecture notation 
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ Lecture notation:
+  + $y$ is a continuous outcome
+  
+  + $x$ is a categorical predictor ( `location` )
+  
+  + $z$ is a categorical predictor (`department` )
+  
+  + $xz$ is their product, or interaction predictor
+  
+---
+# Product for dummy variables
+
++ Let's set Edinburgh as the baseline for `location` and Accounts as the baseline for `department`
++ The interaction is the product of the two variables
++ We can then figure out what to substitute for $x$, $z$ and $xz$ in our regression formula to get predictions for each group once we have estimated our $\beta$ coefficients
+
+
+```{r, echo=FALSE}
+tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = rep(c("Accounts", "Manager"),2),
+  x = c(0,0,1,1),
+  z = c(0,1,0,1),
+  xz = c(0,0,0,1)
+) %>%
+  kable(.) 
+```
+
+---
+#  Interpretation: Categorical $\times$ categorical interaction (dummy codes)
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ $\beta_0$ = Value of $y$ when $x$ and $z$ are 0
+
++ Expected salary for Accounts in Edinburgh
+
+
+---
+#  Interpretation: Categorical $\times$ categorical interaction (dummy codes)
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ Remember $x$ is our `location` variable and $z$ is our `department` variable
+
++ $\beta_1$ = Difference between levels of $x$ when $z$ = 0
+
++ The difference in salary between Accounts in Edinburgh and Dundee
+
+
+---
+#  Interpretation: Categorical $\times$ categorical interaction (dummy codes)
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++ Remember $x$ is our `location` variable and $z$ is our `department` variable
+
++ $\beta_2$ = Difference between levels of $z$ when $x$ = 0
+
++ The difference in salary between Accounts and Store managers in Edinburgh
+
+
+---
+#  Interpretation: Categorical $\times$ categorical interaction (dummy codes)
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \beta_2 z_{i} + \beta_3 x_{i}z_{i} + \epsilon_i$$
+
++  $\beta_3$ = Difference between levels of $x$ across levels of $z$
+
++ The difference between salary in Accounts and Store managers between Edinburgh and Dundee
+
++ "Difference in differences"
+
+---
+#  Example: Categorical $\times$ categorical
+
+.pull-left[
+
+Let's examine the actual group means in our data set
+
+```{r, eval=FALSE, warning=FALSE}
+salary3 %>%
+  group_by(location, department) %>%
+  summarise(
+    Salary = mean(salary)
+  )
+```
+]
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+group_means <- salary3 %>%
+  group_by(location, department) %>%
+  summarise(
+    Salary = mean(salary)
+  )
+group_means
+```
+]
+
+---
+#  Example: Categorical $\times$ categorical
+```{r}
+m1 <- lm(salary ~ location*department, salary3)
+```
+
+```{r, echo=FALSE}
+summary(m1)
+```
+
+---
+#  Example: Categorical $\times$ categorical
+
+.pull-left[
+
++ We can visualise categorical interactions using `cat_plot()` from the `interactions` package 
+
++ `probe_interaction()` does not work with two categorical predictors
+
+```{r, eval=FALSE}
+cat_plot(m1,
+         pred = location,
+         modx = department)
+```
+
++ Plot shows group means and 95% confidence intervals based on `m1`
+
+]
+
+.pull-right[
+```{r, echo=FALSE}
+cat_plot(m1,
+         pred = location,
+         modx = department)
+```
+
+]
+
+
+---
+#  Example: Categorical $\times$ categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
+.pull-left[
++ $\beta_0$ = Value of $y$ when $x$ and $z$ are 0
+
++ Expected salary for Accounts in Edinburgh is £50,670
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+ex1_means <- matrix(c(round(group_means$Salary,2)),ncol=2,byrow=FALSE)
+colnames(ex1_means) <- c("Edinburgh","Dundee")
+rownames(ex1_means) <- c("Accounts","Manager")
+ex1_means <- as.table(ex1_means)
+kable(ex1_means) 
+
+```
+]
+
+---
+#  Example: Categorical $\times$ categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
+.pull-left[
++ $\beta_1$ = Difference between levels of $x$ when $z$ = 0
+
++ The difference in salary between Accounts in Edinburgh and Dundee is £1,980. The salary is lower in Dundee. (But note this is not statistically significant)
+
++ With dummy coding, slopes for marginal effects refer to $\text{Group} - \text{Reference group (intercept)}$
+
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+kable(ex1_means) 
+```
+]
+
+
+---
+#  Example: Categorical $\times$ categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
+.pull-left[
++ $\beta_2$ = Difference between levels of $z$ when $x$ = 0
+
++ The difference in salary between Accounts and Store managers in Edinburgh is £3,460. The salary is lower for Store Managers.
+
++ With dummy coding, slopes for marginal effects refer to $\text{Group} - \text{Reference group (intercept)}$
+
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+kable(ex1_means) 
+```
+]
+
+---
+#  Example: Categorical $\times$ categorical
+```{r, echo=FALSE}
+res <- summary(m1)
+round(res$coefficients,2)
+```
+
+.pull-left[
++  $\beta_3$ = Difference between levels of $x$ across levels of $z$
+
++ The difference between salary for Accounts and Store managers differs by £8,420 between Edinburgh and Dundee. The difference is greater in Dundee than in Edinburgh.
+
+]
+
+
+.pull-right[
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+kable(ex1_means) 
+```
+]
+
+---
+# Predictions from the regression formula
+
++ Let's plug our $\beta$ coefficients back into our regression formula:
+
+$$\hat{y} = \beta_0 + \beta_1 x + \beta_2 z + \beta_3 xz$$
+
+$$\hat{y} = 50.67 -1.98 x -3.46 z -8.42 xz$$
+
+> **Test yourself: What is the estimated mean salary for each group?**
+
+<br>
+
+```{r, echo=FALSE}
+tibble(
+  location = c("Edinburgh", "Edinburgh", "Dundee", "Dundee"),
+  department = rep(c("Accounts", "Manager"),2),
+  x = c(0,0,1,1),
+  z = c(0,1,0,1),
+  xz = c(0,0,0,1)
+) %>%
+  kable(.) 
+```
+
+
+
+
+---
+class: center, middle
+# Questions?
+
+---
+# Extending past 2x2
+
++ When fitting an interaction to categorical variables with more than 2 levels, we need additional interaction terms
+
++ Remember, a categorical variable with 3 levels is represented by the model as 2 binary variables
+  + So that means we have two variables to create products with
+
++ The general rule on the number of interaction terms is:
+
+$$(r-1) \times (c-1)$$
+
++ Where 
+  + $r$ (row) = number of levels of the first categorical variable
+  + $c$ (column) = number of levels of the second categorical variable
+
+
+---
+# Example
+
++ The data comes from a study into patient care in paediatric wards
+
++ A researcher was interested in whether the subjective well-being of patients differed dependent on the post-operation treatment schedule they were given, and the hospital in which they were staying
+
++ **Factor 1**: `Treatment` (Levels: TreatA, TreatB, TreatC).
+  
++ **Factor 2**: `Hosp` (Levels: Hosp1, Hosp2). 
+  
++ Total sample n = 180 (30 patients in each of 6 groups)
+  + Between-person design 
+
++ **Outcome variable**: Subjective well-being (SWB)
+  + An average of multiple raters (the patient, a member of their family, and a friend)
+  + SWB scores ranged from 0 to 20
+
+
+---
+# The data
+
+```{r, include = FALSE}
+hosp_tbl <- read_csv("data/hospital.csv", col_types = "dff")
+```
+
+```{r}
+head(hosp_tbl, 10)
+```
+
+---
+# The group means
+
+<br>
+
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, 
+  "TreatA", "10.80",  "7.85",
+  "TreatB", "9.43",  "13.11",
+  "TreatC", "10.10",  "7.98",
+  ), col.names = c("", "Hosp1",  "Hosp2"))
+```
+
+--
+
+Some ways of phrasing our research question:
+
++ Is there a difference in how subjective wellbeing varies for the three different treatment options between the two hospitals?
++ Does the hospital a patient stays at influence how the type of treatment influences their subjective wellbeing?
+
+---
+# Model equations and coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \underbrace{b_4D_{13} + b_5D_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
+
+```{r, echo=FALSE}
+tibble(
+  Treatment = c("A", "A", "B", "B", "C", "C"),
+  Hospital = rep(c("Hosp1", "Hosp2"),3),
+  D1 = c(0,0,1,1,0,0),
+  D2 = c(0,0,0,0,1,1),
+  D3 = c(0,1,0,1,0,1),
+  D13 = c(0,0,0,1,0,0),
+  D23 = c(0,0,0,0,0,1)
+)
+```
+
+<br>
+
++ Note that "D" stands for dummy-coded variables
+
+---
+# Interpretation with dummy coding
+
+$$y_{ijk} = b_0 + \underbrace{(b_1D_1 + b_2D_2)}_{\text{Treatment}} + \underbrace{b_3D_3}_{\text{Hospital}} + \underbrace{b_4D_{13} + b_5D_{23}}_{\text{Interactions}} + \epsilon_{i}$$
+
++ Treatment A and Hospital 1 as reference levels
+
+
++ $b_0$ = Mean of treatment A in hospital 1
++ $b_1$ = Difference between Treatment B and Treatment A in Hospital 1
++ $b_2$ = Difference between Treatment C and Treatment A in Hospital 1
++ $b_3$ = Difference between Treatment A in Hospital 1 and Hospital 2
++ $b_4$ = Difference between Treatment A and Treatment B between Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment A and Treatment C between Hospital 1 and Hospital 2
+
+
+---
+# Our results
+
+```{r}
+m4 <- lm(SWB ~ Treatment + Hospital + Treatment*Hospital, data = hosp_tbl)
+m4sum <- summary(m4)
+m4res <- round(m4sum$coefficients,2)
+m4res
+```
+
+---
+# Interpretation with dummy coding
+
+```{r, echo=FALSE}
+m4res
+```
+
+.pull-left[
++ $b_0$ = Mean of treatment A in hospital 1
++ $b_1$ = Difference between Treatment B and Treatment A in Hospital 1
++ $b_2$ = Difference between Treatment C and Treatment A in Hospital 1
++ $b_3$ = Difference between Treatment A in Hospital 1 and Hospital 2
++ $b_4$ = Difference between Treatment A and Treatment B between Hospital 1 and Hospital 2
++ $b_5$ = Difference between Treatment A and Treatment C between Hospital 1 and Hospital 2
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3, 
+  "TreatA", "10.80",  "7.85",
+  "TreatB", "9.43",  "13.11",
+  "TreatC", "10.10",  "7.98",
+  ), col.names = c("", "Hosp1",  "Hosp2"))
+```
+
+]
+---
+# Brief comment: 3-way interactions
+
++ **In principle** we can extend interactions to more than two variables
+
++ Consider our salary example:
+  + We could ask: Are there location-based differences in how years of service contribute to salary differently across departments? 
+  
++ Note that we'd then have three interacting predictors:
+  + Years of service (continuous)
+  + Department (binary; Store Manager, Accounts)
+  + Location (binary; Edinburgh, Dundee)
+
++ This is a plausible question concerning organisatonal fairness
+
+---
+# Brief comment: 3-way interactions
+
++ In general, three-way interactions are tricky to interpret
+
++ Require lots of data to test as the effects are often very small
+  + Extends the issues of power already discussed
+
++ **Only test a three-way interaction if you have strong theoretical reason for doing so**
+
+---
+# Summary
+
++ We have considered how we fit and interpret linear models with categorical interactions
+
++ We have focused on dummy coded variables (we'll return to effects coding next week)
+
++ We saw an example of an interaction involving categorical variables with more than two levels (multiple interaction terms)
+
+---
+
+## This week 
+
+.pull-left[
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+]
+
+.pull-right[
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+]
+
+
