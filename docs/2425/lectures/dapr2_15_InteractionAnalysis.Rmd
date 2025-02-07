@@ -1,0 +1,687 @@
+---
+title: "<b> Interaction Analysis </b>"
+subtitle: "Data Analysis for Psychology in R 2<br><br> "
+author: "dapR2 Team"
+institute: "Department of Psychology<br>The University of Edinburgh"
+date: ""
+output:
+  xaringan::moon_reader:
+    lib_dir: libs
+    css: xaringan-themer.css
+    nature:
+      ratio: '16:9'
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+```
+
+```{r xaringan-themer, include = FALSE}
+library(xaringanthemer)
+style_mono_accent(
+  #base_color = "#0F4C81", # DAPR1
+   base_color = "#BF1932", # DAPR2
+  # base_color = "#88B04B", # DAPR3 
+  # base_color = "#FCBB06", # USMR
+  # base_color = "#a41ae4", # MSMR
+  header_color = "#000000",
+  header_font_google = google_font("Source Sans Pro"),
+  header_font_weight = 400,
+  text_font_google = google_font("Source Sans Pro", "400", "400i", "600", "600i"),
+  code_font_google = google_font("Source Code Pro")
+)
+```
+
+```{r echo=F, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(gt) # ???
+library(kableExtra)
+library(car) # ??
+library(emmeans)
+library(sjPlot)
+library(interactions)
+# library(psych) 
+
+
+data <- read_csv("https://uoepsy.github.io/data/laptop_vs_longhand.csv")
+```
+
+
+# Course Overview
+
+.pull-left[
+
+<!---
+I've just copied the output of the Sem 1 table here and removed the bolding on the last week, so things look consistent with the trailing opacity produced by the course_table.R script otherwise.
+-->
+
+
+<table style="border: 1px solid black;>
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Introduction to Linear Models</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Intro to Linear Regression</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Interpreting Linear Models</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Testing Individual Predictors</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Model Testing & Comparison</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Linear Model Analysis</td></tr>
+
+  <tr style="padding: 0 1em 0 1em;">
+    <td rowspan="5" style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1;text-align:center;vertical-align: middle">
+        <b>Analysing Experimental Studies</b></td>
+    <td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictors & Dummy Coding</td>
+  </tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        	Effects Coding & Coding Specific Contrasts</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Assumptions & Diagnostics</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Bootstrapping</td></tr>
+  <tr><td style="border: 1px solid black;padding: 0 1em 0 1em;opacity:1">
+        Categorical Predictor Analysis</td></tr>
+</table>
+
+
+
+]
+
+.pull-right[
+
+
+```{r echo = FALSE, results='asis'}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regresison Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=5)
+```
+
+
+]
+
+
+---
+
+
+
+## Overview of the Week
+
+This week, we'll be applying what we have learned to a practical example. Specifically, we'll cover:
+
+1. Interpetation of an interaction model with categorical variables
+2. Multiple pairwise comparisons with corrections
+
+**In the lectures:**
++ Follow along in RStudio to develop your analysis code
++ Take note of any additional analyses or checks you may want to perform ahead of the lab (the lectures will not cover everything)
+
+**In the lab:**
++ Writeup of the analysis
++ Some analysis code also provided
++ Make sure your writeup file knits to a pdf - opportunity to trouble-shoot with tutors in preparation for your Assessed Report
+
+
+---
+## Our example based on a paper 
+
+<b> Mueller, P. A., & Oppenheimer, D. M. (2014). The pen is mightier than the keyboard: Advantages of longhand over laptop note taking. *Psychological Science, 25*(6), 1159–1168. [https://doi.org/10.1177/0956797614524581](https://doi.org/10.1177/0956797614524581) </b>
+
+
++ Participants were invited to take part in a study investigating the medium of note taking and study time on test scores.
+
++ The sample comprised of 160 students who took notes on a lecture via one of two mediums - either on a laptop or longhand (i.e., using pen and paper).
+
++ After watching the lecture and taking notes, they were randomly allocated to one of four study time conditions, either engaging in no, minimal, moderate, or extensive study of the notes taken on their assigned medium.
+
++ After engaging in study for their allocated time, participants took a test on the lecture content. The test involved a series of questions, where participants could score a maximum of 100 points.
+
+---
+### Research Aim
+
+Explore the associations among study time and note-taking medium on test scores
+
+### Research Questions
+
+**RQ1.** Do differences in test scores between study conditions differ by the note-taking medium used?
+
+**RQ2.** Explore the differences between each pair of levels of each factor to determine which conditions significantly differ from each other
+
+---
+### Setup
+
+Loading all the necessary packages and the data:
+
+```{r, eval = F}
+library(tidyverse)
+library(psych)
+library(emmeans)
+library(kableExtra)
+library(sjPlot)
+library(interactions)
+library(car)
+
+data <- read_csv("https://uoepsy.github.io/data/laptop_vs_longhand.csv")
+```
+---
+### Checking the Data
+
++ First look: What kind of columns do we have in our dataframe?
++ Let's look at the first few rows:
+
+```{r}
+head(data)
+```
+
+
+---
+### Checking the Data
+
++ Are there any missing values?
+
+```{r}
+table(is.na(data))
+```
+
+---
+### Checking the Data
+
++ What type of variables do we have?
++ Are numerical variables within the expected range?
+
+We can look at the dataframe using the `summary` function:
+
+```{r}
+summary(data)
+```
+
+
+---
+### Checking the Data
+
++ We have a continuous outcome variable, `test_score`, and two categorical predictor variables, `medium`, `study`
++ We need to turn `medium` and `study` into factors
+```{r}
+data$medium <- as_factor(data$medium)
+data$study <- as_factor(data$study)
+```
+
++ Let's check that this worked:
+
+```{r}
+summary(data)
+```
+
+---
+### Checking the Data
+
++ 80 participants took notes on a laptop, 80 participants took notes using pen and paper
+
++ 40 participants in each of the four study conditions
+
++ Let's check if each of the 8 groups is balanced:
+
+```{r message=FALSE, warning=FALSE}
+data %>%
+  group_by(medium, study) %>%
+  summarise(Count = n())
+```
+
+---
+### Checking the Data: Distribution of the numerical variable
+
+```{r}
+ggplot(data, aes(test_score)) + geom_histogram(colour = 'black', binwidth = 2)
+```
+
+
+---
+### Data description
+
+```{r message=FALSE, warning=FALSE}
+descript <- data %>% 
+  group_by(study, medium) %>%
+    summarise(
+       M_Score = round(mean(test_score), 2),
+       SD_Score = round(sd(test_score), 2),
+       SE_Score = round(sd(test_score)/sqrt(n()), 2),
+       Min_Score = round(min(test_score), 2),
+       Max_Score = round(max(test_score), 2)
+    )
+```
+
+---
+### Data description
+
+```{r}
+descript
+```
+
++ This is useful information, but we cannot include direct R output in our writeup
++ Remember we can use the `kable` function to format our table
+
+---
+### A prettier descriptives table
+
+```{r}
+kable(descript)
+```
+
+<br>
+
++ Consider: What additional changes might you want to make before including this table in a writeup?
+
+---
+### Boxplot
+
++ Let's visualise data from each group, showing medians, quartiles and ranges
++ Test scores on the y-axis
++ Study duration on the x-axis
++ Different colours for the two note-taking mediums
++ Limits of the y-axis to show theoretically possible values of the outcome variable
+
+```{r}
+p1 <- ggplot(data = data, aes(x = study, y = test_score, color = medium)) + 
+  geom_boxplot() + 
+  ylim(0,100) +
+  labs(x = "Study Condition", y = "Test Score")
+```
+---
+### Boxplot
+
+```{r}
+p1
+```
+
+
+---
+### Plot means, add lines between group means
+
++ Using `geom_point` to produce points for each mean
++ Using `geom_linerange` to plot 2 $\times$ SEs around the means
++ Using `geom_path` to connect the means with lines in the order they appear
+  + Note we are coercing the levels into a numerical variable for this purpose
++ Not specifying y-axis limits here, so R will "zoom in" to our data
+  + Easier to see any potential interactions
+
+
+```{r}
+p2 <- ggplot(descript, aes(x = study, y = M_Score, color = medium)) + 
+  geom_point(size = 3) +
+  geom_linerange(aes(ymin = M_Score - 2 * SE_Score, ymax = M_Score + 2 * SE_Score)) +
+  geom_path(aes(x = as.numeric(study)))
+```
+
+
+
+---
+### Plot means, add lines between group means
+
+```{r}
+p2
+```
+
+
+---
+### ggplot
+
++ Consider: What changes might you make to the plots before including them in the writeup?
+
++ How would you go about this?
+
+---
+## Investigating RQ1
+
+#### "Do differences in test scores between study conditions differ by the note-taking medium used?"
+
++ This RQ requires a model including an interaction to answer
+
++ Would a dummy-coded or an effects-coded model be more appropriate?
+
+**Dummy coding:**
++ When an interaction is included in the model, a dummy-coded model captures marginal/conditional effects (the value of one variable is fixed while estimating $\beta$ for the other variable)
++ Interaction pertains to differences in group differences along a second factor
+
+**Effects coding:**
++ Captures main effects (the effect of one variable averaged over the values of the other variable), even when an interaction is included in the model
++ Interaction pertains to the effect of the combination of the two variables over and above the two main effects
+
+
+---
+### Investigating RQ1: Dummy Coding
+
++ We will go with dummy coding here, based on the RQ
+
++ We now have to choose reference levels for both of our predictors
+
++ Let's use `No` as a baseline for the `study` variable:
+
+```{r}
+data$study <- fct_relevel(data$study , "No", "Minimal", "Moderate", "Extensive")
+```
+
++ No principled reason for choosing one or the other level of note-taking medium as the baseline
++ Let's go with `Longhand` as the reference level so we can assess whether the more technically advanced approach (`Laptop`) improves student performance
+
+```{r}
+data$medium <- fct_relevel(data$medium , "Longhand")
+```
+
++ Check that this worked:
+
+```{r eval=FALSE}
+summary(data)
+```
+
+---
+### Investigating RQ1
+
+We'll use the following model to investigate our RQ:
+
+$$
+\begin{align}
+\text{Test Score} &= \beta_0  \\
+      &+ \beta_1 \cdot S_\text{Minimal} \\  
+      &+ \beta_2 \cdot S_\text{Moderate} \\ 
+      &+ \beta_3 \cdot S_\text{Extensive} \\
+      &+ \beta_4 \cdot M_\text{Laptop} \\
+      &+ \beta_5 \cdot  (S_\text{Minimal} \cdot  M_\text{Laptop})  \\
+      &+ \beta_6 \cdot  (S_\text{Moderate} \cdot  M_\text{Laptop})  \\
+      &+ \beta_7 \cdot  (S_\text{Extensive} \cdot  M_\text{Laptop})  \\
+      &+ \epsilon  
+\end{align}
+$$
+
+---
+### Running our model:
+
+```{r}
+m1 <- lm(test_score ~ study*medium, data = data)
+summary(m1)
+```
+
+---
+### Checking assumptions before interpreting the model
+
+#### Linearity
+
++ We can assume linearity when our model does not include any numerical predictors or covariates (see [here](https://www.bookdown.org/rwnahhas/RMPH/mlr-linearity.html))
+
+#### Independence of Errors
++ We are using between-subjects data, so we'll also assume independence of our error terms
+
+---
+#### Normality of Residuals (histogram)
+
+```{r}
+hist(m1$residuals)
+```
+
+---
+#### Normality of Residuals (QQ plots)
+
+```{r}
+plot(m1, which = 2)
+```
+
+---
+#### Equality of Variance (Homoscedasticity)
+Using residuals vs predicted values plots: `residualPlot` from the `car` package
+
+```{r}
+residualPlot(m1)
+```
+
+---
+### Checking model diagnostics
+
++ Are there are any high-influence cases in our data?
+
++ Consider: Which model diagnostics would be useful here?
+
+--
+
++ Let's check DFBeta values for the present purposes
+  + How much the estimate for a coefficient changes when a particular observation is removed
+
+```{r, eval=FALSE}
+dfbeta(m1)
+
+summary(dfbeta(m1))
+```
+
+---
+
+```{r, echo=FALSE}
+summary(dfbeta(m1))
+```
++ What do the minimum and maximum values for each coefficient tell us?
+
++ Consider: What might be some possible next steps here, if we wanted to understand any potentially influential cases better?
+
+---
+### Back to the model
+
++ We are generally happy with our model assumption checks and diagnostics checks here
+
++ Let's return to the model to interpret it
+
+---
+```{r}
+summary(m1)
+```
+
+---
+### Interpretation with dummy coding 
+
+.pull-left[
+```{r, echo=FALSE}
+round(summary(m1)$coefficients,2)[,1:2]
+```
+]
+
+.pull-right[
+```{r, echo=FALSE}
+knitr::kable(tibble::tribble(
+   ~V1, ~V2, ~V3,
+  "No Study", "48.12",  "51.02",
+  "Minimal", "55.57",  "60.91",
+  "Moderate", "59.30",  "80.69", 
+  "Extensive","61.16", "90.58"
+  ), col.names = c("", "Laptop",  "Longhand"))
+```
+]
+
++ **Longhand** is the reference level in **medium**
+
++ **No** is the reference level in **study**
+
++ Marginal effects betas: The differences in means within the reference groups
+
++ Interaction betas: Differences in differences 
+
+<br>
+
++ Note: See the use of `tab_model` (from `sjPlot`) in the lab's analysis code for formatting regression output for the writeup
+---
+
+```{r}
+plot_m1 <- cat_plot(model = m1, pred = study, modx = medium, 
+                  main.title = "Test scores across Study Time and Note-taking Medium",
+                  x.label = "Study", y.label = "Score", legend.main = "Medium")
+plot_m1
+```
+
+---
+### Model comparison
+
++ What if we wanted to know whether the interaction between note-taking medium and study time explains significantly more variance in test scores than note-taking medium and study time alone?
+
++ Incremental F-test needed
+  + Run a model with study time and note-taking medium as additive predictors (this model is nested with respect to our full model)
+  + Use the `anova` function to compare the reduced model and the full model
+  + The result will tell us whether the interaction (the three interaction terms jointly) significantly improves model fit
+
+---
+### Model comparison
+
+```{r}
+m1r <- lm(test_score ~ study+medium, data = data)
+anova(m1r, m1)
+```
+
+<br>
+
++ Consider: How would you find out how much additional variance the full model explains compared to the reduced model?
+
+---
+## Investigating RQ2
+
+####Explore the differences between each pair of levels of each factor to determine which conditions significantly differ from each other
+
++ Pairwise comparisons with Tukey corrections
+
+**Step 1:** Use `emmeans` to estimate group means
+
+```{r}
+m1_emm <- emmeans(m1, ~study*medium)
+```
+
+**Step 2:** Use the `pairs` function to obtain pairwise comparisons (Note: Tukey correction applied by default)
+
+```{r}
+pairs_res <- pairs(m1_emm)
+```
+
+**Step 3:** Examine the output from the pairwise comparisons and interpret it
+
+```{r, eval=F}
+pairs_res
+```
+
+**Step 4:** Plot the pairwise differences between groups
+
+```{r, eval=F}
+plot(pairs_res) 
+```
+
+---
+```{r, echo=F}
+pairs_res 
+```
+
+---
+
+### Visualising pairwise differences
+
+```{r, echo=F}
+plot(pairs_res) 
+```
+
+
+---
+## In the lab this week
+
+Writeup in three parts:
+
++ Analysis strategy
+
++ Results
+
++ Discussion
+
+<br>
+
+Excellent practice for the upcoming Assessed Report!
+
+
+---
+## Reminders
+
+  
+**Next Week**
+
++ No lectures, labs or office hours during Flexible Learning Week
+
+--
+
+**Labs this week**
+
++ Make sure your analysis writeup file successfully knits to a pdf and does not include visible R code
+  + A good opportunity to troubleshoot technical issues ahead of the Assessed Report
+  
+--
+
+**The Assessed Report and academic integrity**
+
++ Working on the assessed report during the lab sessions is not allowed
+  + Other groups should not overhear your discussion of your report
+  + Make arrangements to meet and work on the report outside of class time
+
++ Your tutors and instructors will not answer questions directly pertaining to the content of the assessed report
+  + Clarification questions about instructions welcome
+  + For content questions, you are allowed to ask questions on related material from lectures and past labs
+  
+
+---
+
+## This week 
+
+.pull-left[
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+]
+
+.pull-right[
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+]
