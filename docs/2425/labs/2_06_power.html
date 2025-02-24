@@ -365,7 +365,7 @@ if(f.classList.contains('fa-circle-right')) {
 <section id="sec-studyview" class="level1"><h1>Study Overview</h1>
 <blockquote class="blockquote">
 <p><strong>Research Question</strong></p>
-<p>Do age and intervention type influence recall?</p>
+<p>Do the association between recall and age differ by intervention type?</p>
 </blockquote>
 <div class="optional-begin">
 <span id="opt-start-1" class="fa-solid fa-circle-right optional-icon clickable" onclick="toggle_visibility('opt-body-1', 'opt-start-1')"> <span class="olab">Recall codebook</span></span>
@@ -1440,8 +1440,13 @@ FALSE
 <p>The ‘group’ variable denoting which intervention type participants were allocated to was coded as a factor with two levels - ‘rollercoaster’ and ‘meditation’, where ‘rollercoaster’ was designated as the reference group. There were no <code>NAs</code> contained within the dataset, and recall scores were within range (i.e., within possible values of 0-100), as were ages (i.e., all ages ranged from 18-75).</p>
 <p>To address the research question of whether age and intervention type influence recall, we can specify our model as follows:</p>
 <p><span class="math display">\[
-\text{Recall} = \beta_0 + \beta_1 \cdot \text{Age}  + \beta_2 \cdot \text{Intervention Group}_{\text{Meditation}} + \epsilon
-\]</span></p>
+\text{Recall} = \beta_0 + \beta_1 \cdot \text{Age}  + \beta_2 \cdot \text{Intervention Group}_{\text{Meditation}} + \beta_3 \cdot (\text{Age} \cdot \text{Intervention Group}_{\text{Meditation}}) + \epsilon
+\]</span> Effects will be considered statistically significant at <span class="math inline">\(\alpha=.05\)</span>.</p>
+<p>Our hypotheses are:</p>
+<p><span class="math inline">\(H_0: \beta_3 = 0\)</span></p>
+<p>The association between recall and age does not differ by intervention type.</p>
+<p><span class="math inline">\(H_1: \beta_3 \neq 0\)</span></p>
+<p>The association between recall and age does differ by intervention type.</p>
 </div>
 </div>
 </div>
@@ -1499,7 +1504,8 @@ Hint
 <span>       n <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/context.html">n</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>       M_Age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">age</span><span class="op">)</span>,</span>
 <span>       SD_Age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">age</span><span class="op">)</span>,</span>
-<span>       M_Recall <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">perc_recall</span><span class="op">)</span></span>
+<span>       M_Recall <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/mean.html">mean</a></span><span class="op">(</span><span class="va">perc_recall</span><span class="op">)</span>,</span>
+<span>       SD_Recall <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/sd.html">sd</a></span><span class="op">(</span><span class="va">perc_recall</span><span class="op">)</span></span>
 <span>       <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable</a></span><span class="op">(</span>caption <span class="op">=</span> <span class="st">"Descriptive Statistics"</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/pkg/kableExtra/man/kable_styling.html">kable_styling</a></span><span class="op">(</span><span class="op">)</span></span>
@@ -1515,6 +1521,7 @@ Hint
 <th style="text-align: right;" data-quarto-table-cell-role="th">M_Age</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">SD_Age</th>
 <th style="text-align: right;" data-quarto-table-cell-role="th">M_Recall</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">SD_Recall</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
@@ -1523,6 +1530,7 @@ Hint
 <td style="text-align: right;">47.85</td>
 <td style="text-align: right;">14.93</td>
 <td style="text-align: right;">50.11</td>
+<td style="text-align: right;">4.35</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">meditation</td>
@@ -1530,6 +1538,7 @@ Hint
 <td style="text-align: right;">46.57</td>
 <td style="text-align: right;">15.29</td>
 <td style="text-align: right;">59.46</td>
+<td style="text-align: right;">2.89</td>
 </tr>
 </tbody>
 </table>
@@ -1551,7 +1560,7 @@ Hint
 <div class="cell" data-layout-align="center">
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">recall_plt1</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">recdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">group</span>, y <span class="op">=</span> <span class="va">perc_recall</span>, fill <span class="op">=</span> <span class="va">group</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_boxplot.html">geom_boxplot</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Intervention Group"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span>, title <span class="op">=</span> <span class="st">"Association between Recall and Intervention"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Intervention Group"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span><span class="op">)</span></span>
 <span><span class="va">recall_plt1</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-recall-desc1" class="quarto-figure quarto-figure-center anchored">
@@ -1566,7 +1575,7 @@ Hint
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">recall_plt2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">recdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">age</span>, y <span class="op">=</span> <span class="va">perc_recall</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> </span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_smooth.html">geom_smooth</a></span><span class="op">(</span>method <span class="op">=</span> <span class="st">"lm"</span>, se <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Age (in years)"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span>, title <span class="op">=</span> <span class="st">"Association between Recall and Age"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Age (in years)"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span><span class="op">)</span></span>
 <span><span class="va">recall_plt2</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-recall-desc2" class="quarto-figure quarto-figure-center anchored">
@@ -1629,7 +1638,7 @@ Hint
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="va">recall_plt3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html">ggplot</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">recdata</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">age</span>, y <span class="op">=</span> <span class="va">perc_recall</span>, color <span class="op">=</span> <span class="va">group</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html">geom_point</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span> </span>
 <span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_smooth.html">geom_smooth</a></span><span class="op">(</span>method <span class="op">=</span> <span class="st">"lm"</span>, se <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">+</span> </span>
-<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Age (in years)"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span>, title <span class="op">=</span> <span class="st">"Associations among Recall Score, \nAge, and Intervention Group"</span><span class="op">)</span></span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Age (in years)"</span>, y <span class="op">=</span> <span class="st">"Recall (%)"</span><span class="op">)</span></span>
 <span><span class="va">recall_plt3</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div id="fig-recall-desc3" class="quarto-figure quarto-figure-center anchored">
@@ -1638,7 +1647,7 @@ Hint
 </div>
 </div>
 </div>
-<p>The slope in <a href="#fig-recall-desc3">Figure&nbsp;3</a> appears to be stepper in the roller coaster intervention group than the meditation group - this suggested that there could be an interaction.</p>
+<p>The slope in <a href="#fig-recall-desc3">Figure&nbsp;3</a> appears to be steeper in the roller coaster intervention group than the meditation group - this suggested that there could be an interaction.</p>
 </div>
 <p class="solution-end">
 </p>
@@ -1900,15 +1909,15 @@ Hint
 </p>
 <div style="display:none;">
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># restricted model m - number of predictors &amp; R-squared</span></span>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># restricted model m: number of predictors &amp; R-squared</span></span>
 <span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
 <span><span class="va">R2m</span> <span class="op">&lt;-</span> <span class="fl">0.16</span></span>
 <span></span>
-<span><span class="co"># full model M - number of predictors &amp; R-squared</span></span>
+<span><span class="co"># full model M: number of predictors &amp; R-squared</span></span>
 <span><span class="va">K</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="va">R2M</span> <span class="op">&lt;-</span> <span class="fl">0.16</span> <span class="op">+</span> <span class="fl">0.5</span></span>
 <span></span>
-<span><span class="co"># effect size - calculate f2</span></span>
+<span><span class="co"># effect size: calculate f2</span></span>
 <span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">R2M</span> <span class="op">-</span> <span class="va">R2m</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">R2M</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co">#run test</span></span>
@@ -1960,15 +1969,15 @@ Hint
 </p>
 <div style="display:none;">
 <div class="cell" data-layout-align="center">
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># restricted model m - number of predictors &amp; R-squared</span></span>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r code-with-copy"><code class="sourceCode R"><span><span class="co"># restricted model m: number of predictors &amp; R-squared</span></span>
 <span><span class="va">k</span> <span class="op">&lt;-</span> <span class="fl">1</span></span>
 <span><span class="va">R2m</span> <span class="op">&lt;-</span> <span class="fl">0.16</span></span>
 <span></span>
-<span><span class="co"># full model M - number of predictors &amp; R-squared</span></span>
+<span><span class="co"># full model M: number of predictors &amp; R-squared</span></span>
 <span><span class="va">K</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="va">R2M</span> <span class="op">&lt;-</span> <span class="fl">0.16</span> <span class="op">+</span> <span class="fl">0.05</span></span>
 <span></span>
-<span><span class="co"># effect size - calculate f2</span></span>
+<span><span class="co"># effect size: calculate f2</span></span>
 <span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="op">(</span><span class="va">R2M</span> <span class="op">-</span> <span class="va">R2m</span><span class="op">)</span> <span class="op">/</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">R2M</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># run test</span></span>
@@ -2007,6 +2016,22 @@ Question 10
 </div>
 </div>
 </div>
+<div class="callout callout-style-simple callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Hint
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Review the following flashcards on <a href="https://uoepsy.github.io/dapr2/2425/labs/1_b4_reading.html#statistical-power-effect-size">statistical power &amp; effect size</a>, paying particular attention to the following flashcard <em>Factors Affecting Power</em>.</p>
+</div>
+</div>
+</div>
 </div>
 <p class="question-end">
 </p>
@@ -2038,7 +2063,7 @@ date: "07/09/2024"
 output: bookdown::pdf_document2
 ---</code></pre>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-10-contents" aria-controls="callout-10" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2047,7 +2072,7 @@ What to do if you cannot knit to PDF
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-10" class="callout-10-contents callout-collapse collapse">
+<div id="callout-11" class="callout-11-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>If you are having issues knitting directly to PDF, try the following:</p>
 <ul>
@@ -2063,7 +2088,7 @@ What to do if you cannot knit to PDF
 </div>
 </div>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2072,7 +2097,7 @@ Hiding Code and/or Output
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <div class="tabset-margin-container"></div><div class="panel-tabset">
 <ul class="nav nav-tabs" role="tablist">
@@ -2105,7 +2130,7 @@ Hiding Code and/or Output
 </div>
 </div>
 <div class="callout callout-style-simple callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-13-contents" aria-controls="callout-13" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
@@ -2114,7 +2139,7 @@ Tinytex
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-12" class="callout-12-contents callout-collapse collapse">
+<div id="callout-13" class="callout-13-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
 <p>You must make sure you have <strong>tinytex</strong> installed in R so that you can “Knit” your Rmd document to a PDF file:</p>
 <div class="cell" data-layout-align="center">
