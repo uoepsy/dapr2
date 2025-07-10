@@ -1,0 +1,800 @@
+---
+title: "Simple Linear Regression"
+link-citations: true
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+# knitr::opts_chunk$set(cache = TRUE)
+set.seed(1)
+```
+
+:::lo
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:  
+
+1. Be able to specify a simple linear model  
+2. Understand what fitted values and residuals are  
+3. Be able to interpret the coefficients of a fitted model  
+
+### <i class="fa fa-check-square-o fa-2"></i> Requirements
+
+1. Be up to date with lectures  
+2. Have watched course intro video in Week 0 folder, and completed associated tasks  
+  
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+  
+For this lab, you will need to load the following package(s):  
+  
+* **tidyverse** 
+* **sjPlot**
+* **kableExtra**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** directly copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/wellbeing_rural.csv) or read it in via this link https://uoepsy.github.io/data/wellbeing_rural.csv 
+
+:::
+
+# Study Overview {#sec-studyview}
+
+> **Research Question**
+> 
+> Does the number of weekly social interactions influence wellbeing scores? 
+
+`r optbegin("Wellbeing/Rurality data codebook", olabel=FALSE, toggle=params$TOGGLE)`  
+
+__Description__
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and wellbeing. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+  
+  
+__Data Dictionary__
+
+The data in `wellbeing_rural.csv` contain seven attributes collected from a random sample of $n=200$ hypothetical residents over Edinburgh & Lothians, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and wellbeing. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) |> gt::gt()
+```
+  
+  
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') %>% head %>% gt::gt()
+```
+  
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the wellbeing dataset into R, assigning it to an object named `mwdata`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(sjPlot)
+library(kableExtra)
+
+# Reading in data and storing to an object named 'mwdata'
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+## Marginal Distributions
+
+`r qbegin(1)`
+
+Visualise and describe the marginal distributions of wellbeing scores and social interactions.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#data-exploration).
+
+For examples of marginal distribution visualisation examples, see the [data visualisation - marginal examples flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#visual-exploration).
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Wellbeing (WEMWBS) Scores
+
+::: {.panel-tabset}
+
+## Visualisation of Distribution
+
+```{r}
+#| label: fig-densbox-wb
+#| fig-cap: "Distribution of Wellbeing (WEMWBS) Scores"
+#| fig-alt: |
+#|   Density plot of wellbeing scores.
+#|   Unimodal distribution, with most of the wellbeing scores were between roughly 30 and 45. 
+#|   All scores within range. 
+
+ggplot(data = mwdata, aes(x = wellbeing)) +
+  geom_density() +
+  labs(x = "Wellbeing (WEMWBS) Scores", 
+       y = "Probability density")
+```
+
+Initial observations from plot:
+
++ The distribution of wellbeing scores was unimodal
++ Most of the wellbeing scores were between approximately 30 and 45
++ The lowest wellbeing in the sample was approximately 22 and the highest approximately 59. This suggested there was a fair high degree of variation in the data
++ Scores were within the range of possible values
+
+## Descriptive (Summary) Statistics
+
+```{r}
+#| label: tbl-w1-desc-wb
+#| tbl-cap: Wellbeing Descriptive Statistics
+mwdata |>
+  summarize(
+    M = mean(wellbeing), 
+    SD = sd(wellbeing)
+    ) |>
+    kable(caption = "Wellbeing Descriptive Statistics", align = "c", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+Following the exploration above, we can describe the wellbeing variable as follows:
+
+::: {.callout-important  icon=false appearance="minimal"}
+
+The marginal distribution of scores on the WEMWBS was unimodal with a mean of approximately `r round(mean(mwdata$wellbeing),2)`. There was variation in WEMWBS scores (SD = `r round(sd(mwdata$wellbeing),2)`)
+
+:::
+
+:::
+
+## Social Interactions
+
+::: {.panel-tabset}
+
+## Visualisation of Distribution
+
+```{r}
+#| label: fig-densbox-socint
+#| fig-cap: "Distribution of Number of Social Interactions"
+#| fig-alt: |
+#|   Density plot of number of weekly social interactions.
+#|   Unimodal distribution, with most of the weekly number of social interactions between roughly 8 and 15. 
+
+ggplot(data = mwdata, aes(x = social_int)) +
+  geom_density() +
+  labs(x = "Social Interactions (Number per Week)", 
+       y = "Probability density")
+```
+
+Initial observations from plot:
+
++ The distribution of social interactions was unimodal
++ Most of the participants had between 8 and 15 social interactions per week 
++ The fewest social interactions per week was approximately 3, and the highest approximately 24. This suggested there was a fair high degree of variation in the data
+
+## Descriptive (Summary) Statistics
+
+```{r}
+#| label: tbl-w1-desc-socint
+#| tbl-cap: Social Interactions Descriptive Statistics
+mwdata |> 
+  summarize(
+    M = mean(social_int), 
+    SD = sd(social_int)
+    ) |>
+    kable(caption = "Social Interactions Descriptive Statistics", align = "c", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+Following the exploration above, we can describe the social interactions variable as follows:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The marginal distribution of numbers of social interactions per week was unimodal with a mean of approximately `r round(mean(mwdata$social_int),2)`. There was variation in numbers of social interactions (SD = `r round(sd(mwdata$social_int),2)`)
+
+:::
+
+:::
+
+:::
+
+`r solend()`
+
+## Associations among Variables
+
+`r qbegin(2)`
+Create a scatterplot of wellbeing score and social interactions *before* calculating the correlation between them.  
+
+Making reference to both the plot and correlation coefficient, describe the association between wellbeing and social interactions among participants in the Edinburgh & Lothians sample. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#data-exploration).
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Scatterplot
+
+```{r}
+#| label: fig-mwdata-scatterplot
+#| fig-cap: "Association between Wellbeing and Social Interactions"
+
+ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
+  geom_point() +
+  labs(x = "Social Interactions (Number per Week)", 
+       y = "Wellbeing (WEMWBS) Scores")
+```
+
+
+## Correlation
+
+To comment on the strength of the linear association we compute the correlation coefficient in either of the following ways:
+
+::: {.panel-tabset}
+
+## Index dataframe (`[]`)
+
+```{r}
+# correlation matrix of the two columns of interest - (check with columns we need, in this case 3 & 5)
+round(cor(mwdata[,c(3,5)]), digits = 2)
+```
+
+## Variable selection (`select()`)
+
+```{r}
+# select only the columns we want by name, and pass this to cor()
+mwdata |> 
+  select(social_int, wellbeing) |>
+  cor() |>
+    round(digits = 2)
+```
+
+:::
+
+And we can see that via either method, the correlation is 
+$$
+r_{\text({Social~Interactions,~~ Wellbeing})} = .24
+$$
+<br>
+
+::: {.callout-important icon=false appearance="minimal"}
+
+There was a weak, positive, linear association between the weekly number of social interactions and WEMWBS scores for the participants in the sample ($r$ = .24). More social interactions were associated, on average, with higher wellbeing scores.
+
+:::
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Specification and Fitting
+
+The scatterplot highlighted a linear association, where the data points were scattered around an underlying linear pattern with a roughly-constant spread as x varied.
+
+Hence, we will try to fit a simple (i.e., one x variable only) linear regression model:
+
+$$
+y_i = \beta_0 + \beta_1 x_i + \epsilon_i 
+\\
+\quad \text{where} \quad \epsilon_i \sim N(0, \sigma) \text{ independently}
+$$
+
+`r qbegin(3)`
+
+First, write the equation of the fitted line. 
+
+Next, using the `lm()` function, fit a simple linear model to predict wellbeing (DV) by social interactions (IV), naming the output `mdl`.
+
+Lastly, update your equation of the fitted line to include the estimated coefficients.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+See the [statistical models flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#statistical-models) for a reminder on how to specify models. 
+
+For how to format and write your model in RMarkdown, see the [LaTeX symbols and equations flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#latex-symbols-equations). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+First, lets specify the fitted model, which can be written either as:
+
+::: {.panel-tabset}
+
+## Option A
+
+$$
+\widehat{\text{Wellbeing}} = \hat \beta_0 + \hat \beta_1 \cdot \text{Social Interactions}
+$$
+
+## Option B
+
+$$
+\widehat{\text{Wellbeing}} = \hat \beta_0 \cdot 1 + \hat \beta_1 \cdot \text{Social Interactions}
+$$
+:::
+
+To fit the model in `R`, as the variables are in the `mwdata` dataframe, we would write:
+
+::: {.panel-tabset}
+
+## Option A
+
+```{r}
+mdl <- lm(wellbeing ~ social_int, data = mwdata)
+mdl
+```
+
+## Option B
+
+```{r}
+mdl <- lm(wellbeing ~ 1 + social_int, data = mwdata)
+mdl
+```
+
+
+:::
+
+Note that by calling the name of the fitted model, `mdl`, you can see the estimated regression coefficients $\hat \beta_0$ and $\hat \beta_1$. We can add these values to the fitted line: 
+
+$$
+\widehat{\text{Wellbeing}} = 32.41 + 0.32 \cdot \text{Social Interactions} \\
+$$
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+Explore the following equivalent ways to obtain the estimated regression coefficients --- that is, $\hat \beta_0$ and $\hat \beta_1$ --- from the fitted model:
+
+- `mdl`
+- `mdl$coefficients`
+- `coef(mdl)`
+- `coefficients(mdl)`
+- `summary(mdl)`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+The estimated parameters returned by the below methods are all equivalent. However, `summary()` returns more information.
+
+::: {.panel-tabset}
+
+## `mdl`
+Simply invoke the name of the fitted model:
+```{r}
+mdl
+```
+
+## `mdl$coefficients`
+
+```{r}
+mdl$coefficients
+```
+
+## `coef(mdl)`
+```{r}
+coef(mdl)
+```
+
+
+## `coefficients(mdl)`
+
+```{r}
+coefficients(mdl)
+```
+
+## `summary(mdl)`
+
+Look under the “Estimate” column:
+```{r}
+summary(mdl)
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The estimated intercept is $\hat \beta_0 = 32.41$ and the estimated slope is $\hat \beta_1 = 0.32$.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+Explore the following equivalent ways to obtain the estimated standard deviation of the errors --- that is, $\hat \sigma$ --- from the fitted model `mdl`:
+
+- `sigma(mdl)`
+- `summary(mdl)`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+The estimated standard deviation of the errors can be equivalently obtained by the below methods. However, `summary()` returns more information.
+
+::: {.panel-tabset}
+
+## `sigma(mdl)`
+
+```{r}
+sigma(mdl)
+```
+
+## `summary(mdl)`
+
+Look at the "Residual standard error" entry of the `summary(mdl)` output:
+
+```{r}
+summary(mdl)
+```
+
+:::{.callout-note}
+
+The term "Residual standard error" is a misnomer, as the help page for `sigma` says (check `?sigma`). However, it's hard to get rid of this bad name as it has been used in too many books showing R output. For more information, check the [simple & multiple regression models - extracting information flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#statistical-models) flashcard. 
+
+:::
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+
+The estimated standard deviation of the errors is $\hat \sigma = `r round(sigma(mdl), 2)`$.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(6)`
+
+Interpret the estimated intercept, slope, and standard deviation of the errors in the context of the research question.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+To interpret the estimated standard deviation of the errors we can use the fact that about 95\% of values from a normal distribution fall within two standard deviations of the center.
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Intercept
+
+The estimated wellbeing score associated with zero weekly social interactions is 32.41.
+
+## Slope
+
+The estimated increase in wellbeing associated with one additional weekly social interaction is 0.32.
+
+## Standard deviation of the errors
+
+For any particular number of weekly social interactions, participants' wellbeing scores should be distributed above and below the regression line with standard deviation estimated to be $\hat \sigma = `r round(sigma(mdl), 2)`$. Since $2 \hat \sigma = `r round((sigma(mdl)*2), 2)`$, we expect most (about 95\%) of the participants' wellbeing scores to be within about 11 points from the regression line.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+Plot the data and the fitted regression line. To do so:
+
+- Extract the estimated regression coefficients e.g., via `betas <- coef(mdl)`
+- Extract the first entry of `betas` (i.e., the intercept) via `betas[1]`
+- Extract the second entry of `betas` (i.e., the slope) via `betas[2]`
+- Provide the intercept and slope to the `ggplot()` function using `geom_abline()`
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+*Extracting values*  
+The function `coef(mdl)` returns a vector (a sequence of numbers all of the same type). To get the first element of the sequence you append `[1]`, and `[2]` for the second.
+
+*Plotting*  
+In your `ggplot()`, you will need to specify `geom_abline()`. This might help get you started:
+
+<center>
+<code>
+geom_abline(intercept = **intercept estimate**, slope = **slope estimate**)
+</code>
+</center>  
+
+<br>  
+
+For further `ggplot()` guidance, see the [how to visualise data flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#data-exploration). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+First extract the values required:
+```{r}
+#store the coefficients from the model in an object named betas
+betas <- coef(mdl)
+
+#examine object named betas
+betas
+#We can see that the intercept is the first value, and slope the second.
+
+#store the intercept estimate from betas object (beta 1, first element in list) in an object named int (short for intercept)
+int <- betas[1]
+
+#store the slope estimate from betas object (beta 2, second element in list) in an object named slp (short for slope)
+slp <- betas[2]
+```
+
+We can then plot the model as follows:
+```{r}
+ggplot(data = mwdata, aes(x = social_int, y = wellbeing)) +
+  geom_point() +
+  geom_abline(intercept = int, slope = slp, color = 'blue') + 
+  labs(x = "Social Interactions (Number per Week)", y = "Wellbeing (WEMWBS) Scores")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Predicted Values & Residuals
+
+`r qbegin(8)`
+
+Use `predict(mdl)` to compute the fitted values and residuals. Mutate the `mwdata` dataframe to include the fitted values and residuals as extra columns.
+
+Assign to the following symbols the corresponding numerical values:
+
+- $y_{3}$ (response variable for unit $i = 3$ in the sample data)
+- $\hat y_{3}$ (fitted value for the third unit)
+- $\hat \epsilon_{5}$ (the residual corresponding to the 5th unit, i.e., $y_{5} - \hat y_{5}$)
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+For a more detailed description and worked example, check the [model predicted values & residuals flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#model-predicted-values-residuals).
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r}
+mwdata_fitted <- mwdata |>
+  mutate(
+    wellbeing_hat = predict(mdl),
+    resid = wellbeing - wellbeing_hat
+  )
+
+head(mwdata_fitted)
+```
+
+Based on the above: 
+  
+  
+- $y_{3}$ = `r round(mwdata_fitted[3,5], 2)` (see row 3, column 5)
+- $\hat y_{3}$ = `r round(mwdata_fitted[3,8], 2)` (see row 3, column 8)
+- $\hat \epsilon_{5} = y_{5} - \hat y_{5}$ = `r round(mwdata_fitted[5,5], 2)` -  `r round(mwdata_fitted[5,8], 2)` = -6.21 (see row 5, columns 5 and 8)
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Writing Up & Presenting Results
+
+`r qbegin(9)`
+
+Provide key model results in a formatted table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#tables). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r}
+#| label: tbl-wb-socint-modresults
+#| tbl-cap: Regression Table for Wellbeing Model
+tab_model(mdl,
+          dv.labels = "Wellbeing (WEMWBS) Scores",
+          pred.labels = c("social_int" = "Social Interactions (Number per Week)"),
+          title = "Regression Table for Wellbeing Model")
+          
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+Describe the design of the study (see [Study Overview] codebook), and the analyses that you undertook. Interpret your results in the context of the research question and report your model results in full.
+
+Make reference to your descriptive plots and/or statistics and regression table. 
+
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+::: {.callout-important icon=false appearance="minimal"}
+
+The `mwdata` dataset contained information on 200 hypothetical participants who lived in Edinburgh & Lothians area. Using a between-subjects design, the researchers collected information on participants' wellbeing (measured via WEMWBS), outdoor time (hours per week), social interactions (number per week), routine (whether or not one was followed), location of residence (City, Suburb, or Rural), average weekly steps (in thousands), and age (in years).
+
+To visualise the marginal distributions of wellbeing and social interactions, density plots were used. To understand the strength of association between the two variables, the correlation coefficient was estimated. To investigate whether the number of weekly social interactions influences wellbeing (WEMWBS) scores, the following simple linear regression model was used:
+
+$$
+\text{Wellbeing} = \beta_0 + \beta_1 \cdot \text{Social Interactions}
+$$
+
+From @fig-densbox-wb and @fig-densbox-socint, we can see that both wellbeing $(M = `r round(mean(mwdata$wellbeing), 2)`, SD = `r round(sd(mwdata$wellbeing), 2)`)$ and social interactions $(M = `r round(mean(mwdata$social_int), 2)`, SD = `r round(sd(mwdata$social_int), 2)`)$ followed unimodal distributions. There was a weak, positive, linear association between WEMWBS scores and the weekly number of social interactions for the participants in the sample $(r = .24)$.
+
+Full regression results are displayed in @tbl-wb-socint-modresults. There was a significant association between wellbeing scores and social interactions $(\beta = 0.32, SE = 0.09, p < .001)$. The estimated wellbeing score with no social interactions per week was `r round(mdl$coefficients[1], 2)`. Each additional social interaction was associated with a `r round(mdl$coefficients[2], 2)` point increase in wellbeing scores. 
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2024"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+Review [Lesson 5 of the rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/05-echoeval.html) for a detailed description/worked examples.
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
