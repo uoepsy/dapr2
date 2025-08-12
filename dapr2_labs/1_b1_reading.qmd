@@ -89,7 +89,7 @@ The common first port of call for almost any statistical analysis is to explore 
 </tr>
 <tr style="border-bottom: 1px solid">
 <td style="vertical-align:top">**Visually**</td>
-<td style="vertical-align:top;border-right: 1px solid">Plot each variable individually.<br><br>You could use, for example, `geom_density()` for a density plot or `geom_histogram()` for a histogram to comment on and/or examine:<br><ul><li> The *shape* of the distribution. Look at the shape, centre and spread of the distribution. Is it symmetric or skewed? Is it unimodal or bimodal? </li><li> Identify any *unusual observations*. Do you notice any extreme observations (i.e., outliers)? </li></ul></td>
+<td style="vertical-align:top;border-right: 1px solid">Plot each variable individually.<br><br>You could use, for example, `geom_density()` for a density plot, `geom_boxplot()` for a boxplot or `geom_histogram()` for a histogram to comment on and/or examine:<br><ul><li> The *shape* of the distribution. Look at the shape, centre and spread of the distribution. Is it symmetric or skewed? Is it unimodal or bimodal? </li><li> Identify any *unusual observations*. Do you notice any extreme observations (i.e., outliers)? </li></ul></td>
 <td style="vertical-align:top">Plot associations among two variables.<br><br>You could use, for example, `geom_point()` for a scatterplot  to comment on and/or examine:<br><ul><li>The *direction* of the association indicates whether there is a positive or negative association</li><li>The *form* of association refers to whether the relationship between the variables can be summarized well with a straight line or some more complicated pattern </li><li>The *strength* of association entails how closely the points fall to a recognizable pattern such as a line  </li><li>*Unusual observations* that do not fit the pattern of the rest of the observations and which are worth examining in more detail </li></ul></td>
 </tr>
 <tr style="border-bottom: 1px solid">
@@ -502,7 +502,7 @@ ggplot(data = iris, aes(x = Sepal.Length)) +
 
 #### Density
 
-A visualization of the distribution of a numeric variable. 
+“Density” is a bit similar to the notion of “relative frequency” (or “proportion”), in that for a density curve, the values on the y-axis are scaled so that the total area under the curve is equal to 1. In creating a curve for which the total area underneath is equal to one, we can use the area under the curve in a range of values to indicate the proportion of values in that range.
 
 **Basic:**
 
@@ -530,6 +530,83 @@ We can change the type and width of the line by specifying `linetype = ` and `li
 ggplot(data = iris, aes(x = Sepal.Length)) +
     geom_density(linetype = 6, linewidth = 3) +
     labs(x = "Sepal Length (in cm)")
+```
+
+#### Boxplot
+
+Boxplots provide a useful way of visualising the __interquartile range (IQR).__ You can see what each part of the boxplot represents in Figure @fig-boxplotdesc.  
+
+
+```{r}
+#| label: fig-boxplotdesc
+#| echo: false
+#| fig-cap: "Anatomy of a Boxplot"
+#| out-width: '100%'
+
+set.seed(34875)
+px = rnorm(100,10,10)
+mn=min(px[px>quantile(px, .25)-(1.5*IQR(px))])
+mx=max(px[px<quantile(px, .75)+(1.5*IQR(px))])
+outs_up = px[px>quantile(px, .75)+(1.5*IQR(px))]
+outs_lw = px[px<quantile(px, .25)-(1.5*IQR(px))]
+ggplot(data = NULL, aes(x = px)) +
+  geom_boxplot(col="red")+
+  ylim(-1,1)+xlim(-30,45)+
+  theme_classic()+
+  theme(axis.title = element_blank(), axis.text = element_blank(),
+      axis.ticks = element_blank(), axis.line = element_blank())+
+  
+  # Quartiles
+  annotate("text",x=median(px), y=0.7, label="Q2\n(Median)", vjust=1,hjust=0.5, col="grey70")+
+  annotate("text",x=quantile(px, .25), y=0.6, label="Q1", vjust=1,hjust=1, col="grey70")+
+  annotate("text",x=quantile(px, .75), y=0.6, label="Q3", vjust=1,hjust=0, col="grey70")+
+  geom_segment(aes(x=median(px), xend=median(px), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  geom_segment(aes(x=quantile(px, .25), xend=quantile(px, .25), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .75), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  
+  # Whiskers
+  annotate("text",x=mn, y=-0.2, label="Minimum value in data\nwhich is > Q1 - (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  annotate("text",x=mx, y=-0.2, label="Maximum value in data\nwhich is < Q3 + (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  geom_segment(aes(x=mn, xend=mn, y=0, yend=-0.2),col="grey70",lty="dashed")+
+  geom_segment(aes(x=mx, xend=mx, y=0, yend=-0.2),col="grey70",lty="dashed")+
+  
+  #IQR
+  geom_segment(aes(x=quantile(px, .25), xend=quantile(px, .25), y=0.78, yend=0.85), col="grey70")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .75), y=0.78, yend=0.85), col="grey70")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .25), y=0.85, yend=0.85), col="grey70")+
+  annotate("label",x=median(px), y=0.9, label="IQR", vjust=1,hjust=0.5, col="grey70")+
+  
+  # Outliers +
+  geom_segment(aes(x=outs_up, xend=mean(outs_up), y=0, yend=0.27), col="grey70", lty="dashed")+
+  annotate("text",x=mean(outs_up), y=0.5, label="Outliers\nDatapoints > Q3 + (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  # Outliers -
+  geom_segment(aes(x=outs_lw, xend=mean(outs_lw), y=0, yend=0.27), col="grey70", lty="dashed")+
+  annotate("text",x=mean(outs_lw), y=0.5, label="Outliers\nDatapoints < Q1 - (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  
+  NULL
+  
+rm(mn,mx,outs_lw,outs_up,px)
+```
+
+
+**Basic:**
+
+We need to specify `+ geom_boxplot()` to get a boxplot: 
+
+```{r}
+ggplot(data = iris, aes(x = Sepal.Length)) +
+  geom_boxplot() +
+    labs(x = "Sepal Length (in cm)")
+```
+
+**Rotate Boxplot:**
+
+If we had set `aes(y = Sepal.Length)` instead, then it would simply be rotated 90 degrees:
+
+```{r}
+ggplot(data = iris, aes(y = Sepal.Length)) +
+  geom_boxplot() +
+    labs(y = "Sepal Length (in cm)")
 ```
 
 :::

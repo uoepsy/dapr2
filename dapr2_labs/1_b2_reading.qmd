@@ -94,7 +94,7 @@ The common first port of call for almost any statistical analysis is to explore 
 </tr>
 <tr style="border-bottom: 1px solid">
 <td style="vertical-align:top">**Visually**</td>
-<td style="vertical-align:top;border-right: 1px solid">Plot each variable individually.<br><br>You could use, for example, `geom_density()` for a density plot or `geom_histogram()` for a histogram to comment on and/or examine:<br><ul><li> The *shape* of the distribution. Look at the shape, centre and spread of the distribution. Is it symmetric or skewed? Is it unimodal or bimodal? </li><li> Identify any *unusual observations*. Do you notice any extreme observations (i.e., outliers)? </li></ul></td>
+<td style="vertical-align:top;border-right: 1px solid">Plot each variable individually.<br><br>You could use, for example, `geom_density()` for a density plot, `geom_boxplot()` for a boxplot or `geom_histogram()` for a histogram to comment on and/or examine:<br><ul><li> The *shape* of the distribution. Look at the shape, centre and spread of the distribution. Is it symmetric or skewed? Is it unimodal or bimodal? </li><li> Identify any *unusual observations*. Do you notice any extreme observations (i.e., outliers)? </li></ul></td>
 <td style="vertical-align:top">Plot associations among two variables.<br><br>You could use, for example, `geom_point()` for a scatterplot  to comment on and/or examine:<br><ul><li>The *direction* of the association indicates whether there is a positive or negative association</li><li>The *form* of association refers to whether the relationship between the variables can be summarized well with a straight line or some more complicated pattern </li><li>The *strength* of association entails how closely the points fall to a recognizable pattern such as a line  </li><li>*Unusual observations* that do not fit the pattern of the rest of the observations and which are worth examining in more detail </li></ul></td>
 </tr>
 <tr style="border-bottom: 1px solid">
@@ -204,7 +204,7 @@ describe(iris$Sepal.Length) |>
     kable_styling(full_width = FALSE)
 ```
 
-## Categorical and numeric values options:
+## Categorical and numeric values example:
 
 *Note that this is quite an overly complex way to return these summary statistics - using the `tidyverse()` way is much more intuitive and straightforward!*
 
@@ -554,7 +554,7 @@ ggplot(data = iris, aes(x = Sepal.Length)) +
 
 #### Density
 
-A visualization of the distribution of a numeric variable. 
+“Density” is a bit similar to the notion of “relative frequency” (or “proportion”), in that for a density curve, the values on the y-axis are scaled so that the total area under the curve is equal to 1. In creating a curve for which the total area underneath is equal to one, we can use the area under the curve in a range of values to indicate the proportion of values in that range.
 
 **Basic:**
 
@@ -582,6 +582,83 @@ We can change the type and width of the line by specifying `linetype = ` and `li
 ggplot(data = iris, aes(x = Sepal.Length)) +
     geom_density(linetype = 6, linewidth = 3) +
     labs(x = "Sepal Length (in cm)")
+```
+
+#### Boxplot
+
+Boxplots provide a useful way of visualising the __interquartile range (IQR).__ You can see what each part of the boxplot represents in Figure @fig-boxplotdesc.  
+
+
+```{r}
+#| label: fig-boxplotdesc
+#| echo: false
+#| fig-cap: "Anatomy of a Boxplot"
+#| out-width: '100%'
+
+set.seed(34875)
+px = rnorm(100,10,10)
+mn=min(px[px>quantile(px, .25)-(1.5*IQR(px))])
+mx=max(px[px<quantile(px, .75)+(1.5*IQR(px))])
+outs_up = px[px>quantile(px, .75)+(1.5*IQR(px))]
+outs_lw = px[px<quantile(px, .25)-(1.5*IQR(px))]
+ggplot(data = NULL, aes(x = px)) +
+  geom_boxplot(col="red")+
+  ylim(-1,1)+xlim(-30,45)+
+  theme_classic()+
+  theme(axis.title = element_blank(), axis.text = element_blank(),
+      axis.ticks = element_blank(), axis.line = element_blank())+
+  
+  # Quartiles
+  annotate("text",x=median(px), y=0.7, label="Q2\n(Median)", vjust=1,hjust=0.5, col="grey70")+
+  annotate("text",x=quantile(px, .25), y=0.6, label="Q1", vjust=1,hjust=1, col="grey70")+
+  annotate("text",x=quantile(px, .75), y=0.6, label="Q3", vjust=1,hjust=0, col="grey70")+
+  geom_segment(aes(x=median(px), xend=median(px), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  geom_segment(aes(x=quantile(px, .25), xend=quantile(px, .25), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .75), y=0.48, yend=0.38), col="grey70",lty="dashed")+
+  
+  # Whiskers
+  annotate("text",x=mn, y=-0.2, label="Minimum value in data\nwhich is > Q1 - (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  annotate("text",x=mx, y=-0.2, label="Maximum value in data\nwhich is < Q3 + (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  geom_segment(aes(x=mn, xend=mn, y=0, yend=-0.2),col="grey70",lty="dashed")+
+  geom_segment(aes(x=mx, xend=mx, y=0, yend=-0.2),col="grey70",lty="dashed")+
+  
+  #IQR
+  geom_segment(aes(x=quantile(px, .25), xend=quantile(px, .25), y=0.78, yend=0.85), col="grey70")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .75), y=0.78, yend=0.85), col="grey70")+
+  geom_segment(aes(x=quantile(px, .75), xend=quantile(px, .25), y=0.85, yend=0.85), col="grey70")+
+  annotate("label",x=median(px), y=0.9, label="IQR", vjust=1,hjust=0.5, col="grey70")+
+  
+  # Outliers +
+  geom_segment(aes(x=outs_up, xend=mean(outs_up), y=0, yend=0.27), col="grey70", lty="dashed")+
+  annotate("text",x=mean(outs_up), y=0.5, label="Outliers\nDatapoints > Q3 + (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  # Outliers -
+  geom_segment(aes(x=outs_lw, xend=mean(outs_lw), y=0, yend=0.27), col="grey70", lty="dashed")+
+  annotate("text",x=mean(outs_lw), y=0.5, label="Outliers\nDatapoints < Q1 - (1.5 * IQR)", vjust=1,hjust=0.5, col="grey70")+
+  
+  NULL
+  
+rm(mn,mx,outs_lw,outs_up,px)
+```
+
+
+**Basic:**
+
+We need to specify `+ geom_boxplot()` to get a boxplot: 
+
+```{r}
+ggplot(data = iris, aes(x = Sepal.Length)) +
+  geom_boxplot() +
+    labs(x = "Sepal Length (in cm)")
+```
+
+**Rotate Boxplot:**
+
+If we had set `aes(y = Sepal.Length)` instead, then it would simply be rotated 90 degrees:
+
+```{r}
+ggplot(data = iris, aes(y = Sepal.Length)) +
+  geom_boxplot() +
+    labs(y = "Sepal Length (in cm)")
 ```
 
 :::
@@ -664,7 +741,7 @@ iris |>
 
 #### Boxplot
 
-We can use a boxplot to visualise the association between one numeric variable and one categorical variable - these will be our y- and x-axis values respectively.
+We can use a boxplot to visualise the association between one numeric variable and one categorical variable - these will be our y- and x-axis values respectively. This can be helpful to visually compare the distribution of multiple groups.
 
 **Basic:**
 
@@ -1447,13 +1524,107 @@ plot_model(recall_multi,
 
 ## Numeric Outcomes & Categorical Predictors
 
-`r optbegin("Overview", olabel=FALSE,toggle=params$TOGGLE)`
+`r optbegin("Description & Model Specification", olabel=FALSE,toggle=params$TOGGLE)`
 
-We can include categorical predictors in a linear regression, but the interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as “the change in $y$ associated with a 1-unit increase in $x$”, for categorical explanatory variables, coefficients can be considered to examine differences in group means. 
+In both simple and multiple linear regression models, we examine the association between one continuous dependent variable (DV) using 1 (in the case of simple) or 2+ (in the case of multiple) predictor variables, which could include categorical predictors. When incorporating categorical variables, we use techniques such as dummy/treatment or effects/sum-to-zero coding to convert and represent these categorical predictors in a numerical format which is suitable for regression analysis.  
+  
+The interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as “the change in $y$ associated with a 1-unit increase in $x$”, for categorical explanatory variables, coefficients can be considered to examine differences in group means. 
+
+:::blue
+
+In **R**:
+
+Multiple and simple linear regression models with categorical predictors follow the same structure within the `lm()` function. You simply add (using the `+` sign) more independent variables. For example, if we wanted to build a linear regression model that included one independent categorical variable which had three levels, we could fit one of the following via the `lm()` function:
+
+::: {.panel-tabset}
+
+## Option A
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV1, data = data_name)
+```
+
+## Option B
+
+```{r eval=FALSE}
+model_name <- lm(data_name$DV ~ data_name$IV1)
+```
+
+:::
+
+:::
 
 `r optend()`
 
 <br> 
+
+`r optbegin("Binary Predictors", olabel=FALSE,toggle=params$TOGGLE)`
+
+Binary variables have two categories (more commonly referred to as levels), and these levels (e.g., Yes/No, Dog/Cat, Right/Left, Smoker/Non-Smoker) are simply entered in the model as a series of 0s and 1s. Numeric variables that represent categorical data are typically referred to as __dummy variables__.  
+
+Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.
+
+However, “zero” for this predictor variable now corresponds to a whole level. This is known as the “reference level”. Accordingly, the 1-unit change in our predictor (the move from “zero” to “one”) corresponds to the difference between the two levels. 
+
+When used as predictors in multiple regression models, binary variables behave much the same way. The coefficient will give us the estimated change in $y$ when moving from one level to the other, whilst holding other predictors constant (for more info, see the **Multiple Linear Regression Models - Interpretation of Coefficients** flashcard).  
+
+`r optend()`
+
+<br> 
+
+`r optbegin("Dummy vs Effects Coding", olabel=FALSE,toggle=params$TOGGLE)`
+
+
+Possible side-constraints on the parameters are:
+
+|       Name      |             Constraint            |             Meaning of $\beta_0$            |        In R         |
+|:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
+| Sum to zero (Effects Coding) | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
+| Reference group (Dummy Coding) |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
+
+
+**Dummy Coding**
+
+By default `R` uses the reference group constraint - i.e., dummy coding  (sometimes called treatment contrast coding). If your factor has $g$ levels, your regression model will have $g-1$ dummy variables (`R` creates them for you, as we've seen in the examples above).  
+
+One level of the categorical variable is considered as the 'baseline', 'reference level', or 'reference group' - `R` automatically takes the first level alphabetically as the baseline (e.g., if you had a 'pet' variable with levels dog, hamster, and cat, then cat would be taken as the reference level). 
+
+When we use this approach, the intercept is the estimated $y$ when all predictors (i.e., $x$'s) are zero. Because the reference level is kind of like “0” in our contrast matrix, this is part of the intercept estimate. We get out a coefficient for each subsequent level, which are the estimated differences from each level to the reference group.
+
+
+**Effects Coding**
+
+Effects coding (sometimes called sum-to-zero coding) is the next most commonly used in psychological research. These are a way of comparing each level to the overall (or grand) mean. This involves a bit of trickery that uses -1s and 1s rather than 0s and 1s, in order to make “0” be mid-way between all the levels - the average of the levels.
+
+`R` automatically takes the last level alphabetically as level which is dropped (e.g., if you had a 'pet' variable with levels dog, hamster, and cat, then hamster would not be represented).
+
+When we use this approach, the intercept is the estimated average $y$ when averaged across all levels of the predictor variable. In other words, it is the estimated grand mean of $y$. The coefficients represent the estimated difference for that level from the overall grand mean.
+
+:::blue
+
+In **R**
+
+If we want to use effects coding, we can apply:
+
+```{r eval = FALSE}
+contrasts(iris$Species) <- "contr.sum"
+```
+
+We can switch back to the default reference group constraint by applying either of these:
+
+```{r eval = FALSE}
+# Option 1
+contrasts(iris$Species) <- NULL
+
+# Option 2
+contrasts(iris$Species) <- "contr.treatment"
+```
+
+:::
+
+`r optend()`
+
+<br>
 
 `r optbegin("Coding Variables as Factors", olabel=FALSE,toggle=params$TOGGLE)`
 
@@ -1469,7 +1640,6 @@ We can use various functions to convert between different types of data, such as
 + `as.numeric()` - to turn a variable into numbers
 
 :::
-
 
 
 As a first step, it is a good idea to look at the structure of the dataset you are working with. For the purpose of this example, our dataset is called "tips" (you might recall this from DAPR1):
@@ -1509,131 +1679,11 @@ str(tips)
 
 `r optend()`
 
-<br> 
-
-`r optbegin("Binary Predictors", olabel=FALSE,toggle=params$TOGGLE)`
-
-Binary variables have two categories (more commonly referred to as levels), and these levels (e.g., Yes/No, Dog/Cat, Right/Left, Smoker/Non-Smoker) are simply entered in the model as a series of 0s and 1s. Numeric variables that represent categorical data are typically referred to as __dummy variables__.  
-
-Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.
-
-However, “zero” for this predictor variable now corresponds to a whole level. This is known as the “reference level”. Accordingly, the 1-unit change in our predictor (the move from “zero” to “one”) corresponds to the difference between the two levels. 
-
-When used as predictors in multiple regression models, binary variables behave much the same way. The coefficient will give us the estimated change in $y$ when moving from one level to the other, whilst holding other predictors constant (for more info, see the **Multiple Linear Regression Models - Description & Specification** flashcard, specifically the section on interpretation of multiple regression coefficients).
-
-`r optend()`
-
-<br> 
-
-`r optbegin("Categorical Predictors with k levels", olabel=FALSE,toggle=params$TOGGLE)`
-
-When we have a _categorical_ explanatory variable with __more than 2 levels__, our model gets a bit more complex - it needs not just one, but _a number of_ dummy variables. For a categorical variable with $k$ levels, we can express it in $k-1$ dummy variables.  
-
-For example, the "species" column below has three levels, and can be expressed by the two variables "species_dog" and "species_parrot": 
-
-```{r echo=FALSE, out.width="80%"}
-data.frame(
-  species = c("cat","cat","dog","parrot","dog","cat","..."),
-  species_dog = c(0,0,1,0,1,0,"..."),
-  species_parrot = c(0,0,0,1,0,0,"...")
-)
-```
-
-+ The "cat" level is expressed whenever both the "species_dog" and "species_parrot" variables are 0.
-+ The "dog" level is expressed whenever the "species_dog" variable is 1 and the "species_parrot" variable is 0.
-+ The "parrot" level is expressed whenever the "species_dog" variable is 0 and the "species_parrot" variable is 1.  
-
-`R` will do all of this re-expression for us. If we include in our model a categorical explanatory variable with 3 different levels, the model will estimate 2 parameters - one for each dummy variable. We can interpret the parameter estimates (the coefficients we obtain using `coefficients()`,`coef()` or `summary()`) as the estimated increase in the outcome variable associated with an increase of one in each dummy variable (holding all other variables equal).  
-
-```{r echo=FALSE}
-set.seed(348)
-catplot <- tibble(
-  species = rep(c("cat","dog","parrot"), each = 15),
-  outcome = c(rnorm(15,60,5), rnorm(15,50,5), rnorm(15,55,5))
-)
-cstat = coef(lm(outcome~species,catplot))
-pander::pander(summary(lm(outcome~species,catplot))$coefficients)
-```
-
-Recall that the intercept is the estimated outcome when all predictors are zero. In our example then, this represents the cat. We think of the "cat" category in this example as the _reference level_ - it is the category against which other categories are compared against. Therefore, in the above example, an increase in 1 of "species_dog" is the difference between a "cat" and a "dog". An increase in one of "species_parrot" is the difference between a "cat" and a "parrot". 
-
-```{r echo=FALSE, message=FALSE, warning = FALSE}
-ggplot(catplot, aes(x=species, y=outcome))+
-  #geom_boxplot(fatten=NULL)+
-  geom_jitter(height=0,width=.05, alpha=.4)+
-  geom_point(x=1,y=cstat[1], col="blue",size=3)+
-  annotate("text",x=1,y=cstat[1],label=expression(paste(beta[0], " (intercept)")), col="blue", hjust=1.1)+
-  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue")+
-  geom_segment(aes(x=1,xend=2,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
-  geom_segment(aes(x=2,xend=2,y=cstat[1],yend=cstat[1]+cstat[2]),col="blue", lty="dashed")+
-  annotate("text",x=2.15,y=mean(c(cstat[1],sum(cstat[1:2]))),label=expression(paste(beta[1], " (slope)")), col="blue", hjust=.35)+
-  
-  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue")+
-  geom_segment(aes(x=1,xend=3,y=cstat[1],yend=cstat[1]),col="blue", lty="dashed")+
-  geom_segment(aes(x=3,xend=3,y=cstat[1],yend=cstat[1]+cstat[3]),col="blue", lty="dashed")+
-  annotate("text",x=3.15,y=mean(c(cstat[1],sum(cstat[c(1,3)]))),label=expression(paste(beta[2], " (slope)")), col="blue", hjust=.35)
-```
-
-
-`r optend()`
-
-<br> 
-
-`r optbegin("Dummy vs Effects Coding", olabel=FALSE,toggle=params$TOGGLE)`
-
-
-Possible side-constraints on the parameters are:
-
-|       Name      |             Constraint            |             Meaning of $\beta_0$            |         R         |
-|:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
-| Sum to zero (Effects Coding) | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
-| Reference group (Dummy Coding) |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
-
-
-**Dummy Coding**
-
-By default `R` uses the reference group constraint - i.e., dummy coding  (sometimes called treatment contrast coding). If your factor has $g$ levels, your regression model will have $g-1$ dummy variables (`R` creates them for you, as we've seen in the examples above). 
-
-When we use this approach, the intercept is the estimated $y$ when all predictors (i.e., $x$'s) are zero. Because the reference level is kind of like “0” in our contrast matrix, this is part of the intercept estimate. We get out a coefficient for each subsequent level, which are the estimated differences from each level to the reference group.
-
-
-**Effects Coding**
-
-Effects coding (sometimes called sum-to-zero coding) is the next most commonly used in psychological research. These are a way of comparing each level to the overall (or grand) mean. This involves a bit of trickery that uses -1s and 1s rather than 0s and 1s, in order to make “0” be mid-way between all the levels - the average of the levels.
-
-When we use this approach, the intercept is the estimated average $y$ when averaged across all levels of the predictor variable. In other words, it is the estimated grand mean of $y$. The coefficients represent the estimated difference for that level from the overall grand mean.
-
-:::blue
-
-In **R**
-
-If we want to use effects coding, we can apply:
-
-```{r eval = FALSE}
-contrasts(iris$Species) <- "contr.sum"
-```
-
-We can switch back to the default reference group constraint by applying either of these:
-
-```{r eval = FALSE}
-# Option 1
-contrasts(iris$Species) <- NULL
-
-# Option 2
-contrasts(iris$Species) <- "contr.treatment"
-```
-
-:::
-
-`r optend()`
-
 <br>
 
 `r optbegin("Specifying Reference Levels", olabel=FALSE,toggle=params$TOGGLE)`
 
-When you have a categorical variable coded as a factor, `R` will default to using alphabetical ordering - hence in our example above "cat" was the reference level (as opposed to "dog" or "parrot").
-
-We could override this by making it a factor with an ordering to it’s levels (see the use of `factor()` and `levels()`). Functions like `fct_relevel()` might be handy too. 
+When you have a categorical variable coded as a factor, `R` will default to using alphabetical ordering. We could override this by making it a factor with an ordering to it’s levels (see the use of `factor()` and `levels()`). Functions like `fct_relevel()` might be handy too. 
 
 `r optend()`
 
@@ -1861,6 +1911,36 @@ summary(spec_model2)
 
 `r optbegin("Model Visualisation", olabel=FALSE,toggle=params$TOGGLE)` 
 
+There are a couple of ways that we can visualise our model, eithe rusing the **sjPlot** or **effects** packages:
+
+::: {.panel-tabset}
+
+### sjPlot
+
+```{r}
+library(sjPlot)
+
+plot_model(spec_model,
+           type = "eff",
+           terms = "Species") +
+    labs(title = "Sepal Length by Species",
+       x = "Species", 
+       y = "Sepal Length")
+```
+
+### effects
+
+```{r}
+library(effects)
+
+effect(term = c("Species"), mod = spec_model) |>
+  as.data.frame() |>
+  ggplot(aes(x = Species, y = fit, col = Species)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper))
+```
+
+:::
+
 `r optend()`
 
 <br>
@@ -1894,6 +1974,7 @@ iris <- iris |>
 ```{r eval = FALSE}
 iris$Species <- relevel(iris$Species, "versicolor")
 ```
+
 
 ### `factor()`
 
@@ -2481,7 +2562,9 @@ There are some rules that we need to follow when using manual contrasts:
 
 <br> 
 
-`r optbegin("In R - Additive Model", olabel=FALSE,toggle=params$TOGGLE)`
+## Additive Models
+
+`r optbegin("Steps In R", olabel=FALSE,toggle=params$TOGGLE)`
 
 After specifying our hypotheses, to test our contrasts, we can use the **emmeans** package and follow the below structure:
 
@@ -2496,36 +2579,45 @@ After completing these steps, the last task would be to interpret the results of
 
 `r optend()`
 
-<br> 
 
-`r optbegin("Example - Additive Model", olabel=FALSE,toggle=params$TOGGLE)`
-
-Suppose we wanted to address the following question:
+#### Example
 
 > **Research Question** 
 >
-> Does the sepal length of an iris grown in Western states (i.e., iris setosa) differ from the sepal length of an Iris grown in Eastern states (i.e., iris versicolor and virginica)?
+> Does the sepal length of an iris grown in Western states (i.e., iris setosa) differ from the sepal length of an Iris grown in Eastern states (i.e., iris versicolor and virginica)?  
 
+`r optbegin("Specify Hypotheses", olabel=FALSE,toggle=params$TOGGLE)`
 
-We could specify our hypothesis as:
+Based on the research question, we are asking whether there is a difference between the average sepal length of iris setosa (Western states), and the **combined** average sepal length of iris versicolor and iris virginica (Eastern state)s. To assess this for the Eastern states, we need to compute the average of the mean sepal lengths of the two species, iris versicolor and iris virginica.
+
+With this in mind, we could specify our hypotheses as:
 
 $$
 \begin{aligned}
     \quad H_0 &: \mu_\text{Western} = \mu_\text{Eastern} \\
+    \\  
     \quad H_0 &: \mu_\text{Setosa} = \frac{1}{2} (\mu_\text{Versicolor} + \mu_\text{Virginica}) \\
-\\
-    \quad H_1 &: \mu_\text{Western} \neq \mu_\text{Eastern} \\
+\\  
+\\ 
+    \quad H_1 &: \mu_\text{Western} \neq \mu_\text{Eastern} \\ 
+    \\ 
     \quad H_1 &: \mu_\text{Setosa} \neq \frac{1}{2} (\mu_\text{Versicolor} + \mu_\text{Virginica}) \\
 \\ 
 \end{aligned}
 $$
 
+`r optend()`
+
+<br>
+
+`r optbegin("Conduct Contrast Analysis", olabel=FALSE,toggle=params$TOGGLE)`
+
+Follow steps 1-6 outlined above:
 
 ```{r echo = FALSE}
 iris$Species <- relevel(iris$Species, "setosa")
 ```
 
-And then conduct our manual contrast analysis:
 
 ```{r}
 # Step 1: Fit and run the model 
@@ -2567,13 +2659,17 @@ confint(seplength_comp_test)
 summary(seplength_comp_test, infer = TRUE)
 ```
 
-And write up our findings in the context of the hypothesis / research question:
+`r optend()`
+
+<br>
+
+`r optbegin("Results Interpretation", olabel=FALSE,toggle=params$TOGGLE)`
+
+Important to write up our findings in the context of the hypothesis / research question:
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-**Example Interpretation**
-
-We performed a test against $H_0: \mu_1 - \frac{1}{2}(\mu_2 + \mu_3) = 0$. At the 5\% significance level, there was evidence that iris sepal length was significantly different between Western and Eastern states in the US $(t(147) = 14.09, p < .001, \text{two-sided})$, and this difference was estimated to be 1.26cm. We are 95\% confident that an Iris grown in an Eastern state, on average, would be between 1.08cm and 1.43cm longer than those grown in a Western state $(CI_{95}[1.08, 1.43])$.
+We performed a test against $H_0: \mu_\text{Setosa} = \frac{1}{2} (\mu_\text{Versicolor} + \mu_\text{Virginica}) = 0$. At the 5\% significance level, there was evidence that iris sepal length significantly differed between Western and Eastern states in the US $(t(147) = 14.09, p < .001, \text{two-sided})$, and this difference was estimated to be $1.26~cm$. We are 95\% confident that an iris grown in an Eastern state, on average, would be between $1.08~cm$ and $1.43~cm$ longer than those grown in a Western state $(CI_{95}[1.08, 1.43])$.
 
 :::
 
