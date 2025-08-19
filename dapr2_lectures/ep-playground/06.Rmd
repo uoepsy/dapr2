@@ -1,0 +1,542 @@
+---
+title: "EP playground – 06 categ dummy"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup}
+library(tidyverse)
+library(patchwork)
+library(emmeans)
+library(simglm)
+library(ggforce)
+```
+
+
+# Simulate data
+
+```{r message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+```
+
+
+# `study` (two levels)
+
+## Group means
+
+```{r}
+test_study3 |>
+  group_by(study) |>
+  summarise(
+    avg_score = round(mean(score), 2)
+  )
+
+mean_alone <- filter(test_study3, study == 'alone')$score |> mean()
+mean_others <- filter(test_study3, study == 'others')$score |> mean()
+```
+
+
+## Plot `study` data
+
+```{r}
+test_study3 |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_sina(alpha = 0.5) +
+  theme(legend.position = 'none') +
+  stat_summary(colour = 'black', fun = mean, geom = 'point', size = 2) +
+  geom_segment(aes(x = 'alone', xend = 'others', y = mean_alone, yend = mean_others), colour = 'black') +
+  NULL
+```
+
+Plot on xy plane, dummy-coded.
+
+```{r}
+contrasts(test_study3$study)
+```
+
+
+`alone` = ref level.
+
+```{r}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+test_study3 |>
+  mutate(study_num = ifelse(study == 'alone', 0, 1)) |>
+  ggplot(aes(x = study_num, y = score, fill = study, colour = study)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_alone, yend = mean_others), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_alone, yend = mean_alone), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = mean_alone, yend = mean_others), colour = 'red', linewidth = 2) +
+  NULL
+```
+
+
+Add note that the manual stuff is so you understand how coding works.
+But you'll never have to do it this laboriously.
+
+Exact same outcome:
+
+- manual ifelse
+- `contr.treatment()`
+
+
+
+Aside: Foreshadow lecture 7, pm1 effect coding:
+
+```{r}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+grand_mean <- mean(c(mean_alone, mean_others))
+
+test_study3 |>
+  mutate(study_num = ifelse(study == 'alone', -1, 1)) |>
+  ggplot(aes(x = study_num, y = score, fill = study, colour = study)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = -1, xend = 1, y = mean_alone, yend = mean_others), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = grand_mean, yend = grand_mean), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = grand_mean, yend = mean_others), colour = 'red', linewidth = 2) +
+  NULL
+```
+
+
+## Model `score ~ study`
+
+```{r}
+mod1 <- lm(score ~ study, data = test_study3)
+summary(mod1)
+```
+
+### t-test
+
+```{r}
+t.test(score ~ study, var.equal = T, data = test_study3)
+```
+
+## emmeans
+
+```{r}
+(mod1_emm <- emmeans(mod1, ~study))
+```
+
+
+```{r}
+(p_mod1_emm <- mod1_emm |> plot() +
+  coord_flip())
+```
+
+### overlay emmeans on data plot
+
+```{r}
+mod1_emm_tib <- mod1_emm |>
+  as_tibble() |>
+  rename(score = emmean)
+```
+
+```{r}
+test_study3 |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2) +
+  theme(legend.position = 'none') +
+  geom_errorbar(data = mod1_emm_tib, aes(ymin = lower.CL, ymax = upper.CL), colour = 'black', width = 0.2) +
+  geom_point(data = mod1_emm_tib, colour = 'black', size = 3) +
+  NULL
+```
+
+
+### pairwise comparisons
+
+```{r}
+levels(test_study3$study)
+```
+
+For each comparison we want to make, assign 1 to the level we're interested in, and assign -1 to the level you want to compare it to.
+If there are any other levels in there, assign them 0.
+
+```{r}
+mod1_comparisons <- list(
+  'alone vs. others' = c(
+    1,   # alone
+    -1   # others
+  )
+)
+
+contrast(
+  object = mod1_emm,
+  method = mod1_comparisons
+)
+```
+
+Basically reconstructs the model's estimates.
+Not so interesting.
+
+
+## Change ref level: coefs are diff but emmeans are same
+
+Original contrasts:
+
+```{r}
+contrasts(test_study3$study)
+```
+
+Now, let's flip it:
+
+```{r}
+contrasts(test_study3$study) <- contr.treatment(
+  levels(test_study3$study), 
+  base = 2)
+contrasts(test_study3$study)
+```
+
+### plot flipped data
+
+```{r}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+test_study3 |>
+  mutate(study_num = ifelse(study == 'alone', 1, 0)) |>
+  ggplot(aes(x = study_num, y = score, fill = study, colour = study)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_others, yend = mean_alone), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_others, yend = mean_others), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = mean_others, yend = mean_alone), colour = 'red', linewidth = 2) +
+  NULL
+```
+
+### fit model (different)
+
+```{r}
+mod1b <- lm(score ~ study, data = test_study3)
+coef(mod1b)
+```
+
+- What is intercept? (mean when study = others)
+- What is studyalone? (diff between levels: mean score when study = alone minus mean score when study = others)
+
+Compare this to the original coefs from `mod1`:
+
+```{r}
+coef(mod1)
+```
+
+- What is intercept? (mean when study = alone)
+- What is studyothers? (diff between levels: mean score when study = others minus mean score when study = alone)
+
+
+### get emmeans (same)
+
+```{r}
+(mod1b_emm <- emmeans(mod1b, ~study))
+```
+
+```{r}
+p_mod1b_emm <- mod1b_emm |> plot() +
+  coord_flip() +
+  ggtitle('With reference level = others')
+
+p_mod1_emm <- p_mod1_emm + ggtitle('With reference level = alone')
+
+p_mod1b_emm + p_mod1_emm
+```
+
+Identical!
+
+
+# `method` (three levels)
+
+## Group means
+
+```{r}
+test_study3 |>
+  group_by(method) |>
+  summarise(
+    avg_score = round(mean(score), 2)
+  )
+
+mean_read <- filter(test_study3, method == 'read')$score |> mean()
+mean_self <- filter(test_study3, method == 'self-test')$score |> mean()
+mean_summ <- filter(test_study3, method == 'summarise')$score |> mean()
+```
+
+
+## Plot data
+
+```{r}
+test_study3 |>
+  ggplot(aes(x = method, y = score, fill = method, colour = method)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+Goal: Compare the means of each group to one another.
+That was easy when we had only two groups: one straight line can go from mean to mean.
+But now one straight line won't cut it anymore.
+
+The smallest number of lines that will connect all the means = 2.
+Instead of estimating one line, we will estimate two.
+
+And in general, if we have $n$ groups, we will be estimating $n-1$ lines.
+
+The lines that we're going to be estimating now:
+
+```{r}
+test_study3 |>
+  ggplot(aes(x = method, y = score, fill = method, colour = method)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2) +
+  theme(legend.position = 'none') +
+  stat_summary(colour = 'black', fun = mean, geom = 'point', size = 2) +
+  # line from read to self-test:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'self-test', y = mean_read, yend = mean_self)) +
+  # line from read to summarise:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'summarise', y = mean_read, yend = mean_summ)) +
+  NULL
+```
+
+
+But I'm lying a little bit.
+This looks like going to go from 0 to 1 in one line, and 0 to 2 in the other line.
+But that's not true -- this is just the intuition about what groups we are comparing.
+Really what we're going to do is this:
+
+
+## Plot dummy-coded `method` in xy space
+
+Two panels: the first will be the difference between `read` and `self-test` (the first variable), the second will be difference between `read` and `summarise` (the second variable).
+
+```{r fig.width = 10, fig.height = 4}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+p1 <- test_study3 |> 
+  filter(method %in% c('read', 'self-test')) |>
+  mutate(method_num = ifelse(method == 'read', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_read, yend = mean_self), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_read, yend = mean_read), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = mean_read, yend = mean_self), colour = 'red', linewidth = 2) +
+  labs(
+    title = 'First line: read vs. self-test'
+  ) +
+  NULL
+
+p2 <- test_study3 |> 
+  filter(method %in% c('read', 'summarise')) |>
+  mutate(method_num = ifelse(method == 'read', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_read, yend = mean_summ), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = mean_read, yend = mean_read), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = mean_read, yend = mean_summ), colour = 'red', linewidth = 2) +
+  labs(
+    title = 'Second line: read vs. summarise'
+  ) +  
+  NULL
+
+p1 + p2
+```
+
+
+## Dummy-code `method` variable
+
+Manual dummy-coding:
+
+```{r}
+dummyCoded <- test_study3 %>%
+  select(ID, score, method) %>%
+  mutate(
+    method1 = ifelse(method == "self-test", 1, 0),
+    method2 = ifelse(method == "summarise", 1, 0))
+
+dummyCoded
+```
+
+
+```{r}
+contrasts(test_study3$method)
+```
+
+
+
+
+## Model `score ~ method`
+
+```{r}
+mod2 <- lm(score ~ method, data = dummyCoded)
+summary(mod2)
+```
+
+
+### t-tests
+
+(Nearly) equivalent t-tests (different bc diff degrees of freedom, bc filtering dataset. but close).
+
+```{r}
+dC1 <- test_study3 |> 
+  filter(method %in% c('read', 'self-test')) |>
+  mutate(method = factor(method, levels = c('read', 'self-test')))
+contrasts(dC1$method) <- contr.treatment(2)
+contrasts(dC1$method)
+
+t.test(score ~ method, var.equal = T, data = dC1)
+```
+
+
+```{r}
+dC2 <- test_study3 |> 
+  filter(method %in% c('read', 'summarise')) |>
+  mutate(method = factor(method, levels = c('read', 'summarise')))
+contrasts(dC2$method) <- contr.treatment(2)
+contrasts(dC2$method)
+
+t.test(score ~ method, var.equal = T, data = dC2)
+```
+
+
+## emmeans 
+
+Before, I said that the smallest number of lines we need to compare three groups is two.
+But this actually means that one of the possible comparisons is left out.
+
+(??? above the missing line between self-test and summarise)
+
+Options:
+
+- make something else ref level. Then we get that comparison. But then we're missing a different third comparison.
+- get emmeans, and once we're in the outcome space, we can compute differences between whatever we want! yay!
+
+
+```{r}
+(mod2_emm <- emmeans(mod2, ~method))
+```
+
+
+```{r}
+mod2_emm |> plot() +
+  coord_flip()
+```
+
+
+### overlay emmeans on data plot
+
+```{r}
+mod2_emm_tib <- mod2_emm |>
+  as_tibble() |>
+  rename(score = emmean)
+```
+
+```{r}
+test_study3 |>
+  ggplot(aes(x = method, y = score, fill = method, colour = method)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2) +
+  theme(legend.position = 'none') +
+  geom_errorbar(data = mod2_emm_tib, aes(ymin = lower.CL, ymax = upper.CL), colour = 'black', width = 0.2) +
+  geom_point(data = mod2_emm_tib, colour = 'black', size = 3) +
+  NULL
+```
+
+
+### pairwise comparisons
+
+```{r}
+levels(test_study3$method)
+```
+
+
+Assign 1 to the level we are interested in, and -1 to the baseline we want to compare it to.
+
+```{r}
+mod2_comparisons <- list(
+  'Self-test vs. Read' = c(-1, 1, 0),  # read self-test summarise, in that order
+  'Summarise vs. Read' = c(-1, 0, 1),
+  'Self-test vs. Summarise' = c(0, 1, -1),
+  'mean(Self-test, summarise) vs. Read' = c(-1, 0.5, 0.5)  # weights must sum to 0 -- pools self-test and summarise tog and pits that mean against mean of Read
+)
+```
+
+
+1 - 1 
+
+`mean(Self-test) - mean(Read)` = positive, bc self-test is larger than read
+
+```{r}
+(mod2_comparisons_test <- contrast(mod2_emm, mod2_comparisons))
+```
+
+`contrast()` gives us the p-values for each difference.
+We can also get the 95% CIs of each difference by giving the outcome of `contrast()` into `confint()`.
+
+```{r}
+confint(mod2_comparisons_test)
+```
+
+
+
