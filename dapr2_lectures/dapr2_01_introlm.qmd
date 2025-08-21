@@ -1,0 +1,1155 @@
+---
+title: "Introduction to the Linear Model"
+author: "Emma Waterston"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+source('_theme/theme_quarto.R')
+```
+
+
+# Course Overview {.smaller}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block1_name = "Introduction to Linear Models"
+block1_lecs = c("Intro to Linear Regression",
+                "Interpreting Linear Models",
+                "Testing Individual Predictors",
+                "Model Testing & Comparison",
+                "Linear Model Analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical Predictors & Dummy Coding",
+                "	Effects Coding & Coding Specific Contrasts",
+                "Assumptions & Diagnostics",
+                "Bootstrapping",
+                "	Categorical Predictor Analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week=1)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regression Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
+```
+
+:::
+
+::::
+
+## This Week's Learning Objectives
+
+1. Understand the link between models and functions
+
+2. Understand the key concepts (intercept and slope) of the linear model
+
+3. Understand what residuals represent 
+
+4. Understand the key principles of least squares
+
+5. Be able to specify a simple linear model (labs) 
+
+
+# Part 1: Functions & Models
+
+
+## What is a Model?
+
++ Pretty much all statistics is about models
+
++ A model is a formal representation of a system
+
++ Put another way, a model is an idea about the way the world is
+
+
+## A Model as a Function
+
++ We tend to represent mathematical models as functions
+
+  + A **function** is an expression that defines the relationship between one variable (or set of variables) and another variable (or set of variables)
+  
+  + It allows us to specify what is important (arguments) and how these things interact with each other (operations)
+
++ This allows us to make and test predictions
+
+
+## Example
+
++ To think through these relations, we can use a simpler example
+
++ Suppose I have a model for growth of babies [^1]
+
+$$
+\text{Length} = 55 + 4 * \text{Age}
+$$
+
++ I'm using this model to formally represent the relationship between a baby's age and their length
+
+[^1]: Length is measured in cm; Age is measured in months.
+
+## Visualising a Model
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+fun1 <- function(x) 55 + (4*x)
+m1 <- ggplot(data = data.frame(x=0), aes(x=x)) +
+  stat_function(fun = fun1) +
+  xlim(0,24) +
+  ylim(0,150) +
+  ylab("Length (in cm)") +
+  xlab("Age (months)") #+
+  #geom_point(colour = "red", size = 3) #+
+ # geom_segment(aes(x = x, y = fx, xend = x, yend = 0), 
+  #             arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  #geom_segment(aes(x = x, y = fx, xend = 0, yend = fx), 
+   #            arrow=arrow(type = "closed", length = unit(0.25, "cm")))
+m1
+```
+
+:::
+
+::: {.column width="50%"}
+
+
++ The x-axis shows `Age`  
+  
++ The y-axis shows `Length`  
+  
++ The black line represents our model: $y = 55+4x$
+  
+
+:::
+
+::::
+
+
+## Models as "a State of the World"
+
++ Let's suppose my model is true
+  + That is, it is a perfect representation of how babies grow  
+
+:::{.incremental}   
+
++ What are the implications of this?  
+  + My models creates predictions     
+  + **IF** my model is a true representation of the world, **THEN** data from the world should closely match my predictions   
+  
+:::
+
+
+## Predictions and Data
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+m1+
+  geom_segment(aes(x = 11, y = 99, xend = 11, yend = 0),
+               col = "red", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  geom_segment(aes(x = 11, y = 99, xend = 0, yend = 99),
+               col = "red", lty = 2,
+               arrow=arrow(type = "closed", length = unit(0.25, "cm")))
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE}
+tibble(
+  Age = seq(10, 12, 0.25)
+) |>
+  mutate(
+    PredictedLength = 55 + (Age*4)
+  ) |>
+  kable() |>
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+:::
+
+::::
+
++ Our predictions are points which fall on our line (representing the model, as a function)
++ The arrows are showing how we can use the model to find a predicted value
+
+
+## Predictions and Data
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
++ Consider the predictions when the children get a lot older...
+
+:::{.incremental}
+
++ What does this say about our model?
+
++ If we were to collect actual data on height and age, will our observations fall on the line?
+
+:::
+
+:::
+
+
+::: {.column width="60%"} 
+ 
+```{r, echo=FALSE}
+tibble(
+  Age = seq(216,300, 12)
+) |>
+  mutate(
+    Year = Age/12,
+    Prediction = 55 + (Age*4),
+    Prediction_M = Prediction/100
+  ) |>
+  kable() |>
+  kable_styling(bootstrap_options = "striped", full_width = F)
+```
+
+:::
+
+::::
+
+
+## Length & Age is Non-Linear
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+df <- read_csv("data/length_age.csv", col_names = c("Month", "Mean", "SD", "Lower", "Upper"))
+m1 + 
+  geom_line(data = df, aes(x=Month, y = Mean), colour = "red") + 
+  geom_line(data = df, aes(x=Month, y = Lower), colour = "red", linetype = "dashed") +
+  geom_line(data = df, aes(x=Month, y = Upper), colour = "red", linetype = "dashed")
+```
+
+:::
+
+::: {.column width="50%"}
+
++ Our red line is plotted based on the mean length for different ages [real data](https://www.cdc.gov/growthcharts/who/boys_length_weight.htm)
+
+:::
+
+::::
+
+## How Good is my Model?
+
+How might we judge how good our model is?
+
+:::{.incremental}
+
+  1. Model is represented as a function
+  
+  2. We see that as a line (or surface if we have more things to consider)
+  
+  3. That yields predictions (or values we expect if our model is true)
+  
+  4. We can collect data
+  
+  5. If the predictions do not match the observed data (observations deviate from our line), that says something about our model
+
+:::
+
+
+## Models and Statistics
+
+In statistics we (roughly) follow this process:
+
+:::{.incremental}
+
++ We define a model that represents one state of the world (probabilistically)
+
++ We collect data to compare to it
+
++ These comparisons lead us to make inferences about how the world actually is, by comparison to a world that we specify by our model 
+  
+:::
+
+
+## Deterministic vs Statistical Models
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+A deterministic model is a model for an **exact** relationship:
+
+$$
+y = \underbrace{3 + 2 x}_{f(x)}
+$$
+```{r echo=FALSE, fig.align='center', out.width = '70%'}
+df <- tibble(
+  x = seq(-2.6, 2, length.out = 10),
+  y = 3 + 2 * x
+)
+df_grid <- tibble(
+  x = seq(-3, 3, length.out = 100),
+  y = 3 + 2 * x
+)
+
+ggplot() +
+  geom_point(data = df, aes(x = x, y = y)) +
+  geom_line(data = df_grid, aes(x = x, y = y), color = 'blue') +
+  labs(x = 'x', y = 'y') +
+  ylim(-6, 11)
+```
+
+:::
+
+::: {.column width="50%"}
+
+A statistical model allows for case-by-case **variability**:
+
+$$
+y = \underbrace{3 + 2 x}_{f(x)} + \epsilon
+$$
+```{r echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', out.width = '70%'}
+df <- tibble(
+  x = rnorm(200),
+  y = 3 + 2 * x + rnorm(200, sd = 2.2)
+)
+
+ggplot(data = df, aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(method = lm, se = FALSE) +
+  labs(x = 'x', y = 'y') + 
+  ylim(-6, 11)
+```
+
+:::
+
+::::
+
+# Part 2 & 3: Linear Model - Intercept, Slope, and Residuals
+
+## Linear Model
+
++ For the majority of the course, we will focus on how we move from the idea of an association to estimating a model for the relationship
+
++ We'll mostly look at the **linear model**
+
+  + Assumes the relationship between the outcome variable and the predictor(s) is linear
+  
+  + Describes a continuous **outcome** variable as a function of one or more **predictor** variables
+
+      
+## Example
+  
+    
+**Question: Do students who study more get higher scores on the test?**
+
+  
+  
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+
+kable(test)
+```
+
+:::
+
+::: {.column width="50%"}
+
+**Codebook**
+
++ `student` = ID variable unique to each respondent
+
++ `hours` = the number of hours spent studying. This will be our predictor ( $x$ )
+
++ `score` = test score. This will be our outcome ( $y$ )
+
+:::
+
+::::
+
+
+## Scatterplot of Data
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE}
+
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2)+
+  labs(x = "Hours Studied", y = "Test Score") +
+  scale_x_continuous(limits=c(0, 5)) + 
+  scale_y_continuous(limits=c(0, 8)) +
+  geom_hline(yintercept = 0, colour = 'black') +
+  geom_vline(xintercept = 0, colour = 'black') +
+  theme(axis.text = element_text(size=14), 
+        axis.title = element_text(size = 16, face = 'bold'))
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+(studyPlot <- ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2)+
+  stat_smooth(method="lm", se=FALSE, col="red") +
+  labs(x = "Hours Studied", y = "Test Score") +
+   geom_hline(yintercept = 0, colour = 'black') +
+   geom_vline(xintercept = 0, colour = 'black') +
+  scale_x_continuous(limits=c(0, 5)) + 
+  scale_y_continuous(limits=c(0, 8)) +
+  theme(axis.text = element_text(size=14), 
+        axis.title = element_text(size = 16, face = 'bold')))
+
+```
+
++ The line represents the best model
+
+:::
+
+:::
+
+## Definition of the Line
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
++ The line can be described by two values:
+
+  + **Intercept**: the point where the line crosses the $y$ -axis and $x = 0$
+
+  + **Slope**: the gradient of the line, or rate of change
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE, message = F}
+studyPlot
+```
+
+:::
+
+::::
+
+## Intercept and Slope
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
+- height of the line (**intercept**)
+
+```{r}
+#| echo: false
+#| fig-asp: .6
+#| fig-align: center
+#| dev: png
+#| cache: true
+
+require(gganimate)
+
+myvals <- seq(-5,5,by=.5)
+ggplot() + geom_hline(yintercept=myvals,colour="darkgrey",size=2) + xlim(-2,2) +
+  labs(title=("intercept = {closest_state}")) +
+  annotate("segment",x=0,xend=0,y=0,yend=myvals,size=1.5,colour="blue",arrow=arrow()) +
+  transition_states(myvals)+ shadow_wake(wake_length=0.05)
+
+```
+
+:::
+
+::: {.column width="50%"}
+
+- gradient of the line (**slope**)
+
+```{r}
+#| dev: png
+#| echo: false
+#| fig-asp: .6
+#| fig-align: center
+#| cache: true
+
+myvals <- seq(-2,2,by=.25)
+ggplot() + geom_abline(intercept=0,slope=myvals,colour="darkgrey",size=2) + xlim(-2,2) +
+  labs(title=("slope = {closest_state}")) +
+  annotate("segment",x=0,xend=1,y=-2.5,yend=-2.5,colour="black",size=1.5) +
+  annotate("segment",x=1,xend=1,y=0,yend=myvals,size=1.5,colour="blue",arrow=arrow()) +
+  annotate("text",x=.5,y=-2.3,label="1 unit",size=6) +
+  transition_states(myvals) + shadow_wake(wake_length=0.05)
+```
+
+:::
+
+::::
+
+## Linear Model Equation
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
+
++ $y_i$ = the outcome variable (e.g. `score`) 
+
++ $x_i$ = the predictor variable, (e.g. `hours`)
+
++ $\beta_0$ = intercept
+
++ $\beta_1$ = slope
+
++ $\epsilon_i$ = residual (we will come to this shortly)
+
+
+## Linear Model Equation
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ **Why do we have $i$ in some places and not others?**
+
+:::{.incremental}
+
++ $i$ is a subscript to indicate that each participant has their own value.
+
++ So each participant has their own: 
+    + score on the test ( $y_i$ )
+    + number of hours studied ( $x_i$ ) and
+    + residual term ( $\epsilon_i$ )
+    
+:::
+
++ **What does it mean that the intercept ( $\beta_0$ ) and slope ( $\beta_1$ ) do not have the subscript $i$?**
+
+:::{.incremental}
+
++ It means there is one value for all observations.
+    + Remember the model is for **all of our data**
+    
+::: 
+
+
+## What is $\epsilon_i$?
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ $\epsilon_i$, or the residual, is a measure of how well the model fits each data point.
+
++ It is the distance between the model line (on $y$-axis) and a data point.
+
++ $\epsilon_i$ is positive if the point is above the line (red in plot)
+
++ $\epsilon_i$ is negative if the point is below the line (blue in plot)
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2, col = c(rep("darkgrey", 5), "red", "blue", rep("darkgrey", 3)))+
+  stat_smooth(method="lm", se=FALSE, col = "black") +
+  geom_segment(aes(x = 3, y = 3.7, xend = 3, yend = 5.9),
+               col = "red", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+    geom_segment(aes(x = 3.5, y = 4, xend = 3.5, yend = 3.15),
+               col = "blue", lty = 2, 
+               arrow=arrow(type = "closed", length = unit(0.25, "cm"))) +
+  ylab("Test Score") +
+  xlab("Hours Studied")
+
+
+```
+
+:::
+
+::::
+
+
+## Understanding the Linear Model Equation {.smaller auto-animate=true}
+
+```{r}
+#| include: false
+xX <-1.2
+yY <- 9.9
+f <- function(x) {5+2*x}
+```
+
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+$$\color{red}{\textrm{outcome}_i} = \color{blue}{(\textrm{model})_i} + \textrm{error}_i$$
+$$\color{red}{y_i} = \color{blue}{\textrm{intercept}\cdot{}1+\textrm{slope}\cdot{}x_i}+\epsilon_i$$
+
+$$\color{red}{y_i} = \color{blue}{b_0 \cdot{} 1 + b_1 \cdot{} x_i} + \epsilon_i$$
+
+so the linear [model]{.blue} itself is...
+
+:::: {data-id="formula"}
+$$\hat{y}_i = \color{blue}{b_0 \cdot{} 1 + b_1 \cdot{} x_i}$$
+::::
+
+:::: {.myblock .fragment fragment-index=1}
+
+$$\color{blue}{b_0=5}, \color{blue}{b_1=2}$$
+
+$$\color{purple}{x_i=`r xX`},\color{red}{y_i=`r yY`}$$
+
+$$\hat{y}_i=`r f(xX)`$$
+
+
+::::
+:::
+
+::: {.column width="60%" .fragment fragment-index=1}
+
+```{r}
+#| label: bb
+#| echo: false
+#| fig-asp: 0.6
+#| fig-align: center
+x <- tibble(x=c(-1,4))
+p0 <- x %>% ggplot(aes(x=x)) +
+  stat_function(fun=f,size=2,colour="darkgrey") +
+  geom_segment(aes(x=0,xend=0,y=0,yend=f(0)),arrow=arrow(length=unit(.05,"native")),colour="blue",size=1.5) +
+  geom_segment(aes(x=1,xend=2,y=f(1),yend=f(1)),linetype="dotted") +
+  geom_segment(aes(x=2,y=f(1),xend=2,yend=f(2)),arrow=arrow(length=unit(.05,"native")),colour="blue",size=1.5) +
+  annotate("text",x=.7,y=2.5,label="b[0]~(intercept)",
+           size=8,parse=TRUE) +
+  annotate("text",x=2.6,y=7.5,label="b[1]~(slope)",
+           size=8,parse=TRUE) +
+    ggtitle(expression(paste(b[0]," = 5, ",b[1]," = 2")))
+
+p0 <- p0 + 
+  geom_point(aes(x=xX,y=yY),size=4,colour="red") +
+  geom_segment(aes(x=xX,xend=xX,y=f(xX),yend=yY),colour="black",arrow=arrow(length=unit(.05,"native")),size=1.5) +
+  annotate("text",.7,8.6,label=expression(paste(epsilon[i]," (error)")),colour="black",size=8)
+
+p0 + ylab(expression(paste(hat(y)," = ",5 %.% 1 + 2 %.% x))) +
+  theme(axis.title.y = element_text(colour = "blue",angle=90,size=30))
+```
+
+:::
+
+::::
+
+## Understanding the Linear Model Equation {auto-animate=true}
+
+:::: {data-id="formula"}
+$$\hat{y}_i = \color{blue}{b_0 \cdot{}}\color{orange}{1} \color{blue}{+b_1 \cdot{}} \color{orange}{x_i}$$
+:::
+
+- [values of the linear model (coefficients)]{.blue}
+
+- [values _we_ provide (inputs)]{.orange}
+
+. . .
+
+- maps directly to R "formula" notation `y ~ 1 + x`
+
+
+## How to Find the Line?
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ The line represents a model of our data.
+    + In our example, the model that best characterises the relationship between hours of study and test score
+
++ In the scatterplot, the data are represented by points
+
++ So a good line is a line that is "close" to all points
+
++ The method that we use to identify the best-fitting line is the **Principle of Least Squares**
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo=F, message=F}
+studyPlot
+```
+
+:::
+
+::::
+
+# Part 4: Principle of Least Squares
+
+## Linear Model
+
++ So far we have introduced the linear model:
+
+
+$$y_i = \beta_0 + \beta_1 x_{i} + \epsilon_i$$
+
++ Where
+
+  + $y_i$ is our measured outcome variable
+  + $x_i$ is our measured predictor variable
+  + $\beta_0$ is the model intercept
+  + $\beta_1$ is the model slope
+  + $\epsilon_i$ is the residual error (difference between the model predicted and the observed value of $y$)
+
+
+:::{.incremental}
+
+How do we calculate $\beta_0$ and $\beta_1$?
+
+:::
+
+
+## Principle of Least Squares
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
+
++ The values $\beta_0$ and $\beta_1$ are typically **unknown** and need to be estimated from our data. 
+
+  + We denote the "best" estimated values as $\hat \beta_0$ and $\hat \beta_1$
+
++ We find the values of $\hat \beta_0$ and $\hat \beta_1$ (and thus our best line) using **least squares**
+    
++ Least squares:  
+  
+  + minimises the distances between the actual values of $y$ and the model-predicted values of $\hat y$  
+    
+  + that is, it minimises the residuals for each data point (the line is "close")
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, message = F}
+test$predVals <- predict(lm(score~hours, test), test)
+ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2, colour = "red")+
+  stat_smooth(method="lm", se=FALSE, col = "black") +
+  geom_segment(aes(x = hours, y = predVals, xend = hours, yend = score),
+               col = "red", lty = 2) +
+  labs(x = "Hours Studied", y = "Test Score")
+```
+
+:::
+
+::::
+
+## Principle of Least Squares
+
++ Formally, least squares minimises the **residual sum of squares**
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ Essentially:
+
+  + Fit a line
+
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, message = F}
+(basePlot <- ggplot(test, aes(x=hours, y=score)) +
+  geom_point(size = 2, colour = "red")+
+  stat_smooth(method="lm", se=FALSE, col = "black") +
+  labs(x = "Hours Studied", y = "Test Score") +
+   scale_x_continuous(limits=c(0, 5.25)) +
+   theme(axis.text = element_text(size=14),
+         axis.title = element_text(size = 16, face = 'bold')))
+```
+
+:::
+
+::::
+
+
+## Principle of Least Squares
+
++ Formally, least squares minimises the **residual sum of squares**
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ Essentially:
+
+  + Fit a line
+  + Calculate the residuals
+
+:::
+
+
+::: {.column width="50%"}
+
+```{r, echo=F, message=F}
+test$resids <- round(test$score-test$predVals, 2)
+
+basePlot + geom_segment(aes(x = hours, y = predVals, xend = hours, yend = score),
+               col = "red", lty = 2) +
+  annotate(geom='text', label=test$resids, x=test$hours+.25, y = test$score-test$resids*.5, size=5)
+```
+
+:::
+
+::::
+
+## Principle of Least Squares
+
++ Formally, least squares minimises the **residual sum of squares**
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ Essentially:
+
+  + Fit a line
+  + Calculate the residuals
+  + Square them
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, message = F}
+basePlot + geom_segment(aes(x = hours, y = predVals, xend = hours, yend = score),
+               col = "red", lty = 2) +
+  annotate(geom='text', label=round(test$resids^2, 2), x=test$hours+.25, y = test$score-test$resids*.5, size=5)
+```
+
+:::
+
+::::
+
+## Principle of Least Squares
+
++ Formally, least squares minimises the **residual sum of squares**
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ Essentially:
+
+  + Fit a line
+  + Calculate the residuals
+  + Square them
+  + Sum up the squares
+  
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, message = F}
+basePlot + geom_segment(aes(x = hours, y = predVals, xend = hours, yend = score),
+               col = "red", lty = 2) +
+  annotate(geom='text', label=round(test$resids^2, 2), x=test$hours+.25, y = test$score-test$resids*.5, size=5) +
+  annotate(geom='text', label = round(sum(test$resids^2), 2), x = 4, y = 1.5, colour = "red", fontface = 'bold', size = 6)
+```
+
+:::
+
+::::
+
+## Principle of Least Squares
+
++ Formally, least squares minimises the **residual sum of squares**
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
++ Essentially:
+
+  + Fit a line
+  + Calculate the residuals
+  + Square them
+  + Sum up the squares
+  
++ **Why do you think we square the deviations? **
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, message = F}
+basePlot + geom_segment(aes(x = hours, y = predVals, xend = hours, yend = score),
+               col = "red", lty = 2) +
+  annotate(geom='text', label=round(test$resids^2, 2), x=test$hours+.25, y = test$score-test$resids*.5, size=5) +
+  annotate(geom='text', label = round(sum(test$resids^2), 2), x = 4, y = 1.5, colour = "red", fontface = 'bold', size = 6)
+```
+
+:::
+
+::::
+
+## Residual Sum of Squares
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
+## Residual Sum of Squares
+  
+$$SS_{Residual} = \sum_{i=1}^{n}(\color{#BF1932}{y_i} - \hat{y}_i)^2$$
+  
++ Data = $y_i$  
+    + This is what we have measured in our study 
+    + For us, the test scores
+
+## Residual Sum of Squares
+
+$$SS_{Residual} = \sum_{i=1}^{n}(y_i - \color{#BF1932}{\hat{y}_i})^2$$
+
+:::{style="opacity:.4"}
+
++ Data = $y_i$  
+    + This is what we have measured in our study
+    + For us, the test scores
+    
+:::
+  
++ Predicted value = $\hat{y}_i = \hat \beta_0 + \hat \beta_1 x_i$  
+    + Or, the value of the outcome our model predicts given someone's values for predictors  
+    + In our example: given you study for 4 hours, what test score does our model predict you will get?
+
+
+## Residual Sum of Squares
+
+$$SS_{Residual} = \sum_{i=1}^{n}(\color{#BF1932}{y_i - \hat{y}_i})^2$$  
+
+:::{style="opacity:.4"}
+
++ Data = $y_i$  
+    + This is what we have measured in our study   
+    + For us, the test scores.
+  
++ Predicted value = $\hat{y}_i = \hat \beta_0 + \hat \beta_1 x_i$   
+    + Or, the value of the outcome our model predicts given someone's values for predictors  
+    + In our example: given you study for 4 hours, what test score does our model predict you will get?
+
+:::
+
++ Residual = Difference between $y_i$ and $\hat{y}_i$  
+
+
+## Key Point
+
++ It is worth a brief pause as this is a very important point
+
+> The values of the intercept and slope that minimise the sum of square residual are our estimated coefficients from our data
+
+> Minimising the $SS_{residual}$ means that across all our data, the predicted values from our model are as close as they can be to the actual measured values of the outcome
+
+
+## Calculating the Slope
+
+$$\hat \beta_1 = \frac{SP_{xy}}{SS_x}$$
+
+:::: {.columns}
+                                  
+::: {.column width="45%"}
+
++ $SP_{xy}$ = sum of cross-products:
+
+$$SP_{xy} = \sum_{i=1}^{n}(x_i - \bar{x})(y_i - \bar{y})$$
+
+:::
+
+::: {.column width="55%"}
+
++ $SS_x$ = sums of squared deviations of $x$:
+
+
+$$SS_x = \sum_{i=1}^{n}(x_i - \bar{x})^2$$
+
+:::
+
+::::
+
++ Where:
+  + $x_i$ = predictor data (in our example, `hours`)
+  + $y_i$ = outcome data (in our example, `scores`)
+  + $\bar{y}$ = mean of $y$
+  + $\bar{x}$ = mean of $x$
+  + $n$ = total number of observations
+  + $\Sigma$ = sum it all up
+
+
+## Calculating the Intercept
+
+$$\hat \beta_0 = \bar{y} - \hat \beta_1 \bar{x}$$
+
++ Where: 
+  + $\hat \beta_1$ = slope estimate
+  + $\bar{y}$ = mean of $y$
+  + $\bar{x}$ = mean of $x$
+
+
+# Part 5: Simple Linear Model in R
+
+## `lm` in R
+
++ In R, we use the `lm()` function
+
+```{r, eval=FALSE}
+lm(DV ~ IV, data = datasetName)
+```
+
++ The first bit of code is the model formula:
+  + The outcome or DV appears on the left of ~
+  + The predictor(s) or IV appear on the right of ~
+
++ We then give `R` the name of the data set
+  + This set must contain variables (columns) with the same names as you have specified in the model formula
+
+
+## `lm` in R
+
++ First need some data: 
+
+```{r}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+```
+
+
++ Look at first few rows: 
+
+```{r}
+head(test, 4)
+```
+
+## `lm` in R
+
++ Build and run model in `R`, store in object named *mod1*:
+
+```{r}
+mod1 <- lm(score ~ hours, data = test)
+
+mod1
+```
+
+## `lm` in R
+
++ Look at `summary()` of output in `R`:
+
+```{r}
+summary(mod1)
+```
+
+
+## Summary
+
++ In statistics, we are building models that describe how a set of variables relate
++ The linear model describes our data based on an intercept and a slope(s)
++ From this model (line) we can make predictions about peoples scores on an outcome
++ The degree to which our predictions differ from the observed data = residual = error = how good (or bad) the model is
++ We find our model coefficients based on least squares, which are the coefficients that minimise the sum of squared residuals
+
+
+## This Week 
+
+<br>
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
+### Tasks
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+:::
+
+::: {.column width="50%"}
+
+### Support
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, echo = F, out.width='10%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+:::
+
+::::
+
