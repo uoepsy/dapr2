@@ -1,0 +1,396 @@
+---
+title: "Lecture 07 playground"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup}
+library(tidyverse)
+library(patchwork)
+library(emmeans)
+library(simglm)
+```
+
+# Simulate data
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study3 <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+```
+
+
+# Sum-code `study` (two levels)
+
+### Group means
+
+```{r}
+test_study3 |>
+  group_by(study) |>
+  summarise(
+    avg_score = round(mean(score), 2)
+  )
+
+mean_alone <- filter(test_study3, study == 'alone')$score |> mean()
+mean_others <- filter(test_study3, study == 'others')$score |> mean()
+```
+
+
+
+
+## Define sum coding
+
+```{r}
+contrasts(test_study3$study) <- contr.sum( levels(test_study3$study) )
+contrasts(test_study3$study)
+```
+
+
+
+## Plot on xy plane
+
+pm1 effect coding:
+
+```{r}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+grand_mean <- mean(c(mean_alone, mean_others))
+
+test_study3 |>
+  mutate(study_num = ifelse(study == 'alone', 1, -1)) |>
+  ggplot(aes(x = study_num, y = score, fill = study, colour = study)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = -1, xend = 1, y = mean_others, yend = mean_alone), colour = 'black') +
+  geom_segment(aes(x = -.1, xend = .1, y = grand_mean, yend = grand_mean), colour = 'black', linewidth = 3) +
+  geom_segment(aes(x = 0, xend = 1, y = grand_mean, yend = grand_mean), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = grand_mean, yend = mean_alone), colour = 'red', linewidth = 2) +
+  NULL
+```
+
+
+## Model `score ~ study`
+
+```{r}
+mod1 <- lm(score ~ study, data = test_study3)
+summary(mod1)
+```
+
+- Intercept = grand mean
+
+```{r}
+mean(c(mean_alone, mean_others))
+```
+
+
+- slope = 1/2 of the difference between the two groups = difference between whatever group is coded as 1 which here is `alone` and the grand mean
+- the first part of this interpretation is specific to the two-group case! 
+
+```{r}
+(mean_alone - mean_others) / 2
+```
+
+```{r}
+mean_alone - grand_mean
+```
+
+
+Aside: Why is grand mean != mean of all scores?
+Because the grand mean is the mean of means, whereas the mean of all scores takes into acct that some groups are unevenly sized.
+
+```{r}
+mean(test_study3$score)
+```
+
+
+
+
+# Sum-code `method` (three levels)
+
+
+## Group means
+
+```{r}
+test_study3 |>
+  group_by(method) |>
+  summarise(
+    avg_score = round(mean(score), 2)
+  )
+
+
+mean_read <- filter(test_study3, method == 'read')$score |> mean()
+mean_self <- filter(test_study3, method == 'self-test')$score |> mean()
+mean_summ <- filter(test_study3, method == 'summarise')$score |> mean()
+
+methods_grand_mean <- mean(c(mean_read, mean_self, mean_summ))
+```
+
+
+## Define sum coding
+
+```{r}
+contrasts(test_study3$method) <- contr.sum( levels(test_study3$method) )
+contrasts(test_study3$method)
+```
+
+
+
+
+## Plot on xy plane
+
+```{r}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+# mean_summread <- mean(c(mean_summ, mean_read))
+# mean_summself <- mean(c(mean_summ, mean_self))
+
+
+p1 <- test_study3 |> 
+  filter(method %in% c('summarise', 'read')) |>
+  mutate(method_num = ifelse(method == 'summarise', -1, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = -.1, xend = .1, y = methods_grand_mean, yend = methods_grand_mean), colour = 'black', linewidth = 3) +
+  geom_segment(aes(x = -1, xend = 1, y = mean_summ, yend = mean_read), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = methods_grand_mean, yend = methods_grand_mean), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = methods_grand_mean, yend = mean_read), colour = 'red', linewidth = 2) +
+  labs(
+    title = 'First slope: Summarise vs. grand mean'
+  ) +
+  NULL
+
+p2 <- test_study3 |> 
+  filter(method %in% c('summarise', 'self-test')) |>
+  mutate(method_num = ifelse(method == 'summarise', -1, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.5, width = 0.1) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = -.1, xend = .1, y = methods_grand_mean, yend = methods_grand_mean), colour = 'black', linewidth = 3) +
+  geom_segment(aes(x = -1, xend = 1, y = mean_summ, yend = mean_self), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 1, y = methods_grand_mean, yend = methods_grand_mean), colour = 'red', linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = methods_grand_mean, yend = mean_self), colour = 'red', linewidth = 2) +
+  labs(
+    title = 'Second slope: Self-test vs. grand mean'
+  ) +  
+  NULL
+
+p1 + p2
+```
+
+This visualisation is no longer super useful because our contrasts end up leaving out some of the data.
+In other words, the grand mean doesn't live anywhere obvious on this plot, because some of the data is left out.
+
+
+
+## Model `score ~ method`
+
+```{r}
+contrasts(test_study3$method)
+
+mod2 <- lm(score ~ method, data = test_study3)
+summary(mod2)
+```
+
+```{r}
+mean_read - methods_grand_mean
+```
+
+```{r}
+mean_self - methods_grand_mean
+```
+
+
+## emmeans
+
+```{r}
+(mod2_emm <- emmeans(mod2, ~method))
+```
+
+```{r}
+mod2_emm |> plot() +
+  coord_flip()
+```
+
+
+```{r}
+levels(test_study3$method)
+```
+
+```{r}
+mod2_comparisons <- list(
+  'Self-test vs. Read' = c(-1, 1, 0),  # read self-test summarise, in that order
+  'Summarise vs. Read' = c(-1, 0, 1),
+  'Self-test vs. Summarise' = c(0, 1, -1),
+  'mean(Self-test, summarise) vs. Read' = c(-1, 0.5, 0.5)  # weights must sum to 0 -- pools self-test and summarise tog and pits that mean against mean of Read
+)
+
+(mod2_comparisons_test <- contrast(mod2_emm, mod2_comparisons))
+```
+
+```{r}
+confint(mod2_comparisons_test)
+```
+
+
+## TODO: trtmt code model, use emmeans to test sum contrasts
+
+```{r}
+contrasts(test_study3$method) <- contr.treatment(levels(test_study3$method))
+contrasts(test_study3$method)
+```
+
+```{r}
+mod2b <- lm(score ~ method, data = test_study3)
+summary(mod2b)
+```
+
+```{r}
+mod2b_emm <- emmeans(mod2b, ~method)
+
+```
+
+Use the same comparisons as above.
+
+```{r}
+(mod2b_comparisons_test <- contrast(mod2b_emm, mod2_comparisons))
+```
+
+Yes, it's exactly the same.
+
+
+# DIY contrasts
+
+Simulate the data for subjective well-being based on partnership.
+
+```{r}
+n <- round(500*(c(.55, .2, .1, .05, .1)),0)
+set.seed(7284)
+wb_tib <- tibble(
+  swb = c(rnorm(n[1], 11, 3.6),
+          rnorm(n[2], 12, 4.2),
+          rnorm(n[3], 8, 2.2),
+          rnorm(n[4], 6, 1.1),
+          rnorm(n[5], 9.5, 2.5)),
+  status = factor(c(rep("Married/CP", n[1]),
+             rep("Cohab", n[2]),
+             rep("Single", n[3]),
+             rep("Widowed", n[4]),
+             rep("Divorced", n[5]))
+             )
+)
+```
+
+```{r}
+wb_tib
+```
+
+
+## Treatment-coded, manual contrasts in emmeans post-hoc
+
+```{r}
+contrasts(wb_tib$status)
+```
+
+
+```{r}
+mod3 <- lm(swb ~ status, wb_tib)
+summary(mod3)
+```
+
+```{r}
+mod3_emm <- emmeans(mod3, ~status)
+mod3_emm
+```
+
+```{r}
+plot(mod3_emm) +
+  coord_flip()
+```
+
+### Test manual contrasts
+
+```{r}
+mod3_comparison <- list(
+  "Married or CP vs not" = c(-1/2, 1/3, 1/3, -1/2, 1/3),
+  "Current vs Not current" = c(0, -1/2, 1, 0, -1/2)
+)
+
+(mod3_contrasts <- contrast(mod3_emm, mod3_comparison))
+(mod3_confint <- confint(mod3_contrasts))
+```
+
+
+
+## Custom a priori contrasts?
+
+Construct a matrix that contains the contrasts we want.
+
+```{r}
+custom_contrast_mtx <- matrix(
+  c(
+    -1/2, 1/3, 1/3, -1/2, 1/3,
+    0, -1/2, 1, 0, -1
+  ),
+  ncol = 2
+)
+
+rownames(custom_contrast_mtx) <- levels(wb_tib$status)
+custom_contrast_mtx
+```
+
+
+```{r}
+contrasts(wb_tib$status) <- custom_contrast_mtx  # only overwrites first two cols
+contrasts(wb_tib$status)
+```
+Columns 3 and 4 will be necessary for balancing the hypothesis/contrast matrix.
+So that makes this an overly complicated example for the lectures.
+Best to keep custom contrasts to within emmeans.
+
+So yes, it is possible to generate a fully custom a priori contrast matrix, but more rules about matrix algebra have to be followed (see Shravan's stuff), and that goes beyond the scope of the course.
