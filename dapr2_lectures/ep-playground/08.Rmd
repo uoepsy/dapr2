@@ -1,0 +1,571 @@
+---
+title: "Lecture 08 playground"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r}
+library(tidyverse)
+library(car)
+library(performance)
+library(patchwork)
+# salary2 <- read_csv("../data/salary2.csv")
+```
+
+
+I'm gonna skip the dfbeta and COVRATIO because they don't seem to come up in the labs, and we've already got Cook's Distance.
+
+
+# Assumptions
+
+## Simulate non-linearity (quadratic)
+
+```{r message = FALSE}
+set.seed(221020)
+quadr <- function(x, a, b, c){ a + b*x + c*x^2  }
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_quad = abs(quadr(x + 0.5, 1, 0, 1) + rnorm(101, 0, 1)),
+)
+
+p_good <- df %>%
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_quad <- df |>
+  ggplot(aes(x=x, y=y_quad)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_quad
+```
+
+## TODO: Simulate autocorrelated errors
+
+> If you roll a 6-sided die at 9am everyday, you'll find there is no correlation from one day to the next. Every time you roll the die you'll get a completely random number coming from the die.
+If you look at the temperature at 9am everyday, you will notice that days tend to be correlated with adjacent days. If it's 10 degrees on Monday, it's far more likely to be 0-20 degrees on Tuesday than it is to be -20 degrees or 50 degrees. Even though it might be quite common to have a 50 degree morning, the previous data suggests it probably won't be.
+
+`acf()`
+
+
+
+
+## Simulate non-normal errors
+
+Let's try generating non-normal errors by sampling from an asymmetrical beta distribution.
+Centre those estims on zero and then use them as errors.
+So it'll be normal in that the mean is zero, but they'll be super skewed.
+
+```{r}
+set.seed(1)
+beta_errors <- rbeta(101, shape1 = 1, shape2 = 50) |> 
+  scale(scale = FALSE, center = TRUE) * 50
+plot(beta_errors)
+```
+
+
+```{r message = F}
+set.seed(221020)
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)), 
+  y_beta = abs(4 + (2 * x) + beta_errors),
+  
+  # y_quad = abs(quadr(x + 0.5, 1, 0, 1) + rnorm(101, 0, 1)),
+)
+# df2
+
+p_beta <- df |>
+  ggplot(aes(x=x, y=y_beta)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_beta
+```
+
+
+### Plot normality of errors
+
+```{r}
+m_good <- lm(y_good ~ x, df)
+m_beta <- lm(y_beta ~ x, df)
+```
+
+```{r message = F}
+resid_df <- tibble(
+  good_resid = m_good$residuals,
+  beta_resid = m_beta$residuals,
+)
+
+sd_good <- sd(m_good$residuals)
+sd_beta <- sd(m_beta$residuals)
+
+p_good_resid <- resid_df |>
+  ggplot() +
+  geom_histogram(aes(x = good_resid)) +
+  geom_function(
+    fun = function(x) dnorm(x, mean = 0, sd = sd_good) * 12,
+    linewidth = 2) +
+  xlim(-1.5, 1.5) +
+  labs(
+    title = 'normal residuals'
+  ) +
+  NULL
+
+p_beta_resid <- resid_df |>
+  ggplot() +
+  geom_histogram(aes(x = beta_resid)) +
+  geom_function(
+    fun = function(x) dnorm(x, mean = 0, sd = .95) * 35,
+    linewidth = 2
+  ) +
+  xlim(-4.5, 4.5) +
+  labs(
+    title = 'non-normal residuals'
+  ) +
+  NULL
+
+p_good_resid + p_beta_resid
+```
+
+### q-q plot
+
+```{r}
+plot(m_good, which = 2)
+plot(m_beta, which = 2)
+```
+
+
+
+
+## Simulate heteroscedasticity
+
+Errors that increase with x
+
+```{r message = F}
+set.seed(221020)
+
+inc_error <- rnorm(101, mean = 0, sd = seq(0.1, 4, length.out = 101))
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_unequal = abs(4 + (2 * x) + inc_error),
+)
+
+p_unequal <- df |>
+  ggplot(aes(x=x, y=y_unequal)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_unequal
+```
+
+```{r}
+m_unequal <- lm(y_unequal ~ x, data = df)
+
+car::residualPlot(m_unequal)  # same as plot() so idk if we need it
+```
+
+```{r}
+plot(m_good, which = 1)
+plot(m_unequal, which = 1)
+```
+
+
+# Diagnostics
+
+## Three checks for unusual data points
+
+Make sure single points aren't driving the results.
+
+### Outliers
+
+Extreme values of y.
+
+How quantify?
+Unexpectedly large (studentised) residuals.
+
+#### Simulate
+
+```{r message = F}
+set.seed(221020)
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_outl = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+)
+
+df[95, 'y_outl'] <- 1.236227
+df[98, 'y_outl'] <- 2.623973
+df[30, 'y_outl'] <- 5.643033
+df[20, 'y_outl'] <- 3.160261
+df[14, 'y_outl'] <- 3.762352
+
+p_outl <- df |>
+  ggplot(aes(x=x, y=y_outl)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_outl
+```
+
+
+
+
+#### Check with studentised residuals
+
+unstandardised residuals ->  standardised residuals  -> studentised residuals with `rstudent(model)`
+
+```{r}
+m_outl <- lm(y_outl ~ x, data = df)
+
+df$stud_resid <- rstudent(m_outl)
+
+df |>
+  ggplot(aes(x = x, y = stud_resid)) +
+  geom_point() +
+  geom_hline(yintercept =  2, colour = 'red') +
+  geom_hline(yintercept = -2, colour = 'red') +
+  NULL
+
+df |>
+  filter(stud_resid > 2 | stud_resid < -2)
+```
+
+
+
+### High leverage
+
+#### Simulate
+
+```{r message = F}
+set.seed(221020)
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_levg = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+)
+
+
+
+df <- rbind(
+  df,
+  tibble(
+    x = c(3,
+          4.5,
+          -3.5),
+    y_good = NA,
+    y_levg = c(
+      6.068172,
+      12.201827,
+      2.2368030)
+  )
+)
+  
+p_levg <- df |>
+  ggplot(aes(x=x, y=y_levg)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_levg
+```
+
+
+#### Check with hat values
+
+hat refers to the circumflex on top of a variable, which is like a little way of saying "this is an estimate from a model".
+it's like in natural language, like in French how a circumflex means "there used to be an 's' here".
+just an extra annotation.
+
+`hatvalues()` is our workhorse here.
+
+```{r}
+# fit model
+m_levg <- lm(y_levg ~ x, data = df)
+
+# find mean expected hat value 
+n_predictors <- 1
+n_observations <- nrow(df)
+mean_hat <- (n_predictors+1)/n_observations
+
+# points > 2*mean_hat will be considered high-leverage
+df$hatvals <- hatvalues(m_levg)
+df |>
+  ggplot(aes(x = x, y = hatvals)) +
+  geom_point() +
+  geom_hline(yintercept = 2*mean_hat, colour = 'red')
+
+# Plot good hat values
+tibble(
+  x = seq(-2, 2, length.out = 101),
+  hatvals = hatvalues(m_good)
+) |>
+  ggplot(aes(x = x, y = hatvals)) +
+  geom_point() +
+  geom_hline(yintercept = 2*mean_hat, colour = 'red')
+```
+
+The curve smiley face is because we're looking at how far the values are from the mean of the data when x = 0?
+The farther you get from the y value when x=0, the more the hat values will increase?
+
+The plot of the good data also goes to show that we shouldn't automatically be suspicious.
+Just if it's really outside of the curve that we'd expect.
+Discretion! 
+Not just binary decisions.
+
+
+### High influence
+
+#### Simulate
+
+```{r message = F}
+set.seed(221020)
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_infl = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+)
+
+# Use the same outlier values
+df[95, 'y_infl'] <- 1.236227
+df[98, 'y_infl'] <- 2.623973
+df[30, 'y_infl'] <- 5.643033
+df[20, 'y_infl'] <- 3.160261
+df[14, 'y_infl'] <- 3.762352
+
+# Add in the same high-leverage values
+df <- rbind(
+  df,
+  tibble(
+    x = c(3,
+          4.5,
+          -3.5),
+    y_good = NA,
+    y_infl = c(
+      6.068172,
+      12.201827,
+      2.2368030)
+  )
+)
+
+p_infl <- df |>
+  ggplot(aes(x=x, y=y_infl)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_infl
+```
+
+
+#### Check with Cook's distance
+
+Cook's distance is basically outlyingness * leverage.
+So it's big if either one of those are true, and very big if both are true.
+
+Interpretation: the average distance the predicted outcome values will move, if a given case is removed.
+
+Possible thresholds:
+
+- 1
+- 4 / (sample_size - n_params - 1)
+- relative to all Ds in the data set
+
+```{r}
+m_infl <- lm(y_infl ~ x, data = df)
+df$D <- cooks.distance(m_infl)
+
+df |>
+  ggplot(aes(x = x, y = D)) +
+  geom_point() +
+  geom_hline(yintercept = 4 / (n_observations - n_predictors - 1), colour = 'red') +
+  NULL
+
+tibble(
+  x = seq(-2, 2, length.out = 101),
+  D = cooks.distance(m_good)
+) |>
+  ggplot(aes(x = x, y = D)) +
+  geom_point() +
+  geom_hline(yintercept = 4 / (101 - n_predictors - 1), colour = 'red')
+```
+
+```{r}
+plot(m_infl, which = 4)
+```
+
+
+
+Check the outlier and leverage datasets too:
+
+```{r}
+plot(m_outl, which = 4)
+plot(m_levg, which = 4)
+```
+
+#### Check with covariance ratio
+
+Covariance ratio indicates the influence of a data point on the (co)variances of the regression parameters.
+
+```{r}
+df$cov.r <- covratio(m_infl)
+
+covr_upper <- 1 + ((3 * (n_predictors + 1))/n_observations)
+covr_lower <- 1 - ((3 * (n_predictors + 1))/n_observations)
+
+df |>
+  ggplot(aes(x = x, y = cov.r)) +
+  geom_point() +
+  geom_hline(yintercept = covr_upper, colour = 'red') +
+  geom_hline(yintercept = covr_lower, colour = 'red') +
+  NULL
+
+tibble(
+  x = seq(-2, 2, length.out = 101),
+  cov.r = covratio(m_good)
+) |>
+  ggplot(aes(x = x, y = cov.r)) +
+  geom_point() +
+  geom_hline(yintercept = covr_upper, colour = 'red') +
+  geom_hline(yintercept = covr_lower, colour = 'red') +
+  NULL
+```
+
+It will detect weirdly high-influence points if they're there, but it will also detect high-influence points regardless.
+Just because something exceeds these thresholds DOES NOT MEAN IT'S WEIRD OR COMES FROM A DIFF DISTRIBUTION/GENERATIVE PROCESS.
+This is why we need discretion.
+
+
+### Check all these diagnostic measures at once with the function that does it all
+
+```{r}
+influence.measures(m_infl)
+```
+
+- `dfb.1_`: difference between the predicted values for the intercept with and without this observation
+- `dfb.x`: difference between the predicted values for the slope with and without this observation <- there will be one of these per predictor
+- `dffit`: difference between predicted values for the outcome with and without this observation
+- `cov.r`: ratio of the covariance of regression parameters with and without this observation
+- `cook.d`: Cook's Distance of this observation
+- `hat`: hat value of this observation
+
+
+
+## Finally: one check for relationships between predictors
+
+### Multicollinearity
+
+#### Simulate
+
+First simulate correlated data using `MASS::mvrnorm()`, then "uncorrelate" it by shuffling.
+
+```{r}
+set.seed(1)
+
+n_obs <- 101
+corr_x1y  <- 0.8
+corr_x2y  <- 0.6
+# corr_x1x2 <- 0.9  # vif = 5.3
+corr_x1x2 <- 0.93   # vif = TBD
+
+corr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, corr_x1x2,
+     corr_x2y, corr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(corr_df) <- c('y', 'x1', 'x2')
+corr_df <- as_tibble(corr_df)
+
+pairs(corr_df)
+
+corr_df |> as_tibble() |>
+  ggplot(aes(x = x1, y = x2)) +
+  geom_point()
+```
+
+```{r}
+set.seed(1)
+
+uncorr_x1x2 <- 0.0  # ideally this quantity would be low
+
+uncorr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, uncorr_x1x2,
+     corr_x2y, uncorr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(uncorr_df) <- c('y', 'x1', 'x2')
+uncorr_df <- as_tibble(uncorr_df)
+
+pairs(uncorr_df)
+
+uncorr_df |> 
+  ggplot(aes(x = x1, y = x2)) +
+  geom_point()
+```
+
+```{r}
+corr_df |> 
+  ggplot(aes(x = x1, y = y, colour = x2)) +
+  geom_point()
+
+uncorr_df |> 
+  ggplot(aes(x = x1, y = y, colour = x2)) +
+  geom_point()
+```
+
+
+#### Fit models
+
+```{r}
+m_corr <- lm(y ~ x1 + x2, data = corr_df)
+summary(m_corr)
+```
+
+
+```{r}
+m_uncorr <- lm(y ~ x1 + x2, data = uncorr_df)
+summary(m_uncorr)
+```
+
+
+
+#### Check
+
+```{r}
+vif(m_uncorr)
+```
+
+
+```{r}
+vif(m_corr)
+```
+
+
+They say >10 is a problem, which is certainly true, but like, even with this VIF, we can see how much more uncertain our analysis gets.
