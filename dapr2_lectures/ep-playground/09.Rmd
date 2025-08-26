@@ -1,0 +1,283 @@
+---
+title: "Lecture 09 playground"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r}
+library(tidyverse)
+library(car)
+library(performance)
+library(patchwork)
+```
+
+idea:
+
+- sim data that violates normality of errors and homosced.
+- have students identify those errors based on diagnostic plots
+- bootstrap data from this dataset
+- plot it and see if those assumptions change
+
+
+# Sim violating data
+
+Something different with the errors this time.
+Give students new illustration of how things can diverge from normality.
+Not asymmetrical, but maybe U-shaped errors? As in, mostly large in both directions, not usually small?
+
+```{r}
+shapes <- .3
+set.seed(1)
+beta_errors <- rbeta(101, shape1 = shapes, shape2 = shapes) |>
+  datawizard::standardize()
+  # scale(scale = FALSE, center = TRUE)
+plot(beta_errors)
+hist(beta_errors)
+```
+
+```{r message = F}
+set.seed(1)
+
+error_inc_terms <- seq(.5, 3, length.out = 101)
+
+df <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = 2 + (-1.1 * x) + rnorm(101, 0, 1), 
+  y_viol = 2 + (-1.1 * x) + beta_errors * error_inc_terms,
+)
+
+p_good <- df |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point() +
+  # geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+
+p_beta <- df |>
+  ggplot(aes(x=x, y=y_viol)) +
+  geom_point() +
+  # geom_smooth(method = 'lm', se = FALSE) +
+  NULL
+
+p_good + p_beta
+```
+
+## Fit models
+
+```{r}
+m_good <- lm(y_good ~ x, data = df)
+m_viol <- lm(y_viol ~ x, data = df)
+```
+
+```{r}
+summary(m_viol)
+```
+
+
+
+## Plot diagnostics
+
+```{r fig.height = 10}
+check_model(m_viol)
+```
+
+
+
+### Q-Q plot
+
+```{r}
+plot(m_viol, which = 2)
+```
+
+
+### Histogram of residuals
+
+- asymmetrical
+- fatter tails than we would expect
+
+```{r}
+hist(m_viol$residuals)
+```
+
+It's really interesting how the model can find a line such that the residuals look almost gaussian, even though the generative process was so far from gaussian.
+
+
+### Compare residuals to fitted values
+
+```{r}
+plot(m_viol, which = 1)
+```
+
+
+# car::Boot()
+
+## fit model
+
+In reality, present this after showing the manual process.
+
+`Boot()` draws `R` samples with the same number of observations as the original dataset.
+
+```{r}
+set.seed(1)
+m_viol_boot <- Boot(m_viol, R = 1000)
+summary(m_viol_boot)
+```
+The SE of the bootstrapped version is smaller -- there is less variability in the bootstrapped data than in the original sample.
+Here's the SE of the original sample:
+
+```{r}
+summary(m_viol)$coefficients
+```
+
+
+```{r}
+Confint(m_viol_boot, level = 0.95, type = 'perc')
+```
+
+Consequently, the CIs are narrower for the bootstrapped model than they are for the original model.
+Original CIs:
+
+```{r}
+Confint(m_viol, level = 0.95, type = 'perc')
+```
+
+
+## plot diagnostics?
+
+Doesn't make a ton of sense because doesn't really rely on same assumptions as the parametric version of the model.
+
+```{r}
+plot(m_viol_boot)
+```
+
+Interesting, so apparently we want the t-values to be normally distributed.
+
+`check_model()` throws an error.
+
+```{r}
+# check_model(m_viol_boot)
+```
+
+
+
+## fail: emmeans doesn't work on boot object.
+
+```{r}
+# m_viol_emm <- emmeans( ref_grid(m_viol, at = list(x = c(-2, -1, 0, 1, 2))), ~x)
+# m_viol_emm |> as.data.frame()
+```
+
+```{r}
+# m_viol_boot_emm <- emmeans( ref_grid(m_viol_boot, at = list(x = c(-2, -1, 0, 1, 2))), ~x)
+```
+
+
+
+
+
+# Manually bootstrap from this data
+
+- bootstrap sample
+- fit model to that data
+- gather values of important coefs 
+- make distrib of those coefs 
+- summarise those distribs
+- that's what the model is doing
+
+```{r message = F}
+boot_sample_size <- 25
+n_resamples <- 50
+
+orig_data <- df |>
+  select(x, y_viol) |>
+  rowid_to_column()
+
+draw_boot_samples <- function(dataset, resample_size, n_resamples){
+  # dataset: dataframe or tibble
+  # resample_size: integer, size of the sample to draw
+  # n_resamples: integer, number of bootstrap samples to draw
+  # returns list with each element a subset of dataset
+  
+  boot_accum <- list()
+  for(i in 1:n_resamples){
+    boot_accum[[i]] <- dataset |>
+      slice_sample(n = resample_size, replace = TRUE)
+  }
+  return(boot_accum)
+}
+
+
+plot_boot_sample <- function(boot_sample){
+  # boot_sample: dataset, outcome of draw_boot_sample
+  boot_sample |>
+    ggplot(aes(x = x, y = y_viol)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    xlim(-2, 2) +
+    NULL
+  
+}
+
+set.seed(1)
+boot_samples <- draw_boot_samples(orig_data, boot_sample_size, n_resamples)
+boot_plot_list <- lapply(boot_samples, plot_boot_sample)
+
+# plot_boot_sample(boot_samples[[1]])
+wrap_plots(boot_plot_list[1:12])
+```
+
+
+```{r message=F}
+fit_lm <- function(boot_sample){
+  # boot_sample: df with cols x, y_viol
+  # returns coefs of LM fit to boot_sample
+  
+  m <- lm(y_viol ~ x, data = boot_sample)
+  return(m$coefficients)
+}
+
+# fit_lm(boot_samples[[1]])
+boot_coefs <- lapply(boot_samples, fit_lm)
+boot_coefs_df <- boot_coefs |>
+  bind_rows(.id = 'boot_idx')
+
+boot_int_mean <- mean(boot_coefs_df$`(Intercept)`)
+boot_int_sd <- sd(boot_coefs_df$`(Intercept)`)
+boot_slp_mean <- mean(boot_coefs_df$x)
+boot_slp_sd <- sd(boot_coefs_df$x)
+
+
+p_intercept <- boot_coefs_df |>
+  ggplot(aes(x = `(Intercept)`)) +
+  geom_histogram(fill = 'grey') +
+  geom_vline(xintercept = boot_int_mean, linewidth = 2, colour = 'black') +
+  geom_vline(xintercept = boot_int_mean + boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dashed') +
+  geom_vline(xintercept = boot_int_mean - boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dashed') + 
+  geom_vline(xintercept = boot_int_mean + 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_vline(xintercept = boot_int_mean - 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_function(fun = function(x) dnorm(x, mean = boot_int_mean, sd = boot_int_sd) * 3, colour = 'black') +
+  NULL
+
+p_slope <- boot_coefs_df |>
+  ggplot(aes(x = x)) +
+  geom_histogram(fill = 'grey') +
+  geom_vline(xintercept = boot_slp_mean, linewidth = 2, colour = 'black') +
+  geom_vline(xintercept = boot_slp_mean + boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dashed') +
+  geom_vline(xintercept = boot_slp_mean - boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dashed') + 
+  geom_vline(xintercept = boot_slp_mean + 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_vline(xintercept = boot_slp_mean - 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_function(fun = function(x) dnorm(x, mean = boot_slp_mean, sd = boot_slp_sd) * 3, colour = 'black') +
+  NULL
+
+p_intercept + p_slope
+```
+
+
+^ would be cool to animate the way these sampling distributions change as samples trickle in, the way I did for bayes_stat.
+
+
+The big difficulty with bootstrapping is that to actually understand WHY it works, you need to understand the very very complicated maths behind it.
+So it's not easy to give a good intuition for why it helps.
+
+
