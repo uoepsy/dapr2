@@ -46,14 +46,58 @@ p_quad <- df |>
 p_good + p_quad
 ```
 
-## TODO: Simulate autocorrelated errors
+## Simulate autocorrelated errors
 
 > If you roll a 6-sided die at 9am everyday, you'll find there is no correlation from one day to the next. Every time you roll the die you'll get a completely random number coming from the die.
 If you look at the temperature at 9am everyday, you will notice that days tend to be correlated with adjacent days. If it's 10 degrees on Monday, it's far more likely to be 0-20 degrees on Tuesday than it is to be -20 degrees or 50 degrees. Even though it might be quite common to have a 50 degree morning, the previous data suggests it probably won't be.
 
-`acf()`
+Probably needlessly complex, esp with so much other stuff to cover.
+Worth mentioning conceptually but not belabouring.
 
 
+```{r}
+# source: https://stackoverflow.com/a/77090029 
+
+acf.negbin <- function(N, mu, size, alpha, max.iter = 100, tol = 1e-5) {
+  
+  m = length(alpha)
+  
+  generate = function(){
+   x = sort(rnbinom(N,size=size,mu=mu))
+   y <- rnorm(length(x))
+   x[rank(stats::filter(y, alpha, circular = TRUE))]
+  }
+  
+  a = generate()
+  iter <- 0L
+  
+  ACF <- function(x) acf(x, lag.max = m - 1, plot = FALSE)$acf[1:m]
+  SSE <- function(x,alpha) sum((ACF(x) - alpha)^2)
+    
+  while ((SSE0 <- SSE(a, alpha)) > tol) {
+    if ((iter <- iter + 1L) == max.iter) break
+    a1 <- generate()
+    if(SSE(a1,alpha) < SSE0) a <- a1
+  }
+    
+  return(a)
+
+}
+```
+
+```{r}
+set.seed(2023)
+x = acf.negbin(
+  250,            # how many obs to simulate
+  mu = 1000,      # mean of simulated data
+  size = 500,     # dispersion parameter. 
+                  # the bigger, the tighter the data will cluster around the mean.
+  alpha=c(1,0.5)  # correl of points with lag = 1 and lag = 2 
+  )
+plot(x,type='l')
+# mean(x)
+acf(x)#acf[1:2]
+```
 
 
 ## Simulate non-normal errors
@@ -466,6 +510,8 @@ influence.measures(m_infl)
 
 
 
+
+
 ## Finally: one check for relationships between predictors
 
 ### Multicollinearity
@@ -556,7 +602,7 @@ summary(m_uncorr)
 
 
 
-#### Check
+#### Check with VIF
 
 ```{r}
 vif(m_uncorr)
@@ -568,4 +614,54 @@ vif(m_corr)
 ```
 
 
-They say >10 is a problem, which is certainly true, but like, even with this VIF, we can see how much more uncertain our analysis gets.
+<5 is low.
+between 5 and 10 is moderate.
+More than 10 is a big problem.
+
+
+
+
+## Plots with `performance::check_model()`
+
+Some of these assumptions/diagnostics can be checked en masse using `performance::check_model(model)`.
+
+- posterior predictive check (basically uses the model to generate new fake data and compares that data to the observed data)
+- assumption: linearity
+- assumption: homogeneity of residual variance aka homosced
+- diagnostics: influential observations 
+- diagnostics: collinearity
+- assumption: normality of residuals
+
+```{r}
+check_model(m_good)
+```
+
+```{r}
+check_model(m_beta)
+```
+
+```{r}
+check_model(m_corr)
+```
+
+
+```{r}
+check_model(m_infl)
+```
+
+```{r}
+check_model(m_levg)
+```
+
+```{r}
+check_model(m_outl)
+```
+
+```{r}
+check_model(m_uncorr)
+```
+
+
+```{r}
+check_model(m_unequal)
+```
