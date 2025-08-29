@@ -1,0 +1,397 @@
+---
+title: "Lecture 10 playground"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r}
+library(tidyverse)
+library(car)
+library(performance)
+library(patchwork)
+```
+
+## Research questions
+
+- RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?
+- RQ2: Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
+- RQ3: Is class attendance associated with final grades?
+
+
+## Data Management
+
+```{r message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) # for all things!
+library(psych) # good for descriptive stats
+library(patchwork) # grouping plots together
+library(kableExtra) # useful for creating nice tables
+library(sjPlot) #regression tables & plots
+library(emmeans) #for contrasts
+library(car) #for assumptions (crPlots, residualPlots, VIF) and bootstrapping
+
+# read in datasets
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
+
+```
+
+
+```{r}
+data1
+```
+
+### data1
+
+```{r}
+tibble(
+Variable = names(data1),
+Description = c("Participant ID number", "Total attendance (in days)", "Conscientiousness (Levels: Low, Moderate, High)", "Time of Class (Levels: 9AM, 10AM, 11AM, 12PM, 1PM, 2PM, 3PM, 4PM)", "Frequency of access to online course materials (Levels: Rarely, Sometimes, Often)", "Year of Study in University (Y1, Y2, Y3, Y4, MSc, PhD)")
+) %>% gt::gt()
+```
+
+Use this to address RQs 1 and 2.
+
+RQ1 uses the variables `Conscientiousness`, `OnlineAccess`, and `Year` and looks at their associations with `Attendance`.
+(... strictly speaking this should be a Poisson model, not a Gaussian)
+
+RQ2 looks at association between `Time` and `Attendance`.
+
+
+
+### data2
+
+```{r}
+tibble(
+Variable = names(data2),
+Description = c("Final grade (0-100)", "Total attendance (in days)")
+) %>% gt::gt()
+```
+
+Use this to address RQ 3.
+
+
+## Set up data
+
+```{r}
+#######
+# Coding of Variables
+#######
+
+#check coding
+str(data1)
+str(data2)
+
+#check for NAs - none in dataset, so no missing values
+table(is.na(data1))
+table(is.na(data2))
+```
+
+## RQ1
+
+### set up variables
+
+```{r}
+# make variables factors
+data1 <- data1 |>
+    mutate(OnlineAccess = as_factor(OnlineAccess),
+           Time = as_factor(Time),
+           Conscientiousness = as_factor(Conscientiousness),
+           Year = as_factor(Year))
+
+#specify reference levels (alternatively use the below tidyverse way like Year - see lecture example code)
+data1$OnlineAccess <- relevel(data1$OnlineAccess, "Sometimes")
+data1$Conscientiousness <- relevel(data1$Conscientiousness, "Moderate")
+
+#ordering of year variable - make chronological, Y1 as reference group
+data1$Year <- data1$Year |>
+  factor(levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+```
+
+### describe the variables
+
+#### categ vars
+
+```{r}
+# Look at the marginal distributions of variables - use histograms for continuous outcomes, and barplots for categorical: 
+
+p1 <- ggplot(data1, aes(Attendance)) + 
+    geom_histogram() + 
+    labs(x = "Attendance", y = "Frequency")
+
+p2 <- ggplot(data1, aes(Conscientiousness)) + 
+    geom_bar() + 
+    labs(x = "Conscientiousness Level", y = "Frequency")
+
+p3 <- ggplot(data1, aes(Year)) + 
+    geom_bar() + 
+    labs(x = "Year of Study", y = "Frequency")
+
+p4 <- ggplot(data1, aes(OnlineAccess)) + 
+    geom_bar()  + 
+    labs(x = "Frequency of Access to Online Materials", y = "Frequency")
+
+p1 / p2 / p3 / p4
+
+# Look at the bivariate associations (note we are also removing the legend - it does not offer the reader any additional information and takes up space):
+
+p5 <- ggplot(data1, aes(x = Conscientiousness, y = Attendance, fill = Conscientiousness)) + 
+    geom_boxplot() + 
+    labs(x = "Conscientiousness Level", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p6 <- ggplot(data1, aes(x = OnlineAccess, y = Attendance, fill = OnlineAccess)) + 
+    geom_boxplot() + 
+    labs(x = "Frequency of Access to Online Materials", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p7 <- ggplot(data1, aes(x = Year, y = Attendance, fill = Year)) + 
+    geom_boxplot() + 
+    labs(x = "Year of Study", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p5 / p6 / p7
+```
+
+#### num vars
+
+```{r}
+# check how many observations in each category
+table(data1$Conscientiousness)
+table(data1$OnlineAccess)
+table(data1$Year)
+
+data1 |>
+  group_by(Year, OnlineAccess, Conscientiousness) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance and Academic Year, Frequency of Online Material Access, Conscientiousness Descriptive Statistics", digits = 2) %>%
+    kable_styling()   
+
+```
+
+^ nicht sehr uebersichtlich.
+
+TODO: visualise numeric variables
+
+
+
+### fit the model
+
+```{r}
+#build model
+m1 <- lm(Attendance ~ Conscientiousness + OnlineAccess + Year, data = data1)
+
+#check model summary
+summary(m1)
+```
+
+
+### check assumptions
+
+```{r}
+# Linearity: Can be assumed as working with categorical predictors
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m1, which = 2, main = "Normality Assumption Check for m1")
+
+# Equal Variances
+residualPlot(m1, main = "Equal Variances Assumption Check for m1")
+
+#### Overall, assumption checks look fine
+
+```
+
+### make nice table for results
+
+```{r}
+tab_model(m1,
+          pred.labels = c('Intercept', 'Conscientiousness - High', 'Conscientiousness - Low', 'Online Access - Often', 'Online Access - Rarely', 
+                              'UG Y2', 'UG Y3', 'UG Y4', 'MSc', 'PhD'),
+          title = "RQ1: Regression Table for Attendance Model")
+```
+
+
+## RQ2
+
+### set up the variables
+
+```{r}
+#ordering of time variable - make chronological
+data1$Time <- data1$Time |> 
+  factor(levels = c('9AM', '10AM', '11AM','12PM', '1PM', '2PM', '3PM', '4PM'))
+```
+
+### describe variables
+
+```{r}
+# Numeric
+data1 |>
+  group_by(Time) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance & Class Time Descriptive Statistics", digits = 2) |>
+    kable_styling()    
+
+# check how many observations in each category
+table(data1$Time)
+
+# Visual
+p8 <- ggplot(data1, aes(Time)) + 
+    geom_bar()
+
+p9 <- ggplot(data1, aes(x = Time, y = Attendance, fill = Time)) + 
+    geom_boxplot()
+
+p8 / p9
+```
+
+
+### fit the model
+
+```{r}
+#build model 
+m2 <- lm(Attendance ~ Time, data = data1)
+
+#check summary
+summary(m2)
+```
+
+### check assumptions
+
+```{r}
+# Linearity: Can be assumed as working with categorical predictors
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m2, which = 2)
+
+# Equal Variances
+residualPlot(m2)
+
+#### Overall, assumption checks look fine
+
+```
+
+### test manual contrasts
+
+```{r}
+#Morning/Evening vs Afternoon
+
+#check order
+levels(data1$Time)
+
+#table of weights to present in table 1 analysis strategy
+TimePeriod <- c("Early/Late", "Early/Late", "Midday", "Midday", "Midday", "Midday", "Early/Late", "Early/Late")
+Time <- c("9AM", "10AM", "11AM", "12PM", "1PM", "2PM", "3PM", "4PM")
+Weight <- c(1/4, 1/4, -1/4, -1/4, -1/4, -1/4, 1/4, 1/4)
+weights <- tibble(TimePeriod, Time, Weight)
+
+
+#get means
+time_mean <- emmeans(m2, ~Time)
+
+#look at means
+time_mean
+
+#plot means
+plot(time_mean)
+
+#specify weights for contrast
+time_comp <- list('Early or Late vs Middle of the Day' = c(-1/4,-1/4, 1/4, 1/4, 1/4, 1/4, -1/4, -1/4))
+
+#run contrast analysis
+time_comp_test <- contrast(time_mean, method = time_comp)
+
+#examine output
+time_comp_test
+
+#obtain confidence intervals
+confint(time_comp_test)
+```
+
+## RQ3 
+
+### set up data
+
+I guess it's fine
+
+### describe data
+
+```{r}
+data2 |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "Final Grades & Attendance Descriptive Statistics", digits = 2) |>
+        kable_styling()  
+
+data2 |>
+    select(Attendance, Marks) |>
+    cor() |>
+    round(digits = 2)
+
+ggplot(data = data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE) + 
+    labs(x = "Attendance (in days)", y = "Final Grade")
+```
+
+### fit the model
+
+```{r}
+#specify model
+m3 <- lm(Marks ~ Attendance, data = data2)
+
+#check summary
+summary(m3)
+```
+
+### check assumptions
+
+```{r}
+# Linearity (can also use plot(model, which = 1) in place of below)
+ggplot(data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = 'lm', se = F) + 
+    geom_smooth(method = 'loess', se = F, colour = 'red') + 
+    labs(x = "Attendance", y = "Final Grade", title = "Scatterplot with linear (blue) and loess (red) lines")
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m3, which = 2)
+
+# Equal Variances
+residualPlot(m3)
+
+```
+
+### bootstrap model
+
+```{r}
+# use 1000 resamples
+boot_m3 <- Boot(m3, R = 1000)
+
+#check summary
+summary(boot_m3)
+
+#confidence intervals
+confint(boot_m3)
+```
+
+
+
+
+
+
