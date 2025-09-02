@@ -5,16 +5,79 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r}
-#| label: setup
-#| include: false
+```{r setup, include=F}
 library(tidyverse)
 library(patchwork)
+library(emmeans)
+library(simglm)
+library(latex2exp)  # for betas in ggplots
 source('_theme/theme_quarto.R')
+
+theme_set(theme_quarto(title_font_size=42))
+theme_update(
+  text = element_text(family = 'Source Sans 3'),
+  axis.title.y = element_text(angle=0, 
+                              vjust=0.5, 
+                              hjust = 0,
+                              margin = margin(t = 0, r = 10, b = 0, l = 0)
+                              ),
+
+  )
+
+dapr2red <- "#BF1932" 
+pal <- c("#3173c9", "#ff94b0", "#51b375")
 ```
 
 
-## Course Overview {.smaller}
+```{r message=F, warning=F, include=F}
+# simulate the data
+
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+score_data <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+score_data <- score_data |>
+  mutate(study_num = ifelse(study == 'alone', 0, 1))
+
+# get group means
+mean_alone <- filter(score_data, study == 'alone')$score |> mean()
+sd_alone <- filter(score_data, study == 'alone')$score |> sd()
+mean_others <- filter(score_data, study == 'others')$score |> mean()
+sd_others <- filter(score_data, study == 'others')$score |> sd()
+```
+
+
+
+
+# Course Overview {.smaller}
 
 <br>
 
@@ -92,10 +155,552 @@ What hypotheses are tested by the default way that R represents categorical pred
 
 ::: {.fragment}
 ::: {.dapr2callout}
-If we wanted to test different hypotheses, how would we do that?
+If we wanted to test different hypotheses after fitting the model, how would we do that?
 :::
 :::
 
+
+
+
+<!-- ======================================== -->
+
+# Categorical predictors with two levels <br>("binary" predictors)
+
+## Examples of binary predictors
+
+![](figs/TODO-binary.jpeg){fig-align="center"}
+
+<!-- TODO: use study data as example -->
+
+But: linear models can only deal with input in number form.
+
+So we need some way of representing these variables numerically.
+
+Today: **dummy coding**, aka **treatment coding**.
+
+
+## How does dummy/treatment coding represent categories as numbers?
+
+Represent one level as 0, and the other level as 1.
+
+
+:::: {.columns}
+::: {.column width="50%"}
+**Schematic:**
+
+![](figs/TODO-trtmt.jpeg){fig-align="center"}
+Here, `alone` is coded as 0, `others` is coded as 1.
+
+<!-- TODO: use study data as example -->
+
+:::
+::: {.column width="50%"}
+**In the data:**
+
+:::{ style="font-size: 80%;" }
+
+```{r df head}
+score_data |>
+  select(ID, study, study_num) |>
+  head(10)
+```
+
+:::
+
+:::
+::::
+
+
+## Does it matter which level is coded as 0 and which level is coded as 1?
+
+:::{.hcenter}
+Yes.
+
+:::
+
+:::{style="font-size: 70%;"}
+
+To illustrate: Here are some test scores from students who studied either `alone` (blue) or with `others` (pink).
+:::
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r plot violin, echo=F, fig.width = 8, fig.asp=1, fig.align='center'}
+score_data |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5, width = 0.3) +
+  theme(
+    legend.position = 'none',
+    panel.grid.minor = element_blank()
+    ) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+  # stat_summary(colour = 'black', fun = mean, geom = 'point', size = 2) +
+  # geom_segment(aes(x = 'alone', xend = 'others', y = mean_alone, yend = mean_others), colour = 'black') +
+  scale_colour_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  NULL
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r plot xy 1, echo=F, fig.width = 8, fig.asp=1, fig.align='center'}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -15
+ylim_upper <-  55
+
+set.seed(1)  # seed for constant jitter
+p_xy_study <- score_data |>
+  ggplot(aes(x = study_num, y = score)) +
+  geom_jitter(aes(colour = study), alpha = 0.25, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0,
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, 
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  scale_colour_manual(values = pal) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'bottom'
+  ) +
+  labs(
+    x = 'study (in numeric space)'
+  ) +
+ guides(colour = guide_legend(override.aes = list(alpha = 1))) + 
+  NULL
+
+p_xy_study
+```
+
+
+:::
+::::
+
+
+
+## Does it matter which level is coded as 0 and which level is coded as 1?
+
+:::{.hcenter}
+Yes.
+
+:::
+
+:::: {.columns}
+::: {.column width="50%"  style="font-size: 70%;"}
+
+::: {.r-stack}
+```{r plot xy 2, echo=F, fig.width=8, fig.asp=1}
+set.seed(1)  # seed for constant jitter
+p_xy_study
+```
+
+::: {.fragment}
+
+```{r plot xy with line, echo=F, fig.width=8, fig.asp=1}
+gm <-(mean_alone + mean_others)/2
+
+set.seed(1)
+p_xy_study <- p_xy_study + 
+  geom_abline(slope = 4.73, intercept = mean_alone, colour = 'black', linewidth = 2) +
+  NULL
+
+p_xy_study
+```
+:::
+
+:::
+
+
+A linear model will fit a line to this data.
+
+Before I show you this line, I want you to make predictions about it.
+
+<!-- (You'll learn better long-term if you genuinely guess and avoid peeking ahead in the slides.) -->
+
+
+
+:::
+::: {.column width="50%" style="font-size: 70%;"}
+**Activity! Individual {{< iconify material-symbols person-rounded size=1.5em >}} and in pairs/threes {{< iconify material-symbols group-outline-rounded size=1.5em >}} :**
+
+- **{{< iconify material-symbols person-rounded size=1.5em >}} Predict**: Write down your guesses: 
+
+  1. The line's intercept will be the same as the mean of either **alone** or **others**. Which one? Why?
+  2. Will the slope of the line be **positive** or **negative**? Why?
+
+
+- **{{< iconify material-symbols group-outline-rounded size=1.5em >}} Explain**: 
+Why do you think your guesses are likely to be correct?
+
+
+- **{{< iconify material-symbols person-rounded size=1.5em >}} Observe**: Did your guesses match the results?
+
+
+- **{{< iconify material-symbols group-outline-rounded size=1.5em >}} Explain**: Why are the results the way they are?
+
+:::
+::::
+
+<!-- at Observe, show line, annotate it with Intercept and Slope. ask someone to articulate it in plenum (wait til several hands raised). -->
+
+## How do we describe this line?
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+:::{.r-stack}
+
+```{r plot xy pre betas, echo=F, fig.width=8, fig.asp=1}
+set.seed(1)  # seed for constant jitter
+p_xy_study
+```
+
+:::{.fragment}
+```{r plot xy with betas, echo=F, fig.width=8, fig.asp=1}
+set.seed(1)  # seed for constant jitter
+p_xy_study +
+  # right triangle
+  geom_segment(x = 0, xend = 1, y = mean_alone, yend = mean_alone,
+               colour = dapr2red, linewidth = 2) +
+  geom_segment(x = 1, xend = 1, y = mean_alone, yend = mean_others,
+               colour = dapr2red, linewidth = 2) +
+  # arrows
+  geom_segment(x = -.8, xend = -.15, y = mean_alone+13, yend = mean_alone+3, arrow = arrow(), colour = dapr2red) +
+  geom_segment(x = 1.7, xend = 1.1, y = gm, yend = gm, arrow = arrow(), colour = dapr2red) +
+  # betas
+  geom_label(x = -1, 
+             y = mean_alone+13, 
+             label = TeX('$\\hat{\\beta}_0$'), 
+             size = 12, 
+             col = dapr2red) +
+  geom_label(x = 1.8, 
+             y = gm, 
+             label = TeX('$\\hat{\\beta}_1$'), 
+             size = 12, 
+             col = dapr2red) +
+  NULL
+```
+
+:::
+:::
+
+:::
+::: {.column width="50%"  style="font-size: 70%;"}
+Using our mathematical toolkit:
+
+$$
+score_i = \beta_0 + \beta_1 study + \epsilon_i
+$$
+
+<br>
+
+**$\beta_0$:** intercept, mean of `alone` (the level coded as 0):
+
+```{r}
+mean_alone
+```
+
+<br>
+
+**$\beta_1$:** slope, the difference between mean of `others` (coded as 1) and mean of `alone` (coded as 0):
+
+```{r}
+mean_others - mean_alone
+```
+
+<br>
+
+**$\epsilon_i$:** error for each individual data point $i$
+
+:::
+::::
+
+<br>
+
+::: {.hcenter}
+**Questions!**
+:::
+
+
+---
+
+<br>
+
+We can find these parameters values all on our own, without a linear model.
+
+But we need a linear model to answer research questions like:
+
+**Do students who study with others score significantly better than students who study alone?**
+
+<br>
+
+Next, we'll fit a model that predicts score as a function of study patterns: `score ~ study`.
+
+<!-- my instinct is to want students to do some predictions here, see what param estimates would be consistent with each outcome. but I think they don't know yet what hyps are being tested by each param. so it might be premature. we can do it later.-->
+
+
+
+## Modelling `score ~ study` {.smaller}
+
+```{r}
+m1 <- lm(score ~ study, data = score_data)
+```
+
+```{r}
+summary(m1)
+```
+
+<br>
+
+**Those coefficient estimates look familiar...**
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+mean_alone
+```
+:::
+::: {.column width="50%"}
+```{r}
+mean_others - mean_alone
+```
+
+:::
+::::
+
+
+
+
+## Model evaluation works the same as before
+
+<br>
+
+**$R^2$:**
+
+- Still tells us how much variance in the data is accounted for by the model.
+
+```{r echo=F}
+cat(capture.output(summary(m1))[17])
+```
+
+<br>
+
+**$F$-ratio (aka $F$-statistic):**
+
+- Still tells us the ratio of explained variance to unexplained variance.
+- Still tests the hypothesis that all regression slopes in the model = 0.
+
+```{r echo=F}
+cat(capture.output(summary(m1))[18])
+```
+
+<br>
+
+(Revisit Lecture 4 for a refresher!)
+
+
+## What hypotheses are being tested for each coefficient? {.smaller}
+
+```{r echo=F}
+summary(m1)$coefficients
+```
+
+<br> 
+
+**`(Intercept)` aka $\beta_0$:**
+
+- Null hypothesis (aka H0): the intercept is equal to zero (aka $\beta_0 = 0$).
+- $p$-value (aka `Pr(>|t|)`): the probability of observing an intercept of `r mean_alone`, assuming that the true value of the intercept is zero.
+
+
+**`studyothers` aka $\beta_1$:**
+
+- Null hypothesis (aka H0): the slope is equal to zero (aka $\beta_1 = 0$).
+- $p$-value (aka `Pr(>|t|)`): the probability of observing a slope of `r round(mean_others-mean_alone, 2)`, assuming that the true value of the slope is zero.
+
+<br>
+
+Our research question was about how studying alone or with others is associated with test score.
+
+**Are both of these hypothesis tests relevant to our research question?**
+
+<!-- if time, could do a three-minute TPS here -->
+
+
+
+## Reporting the model's estimates
+
+> Study habits significantly predicted student test scores, F(`r summary(m1)$fstatistic[['numdf']]`, `r summary(m1)$fstatistic[['dendf']]`) = `r summary(m1)$fstatistic[['value']]`, p < 0.001.
+
+```{verbatim}
+Study habits significantly predicted student test scores, F(`r summary(m1)$fstatistic[['numdf']]`, `r summary(m1)$fstatistic[['dendf']]`) = `r summary(m1)$fstatistic[['value']]`, p < 0.001.
+```
+
+> Study habits explained `r round( summary(m1)$r.squared * 100, 2)`% of the variance in test scores.
+
+```{verbatim}
+Study habits explained `r round( summary(m1)$r.squared * 100, 2)`% of the variance in test scores.
+```
+
+> Specifically, students who studied with others (M = `r round(mean_others, 2)`, SD = `r round(sd_others, 2)`) scored significantly higher than students who studied alone (M = `r round(mean_alone, 2)`, SD = `r round(sd_alone, 2)`), 
+$\beta_1$ = `r round( summary(m1)$coefficients['studyothers', 'Estimate'], 2)`, 
+SE = `r round( summary(m1)$coefficients['studyothers', 'Std. Error'], 2)`, 
+t = `r summary(m1)$coefficients['studyothers', 't value']`, 
+p < 0.001.
+
+```{verbatim}
+Specifically, students who studied with others (M = `r round(mean_others, 2)`, SD = `r round(sd_others, 2)`) scored significantly higher than students who studied alone (M = `r round(mean_alone, 2)`, SD = `r round(sd_alone, 2)`), $\beta_1$ = `r round( summary(m1)$coefficients['studyothers', 'Estimate'], 2)`, SE = `r round( summary(m1)$coefficients['studyothers', 'Std. Error'], 2)`, t = `r summary(m1)$coefficients['studyothers', 't value']`, p < 0.001.
+```
+
+<br>
+
+::: {.hcenter}
+**Questions!**
+:::
+
+
+## Visualising the model's estimates
+
+![](figs/TODO-nonref-ci.jpeg){fig-align="center"}
+
+We have almost all the pieces!
+
+But finding the 95% CI for the non-reference level is mathematically a little complicated.
+(It's not just the 95% CI of $\beta_1$, the slope parameter.)
+
+A nice shortcut: **an R package called `emmeans`.**
+
+<!-- - The linear model gives us intercept and slope parameters. -->
+<!-- - We have mean and 95% CI for the reference level (= the intercept). -->
+<!-- - What if we want mean and 95% CI for the non-reference level? -->
+<!-- - To get the mean, we can just add intercept and slope parameters together. -->
+<!-- - But finding the CI is mathematically more complicated, so, here's a shortcut: -->
+
+
+## `emmeans` = "Estimated Marginal Means"
+
+- **"Estimated"** $\rightarrow$ based on a model's estimates
+- **"Marginal"**  $\rightarrow$ for each level of the predictor
+- **"Means"**  $\rightarrow$ means of the estimated outcomes for each level of the predictor—but also confidence intervals!
+
+
+## `emmeans` = "Estimated Marginal Means"
+
+We already have our model:
+
+```{r}
+m1 <- lm(score ~ study, data = score_data)
+```
+
+<br> 
+
+Use `emmeans()` to get each group's estimated mean and the variability associated with it.
+
+```{r}
+m1_emm <- emmeans(m1, ~study)
+m1_emm
+```
+
+<br>
+
+In `lower.CL` and `upper.CL` are our 95% confidence intervals.
+
+
+## Plotting marginal means and CIs
+
+`emmeans` has a built-in plot style.
+
+```{r fig.align='center'}
+plot(m1_emm) + coord_flip()
+```
+
+
+It's OK, but a bit boring. We can definitely do better.
+
+
+## Plotting marginal means and CIs
+
+:::: {.columns}
+::: {.column width="50%" style="font-size: 70%;"}
+```{r eval=F}
+# Save EMMs in tibble format, 
+# with compatible column names
+m1_emm_df <- m1_emm |>
+  as_tibble() |>
+  rename(score = emmean)
+
+# Plot the data like before, 
+# and now overlay EMMs
+score_data |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.3, size = 5) +
+  theme(legend.position = 'none') +
+  scale_colour_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  geom_errorbar(
+    data = m1_emm_df, 
+    aes(ymin = lower.CL, ymax = upper.CL), 
+    colour = 'black', 
+    width = 0.2,
+    linewidth = 2
+  ) +
+  geom_point(
+    data = m1_emm_df, 
+    colour = 'black', 
+    size = 5
+  )
+```
+:::
+::: {.column width="50%"}
+```{r echo=F, fig.width=8, fig.asp=1}
+# Save EMMs in tibble format, 
+# renaming "emmean" column so 
+# it matches the original data
+m1_emm_df <- m1_emm |>
+  as_tibble() |>
+  rename(score = emmean)
+
+# Plot the data like before, 
+# and now overlay EMMs
+score_data |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.3, size = 5) +
+  theme(legend.position = 'none') +
+  scale_colour_manual(values = pal) +
+  scale_fill_manual(values = pal) +
+  # The error bar with 95% CIs:
+  geom_errorbar(
+    data = m1_emm_df, 
+    aes(ymin = lower.CL, ymax = upper.CL), 
+    colour = 'black', 
+    width = 0.2,
+    linewidth = 2
+  ) +
+  # The point with group means:
+  geom_point(
+    data = m1_emm_df, 
+    colour = 'black', 
+    size = 5
+  )
+```
+:::
+::::
+
+`emmeans` is an amazingly useful tool.
+
+It can do LOTS more than we've seen here!
+
+We'll see more examples in the coming days and weeks.
 
 
 ## Building an analysis workflow
@@ -113,61 +718,151 @@ If we wanted to test different hypotheses, how would we do that?
 
 
 
+## Extension: Changing the reference level {.smaller}
+
+:::: {.columns}
+::: {.column width="50%"}
+
+If reference level = `alone`:
+
+```{r plot xy ref alone, echo = F, fig.width=8, fig.asp = 1}
+set.seed(1)
+p_xy_study
+```
+
+:::
+::: {.column width="50%"}
+
+If reference level = `others`:
+
+```{r plot xy ref others, echo=F, fig.width = 8, fig.asp = 1}
+score_data |>
+  mutate(study_num = ifelse(study == 'others', 0, 1)) |>
+  ggplot(aes(x = study_num, y = score)) +
+  geom_jitter(aes(colour = study), alpha = 0.25, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0,
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, 
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  scale_colour_manual(values = pal) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'bottom'
+  ) +
+  labs(
+    x = 'study (in numeric space)'
+  ) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) + 
+  geom_abline(slope = -4.73, intercept = mean_others, colour = 'black', linewidth = 2) +
+  NULL
+```
+
+:::
+::::
+
+When `others` is the reference level (that is, the level represented as 0):
+
+- What does the intercept represent?
+- What does the slope represent?
+- Why is the slope negative now, when before it was positive?
+- Challenge: What hypotheses would a linear model test about this data?
+
+
+<!-- ======================================== -->
+
+# Categorical predictors with >2 levels
+
+## What variables can you think of with three or more levels?
+
+
+
+
+## lorem ipsum
+
+
+## 
+
+
+
+
+
+<!-- ======================================== -->
+
+## Building an analysis workflow
+
+<br> 
+
+::: {.r-stack}
+![](figs/block2-flowchart-06-0.svg){.fragment height="550" }
+
+![](figs/block2-flowchart-06-1.svg){.fragment height="550" }
+
+![](figs/block2-flowchart-06-2.svg){.fragment height="550" }
+:::
+
+
+
+<!-- ======================================== -->
+
 
 ## Revisiting this week's learning objectives
 
-::: {.fragment}
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
 **How can we include categorical variables as predictors in a linear model?**
 
-::: {style="font-size: 80%;" .incremental}
+::: {style="font-size: 80%;"}
 - Represent the variable numerically, for example using dummy coding (also called treatment coding).
 - In dummy coding, the reference level (also called baseline level) is represented ("coded") as 0, and the non-reference level is coded as 1.
 - For categorical predictors with >2 levels, dummy coding uses "dummy variables" to individually compare each non-reference level to the same reference level.
 :::
 
 :::
-:::
+<!-- ::: -->
 
-::: {.fragment}
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
 **When we use a categorical predictor, how do we interpret the linear model's coefficients?**
 
-::: {style="font-size: 80%;" .incremental}
+::: {style="font-size: 80%;"}
 - Intercept (also written as $\beta_0$): The mean outcome for the reference level.
 - Slope (also written as $\beta_1$, $\beta_2$, etc., or for short, $\beta_j$): The difference between (1) the mean outcome for the non-reference level and (2) the mean outcome for the reference level (when all other predictors are at zero).
 :::
 :::
-:::
+<!-- ::: -->
 
 ## Revisiting this week's learning objectives
 
-::: {.fragment}
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
 **What hypotheses are tested by the default way that R represents categorical predictors?**
 
-::: {style="font-size: 80%;" .incremental}
+::: {style="font-size: 80%;"}
 - By default, R uses dummy coding/treatment coding. And by default, the reference level is the level that comes first in the alphabet.
 - The intercept's hypothesis test: The mean outcome for the reference level is different from zero.
 - The slope's hypothesis test: The difference between the (1) mean outcome for the non-reference level and (2) the mean outcome for the reference level is different from zero.
 :::
 :::
-:::
+<!-- ::: -->
 
-::: {.fragment}
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
-**If we wanted to test different hypotheses, how would we do that?**
+**If we wanted to test different hypotheses after fitting the model, how might we do that?**
 
-::: {style="font-size: 80%;" .incremental}
-- We can use a linear model not just to estimate intercept and slope parameters, but also to estimate what we'd expect our outcome variable to be for every value of our predictor(s).
+::: {style="font-size: 80%;"}
+- We can use a linear model to estimate what we'd expect our outcome variable to be for every value of our predictor(s).
 - These expected outcome values are called "expected marginal means".
 - By comparing expected marginal means after fitting the model, we can test basically any hypotheses we want.
 
 :::
 :::
-:::
+<!-- ::: -->
 
-
+<!-- ======================================== -->
 
 ## This week 
 
@@ -226,8 +921,30 @@ knitr::include_graphics('figs/oh.png')
 ::::
 
 
+# Appendix
+
+## Predictive equations
+
+TODO: maths
+
+
+## Why can't we just compare each group individually to the overall mean? Why do we need to bother with a reference level?
+
+TODO: overparameterised.
 
 
 
 
 
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+
+
+<!-- style="font-size: 70%;" -->
