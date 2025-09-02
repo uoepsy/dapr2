@@ -166,7 +166,7 @@ If we wanted to test different hypotheses after fitting the model, how would we 
 
 # Categorical predictors with two levels <br>("binary" predictors)
 
-## Examples of binary predictors
+## Examples of binary predictors  {.smaller}
 
 ![](figs/TODO-binary.jpeg){fig-align="center"}
 
@@ -285,7 +285,9 @@ p_xy_study
 
 
 
-## Does it matter which level is coded as 0 and which level is coded as 1?
+## Does it matter which level is coded as 0 and which level is coded as 1? {.smaller}
+
+<!-- TODO: dont' just use fragments, fully duplicate slides, so that there's a version of the PEOE slide that doesn't overlay the solution on the main slide -->
 
 :::{.hcenter}
 Yes.
@@ -293,7 +295,7 @@ Yes.
 :::
 
 :::: {.columns}
-::: {.column width="50%"  style="font-size: 70%;"}
+::: {.column width="50%"}
 
 ::: {.r-stack}
 ```{r plot xy 2, echo=F, fig.width=8, fig.asp=1}
@@ -397,7 +399,7 @@ p_xy_study +
 Using our mathematical toolkit:
 
 $$
-score_i = \beta_0 + \beta_1 study + \epsilon_i
+score_i = \beta_0 + (\beta_1 \times study) + \epsilon_i
 $$
 
 <br>
@@ -523,8 +525,8 @@ summary(m1)$coefficients
 
 **`studyothers` aka $\beta_1$:**
 
-- Null hypothesis (aka H0): the slope is equal to zero (aka $\beta_1 = 0$).
-- $p$-value (aka `Pr(>|t|)`): the probability of observing a slope of `r round(mean_others-mean_alone, 2)`, assuming that the true value of the slope is zero.
+- Null hypothesis (aka H0): the difference between levels is equal to zero (aka $\beta_1 = 0$).
+- $p$-value: the probability of observing a difference of `r round(mean_others-mean_alone, 2)`, assuming that the true value of the difference is zero.
 
 <br>
 
@@ -776,18 +778,464 @@ When `others` is the reference level (that is, the level represented as 0):
 
 # Categorical predictors with >2 levels
 
-## What variables can you think of with three or more levels?
+## Examples of categorical predictors with >2 levels
+
+![](figs/TODO-categ.jpeg){fig-align="center"}
+
+
+## Today's data: Study method
+
+```{r include=F}
+mean_read <- filter(score_data, method == 'read')$score |> mean()
+sd_read <- filter(score_data, method == 'read')$score |> sd()
+mean_self <- filter(score_data, method == 'self-test')$score |> mean()
+sd_self <- filter(score_data, method == 'self-test')$score |> sd()
+mean_summ <- filter(score_data, method == 'summarise')$score |> mean()
+sd_summ <- filter(score_data, method == 'summarise')$score |> sd()
+```
+
+:::{.r-stack}
+```{r echo=F, fig.width = 10, fig.align = 'center'}
+set.seed(1)
+p_viol <- score_data |>
+  ggplot(aes(x = method, y = score, fill = method, colour = method)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2, size = 5) +
+  theme(legend.position = 'none') +
+  scale_fill_manual(values = pal) +
+  scale_colour_manual(values = pal) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 5) +
+  NULL
+
+p_viol
+```
+:::{.fragment}
+```{r echo=F, fig.width = 10, fig.align = 'center'}
+set.seed(1)
+p_viol +
+  # line from read to self-test:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'self-test', y = mean_read, yend = mean_self), linewidth = 2) +
+  # line from read to summarise:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'summarise', y = mean_read, yend = mean_summ), linewidth = 2) +
+  NULL
+```
+:::
+:::
+
+:::{style="font-size: 80%;"}
+How do we fit a line to data from three groups?
+
+- It's impossible to draw one single straight line through all three group means.
+- The smallest number of straight lines that connect all three group means is **two**.
+- For this reason, we're going to use **two** predictors, called **"dummy variables"**.
+:::
 
 
 
+## Dummy variables let us extend dummy/treatment coding to >2 levels
 
-## lorem ipsum
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r echo=F, fig.width = 10, fig.align = 'center'}
+set.seed(1)
+p_viol +
+  # line from read to self-test:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'self-test', y = mean_read, yend = mean_self), linewidth = 2) +
+  # line from read to summarise:
+  geom_segment(colour = 'black', aes(x = 'read', xend = 'summarise', y = mean_read, yend = mean_summ), linewidth = 2) +
+  NULL
+```
 
 
-## 
+:::
+::: {.column width="50%"}
+
+Both dummy variables have the same reference level: `read`.
+
+The first dummy variable will compare `self-test` back to `read`.
+
+The second dummy variable will compare `summarise` back to `read`.
+
+:::
+::::
+
+Let's look at the dummy variables in numeric space.
+
+
+## Dummy variables let us extend dummy/treatment coding to >2 levels {.smaller}
+
+:::: {.columns}
+::: {.column width="50%"}
+
+First dummy variable: `self-test` vs. `read`.
+
+```{r xy dummy 1, echo=F, fig.width=7.5, fig.asp=1}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+set.seed(1)
+p1 <- score_data |> 
+  filter(method %in% c('read', 'self-test')) |>
+  mutate(method_num = ifelse(method == 'read', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, colour = method)) +
+  geom_jitter(alpha = 0.3, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  # geom_segment(x = 0, xend = 1, y = mean_read, yend = mean_self, colour = 'black') +
+  # geom_segment(x = 0, xend = 1, y = mean_read, yend = mean_read, colour = 'red', linewidth = 2) +
+  # geom_segment(x = 1, xend = 1, y = mean_read, yend = mean_self, colour = 'red', linewidth = 2) +
+  labs(
+    x = 'method (in numeric space)'
+  ) +
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[1], pal[2])) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  geom_abline(slope = (mean_self - mean_read), intercept = mean_read, linewidth = 2) +
+  NULL
+p1
+```
+:::
+::: {.column width="50%"}
+
+Second dummy variable: `summarise` vs. `read`.
+
+```{r xy dummy 2, echo=F, fig.width=7.5, fig.asp=1}
+set.seed(1)
+p2 <- score_data |> 
+  filter(method %in% c('read', 'summarise')) |>
+  mutate(method_num = ifelse(method == 'read', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, colour = method)) +
+  geom_jitter(alpha = 0.3, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  # geom_segment(x = 0, xend = 1, y = mean_read, yend = mean_summ, colour = 'black') +
+  # geom_segment(x = 0, xend = 1, y = mean_read, yend = mean_read, colour = 'red', linewidth = 2) +
+  # geom_segment(x = 1, xend = 1, y = mean_read, yend = mean_summ, colour = 'red', linewidth = 2) +
+  labs(
+    x = 'method (in numeric space)'
+  ) +  
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[1], pal[3])) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  geom_abline(slope = (mean_summ - mean_read), intercept = mean_read, linewidth = 2) +
+  NULL
+p2
+```
+
+:::
+::::
+
+1. Is the slope of the first dummy variable **positive or negative**? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+2. Is the slope of the second dummy variable **positive or negative**? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+3. Is the **slope** of the first dummy variable **bigger** than the slope of the second dummy variable? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} 
+4. Is the **intercept** of the first dummy variable **bigger** than the intercept of the second dummy variable? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+
+
+## How can we tell that a model will use *these* particular dummy variables? {.smaller}
+
+<br>
+
+With the function `contrasts()`.
+
+```{r}
+contrasts(score_data$method)
+```
+
+<br>
+
+- Each **column** contains one dummy variable.
+  - `self-test` compares `self-test` (the 1 in that column) to `read`.
+  - `summarise` compares `summarise` (the 1 in that column) to `read`.
+
+- We know that the reference level is `read` because **in BOTH dummy variables, `read` is coded as 0.**
+
+
+## Modelling `score ~ method` {.smaller}
+
+In maths:
+
+$$
+score_i = \beta_0 + (\beta_1 \times method_{self-test}) + (\beta_2 \times method_{summarise}) + \epsilon_i
+$$
+
+In R:
+
+```{r}
+m2 <- lm(score ~ method, data = score_data)
+```
+
+Write down your prediction: **How many coefficients will this model estimate?**
+
+<br>
+
+```{r}
+summary(m2)
+```
+
+
+## What does each coefficient mean? {.smaller}
+
+```{r echo = F}
+cat(paste0(capture.output(summary(m2)), '\n')[9:13])
+```
+
+<br>
+
+**`(Intercept)` aka $\beta_0$:**
+The mean score for the reference level (`read`).
+
+```{r}
+mean_read
+```
+
+<br>
+
+**`methodself-test` aka $\beta_1$:**
+The difference between the mean score of `self-test` and the mean score of `read`.
+
+```{r}
+mean_self - mean_read
+```
+
+<br>
+
+**`methodsummarise` aka $\beta_2$:**
+The difference between the mean score of `summarise` and the mean score of `read`.
+
+```{r}
+mean_summ - mean_read
+```
+
+<!-- TODO: activity, predict what these coefs actually mean. -->
+
+
+## What hypotheses are being tested for each coefficient? {.smaller}
+
+```{r echo = F}
+cat(paste0(capture.output(summary(m2)), '\n')[10:13])
+```
+
+<br>
+
+**`(Intercept)` aka $\beta_0$:**
+
+- Null hypothesis: The mean score for the reference level (`read`) is equal to zero.
+- $p$-value: the probability of observing an intercept of `r mean_read`, assuming that the true intercept is zero.
+
+
+**`methodself-test` aka $\beta_1$:**
+
+- Null hypothesis: The difference between the mean score of `self-test` and the mean score of `read` is equal to zero.
+- $p$-value: the probability of observing a difference of `r mean_self-mean_read`, assuming that the true difference is zero.
+
+
+**`methodsummarise` aka $\beta_2$:**
+
+- Null hypothesis: The difference between the mean score of `summarise` and the mean score of `read` is equal to zero.
+- $p$-value: the probability of observing a difference of `r mean_summ-mean_read`, assuming that the true difference is zero.
+
+
+<!-- **Can we reject each of these null hypotheses?** {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} -->
+
+
+## What if we want to test different hypotheses? {.smaller}
+
+For example, what if we want to know about how the two non-reference levels `self-test` and `summarise` are different from each other?
+
+<br>
+
+The solution: use our old friend `emmeans`, "Estimated Marginal Means".
+
+- **"Estimated"** $\rightarrow$ based on a model's estimates
+- **"Marginal"**  $\rightarrow$ for each level of the predictor
+- **"Means"**  $\rightarrow$ means (and CIs) of the estimated outcomes for each level of the predictor
 
 
 
+## Intro to testing hypotheses with `emmeans` {.smaller}
+
+1. Get estimated means and 95% CIs for each level of the predictor. (We could plot these like we did last time, if we wanted!)
+
+```{r}
+(m2_emm <- emmeans(m2, ~method))
+```
+
+<br>
+
+2. Based on those estimates, we can run hypothesis tests on any two levels of the predictor we want.
+Or phrased differently: "we can test any contrasts we want".
+
+
+## Intro to testing our own contrasts {.smaller}
+
+First, we need to know the order of levels in the categorical predictor.
+
+```{r}
+levels(score_data$method)
+```
+
+<br>
+
+For every contrast you want to test, assign `1` to the level you're interested in and `-1` to the level you want to compare it to, using the level order above.
+
+```{r}
+m2_comparisons <- list(
+  'self-test vs. read'      = c(-1, 1,  0), # read -1, self-test 1, summarise  0
+  'summarise vs. read'      = c(-1, 0,  1), # read -1, self-test 0, summarise  1
+  'self-test vs. summarise' = c( 0, 1, -1)  # read  0, self-test 1, summarise -1
+)
+```
+
+The level coded as –1 will be subtracted from the level coded as 1, and we'll test the significance of that difference.
+
+
+
+## Intro to testing our own contrasts {.smaller}
+
+Use `contrast()` to find the $p$-value for each contrast.
+
+```{r}
+(m2_emm_contr <- contrast(m2_emm, m2_comparisons))
+```
+
+<br>
+
+These `estimate`s look familiar:
+
+:::: {.columns}
+::: {.column width="33%"}
+```{r}
+mean_self - mean_read
+```
+
+:::
+::: {.column width="33%"}
+```{r}
+mean_summ - mean_read
+```
+
+:::
+
+::: {.column width="33%"}
+```{r}
+mean_self - mean_summ
+```
+:::
+::::
+
+```{r echo=F, fig.align = 'center'}
+p_viol
+```
+
+
+## Intro to testing our own contrasts {.smaller}
+
+Use `contrast()` to find the $p$-value for each contrast.
+
+```{r}
+(m2_emm_contr <- contrast(m2_emm, m2_comparisons))
+```
+
+<br>
+
+Finally, use `confint()` to get the 95% CIs of each contrast:
+
+```{r}
+confint(m2_emm_contr)
+```
+
+
+<br>
+
+**Testing our own contrasts using `emmeans` is not necessary for every analysis.**
+
+But it is useful if the hypotheses we want to test are not the same hypotheses that our *a priori* contrast coding (e.g., our dummy coding) will test.
+
+<br>
+
+::: {.hcenter}
+**Questions!**
+:::
+
+
+## Changing the reference level {.smaller}
+
+<br>
+
+First: another prediction activity, individually {{< iconify material-symbols person-rounded size=1.5em >}} and in pairs/threes {{< iconify material-symbols group-outline-rounded size=1.5em >}}.
+
+<br>
+
+:::{.dapr2callout}
+
+Imagine the reference level of `method` was `summarise`, instead of `read`.
+
+- Would you expect **the model coefficients** to be the same or different?
+- Would you expect **the hypotheses that the model tests** to be the same or different?
+- Would you expect **the estimated marginal means** to be the same or different?
+
+:::
+
+<br>
+
+**{{< iconify material-symbols person-rounded size=1.5em >}} Predict:**
+Write down your guesses about each question.
+
+**{{< iconify material-symbols group-outline-rounded size=1.5em >}} Explain:**
+Why do you think your guesses are likely to be correct?
+
+
+
+## Changing the reference level {.smaller}
+
+TODO: plot dummy variables on xy plane.
+
+show coding with contrasts().
+
+
+## Changing the reference level {.smaller}
+
+TODO: fit model m3, show that coefs are different (show m2 and m3 side by side).
+
+
+## Changing the reference level {.smaller}
+
+TODO: compute emmeans of m3, show that estims are same (show emmeans plots m2 and m3 side by side)
+
+
+
+## Changing the reference level {.smaller}
+
+<br>
+
+:::{.dapr2callout}
+
+When the reference level of `method` is `summarise`, instead of `read`:
+
+- **The model coefficients** are different.
+- **The hypotheses that the model tests** are different.
+- **The estimated marginal means** are the same.
+
+:::
+
+<br>
+
+**{{< iconify material-symbols person-rounded size=1.5em >}} Observe:**
+Did your guesses match these results?
+
+**{{< iconify material-symbols group-outline-rounded size=1.5em >}} Explain:**
+Why are the results the way they are?
 
 
 <!-- ======================================== -->
