@@ -963,7 +963,7 @@ contrasts(score_data$method)
 
 ## Modelling `score ~ method` {.smaller}
 
-In maths:
+The linear expression in maths notation:
 
 $$
 score_i = \beta_0 + (\beta_1 \times method_{self-test}) + (\beta_2 \times method_{summarise}) + \epsilon_i
@@ -1182,7 +1182,7 @@ First: another prediction activity, individually {{< iconify material-symbols pe
 Imagine the reference level of `method` was `summarise`, instead of `read`.
 
 - Would you expect **the model coefficients** to be the same or different?
-- Would you expect **the hypotheses that the model tests** to be the same or different?
+- Would you expect **the set of hypotheses that the model tests** to be the same or different?
 - Would you expect **the estimated marginal means** to be the same or different?
 
 :::
@@ -1196,23 +1196,181 @@ Write down your guesses about each question.
 Why do you think your guesses are likely to be correct?
 
 
+## Changing the reference level: In R {.smaller}
 
-## Changing the reference level {.smaller}
+The original coding scheme:
 
-TODO: plot dummy variables on xy plane.
+```{r}
+contrasts(score_data$method)
+```
 
-show coding with contrasts().
+<br>
+
+Manually relevel the `method` factor so that **our desired reference level comes first**.
+
+(The order of the remaining levels doesn't matter.)
+
+```{r}
+score_data <- score_data |>
+  mutate(
+    method = factor(method, levels = c('summarise', 'read', 'self-test'))
+  )
+```
+
+<br>
+
+Now check the contrasts. How can we tell that `summarise` is now the reference level?
+
+```{r}
+contrasts(score_data$method)
+```
 
 
-## Changing the reference level {.smaller}
-
-TODO: fit model m3, show that coefs are different (show m2 and m3 side by side).
 
 
-## Changing the reference level {.smaller}
+## Changing the reference level: Dummy variables {.smaller}
 
-TODO: compute emmeans of m3, show that estims are same (show emmeans plots m2 and m3 side by side)
 
+:::: {.columns}
+::: {.column width="50%"}
+
+First new dummy variable:
+
+`read` vs. `summarise`.
+
+
+```{r xy dummy relevel 1, echo=F, fig.width=7.5, fig.asp=1}
+set.seed(1)
+p3 <- score_data |> 
+  filter(method %in% c('read', 'summarise')) |>
+  mutate(method_num = ifelse(method == 'summarise', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, colour = method)) +
+  geom_jitter(alpha = 0.3, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+  labs(
+    x = 'method (in numeric space)'
+  ) +
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[3], pal[1])) +
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1), nrow = 2,byrow = TRUE)
+    ) + 
+  geom_abline(slope = (mean_read - mean_summ), intercept = mean_summ, linewidth = 2) +
+  NULL
+p3
+```
+:::
+
+::: {.column width="50%"}
+
+Second new dummy variable:
+
+`self-test` vs. `summarise`.
+
+```{r xy dummy relevel 2, echo=F, fig.width=7.5, fig.asp=1}
+set.seed(1)
+p4 <- score_data |> 
+  filter(method %in% c('self-test', 'summarise')) |>
+  mutate(method_num = ifelse(method == 'summarise', 0, 1)) |>
+  ggplot(aes(x = method_num, y = score, colour = method)) +
+  geom_jitter(alpha = 0.3, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+  labs(
+    x = 'method (in numeric space)'
+  ) +  
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[3], pal[2])) +
+  guides(
+    colour = guide_legend(override.aes = list(alpha = 1), nrow = 2,byrow = TRUE)
+    ) +
+  geom_abline(slope = (mean_self - mean_summ), intercept = mean_summ, linewidth = 2) +
+  NULL
+p4
+```
+
+:::
+::::
+
+
+1. Is the slope of the first dummy variable **positive or negative**? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+2. Is the slope of the second dummy variable **positive or negative**? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+3. Will the coefficient estimates be **the same or different** compared to our previous model? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} 
+
+
+## Changing the reference level: Hypothesis tests {.smaller}
+
+```{r}
+m3 <- lm(score ~ method, data = score_data)
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+Reference level = `summmarise`.
+
+:::{ style="font-size: 75%;"}
+```{r}
+summary(m3)
+```
+:::
+
+:::
+::: {.column width="50%"}
+Reference level = `read`.
+
+:::{ style="font-size: 75%;"}
+```{r}
+summary(m2)
+```
+:::
+
+:::
+::::
+
+<br>
+
+In the `summarise` model (`m3`, on the left), **what hypotheses are being tested for each coefficient?**
+
+
+## Changing the reference level: `emmeans` {.smaller}
+
+```{r}
+m3_emm <- emmeans(m3, ~method)
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+Reference level = `summmarise`.
+
+```{r}
+plot(m3_emm) + coord_flip()
+```
+
+:::
+::: {.column width="50%"}
+Reference level = `read`.
+
+```{r}
+plot(m2_emm) + coord_flip()
+```
+
+:::
+::::
+
+<br>
+
+Are the estimated marginal means and 95% CIs from each model **the same or different**? {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
 
 
 ## Changing the reference level {.smaller}
@@ -1224,7 +1382,7 @@ TODO: compute emmeans of m3, show that estims are same (show emmeans plots m2 an
 When the reference level of `method` is `summarise`, instead of `read`:
 
 - **The model coefficients** are different.
-- **The hypotheses that the model tests** are different.
+- **The set of hypotheses that the model tests** are different.
 - **The estimated marginal means** are the same.
 
 :::
@@ -1369,16 +1527,240 @@ knitr::include_graphics('figs/oh.png')
 ::::
 
 
-# Appendix
+# Appendix {.appendix}
 
-## Predictive equations
+## Prediction equations: `score ~ study` <br> (two levels) {.smaller}
 
-TODO: maths
+The linear expression that the model assumes has generated each data point $i$ (the reference level is `alone`:
+
+$$
+score_i = \beta_0 + (\beta_1 \times study) + \epsilon_i
+$$
+
+A little hat over the variable means that that's an estimated value, so the model will estimate:
+
+$$
+\widehat{score} = \hat{\beta_0} + (\hat{\beta_1} \times study)
+$$
+
+With simple algebra, we can work out how the $\beta$ coefficients relate to the estimated score of each group.
+
+:::: {.columns}
+::: {.column width="50%"}
+**Studying alone is represented as `study = 0`.**
+
+$$
+\begin{align}
+\widehat{score}_{alone} &= \hat{\beta_0} + (\hat{\beta_1} \times study) \\
+\widehat{score}_{alone} &= \hat{\beta_0} + (\hat{\beta_1} \times 0) \\
+\widehat{score}_{alone} &= \hat{\beta_0} + 0 \\
+\widehat{score}_{alone} &= \hat{\beta_0} \\
+\end{align}
+$$
+
+:::
+::: {.column width="50%"}
+
+**Studying with others is represented as `study = 1`.**
 
 
-## Why can't we just compare each group individually to the overall mean? Why do we need to bother with a reference level?
+$$
+\begin{align}
+\widehat{score}_{others} &= \hat{\beta_0} + (\hat{\beta_1} \times study) \\
+\widehat{score}_{others} &= \hat{\beta_0} + (\hat{\beta_1} \times 1) \\
+\widehat{score}_{others} &= \hat{\beta_0} + \hat{\beta_1} \\
+\end{align}
+$$
 
-TODO: overparameterised.
+:::
+::::
+
+
+
+
+## Prediction equations: `score ~ method` (three levels) {.smaller}
+
+The linear expression that the model assumes has generated each data point $i$ (the reference level is `read`):
+
+$$
+score_i = \beta_0 + (\beta_1 \times method_{self-test}) + (\beta_2 \times method_{summarise}) + \epsilon_i
+$$
+
+A little hat over the variable means that that's an estimated value, so the model will estimate:
+
+$$
+\widehat{score} = \beta_0 +  (\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise})
+$$
+
+With simple algebra and with the help of the `contrasts()` function, we can work out how the $\beta$ coefficients relate to the estimated score of each group.
+
+:::: {.columns}
+::: {.column width="40%"}
+
+<br>
+
+```{r include=F}
+score_data <- score_data |>
+  mutate(
+    method = factor(method, levels = c('read', 'self-test', 'summarise'))
+  )
+```
+
+```{r}
+contrasts(score_data$method)
+```
+
+
+:::
+::: {.column width="60%"}
+
+First: **Studying by reading is represented as $method_{self-test} = 0$ and $method_{summarise} = 0$.**
+We get these numbers from the `read` row of the contrast matrix from `contrasts()`.
+
+
+$$
+\begin{align}
+\widehat{score}_{read} &= \hat{\beta_0} +(\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise}) \\
+\widehat{score}_{read} &= \hat{\beta_0} +(\hat{\beta_1} \times 0) + (\hat{\beta_2} \times 0) \\
+\widehat{score}_{read} &= \hat{\beta_0} + 0 + 0 \\
+\widehat{score}_{read} &= \hat{\beta_0} \\
+\end{align}
+$$
+
+:::
+::::
+
+
+
+## Prediction equations: `score ~ method` (three levels) {.smaller}
+
+The linear expression that the model assumes has generated each data point $i$ (the reference level is `read`):
+
+$$
+score_i = \beta_0 + (\beta_1 \times method_{self-test}) + (\beta_2 \times method_{summarise}) + \epsilon_i
+$$
+
+A little hat over the variable means that that's an estimated value, so the model will estimate:
+
+$$
+\widehat{score} = \beta_0 +  (\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise})
+$$
+
+With simple algebra and with the help of the `contrasts()` function, we can work out how the $\beta$ coefficients relate to the estimated score of each group.
+
+:::: {.columns}
+::: {.column width="40%"}
+
+<br>
+
+```{r}
+contrasts(score_data$method)
+```
+
+
+:::
+::: {.column width="60%"}
+
+Second: **Studying by self-testing is represented as $method_{self-test} = 1$ and $method_{summarise} = 0$.**
+We get these numbers from the `self-test` row of the contrast matrix from `contrasts()`.
+
+
+$$
+\begin{align}
+\widehat{score}_{self} &=  \hat{\beta_0} +(\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise}) \\
+\widehat{score}_{self} &=  \hat{\beta_0} +(\hat{\beta_1} \times 1) + (\hat{\beta_2} \times 0) \\
+\widehat{score}_{self} &=  \hat{\beta_0} + \hat{\beta_1} + 0 \\
+\widehat{score}_{self} &=  \hat{\beta_0} + \hat{\beta_1}\\
+\end{align}
+$$
+
+:::
+::::
+
+
+
+
+## Prediction equations: `score ~ method` (three levels) {.smaller}
+
+The linear expression that the model assumes has generated each data point $i$ (the reference level is `read`):
+
+$$
+score_i = \beta_0 + (\beta_1 \times method_{self-test}) + (\beta_2 \times method_{summarise}) + \epsilon_i
+$$
+
+A little hat over the variable means that that's an estimated value, so the model will estimate:
+
+$$
+\widehat{score} = \beta_0 +  (\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise})
+$$
+
+With simple algebra and with the help of the `contrasts()` function, we can work out how the $\beta$ coefficients relate to the estimated score of each group.
+
+:::: {.columns}
+::: {.column width="40%"}
+
+<br>
+
+```{r}
+contrasts(score_data$method)
+```
+
+
+:::
+::: {.column width="60%"}
+
+Third: **Studying by summarising is represented as $method_{self-test} = 0$ and $method_{summarise} = 1$.**
+We get these numbers from the `summarise` row of the contrast matrix from `contrasts()`.
+
+
+$$
+\begin{align}
+\widehat{score}_{summ} &=  \hat{\beta_0} +(\hat{\beta_1} \times method_{self-test}) + (\hat{\beta_2} \times method_{summarise}) \\
+\widehat{score}_{summ} &=  \hat{\beta_0} +(\hat{\beta_1} \times 0) + (\hat{\beta_2} \times 1) \\
+\widehat{score}_{summ} &=  \hat{\beta_0} + 0 + \hat{\beta_2} \\
+\widehat{score}_{summ} &=  \hat{\beta_0} + \hat{\beta_2} \\
+\end{align}
+$$
+
+:::
+::::
+
+
+
+
+
+## Why bother with a reference level?  {.smaller}
+
+Why can't we just compare each group individually to the overall mean? 
+
+Such a model might look something like this:
+
+$$
+score_i = \beta_0 + (\beta_1 \times read) + (\beta_2 \times selftest) +  (\beta_3 \times summarise) + \epsilon_i
+$$
+
+Each score is given by an intercept plus the difference between that intercept and each group's scores.
+The mean $\mu$ of each group would be:
+
+$$
+\begin{align}
+\mu_{read} &= \beta_0 + (\beta_1 \times read)\\
+\mu_{selftest} &= \beta_0 + (\beta_2 \times selftest)\\
+\mu_{summarise} &= \beta_0 + (\beta_3 \times summarise)\\
+\end{align}
+$$
+
+**For technical reasons, we cannot model this data this way.**
+
+We are trying to estimate three group means: $\mu_{read}$,  $\mu_{selftest}$,  $\mu_{summarise}$.
+And for mathematical reasons, that means we can only have three parameters in our model.
+But the model above has four: $\beta_0$,  $\beta_1$, $\beta_2$, $\beta_3$.
+
+In technical terms, we say the model above is **overparameterised**.
+
+<br>
+
+Dummy coding with a reference level is one way to achieve **three parameters for three group means**: one intercept for the reference level and two differences between groups for the other two levels.
 
 
 
