@@ -1,20 +1,91 @@
 ---
-title: "Effects coding and manual post-hoc contrasts"
+title: "Effect coding and manual post-hoc contrasts"
 author: "Elizabeth Pankratz (elizabeth.pankratz@ed.ac.uk)"
 editor_options: 
   chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
 ---
 
-```{r}
-#| label: setup
-#| include: false
+```{r setup, include = F}
 library(tidyverse)
 library(patchwork)
+library(emmeans)
+library(simglm)
 source('_theme/theme_quarto.R')
+
+theme_set(theme_quarto(title_font_size=42))
+theme_update(
+  text = element_text(family = 'Source Sans 3'),
+  axis.title.y = element_text(angle=0, 
+                              vjust=0.5, 
+                              hjust = 0,
+                              margin = margin(t = 0, r = 10, b = 0, l = 0)
+  ),
+  
+)
+
+dapr2red <- "#BF1932" 
+pal <- c("#3173c9", "#ff94b0", "#51b375")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+score_data <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+score_data <- score_data |>
+  mutate(
+    study_dum = ifelse(study == 'alone', 0, 1),
+    study_sum = ifelse(study == 'alone', 1, -1),
+    )
+
+# get group means
+mean_alone <- filter(score_data, study == 'alone')$score |> mean()
+sd_alone <- filter(score_data, study == 'alone')$score |> sd()
+mean_others <- filter(score_data, study == 'others')$score |> mean()
+sd_others <- filter(score_data, study == 'others')$score |> sd()
+
+mean_read <- filter(score_data, method == 'read')$score |> mean()
+sd_read <- filter(score_data, method == 'read')$score |> sd()
+mean_self <- filter(score_data, method == 'self-test')$score |> mean()
+sd_self <- filter(score_data, method == 'self-test')$score |> sd()
+mean_summ <- filter(score_data, method == 'summarise')$score |> mean()
+sd_summ <- filter(score_data, method == 'summarise')$score |> sd()
 ```
 
 
-## Course Overview {.smaller}
+
+# Course Overview {.smaller}
 
 <br>
 
@@ -68,28 +139,1142 @@ course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 0)
 
 ::::
 
+
+## {{< iconify icon-park-twotone brain >}} Retrieval practice: Coefficients and <br> null hypotheses (H0s) in dummy coding
+
+<br>
+
+Answer the questions in this table as thoroughly as you can **FROM MEMORY,** without checking your notes from last week.
+
+It's extremely OK and normal to not remember everything.
+
+
+|  | Intercept $\beta_0$ |  | Slope $\beta_j$ |  |
+|---|---|---|---|---|
+|  | **Meaning** | **H0** | **Meaning** | **H0** |
+| Dummy coding /<br> Treatment coding | *What does the intercept mean?* | *What null hypothesis is tested for the intercept?* | *What does a slope coefficient mean?* | *What hypothesis is tested for a slope coefficient?* |
+|  |  |  |  |  |
+<!-- | Dummy coding / Treatment coding | Mean outcome of reference level | Mean outcome of ref. level = 0 | Difference between non-ref. level and ref. level | This difference = 0 | -->
+<!-- | Effects coding / Sum to zero coding | Mean of all group means (aka grand mean) | Grand mean = 0 | Difference between grand mean and the mean of group j | Diff = 0 | -->
+
+Once you've written down everything you can remember, look at your notes and fill in the gaps.
+
+<br>
+
+:::{.dapr2callout}
+To practice retrieving information from memory is a good study strategy, according to [Brown et al. (2014)](https://www.hup.harvard.edu/file/feeds/PDF/9780674729018_sample.pdf).
+If you test your memory first, and only afterward look up the information, you'll end up remembering the information much better than if you immediately look up the information without testing yourself first.
+:::
+
+
+
 ## This week's learning objectives
 
 <br>
 
-::: {.fragment}
+
+::: {style="font-size: 125%;"}
+
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
-x
+Dummy coding is one common scheme for *a priori* contrast coding. What's another common scheme, and how is it different?
 :::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+When we code predictors using this other coding scheme, how do we interpret the linear model's coefficients?
+:::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+In this other coding scheme, what hypotheses are tested for each coefficient?
+:::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+How can we test hypotheses other than the ones tested by *a priori* coding schemes?
+:::
+<!-- ::: -->
+
 :::
 
-::: {.fragment}
-::: {.dapr2callout}
-x
+<!-- ======================================== -->
+
+
+
+
+
+
+## Coefficients and null hypotheses (H0s)
+
+
+|  | Intercept $\beta_0$ |  | Slope $\beta_j$ |  |
+|---|---|---|---|---|
+|  | **Meaning** | **H0** | **Meaning** | **H0** |
+| Dummy coding / <br> Treatment coding | Mean outcome of reference level | Mean outcome of ref. level = 0 | Difference between non-ref. level and ref. level | Difference between non-ref. level and ref. level = 0 |
+| Effect(s) coding / sum(-to-zero) coding |  |  |  |  |
+|  |  |  |  |  |
+
+<!-- | Effects coding / Sum to zero coding | Mean of all group means (aka grand mean) | Grand mean = 0 | Difference between grand mean and the mean of group j | Diff = 0 | -->
+
+
+# Effect coding
+
+
+## Another way of representing categorical predictors as numbers
+
+
+:::: {.columns}
+::: {.column width="50%"}
+**Dummy coding/treatment coding:**
+
+![](figs/TODO-trtmt.jpeg){fig-align="center"}
+
+Here, `alone` is coded as 0, `others` is coded as 1.
+
 :::
+::: {.column width="50%"}
+
+**Effect(s) coding / sum-to-zero coding:**
+
+![](figs/TODO-sum.jpeg){fig-align="center"}
+
+Here, `alone` is coded as 1, `others` is coded as –1.
+
+:::
+::::
+
+## The data: Two study patterns
+
+```{r echo=F, fig.width = 10, fig.align = 'center'}
+set.seed(1)
+score_data |>
+  ggplot(aes(x = study, y = score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2, size = 5) +
+  theme(legend.position = 'none') +
+  scale_fill_manual(values = pal) +
+  scale_colour_manual(values = pal) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 5) +
+  NULL
+```
+
+
+## Same data represented as different numbers
+
+:::: {.columns}
+::: {.column width="50%"}
+
+Dummy coding uses 0 and 1.
+
+```{r plot xy study dummy, echo=F, fig.width = 8, fig.asp=.9, fig.align='center'}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -15
+ylim_upper <-  55
+
+set.seed(1)  # seed for constant jitter
+p_xy_study_dummy <- score_data |>
+  ggplot(aes(x = study_dum, y = score)) +
+  geom_jitter(aes(colour = study), alpha = 0.25, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0,
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, 
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  scale_colour_manual(values = pal) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'bottom'
+  ) +
+  labs(
+    x = 'study (in numeric space,\ndummy coded)'
+  ) +
+ guides(colour = guide_legend(override.aes = list(alpha = 1))) + 
+  NULL
+
+p_xy_study_dummy
+```
+
+:::
+::: {.column width="50%"}
+
+Effect coding uses 1 and –1.
+
+```{r plot xy study effect, echo=F, fig.width = 8, fig.asp=.9, fig.align='center'}
+set.seed(1)  # seed for constant jitter
+p_xy_study_eff <- score_data |>
+  ggplot(aes(x = study_sum, y = score)) +
+  geom_jitter(aes(colour = study), alpha = 0.25, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0,
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, 
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  scale_colour_manual(values = pal) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'bottom'
+  ) +
+  labs(
+    x = 'study (in numeric space,\neffect coded)'
+  ) +
+ guides(colour = guide_legend(override.aes = list(alpha = 1))) + 
+  NULL
+
+p_xy_study_eff
+```
+
+
+:::
+::::
+:::{.dapr2callout}
+
+- In effect coding, what does the **intercept** represent?
+- In effect coding, what does the **slope** represent?
+
 :::
 
-::: {.fragment}
-::: {.dapr2callout}
-x
+**{{< iconify material-symbols person-rounded size=1em >}} Predict individually:**
+Write down your guesses about each question.
+
+**{{< iconify material-symbols group-outline-rounded size=1em >}} Explain to a partner:**
+Why do you think your guesses are likely to be correct?
+
+
+
+## Define effect coding in R
+
+R uses dummy coding by default.
+
+```{r}
+contrasts(score_data$study)
+```
+
+
+<br>
+
+To make sure that our predictor is effect-coded, we use the function `contr.sum()`.
+
+```{r}
+contrasts(score_data$study) <- contr.sum(2)  # 2 because there are 2 levels
+contrasts(score_data$study)
+```
+
+
+
+
+
+## Model `score ~ study`
+
+$$
+score_i = \beta_0 + (\beta_1 \times study) + \epsilon_i
+$$
+
+```{r}
+m1 <- lm(score ~ study, data = score_data)
+```
+
+```{r}
+summary(m1)
+```
+
+```{r include = F}
+m1_int <- summary(m1)$coefficients['(Intercept)', 'Estimate']
+m1_slp <- summary(m1)$coefficients['study1', 'Estimate']
+```
+
+
+<br> 
+
+Does your guess about the **intercept** make sense, given the estimate of `r m1_int`?
+
+Does your guess about the **slope** make sense, given the estimate of `r m1_slp`?
+
+
+## What does each coefficient mean?
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r echo=F, fig.align = 'center', fig.asp = 1}
+set.seed(1)
+p_xy_study_eff
+```
 :::
+::: {.column width="50%" style='font-size:85%;'}
+```{r echo=F}
+# cat(paste0(capture.output(summary(m1)), '\n')[10:12])
+summary(m1)$coefficients
+```
+
+:::
+::::
+
+
+## What does each coefficient mean?
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r echo=F, fig.align = 'center', fig.asp = 1}
+set.seed(1)
+p_xy_study_eff +
+  geom_abline(intercept = m1_int, slope = m1_slp, linewidth = 2)
+```
+:::
+::: {.column width="50%" style='font-size:85%;'}
+```{r echo=F}
+# cat(paste0(capture.output(summary(m1)), '\n')[10:12])
+summary(m1)$coefficients
+```
+
+<br>
+
+:::
+::::
+
+
+
+## What does each coefficient mean?
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r echo=F, fig.align = 'center', fig.asp = 1}
+set.seed(1)
+p_xy_study_eff +
+  geom_abline(intercept = m1_int, slope = m1_slp, linewidth = 2)
+```
+:::
+::: {.column width="50%" style='font-size:85%;'}
+```{r echo=F}
+# cat(paste0(capture.output(summary(m1)), '\n')[10:12])
+summary(m1)$coefficients
+```
+
+<br>
+
+**`(Intercept)` aka $\beta_0$:**
+
+- `r m1_int` is the **grand mean**: the mean of the group means.
+
+```{r}
+(m1_grand_mean <- mean(
+  c(mean_others, mean_alone))
+ )
+```
+
+
+
+<br>
+
+**`study1` aka $\beta_1$:**
+
+- `r m1_slp` is the difference between the level coded as 1, `alone`, and the grand mean.
+
+```{r}
+mean_alone - m1_grand_mean
+```
+
+
+:::
+::::
+
+
+**{{< iconify material-symbols person-rounded size=1.5em >}} Observe**: Did your guesses match the results?
+
+**{{< iconify material-symbols group-outline-rounded size=1.5em >}} Explain**: Why are the results the way they are?
+
+
+<!-- TODO: add beta annotations into overlays of this slide -->
+
+
+## Coefficients and null hypotheses (H0s)
+
+|  | Intercept $\beta_0$ |  | Slope $\beta_j$ |  |
+|---|---|---|---|---|
+|  | **Meaning** | **H0** | **Meaning** | **H0** |
+| Dummy coding / <br> Treatment coding | Mean outcome of reference level | Mean outcome of ref. level = 0 | Difference between non-ref. level and ref. level | Difference between non-ref. level and ref. level = 0 |
+| Effect(s) coding / sum(-to-zero) coding | Grand mean (mean of all group mean outcomes) |  | Difference between mean of level coded as 1 and grand mean |  |
+|  |  |  |  |  |
+
+<!-- | Effects coding / Sum to zero coding | Mean of all group means (aka grand mean) | Grand mean = 0 | Difference between grand mean and mean of level coded as 1 | Diff = 0 | -->
+
+
+
+## What hypotheses does effect coding test?
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[10:12])
+```
+
+
+<br>
+
+**`(Intercept)` aka $\beta_0$:**
+
+- Null hypothesis: The grand mean is equal to zero.
+- $p$-value: the probability of observing a grand mean of `r m1_int`, assuming that the true grand mean is zero.
+
+
+**`study1` aka $\beta_1$:**
+
+- Null hypothesis: The difference between the mean score of `alone` and the grand mean is equal to zero.
+- $p$-value: the probability of observing a difference of `r m1_slp`, assuming that the true difference is zero.
+
+
+**Can we reject each of these null hypotheses?** {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}}
+
+
+## Coefficients and null hypotheses (H0s)
+
+|  | Intercept $\beta_0$ |  | Slope $\beta_j$ |  |
+|---|---|---|---|---|
+|  | **Meaning** | **H0** | **Meaning** | **H0** |
+| Dummy coding / <br> Treatment coding | Mean outcome of reference level | Mean outcome of ref. level = 0 | Difference between non-ref. level and ref. level | Difference between non-ref. level and ref. level = 0 |
+| Effect(s) coding / sum(-to-zero) coding | Grand mean (mean of all group mean outcomes) | Grand mean = 0 | Difference between  mean of level coded as 1 and grand mean | Difference between mean of level coded as 1 and grand mean = 0 |
+|  |  |  |  |  |
+
+
+
+<!-- ======================================== -->
+
+# Effect coding for >2 levels
+
+## The data: Three study methods
+
+```{r echo=F, fig.width = 10, fig.align = 'center'}
+set.seed(1)
+score_data |>
+  ggplot(aes(x = method, y = score, fill = method, colour = method)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, width = 0.2, size = 5) +
+  theme(legend.position = 'none') +
+  scale_fill_manual(values = pal) +
+  scale_colour_manual(values = pal) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 5) +
+  NULL
+```
+
+
+## {{< iconify icon-park-outline muscle >}} Challenge: Guess the coefficient values
+
+:::{.dapr2callout}
+In effect coding:
+
+- Intercept = Grand mean (mean of all group mean outcomes)
+- Slope = Difference between  mean of level coded as 1 and grand mean (i.e., group mean – grand mean) 
 :::
 
+
+:::: {.columns}
+
+::: {.column width="30%"}
+:::{.dapr2callout}
+Mean of `read` group:
+
+```{r}
+mean_read
+```
+
+
+Mean of `self-test` group:
+
+```{r}
+mean_self
+```
+
+
+Mean of `summarise` group:
+
+```{r}
+mean_summ
+```
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+```{r}
+contrasts(score_data$method) <- contr.sum(3)
+contrasts(score_data$method)
+```
+
+:::
+
+::: {.dapr2callout style="background: #FDEDEF;"}
+**Imagine fitting a model `score ~ method`. This slide has all the information you need to guess the coefficient values.**
+
+- What's the value of the intercept?
+- There'll be a predictor called `method1`. What is its value?
+- There'll also be a predictor called `method2`. What is its value?
+:::
+:::
+::::
+
+## {{< iconify icon-park-outline muscle >}} Challenge: Guess the coefficient values
+
+:::{.dapr2callout}
+In effect coding:
+
+- Intercept = Grand mean (mean of all group mean outcomes)
+- Slope = Difference between  mean of level coded as 1 and grand mean (i.e., group mean – grand mean) 
+:::
+
+
+:::: {.columns}
+
+::: {.column width="30%"}
+:::{.dapr2callout}
+Mean of `read` group:
+
+```{r}
+mean_read
+```
+
+
+Mean of `self-test` group:
+
+```{r}
+mean_self
+```
+
+
+Mean of `summarise` group:
+
+```{r}
+mean_summ
+```
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+```{r}
+contrasts(score_data$method) <- contr.sum(3)
+contrasts(score_data$method)
+```
+
+:::
+
+
+::: {.dapr2callout style="background: #FDEDEF;"}
+- Intercept: grand mean, so
+
+```{r}
+(m2_grand_mean <- (mean_read + mean_self + mean_summ)/3)
+```
+
+- `method1`: in first column of contrast matrix, `read` = 1, so
+
+```{r}
+mean_read - m2_grand_mean
+```
+
+
+- `method2`: in second column of contrast matrix, `self-test` = 1, so
+
+```{r}
+mean_self - m2_grand_mean
+```
+
+:::
+:::
+::::
+
+
+## Model `score ~ method`
+
+```{r}
+m2 <- lm(score ~ method, data = score_data)
+summary(m2)
+```
+
+
+
+
+## What hypotheses are being tested?
+
+|  | Intercept $\beta_0$ |  | Slope $\beta_j$ |  |
+|---|---|---|---|---|
+|  | **Meaning** | **H0** | **Meaning** | **H0** |
+| Dummy coding / <br> Treatment coding | Mean outcome of reference level | Mean outcome of ref. level = 0 | Difference between non-ref. level and ref. level | Difference between non-ref. level and ref. level = 0 |
+| Effect(s) coding / sum(-to-zero) coding | Grand mean (mean of all group mean outcomes) | Grand mean = 0 | Difference between  mean of level coded as 1 and grand mean | Difference between mean of level coded as 1 and grand mean = 0 |
+|  |  |  |  |  |
+
+<br>
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m2)), '\n')[10:13])
+```
+
+<br>
+
+**Can we reject each of these null hypotheses?**
+
+
+<!-- ======================================== -->
+
+# Creating your own post-hoc contrasts
+
+
+## Terminology: *A priori* contrasts? Post-hoc contrasts?
+
+
+:::: {.columns}
+::: {.column width="45%"}
+
+***A priori* contrasts** are chosen *prior* to (before) fitting the model.
+
+Every categorical variable must be coded with some kind of *a priori* contrast.
+
+Your toolkit now includes:
+
+1. **dummy coding** = treatment coding
+2. **effect coding** = effects coding = sum-to-zero coding = sum coding 
+
+:::
+::: {.column width="10%"}
+:::
+::: {.column width="45%"}
+
+**Post-hoc contrasts** are tested *post* (after) fitting the model.
+
+We can optionally use estimated marginal means to test hypotheses beyond the ones from our *a priori* contrasts.
+
+We tested our first post-hoc contrasts last week, when we looked at the difference between the two non-reference levels of `method`.
+
+**This session, we'll learn how to define any contrasts we want.**
+
+:::
+::::
+
+
+
+## The data: Subjective well-being and partnership
+
+```{r include=F}
+n <- round(500*(c(.55, .2, .1, .05, .1)),0)
+set.seed(7284)
+wb_data <- tibble(
+  swb = c(rnorm(n[1], 11, 3.6),
+          rnorm(n[2], 12, 4.2),
+          rnorm(n[3], 8, 2.2),
+          rnorm(n[4], 6, 1.1),
+          rnorm(n[5], 9.5, 2.5)),
+  status = factor(c(rep("Married/CP", n[1]),
+                    rep("Cohab", n[2]),
+                    rep("Single", n[3]),
+                    rep("Widowed", n[4]),
+                    rep("Divorced", n[5]))
+  )
+)
+
+mean_married <- filter(wb_data, status == "Married/CP")$swb |> mean()
+mean_cohab <- filter(wb_data, status == "Cohab")$swb |> mean()
+mean_single <- filter(wb_data, status == "Single")$swb |> mean()
+mean_widowed <- filter(wb_data, status == "Widowed")$swb |> mean()
+mean_divorced <- filter(wb_data, status == "Divorced")$swb |> mean()
+m3_grand_mean <- mean(c(mean_cohab, mean_divorced, mean_married, mean_single, mean_widowed))
+```
+
+```{r echo=F, fig.width=11, fig.asp = .6, fig.align='center'}
+p_swb_viol <- wb_data |>
+  ggplot(aes(x = status, y = swb, fill = status, colour = status)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.2, width = 0.2, size = 5) +
+  theme(
+    legend.position = 'none'
+  ) +
+  NULL
+p_swb_viol
+```
+
+
+
+## Research questions
+
+<br>
+
+
+1. **Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+$\rightarrow$ We'll create the contrasts to address this question together.
+
+<br>
+
+
+2. **Is there a difference in subjective well-being between (1) people who are currently OR were previously married or in a civil partnership and (2) people who were never married or in a civil partnership?**
+
+$\rightarrow$ You'll create the contrasts for this question in pairs/small groups.
+
+
+## Fit model
+
+```{r}
+m3 <- lm(swb ~ status, wb_data)
+summary(m3)
+```
+
+<br>
+
+**These contrasts don't address our research questions!**
+
+
+## Defining manual contrasts step by step
+
+**Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      |           |
+| `Divorced`   |           |
+| `Married/CP` |           |
+| `Single`     |           |
+| `Widowed`    |           |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: People who are currently married or in a civil partnership: `Married/CP`.
+- Chunk 2: People who were previously married or in a civil partnership: `Divorced`, `Widowed`.
+:::
+
+:::
+::::
+
+## Defining manual contrasts step by step
+
+**Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      | 0         |
+| `Divorced`   |           |
+| `Married/CP` |           |
+| `Single`     | 0         |
+| `Widowed`    |           |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: People who are currently married or in a civil partnership: `Married/CP`.
+- Chunk 2: People who were previously married or in a civil partnership: `Divorced`, `Widowed`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+
+- `Cohab`, `Single`
+:::
+
+:::
+::::
+
+
+## Defining manual contrasts step by step
+
+**Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      | 0         |
+| `Divorced`   | –         |
+| `Married/CP` | +         |
+| `Single`     | 0         |
+| `Widowed`    | –         |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: People who are currently married or in a civil partnership: `Married/CP`.
+- Chunk 2: People who were previously married or in a civil partnership: `Divorced`, `Widowed`.
+:::
+
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+
+- `Cohab`, `Single`
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+
+:::
+::::
+
+
+
+## Defining manual contrasts step by step
+
+**Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      | 0         |
+| `Divorced`   | –         |
+| `Married/CP` | +         |
+| `Single`     | 0         |
+| `Widowed`    | –         |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+
+- Plus: $n_{plus}$ = 1
+- Minus: $n_{minus}$ = 2
+:::
+
+:::{.dapr2callout .fragment}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+
+- Plus: 1 divided by 1 = 1
+- Minus: –1 divided by 2 = –1/2
+:::
+
+:::
+::::
+
+
+
+## Defining manual contrasts step by step
+
+**Is there a difference in subjective well-being between (1) people who are currently married or in a civil partnership and (2) people who were previously married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      | 0         |
+| `Divorced`   | –1/2      |
+| `Married/CP` | 1         |
+| `Single`     | 0         |
+| `Widowed`    | –1/2      |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+
+- Plus: $n_{plus}$ = 1
+- Minus: $n_{minus}$ = 2
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+
+- Plus: 1 divided by 1 = 1
+- Minus: –1 divided by 2 = –1/2
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+::::
+
+
+## Manual contrasts FAQ
+
+- **Can I compare more than two chunks in a single contrast?** No. This is because we're dealing with the slope of lines between two groups. If you want to compare more than two things, then you need more than one contrast.
+
+- **How many contrasts can I have?** If you have $k$ groups, you can have up to $k-1$ contrasts. So since we have five groups, we can have up to four contrasts.
+
+- **Can I use the exact same chunk in more than one contrast?** No. Using the exact same chunk in more than one contrast is the categorical predictor equivalent of collinearity/non-independence of predictors.
+
+
+
+## `emmeans` and manual contrasts in R
+
+```{r}
+m3_emm <- emmeans(m3, ~status)
+```
+
+Like we saw last time, we can use `emmeans`' `contrast()` function to test our manual contrasts.
+
+First, verify the order of levels with `levels()`.
+
+```{r}
+levels(wb_data$status)
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="30%"}
+:::{.hcenter}
+
+| `group`      | `current` |
+| ------------ | --------- |
+| `Cohab`      | 0         |
+| `Divorced`   | –1/2      |
+| `Married/CP` | 1         |
+| `Single`     | 0         |
+| `Widowed`    | –1/2      |
+|||
+
+:::
+:::
+::: {.column width="70%"}
+
+
+Then make sure the order of coding values matches the order of levels from `levels()`.
+
+```{r}
+m3_comparison1 <- list(
+  "current" = c(
+    0,     # Cohab
+    -1/2,  # Divorced
+    1,     # Married/CP 
+    0,     # Single
+    -1/2   # Widowed
+  )
+)
+```
+
+
+:::
+::::
+
+
+## Testing manual contrasts
+
+Test the contrast (i.e., test the H0 that the estimate is different from 0):
+
+```{r}
+(m3_contrast1 <- contrast(m3_emm, m3_comparison1))
+```
+
+<br>
+
+Get the associated 95% CIs:
+
+```{r}
+(m3_confint1 <- confint(m3_contrast1))
+```
+
+<br>
+
+Where does this number for `estimate` come from?
+
+It's the grand mean of the positive chunk, minus the grand mean of the negative chunk.
+
+```{r}
+mean_married - mean(c(mean_divorced, mean_widowed))
+```
+
+<br>
+
+**Can we reject the null hypothesis that there's no difference in subjective well-being between people who are currently married and people who were previously married?**
+
+
+
+## {{< iconify material-symbols group-outline-rounded >}} Your turn: Research question 2
+
+**Is there a difference in subjective well-being between (1) people who are currently OR were previously married or in a civil partnership and (2) people who were never married or in a civil partnership?**
+
+:::: {.columns}
+::: {.column width="35%"}
+:::{.hcenter}
+
+| `group`      | `evermarried` |
+| ------------ | ------------- |
+| `Cohab`      |               |
+| `Divorced`   |               |
+| `Married/CP` |               |
+| `Single`     |               |
+| `Widowed`    |               |
+|||
+
+:::
+:::
+::: {.column width="65%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: `Divorced`, `Married/CP`, `Widowed`.
+- Chunk 2: `Cohab`, `Single`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+
+::::
+
+## If you finish early
+
+- Can you work out what `emmeans`' estimate for the `evermarried` coefficient will be?
+
+
+```{r echo=F, fig.align='center'}
+# # Save EMMs in tibble format, 
+# # with compatible column names
+# m3_emm_df <- m3_emm |>
+#   as_tibble() |>
+#   rename(swb = emmean)
+# 
+# # Plot the data like before, 
+# # and now overlay EMMs
+# p_swb_viol +
+#   geom_errorbar(
+#     data = m3_emm_df, 
+#     aes(ymin = lower.CL, ymax = upper.CL), 
+#     colour = 'black', 
+#     width = 0.2,
+#     linewidth = 2
+#   ) +
+#   geom_point(
+#     data = m3_emm_df, 
+#     colour = 'black', 
+#     size = 5
+#   )
+```
+
+
+## Switch to R ...
+
+```{r}
+levels(wb_data$status)
+```
+
+<br>
+
+```{r eval = F}
+m3_comparison2 <- list(
+  "evermarried" = c(
+    ?,  # Cohab
+    ?,  # Divorced
+    ?,  # Married/CP 
+    ?,  # Single
+    ?   # Widowed
+  )
+)
+```
+
+<!-- - let someone come up to the computer and type in what they've got? -->
+<!-- - run analysis live? that's kinda fun -->
+
+## The results we should expect
+
+```{r include=F}
+m3_comparison2 <- list(
+  "evermarried" = c(
+    -1/2,  # Cohab
+     1/3,  # Divorced
+     1/3,  # Married/CP 
+    -1/2,  # Single
+     1/3   # Widowed
+  )
+)
+```
+
+
+Test the contrast (i.e., test the H0 that the estimate is different from 0):
+
+```{r}
+(m3_contrast2 <- contrast(m3_emm, m3_comparison2))
+```
+
+<br>
+
+Get the associated 95% CIs:
+
+```{r}
+(m3_confint2 <- confint(m3_contrast2))
+```
+
+<br>
+
+The `estimate` is the grand mean of the positive chunk, minus the grand mean of the negative chunk.
+
+```{r}
+pos_chunk_mean <- mean(c( mean_divorced, mean_married, mean_widowed ))
+neg_chunk_mean <- mean(c( mean_cohab, mean_single ))
+
+pos_chunk_mean - neg_chunk_mean
+```
+
+
+
+
+<!-- ======================================== -->
 
 ## Building an analysis workflow
 
@@ -108,7 +1293,9 @@ x
 
 ## Revisiting this week's learning objectives
 
-::: {}
+::: {style="font-size: 125%;"}
+
+:::{}
 ::: {.dapr2callout}
 **Dummy coding is one common scheme for *a priori* contrast coding. What's another common scheme, and how is it different?**
 
@@ -133,8 +1320,12 @@ x
 :::
 :::
 
+:::
+
 ## Revisiting this week's learning objectives
 
+
+::: {style="font-size: 125%;"}
 
 ::: {}
 ::: {.dapr2callout}
@@ -161,11 +1352,12 @@ x
 :::
 :::
 
+:::
 
 
 
 
-## This week 
+## This week {}
 
 <br>
 
@@ -222,8 +1414,164 @@ knitr::include_graphics('figs/oh.png')
 ::::
 
 
+# Appendix {.appendix}
+
+## Solution to manual contrast exercise
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+| `group`      | `evermarried` |
+| ------------ | ------------- |
+| `Cohab`      | –1/2          |
+| `Divorced`   |  1/3          |
+| `Married/CP` |  1/3          |
+| `Single`     | –1/2          |
+| `Widowed`    |  1/3          |
+|||
+:::
+::: {.column width="50%"}
+```{r eval=F}
+m3_comparison2 <- list(
+  "evermarried" = c(
+    -1/2,  # Cohab
+     1/3,  # Divorced
+     1/3,  # Married/CP 
+    -1/2,  # Single
+     1/3   # Widowed
+  )
+)
+```
+:::
+::::
 
 
 
 
 
+
+## Grand mean vs. overall mean of the data
+
+The grand mean is the mean of the group means.
+
+**The grand mean is sometimes, but not always, the overall mean of the observed data.**
+
+- When the groups are all exactly the same size, then the grand mean = the overall mean of observed data.
+- But when the groups are different sizes (like with the subjective well-being data), then the grand mean $\neq$ the overall mean.
+
+```{r}
+wb_data |>
+  group_by(status) |>
+  count()
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+The mean of all `swb` values (*not* the grand mean):
+
+```{r}
+wb_data$swb |> mean()
+```
+
+:::
+::: {.column width="50%"}
+
+The grand mean (*not* the mean of all `swb` values):
+
+```{r}
+mean(c(mean_cohab, mean_divorced, mean_married, mean_single, mean_widowed))
+```
+:::
+::::
+
+
+
+
+
+
+## Visualise effect coding with >2 levels
+
+```{r}
+contrasts(score_data$method)
+```
+
+```{r echo=F, fig.asp = .5, fig.width = 18}
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -25
+ylim_upper <-  55
+
+p1 <- score_data |> 
+  filter(method %in% c('summarise', 'read')) |>
+  mutate(method_num = ifelse(method == 'summarise', -1, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.2, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  # xy vectors
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  # group means
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 5, show.legend = FALSE) +
+  # line between group means
+  geom_segment(aes(x = -1, xend = 1, y = mean_summ, yend = mean_read), colour = 'black', linetype = 'dotted') +
+  # slope lines
+  geom_segment(aes(x = 0, xend = 1, y = m2_grand_mean, yend = m2_grand_mean), colour = dapr2red, linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = m2_grand_mean, yend = mean_read), colour = dapr2red, linewidth = 2) +
+  # grand mean
+  geom_point(x = 0, y = m2_grand_mean, colour = 'black', size = 8, show.legend = F, shape = 4) +
+  labs(
+    x = 'method (in numeric space,\n first predictor)'
+  ) +
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[1], pal[3])) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1), nrow = 2, byrow = TRUE)) +
+  NULL
+
+p2 <- score_data |> 
+  filter(method %in% c('summarise', 'self-test')) |>
+  mutate(method_num = ifelse(method == 'summarise', -1, 1)) |>
+  ggplot(aes(x = method_num, y = score, fill = method, colour = method)) +
+  geom_jitter(alpha = 0.2, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  # xy vectors
+  geom_segment(aes(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(aes(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper), arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  # group means
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 5, show.legend = FALSE) +
+  # line between group means
+  geom_segment(aes(x = -1, xend = 1, y = mean_summ, yend = mean_self), colour = 'black', linetype = 'dotted') +
+  # slope lines
+  geom_segment(aes(x = 0, xend = 1, y = m2_grand_mean, yend = m2_grand_mean), colour = dapr2red, linewidth = 2) +
+  geom_segment(aes(x = 1, xend = 1, y = m2_grand_mean, yend = mean_self), colour = dapr2red, linewidth = 2) +
+  # grand mean
+  geom_point(x = 0, y = m2_grand_mean, colour = 'black', size = 8, show.legend = F, shape = 4) +
+  labs(
+    x = 'method (in numeric space,\nsecond predictor)'
+  ) +
+  theme(legend.position = 'bottom') +
+  scale_colour_manual(values = c(pal[2], pal[3])) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1), nrow = 2, byrow = TRUE)) +
+  NULL
+
+p1 + p2
+```
+
+The $\times$ shows the grand mean = the model's intercept.
+
+**Once effect coding uses >2 levels, the line between group means does not give us the correct intercept or slope.**
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- style="font-size: 70%;" -->
