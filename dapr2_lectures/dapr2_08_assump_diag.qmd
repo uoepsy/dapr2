@@ -3,6 +3,9 @@ title: "Assumptions and diagnostics"
 author: "Elizabeth Pankratz (elizabeth.pankratz@ed.ac.uk)"
 editor_options: 
   chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
 ---
 
 ```{r}
@@ -11,10 +14,23 @@ editor_options:
 library(tidyverse)
 library(patchwork)
 source('_theme/theme_quarto.R')
+
+theme_set(theme_quarto(title_font_size=42))
+theme_update(
+  text = element_text(family = 'Source Sans 3'),
+  axis.title.y = element_text(angle=0, 
+                              vjust=0.5, 
+                              hjust = 0,
+                              margin = margin(t = 0, r = 10, b = 0, l = 0)
+  ),
+  
+)
+
+dapr2red <- "#BF1932" 
 ```
 
 
-## Course Overview {.smaller}
+# Course Overview {.smaller}
 
 <br>
 
@@ -22,7 +38,7 @@ source('_theme/theme_quarto.R')
 
 ::: {.column width="50%"}
 
-```{r echo = FALSE, results='asis', warning = FALSE}
+```{r echo = FALSE, results='asis', warning = FALSE, eval=F}
 block1_name = "Introduction to Linear Models"
 block1_lecs = c("Intro to Linear Regression",
                 "Interpreting Linear Models",
@@ -45,7 +61,7 @@ course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 8)
 
 ::: {.column width="50%"}
 
-```{r echo = FALSE, results='asis', warning = FALSE}
+```{r echo = FALSE, results='asis', warning = FALSE, eval=F}
 block3_name = "Interactions"
 block3_lecs = c("Interactions I",
                 "Interactions II",
@@ -72,23 +88,843 @@ course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 0)
 
 <br>
 
-::: {.fragment}
+::: {style="font-size: 125%;"}
+
+<!-- ::: {.fragment} -->
 ::: {.dapr2callout}
-x
+What does a linear model assume is true about the data that it models? (Four assumptions)
 :::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+What three properties of a single data point might affect a linear model's estimates? How can we diagnose each property?
+:::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+What relationship between predictors do we want to avoid? How can we diagnose it?
+:::
+<!-- ::: -->
+
 :::
 
-::: {.fragment}
-::: {.dapr2callout}
-x
+
+# Assumptions
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td style="visibility: hidden;"><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td style="visibility: hidden;"></td>
+    <td style="visibility: hidden;"></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+ <!-- visibility: hidden; in style tag-->
+
+## **L**: Association between predictor and outcome is linear
+
+<br>
+
+```{r fig nonlin, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(221020)
+quadr <- function(x, a, b, c){ a + b*x + c*x^2  }
+
+x <- seq(-2, 2, length.out = 101)
+
+df_nonlin <- tibble(
+  y = abs(quadr(x + 0.5, 1, 0, 1) + rnorm(101, 0, 1)),
+  x1 = abs(1 + (3 * y) + rnorm(101, 0, 1)),
+  x2 = x
+)
+# pairs(df_nonlin)
+
+p_good <- df_nonlin %>%
+  ggplot(aes(x=x1, y=y)) +
+  geom_point(size = 3) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth=2) +
+  labs(
+    subtitle = 'Linear (straight line)'
+  ) +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  NULL
+
+p_quad <- df_nonlin |>
+  ggplot(aes(x=x2, y=y)) +
+  geom_point(size = 3) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth=2) +
+  labs(
+    y = element_blank(),
+    subtitle = 'Non-linear'
+  ) +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  NULL
+
+p_good + p_quad
+```
+
+
+## To check linearity of one predictor
+
+Make a scatterplot with a straight line and a "LOESS" line (**LO**cally **E**stimated **S**catterplot **S**moothing).
+
+:::: {.columns}
+::: {.column width="50%" style="font-size: 85%;" }
+
+**The linear variable:**
+
+```{r fig.asp = .8, fig.width = 10, fig.align = 'center', warning=F, message=F}
+df_nonlin |>
+  ggplot(aes(x=x1, y=y)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm',
+              colour = 'blue', se = FALSE, linewidth = 3) +
+  geom_smooth(method = 'loess',
+              colour = 'red', se = FALSE, linewidth = 3)
+```
+
+
 :::
+::: {.column width="50%" style="font-size: 85%;"}
+
+**The non-linear variable:**
+
+```{r fig.asp = .8, fig.width = 10, fig.align='center', warning=F, message=F}
+df_nonlin |>
+  ggplot(aes(x=x2, y=y)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm',
+              colour = 'blue', se = FALSE, linewidth = 3) +
+  geom_smooth(method = 'loess',
+              colour = 'red', se = FALSE, linewidth = 3)
+```
+
+:::
+::::
+
+You want the LOESS line (`method = 'loess'`, red) to stick close to the straight line (`method = 'lm'`, blue).
+Deviations suggest non-linearity.
+
+
+## To check linearity of multiple predictors
+
+<br> 
+
+With multiple predictors, we need to get slightly more complex.
+
+Now we to hold the other predictors constant while we look at each one in turn.
+
+**The solution: Component+residual plots** (aka "partial-residual plots").
+
+- **Component:** The association between one particular predictor and the outcome, with all the other predictors held constant. In other words, each predictor's contribution to the overall linear model.
+
+- **Residual:** The differences between the line the model predicts and the actual observed data points.
+
+Basically, we can look at the linearity of each predictor without any of the other predictors getting in the way.
+
+
+
+## To check linearity of multiple predictors
+
+A component-residual plot shows:
+
+- **x axis:** a predictor across its full range
+- **y axis:** that predictor's component + each data point's residual
+
+```{r fig.asp = .5, fig.align = 'center'}
+m1 <- lm(y ~ x1 + x2, data = df_nonlin)
+car::crPlots(m1)
+```
+
+Again, we want the LOESS line to match the straight line as closely as possible.
+Deviations suggest non-linearity.
+
+**How much of a deviation is a problem?** This is kind of a judgement call. 
+
+
+## What to do if a predictor is not linear
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Keep the variable as-is and report the non-linearity in your write-up. A good solution if the deviation isn't huge.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Transform the variable until it looks more linear (e.g., what if you take the exponential with `exp()`? the logarithm with `log()`?)
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+In DAPR3, you'll see how to include so-called "higher-order" regression terms, which let you model particular kinds of curves.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Beyond DAPR3: You can capture basically any non-linear relationship using "generalised additive models" (GAMs).
+:::
+::::
+
+
+
+
+
+
+
+
+
+
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle">
+    <p><b>Linearity:</b> The association between predictor and outcome is a straight line.</p>
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td style="visibility: hidden;"><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td style="visibility: hidden;"></td>
+    <td style="visibility: hidden;"></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+
+## **I**: Independence of errors
+
+:::: {.columns}
+::: {.column width="50%"}
+
+:::{.hcenter}
+{{< iconify arcticons rpg-dice size=5em >}}
 :::
 
-::: {.fragment}
-::: {.dapr2callout}
-x
+<br>
+
+**If you roll a 20-sided die at 9 am everyday,** you'll generate a lot of values between 1 and 20.
+
+These values are totally unrelated to each other from one day to the next.
+
+What you roll today is not correlated at all with the number you rolled yesterday.
+
+
 :::
+::: {.column width="50%"}
+
+:::{.hcenter}
+{{< iconify ph thermometer-thin size=5em >}}
 :::
+
+<br>
+
+**If you take the temperature in Edinburgh at 9 am everyday,** you'll also generate values between 1 and 20 (ish).
+
+These values *are* related to each other from one day to the next.
+
+A colder temperature yesterday is more likely to go with a colder temperature today.
+
+This is an example of **autocorrelation**.
+
+:::
+::::
+
+## To check for autocorrelation
+
+```{r include=F}
+# simulate dice-rolling data
+set.seed(2023)
+acf_lo <- sample(1:20, size = 30, replace = TRUE)
+
+# simulate autocorrelated data
+# source: https://stackoverflow.com/a/77090029 
+acf.negbin <- function(N, mu, size, alpha, max.iter = 100, tol = 1e-5) {
+  m = length(alpha)
+  generate = function(){
+   x = sort(rnbinom(N,size=size,mu=mu))
+   y <- rnorm(length(x))
+   x[rank(stats::filter(y, alpha, circular = TRUE))]
+  }
+  a = generate()
+  iter <- 0L
+  ACF <- function(x) acf(x, lag.max = m - 1, plot = FALSE)$acf[1:m]
+  SSE <- function(x,alpha) sum((ACF(x) - alpha)^2)
+  while ((SSE0 <- SSE(a, alpha)) > tol) {
+    if ((iter <- iter + 1L) == max.iter) break
+    a1 <- generate()
+    if(SSE(a1,alpha) < SSE0) a <- a1
+  }
+  return(a)
+}
+
+set.seed(2023)
+acf_hi <- acf.negbin(
+  30,           # how many obs to simulate
+  mu = 10,      # mean of simulated data
+  size = 5,     # dispersion parameter. 
+                # the bigger, the tighter the data will cluster around the mean.
+  alpha=c(0.9, 0.8, 0.8, 0.8)  # target correl of points with lag = 1, 2, n
+  )
+
+autocorr_data <- tibble(
+  day = 1:30,
+  d20 = acf_lo,
+  temp = acf_hi-3
+)
+```
+
+:::: {.columns}
+::: {.column width="50%"}
+
+:::{.hcenter}
+{{< iconify arcticons rpg-dice size=5em >}}
+:::
+
+
+```{r echo=F}
+autocorr_data |>
+  ggplot(aes(x = day, y = d20)) +
+  geom_point(size = 5) +
+  geom_line(linewidth = 2) +
+  ylim(1, 20)
+```
+:::
+::: {.column width="50%"}
+
+:::{.hcenter}
+{{< iconify ph thermometer-thin size=5em >}}
+:::
+
+```{r echo=F}
+autocorr_data |>
+  ggplot(aes(x = day, y = temp)) +
+  geom_point(size = 5) +
+  geom_line(linewidth = 2) +
+  ylim(1, 20)
+```
+:::
+::::
+
+## To check for autocorrelation
+
+The **autocorrelation function** (ACF) quantifies how much each data point is correlated with each data point that came before it.
+
+**Lag**: How many data points are we looking back by?
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r fig.width=8, fig.asp = .7}
+acf(autocorr_data$d20, 
+    cex.axis=1.7, cex.lab=1.6, cex.main = 3)
+```
+
+:::
+::: {.column width="50%"}
+
+```{r fig.width=8, fig.asp = .7}
+acf(autocorr_data$temp, 
+    cex.axis=1.7, cex.lab=1.6, cex.main = 3)
+```
+:::
+::::
+
+
+This was an illustration using autocorrelated **data points**.
+
+Strictly speaking, the linear model assumes that it's the **errors**, not the data points, that are independent—but where data points are autocorrelated, then often the errors are too.
+
+
+## The most common source of non-independence...
+
+... is when multiple observations are gathered from the same source.
+
+<br>
+
+For example:
+
+- many test scores gathered from the same schools,
+- many reaction times gathered from the same participants,
+- and so on.
+
+<br>
+
+That said: 
+
+**Until DAPR3,** you can assume that errors are independent **as long as the experimental design is between-subjects** (i.e., as long as each person only contributes data to one experimental condition).
+
+
+## What to do if errors are non-independent
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Keep the variable as-is and report the non-independence in your write-up.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+In DAPR3, you'll learn how to tell a model that some data points probably behave more like one another than they behave like others by including so-called "random effects" (terrible name).
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Beyond DAPR3: Use models that build in specific relationships between errors (e.g., autoregressive models to deal with autocorrelation).
+:::
+::::
+
+
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td style="visibility: hidden;">[indep]</td>
+    <td style="visibility: hidden;">[autocorr]</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+
+## **N**: Normally-distributed errors
+
+<br>
+
+```{r fig beta, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+# draw errors from a beta distribution, so they're all skewed
+set.seed(1)
+beta_errors <- rbeta(101, shape1 = 1, shape2 = 50) |> 
+  scale(scale = FALSE, center = TRUE) * 50
+
+df_nonnorm <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_norm = abs(4 + (2 * x) + rnorm(101, 0, 1)), 
+  y_nonnorm = abs(4 + (2 * x) + beta_errors),
+)
+
+p_good <- df_nonnorm |>
+  ggplot(aes(x=x, y=y_norm)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'Normal errors'
+    ) +
+  NULL
+
+p_beta <- df_nonnorm |>
+  ggplot(aes(x=x, y=y_nonnorm)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'Non-Normal errors'
+    ) +
+  NULL
+
+p_good + p_beta
+```
+
+
+
+## To check normality of errors
+
+<br>
+
+To find the residuals—the differences between the fitted line and each data point—we need a fitted line.
+
+So first, fit a model.
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+m_norm <- lm(
+  y_norm ~ x, 
+  data = df_nonnorm
+)
+```
+
+:::
+::: {.column width="50%"}
+```{r}
+m_nonnorm <- lm(
+  y_nonnorm ~ x, 
+  data = df_nonnorm
+)
+```
+:::
+::::
+
+<br>
+
+Now we have a couple of options:
+
+1. **A histogram of residuals**
+2. **A Q-Q plot**
+
+
+## To check normality of errors: Histogram
+
+<br>
+
+With a histogram of the residuals, we can eyeball how normally-distributed they appear.
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Normally-distributed errors:**
+
+```{r}
+tibble(residuals = m_norm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram()
+```
+
+Matches the bell curve shape pretty well.
+:::
+::: {.column width="50%"}
+
+**Non-normally-distributed errors:**
+
+```{r}
+tibble(residuals = m_nonnorm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram()
+```
+
+Very right-skewed! This is not a normal distribution.
+:::
+::::
+
+
+
+## To check normality of errors: Q-Q plots
+
+<br>
+
+We can compare the model's residuals to what the residuals WOULD look like in a world where they were perfectly normally-distributed.
+
+This is what a "quantile-quantile plot", a Q-Q plot, does.
+**The dots should follow the diagonal line.**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Normally-distributed errors:**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_norm, which = 2,
+     cex.axis = 1.5, cex.main = 20, cex.lab=1.5)
+```
+
+Top right: a few abnormally large residuals.
+
+
+:::
+::: {.column width="50%"}
+
+**Non-normally-distributed errors:**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_nonnorm, which = 2,
+     cex.axis = 1.5, cex.main = 20, cex.lab=1.5)
+```
+
+Bottom left and top right diverge a *lot* from the target diagonal.
+
+:::
+::::
+
+A perfect match to the diagonal is rare.
+Ask: **How big is the mismatch?**
+
+
+
+## What to do if errors are not normal
+
+:::: {.columns}
+::: {.column width="40%"}
+[x thru "keep calm and carry on"]
+:::
+::: {.column width="60%"}
+If errors aren't normally distributed, then a model which assumes they *are* will produce weird and biased estimates:
+
+```{r echo=F, fig.align = 'center'}
+mean_beta <- mean(m_nonnorm$residuals)
+sd_beta <- sd(m_nonnorm$residuals)
+
+tibble(residuals = m_nonnorm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram(fill = 'grey') +
+  geom_function(
+    fun = function(x) dnorm(x, mean = 0, sd = .95) * 35,
+    linewidth = 2
+  ) +
+  xlim(-4.5, 4.5)
+```
+
+Next week: we'll learn how to get around this problem using a method called **bootstrapping**.
+
+:::
+::::
+
+
+
+
+
+## **E**: Equal variance of errors
+
+
+## To check equal variance of errors
+
+
+## What to do if errors don't have equal variance
+
+
+
+
+
+
+# Diagnostics
+
+
+## Diagnostics to run on the data
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Diagnosing unusual properties of <br> individual data points:**
+
+1. Outlyingness
+2. High leverage
+3. High influence
+
+:::
+::: {.column width="50%"}
+
+**Diagnosing undesirable relationships <br> between predictors:**
+
+1. Multicollinearity
+
+TODO: insert photo of diagrams
+
+:::
+::::
+
+
+## Diagnosing unusual data points
+
+```{=html}
+<table>
+  <tr>
+    <td><b>Unusual property of a data point</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle">
+    <b>Outlyingness:</b> Unusual value of the outcome.
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-outlier.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>High leverage:</b> Unusual value of the predictor.
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-levg.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>High influence</b> Unusual values of both the outcome and the predictor.</td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-infl.png" width="200px"/></td>
+  </tr>
+</table>
+```
+
+
+## Outlyingness
+
+
+## High leverage
+
+
+## High influence
+
+
+
+## What to do if the dataset contains unusual data points
+
+
+
+
+## Sensitivity analysis
+
+
+
+## Diagnosing undesirable relationships between predictors
+
+
+
+TODO intutiion 
+
+
+
+
+
+## What to do if predictors are correlated
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## Building an analysis workflow
@@ -112,13 +948,15 @@ x
 
 ## Revisiting this week's learning objectives
 
+::: {style="font-size: 125%;"}
+
 ::: {}
 ::: {.dapr2callout}
 **What does a linear model assume is true about the data that it models? (Four assumptions)**
 
 ::: {style="font-size: 80%;"}
-- Linear: The association between predictor and outcome is linear.
-- Independent: Every data point is independent of every other data point.
+- Linearity: The association between predictor and outcome is a straight line.
+- Independence: Every data point is independent of every other data point.
 - Normally-distributed errors: The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.
 - Equal variance of errors: The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.
 :::
@@ -141,8 +979,11 @@ x
 :::
 :::
 
+:::
 
 ## Revisiting this week's learning objectives
+
+::: {style="font-size: 125%;"}
 
 ::: {}
 ::: {.dapr2callout}
@@ -157,7 +998,7 @@ x
 :::
 :::
 
-
+:::
 
 ## This week 
 
@@ -217,7 +1058,15 @@ knitr::include_graphics('figs/oh.png')
 
 
 
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
 
+<!-- style="font-size: 125;" -->
 
-
-
+<!-- {{< iconify icon-park-twotone brain >}} -->
