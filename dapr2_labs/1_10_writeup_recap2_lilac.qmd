@@ -1,0 +1,916 @@
+---
+title: "Block 2 Analysis & Write-Up Example"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand how to write-up and provide interpretation of a linear model with multiple predictors (including categorical)
+2. Understand how to specify dummy and sum-to-zero coding and interpret the model output
+3. Understand how to specify contrasts to test specific effects
+4. Be able to specify and assess the assumptions underlying a linear model with multiple predictors
+5. Be able to assess the effect of influential cases on linear model coefficients and overall model evaluations
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed Labs 7 - 10
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs). 
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **psych**
+* **patchwork**
+* **sjPlot**
+* **kableExtra**
+* **emmeans**
+* **car**
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv) and [here](https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv) or read the datasets in via these links https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv and  https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv
+
+:::
+
+# Section A: Write-Up
+
+In this lab you will be presented with the output from a statistical analysis, and your job will be to write-up and present the results. We're going to use two simulated datasets based on a paper (the same two that you have worked on in lectures this week) concerning academic outcomes, student/class characteristics, and attendance.  
+
+
+The aim in writing should be that a reader is able to more or less replicate your analyses **without** referring to your R code. This requires detailing all of the steps you took in conducting the analysis. The point of using RMarkdown is that you can pull your results **directly** from the code. If your analysis changes, so does your report!  
+
+Make sure that your final report doesn't show any R functions or code. Remember you are interpreting and reporting your results in text, tables, or plots, targeting a generic reader who may use different software or may not know R at all. If you need a reminder on how to hide code, format tables, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+:::{.callout-note}
+
+## Important - Write-Up Examples & Plagiarism
+
+The example write-up sections included below are not **perfect** - they instead should give you a good example of what information you should include within each section, and how to structure this. For example, some information is missing (e.g., description of data checks, interpretation of descriptive statistics), some information could be presented more clearly (e.g., variable names in tables, table/figure titles/captions, and rationales for choices), and writing could be more concise in places (e.g., discussion section could be more succinct and more focused on the research questions in places).  
+
+Further, **you must not copy any of the write-up included below for future reports** - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).
+
+:::
+
+## Study Overview 
+
+> **Research Aim**
+> 
+> Explore the associations among academic outcomes, student/course characteristics (e.g., class time, online access), and attendance. 
+
+> **Research Questions**
+> 
+> + RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?
+> + RQ2: Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
+> + RQ3: Is class attendance associated with final grades?
+
+`r optbegin('Academics data codebook', FALSE, show = TRUE, toggle = params$TOGGLE)`
+
+__Description__
+
+The data used for this write-up exercise are simulated, drawing on a meta-analysis that explored the association between student characteristics and grades. The simulated data are loosely based on the findings of this work, and acted to expand upon the methods and results reported in the paper:
+
+Credé, M., Roch, S. G., & Kieszczynka, U. M. (2010). Class attendance in college: A meta-analytic review of the relationship of class attendance with grades and student characteristics. *Review of Educational Research, 80*(2), 272-295. [https://doi.org/10.3102/0034654310362998](https://doi.org/10.3102/0034654310362998)
+
+The current study was split into two parts. In the first, researchers were interested in further exploring possible predictors of attendance in university courses. They collected information from 397 students across all years of study (i.e., UG (Y1 - Y4), MSc, and PhD), and recorded their class attendance across the academic year, their level of Conscientiousness (categorized as Low, Moderate, or High), the frequency of which they accessed online course materials (categorized as Rarely, Sometimes, or Often), and the timing of class (categorized as 9AM, 10AM, 11AM, 12PM 1PM, 2PM, 3PM, 4PM). In the second, researchers collected data from 200 students, and recorded their class attendance across the academic year and their final course grade. 
+
+__Data Dictionary: Part 1__
+
+The data in `DapR2_S1B2_PracticalPart1` contain six attributes collected from a simulated sample of $n=397$ hypothetical individuals, and includes: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+tibble(
+Variable = names(data1),
+Description = c("Participant ID number", "Total attendance (in days)", "Conscientiousness (Levels: Low, Moderate, High)", "Time of Class (Levels: 9AM, 10AM, 11AM, 12PM, 1PM, 2PM, 3PM, 4PM)", "Frequency of access to online course materials (Levels: Rarely, Sometimes, Often)", "Year of Study in University (Y1, Y2, Y3, Y4, MsC, PhD)")
+) %>% gt::gt()
+```
+ 
+ 
+__Preview: Part 1__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv') %>% head %>% gt::gt()
+```
+
+
+__Data Dictionary: Part 2__
+
+The data in `DapR2_S1B2_PracticalPart2` contain two attributes collected from a simulated sample of $n=200$ hypothetical individuals, and includes: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
+tibble(
+Variable = names(data2),
+Description = c("Final grade (0-100)", "Total attendance (in days)")
+) %>% gt::gt()
+```
+ 
+
+__Preview: Part 2__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+### Setup
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read the DapR2_S1B2_PracticalPart1 and DapR2_S1B2_PracticalPart2 datasets into R, assigning them to objects named `data1` and `data2`
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+```{r, warning=FALSE, message=FALSE}
+#Loading the required package(s)
+library(tidyverse)
+library(patchwork)
+library(sjPlot)
+library(kableExtra)
+library(psych)
+library(emmeans)
+library(car)
+
+#Reading in two datasets and store in objects named 'data1' and  'data2'
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
+
+#check first six rows of each dataset
+head(data1)
+head(data2)
+```
+
+`r solend()`
+
+<br>
+
+### Provided Analysis Code
+
+Below you will find the code required to conduct the analysis to address the research questions. This should look similar (in most areas) to what you worked through in lecture.
+
+`r optbegin("Provided Analysis Code", olabel=FALSE,toggle=params$TOGGLE)`  
+
+## Data Management
+
+```{r message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) # for all things!
+library(psych) # good for descriptive stats
+library(patchwork) # grouping plots together
+library(kableExtra) # useful for creating nice tables
+library(sjPlot) #regression tables & plots
+library(emmeans) #for contrasts
+library(car) #for assumptions (crPlots, residualPlots, VIF) and bootstrapping
+
+# read in datasets
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
+
+```
+
+
+## Overall & RQ1
+
+```{r}
+#######
+# Coding of Variables
+#######
+
+#check coding
+str(data1)
+str(data2)
+
+#check for NAs - none in dataset, so no missing values
+table(is.na(data1))
+table(is.na(data2))
+
+
+# make variables factors
+data1 <- data1 |>
+    mutate(OnlineAccess = as_factor(OnlineAccess),
+           Time = as_factor(Time),
+           Conscientiousness = as_factor(Conscientiousness),
+           Year = as_factor(Year))
+
+#specify reference levels (alternatively use the below tidyverse way like Year - see lecture example code)
+data1$OnlineAccess <- relevel(data1$OnlineAccess, "Sometimes")
+data1$Conscientiousness <- relevel(data1$Conscientiousness, "Moderate")
+
+#ordering of year variable - make chronological, Y1 as reference group
+data1$Year <- data1$Year |>
+  factor(levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+
+```
+
+## Part 1 Data
+
+### RQ1 
+
+```{r}
+###########
+# Descriptive Stats - Data Viz
+###########
+
+# Look at the marginal distributions of variables - use histograms for continuous outcomes, and barplots for categorical: 
+
+p1 <- ggplot(data1, aes(Attendance)) + 
+    geom_histogram() + 
+    labs(x = "Attendance", y = "Frequency")
+
+p2 <- ggplot(data1, aes(Conscientiousness)) + 
+    geom_bar() + 
+    labs(x = "Conscientiousness Level", y = "Frequency")
+
+p3 <- ggplot(data1, aes(Year)) + 
+    geom_bar() + 
+    labs(x = "Year of Study", y = "Frequency")
+
+p4 <- ggplot(data1, aes(OnlineAccess)) + 
+    geom_bar()  + 
+    labs(x = "Frequency of Access to Online Materials", y = "Frequency")
+
+p1 / p2 / p3 / p4
+
+# Look at the bivariate associations (note we are also removing the legend - it does not offer the reader any additional information and takes up space):
+
+p5 <- ggplot(data1, aes(x = Conscientiousness, y = Attendance, fill = Conscientiousness)) + 
+    geom_boxplot() + 
+    labs(x = "Conscientiousness Level", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p6 <- ggplot(data1, aes(x = OnlineAccess, y = Attendance, fill = OnlineAccess)) + 
+    geom_boxplot() + 
+    labs(x = "Frequency of Access to Online Materials", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p7 <- ggplot(data1, aes(x = Year, y = Attendance, fill = Year)) + 
+    geom_boxplot() + 
+    labs(x = "Year of Study", y = "Attendance") + 
+    theme(legend.position = "none")
+
+p5 / p6 / p7
+```
+
+```{r}
+#######
+#Descriptive Stats - Numeric
+#######
+
+# check how many observations in each category
+table(data1$Conscientiousness)
+table(data1$OnlineAccess)
+table(data1$Year)
+
+data1 |>
+  group_by(Year, OnlineAccess, Conscientiousness) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance and Academic Year, Frequency of Online Material Access, Conscientiousness Descriptive Statistics", digits = 2) %>%
+    kable_styling()   
+
+```
+
+```{r}
+#######
+# Model Building
+#######
+
+#build model
+m1 <- lm(Attendance ~ Conscientiousness + OnlineAccess + Year, data = data1)
+
+#check model summary
+summary(m1)
+```
+
+```{r}
+#######
+# Check Assumptions of m1
+#######
+
+# Linearity: Can be assumed as working with categorical predictors
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m1, which = 2, main = "Normality Assumption Check for m1")
+
+# Equal Variances
+residualPlot(m1, main = "Equal Variances Assumption Check for m1")
+
+#### Overall, assumption checks look fine
+
+```
+
+```{r}
+#######
+#Table for Results
+#######
+
+tab_model(m1,
+          pred.labels = c('Intercept', 'Conscientiousness - High', 'Conscientiousness - Low', 'Online Access - Often', 'Online Access - Rarely', 
+                              'UG Y2', 'UG Y3', 'UG Y4', 'MSc', 'PhD'),
+          title = "RQ1: Regression Table for Attendance Model")
+```
+
+
+### RQ2
+
+```{r}
+#######
+# Coding of Variables
+#######
+
+#ordering of time variable - make chronological
+data1$Time <- data1$Time |> 
+  factor(levels = c('9AM', '10AM', '11AM','12PM', '1PM', '2PM', '3PM', '4PM'))
+```
+
+```{r}
+#######
+#Descriptive Stats
+#######
+
+# Numeric
+data1 |>
+  group_by(Time) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance & Class Time Descriptive Statistics", digits = 2) |>
+    kable_styling()    
+
+# check how many observations in each category
+table(data1$Time)
+
+# Visual
+p8 <- ggplot(data1, aes(Time)) + 
+    geom_bar()
+
+p9 <- ggplot(data1, aes(x = Time, y = Attendance, fill = Time)) + 
+    geom_boxplot()
+
+p8 / p9
+```
+
+```{r}
+#######
+#Model Building
+#######
+
+#build model 
+m2 <- lm(Attendance ~ Time, data = data1)
+
+#check summary
+summary(m2)
+```
+
+```{r}
+#######
+# Check Assumptions of m2
+#######
+
+# Linearity: Can be assumed as working with categorical predictors
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m2, which = 2)
+
+# Equal Variances
+residualPlot(m2)
+
+#### Overall, assumption checks look fine
+
+```
+
+
+```{r}
+#######
+#Contrast
+#######
+
+#Morning/Evening vs Afternoon
+
+#check order
+levels(data1$Time)
+
+#table of weights to present in table 1 analysis strategy
+TimePeriod <- c("Early/Late", "Early/Late", "Midday", "Midday", "Midday", "Midday", "Early/Late", "Early/Late")
+Time <- c("9AM", "10AM", "11AM", "12PM", "1PM", "2PM", "3PM", "4PM")
+Weight <- c(1/4, 1/4, -1/4, -1/4, -1/4, -1/4, 1/4, 1/4)
+weights <- tibble(TimePeriod, Time, Weight)
+
+
+#get means
+time_mean <- emmeans(m2, ~Time)
+
+#look at means
+time_mean
+
+#plot means
+plot(time_mean)
+
+#specify weights for contrast
+time_comp <- list('Early or Late vs Middle of the Day' = c(-1/4,-1/4, 1/4, 1/4, 1/4, 1/4, -1/4, -1/4))
+
+#run contrast analysis
+time_comp_test <- contrast(time_mean, method = time_comp)
+
+#examine output
+time_comp_test
+
+#obtain confidence intervals
+confint(time_comp_test)
+```
+
+## Part 2 Data
+
+### RQ3 
+
+```{r}
+#######
+#Descriptive Stats
+#######
+
+data2 |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "Final Grades & Attendance Descriptive Statistics", digits = 2) |>
+        kable_styling()  
+
+data2 |>
+    select(Attendance, Marks) |>
+    cor() |>
+    round(digits = 2)
+
+ggplot(data = data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE) + 
+    labs(x = "Attendance (in days)", y = "Final Grade")
+```
+
+```{r}
+#######
+#Model Building
+#######
+
+#specify model
+m3 <- lm(Marks ~ Attendance, data = data2)
+
+#check summary
+summary(m3)
+```
+
+```{r}
+#######
+# Check Assumptions of m3
+#######
+
+# Linearity (can also use plot(model, which = 1) in place of below)
+ggplot(data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = 'lm', se = F) + 
+    geom_smooth(method = 'loess', se = F, colour = 'red') + 
+    labs(x = "Attendance", y = "Final Grade", title = "Scatterplot with linear (blue) and loess (red) lines")
+
+# Independence of Errors: Using a between-subjects design, so can assume this
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m3, which = 2)
+
+# Equal Variances
+residualPlot(m3)
+
+```
+
+
+```{r}
+#######
+# Bootstrap Model
+#######
+
+# use 1000 resamples
+boot_m3 <- Boot(m3, R = 1000)
+
+#check summary
+summary(boot_m3)
+
+#confidence intervals
+confint(boot_m3)
+
+```
+
+`r optend()`
+
+### The 3-Act Structure
+
+We need to present our report in three clear sections - think of your sections like the 3 key parts of a play or story - we need to (1) provide some background and scene setting for the reader, (2) present our results in the context of the research question, and (3) present a resolution to our story - relate our findings back to the question we were asked and provide our answer. 
+
+#### Act I: Analysis Strategy
+
+`r qbegin(1)`
+
+Attempt to draft an analysis strategy section based on the above research question and analysis provided.
+
+`r qend()`
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Analysis Strategy - What to Include*
+
+Your analysis strategy will contain a number of different elements detailing plans and changes to your plan. Remember, your analysis strategy should **not** contain any results. You may wish to include the following sections:  
+
+-  Very brief data and design description:
+     - Give the reader some background on the context of your write-up. For example, you may wish to describe the data source, data collection strategy, study design, number of observational units.
+     - Specify the variables of interest in relation to the research question, including their unit of measurement, the allowed range (e.g., for Likert scales), and how they are scored. If you have categorical data, you will need to specify the levels and coding of your variables, and what was specified as your reference level and the justification for this choice.
+
+-  Data management:  
+     - Describe any data cleaning and/or recoding.
+     - Are there any observations that have been excluded based on pre-defined criteria? How/why, and how many? 
+     - Describe any transformations performed to aid your interpretation (i.e., mean centering, standardisation, etc.).
+
+-  Model specification:  
+     -  Clearly state your hypotheses and specify your chosen significance level.
+     -  What type of statistical analysis do you plan to use to answer the research question (e.g., simple linear regression, multiple linear regression, binary logistic regression, etc.)?
+     - In some cases, you may wish to include some visualisations and descriptive tables to motivate your model specification. 
+     -  Specify the model(s) to be fitted to answer your given research question and analysis structure. Clearly specify the response and explanatory variables included in your model(s). This includes specifying the type of coding scheme applied if using categorical data. 
+     - \* Specify the assumption and diagnostic checks that you will conduct. Specify what plots you will use, and how you will evaluate these. 
+     
+:::frame
+* Note, given time constraints in lab, we have not included any reference to diagnostic checks in this write-up example - you would be expected to include this in your report. You can find more information on diagnostic checks in the [S1 Week 9 Lab](https://uoepsy.github.io/dapr2/2425/labs/1_08_assump_diag.html) and [S1 Week 9 Lectures](https://uoepsy.github.io/dapr2/2425/lectures/dapr2_08_assumptions_diagnostics.html#1).
+:::
+  
+As noted and encouraged throughout the course, one of the main benefits of using RMarkdown is the ability to include inline R code in your document. Try to incorporate this in your write up so you can automatically pull the specified values from your code. If you need a reminder on how to do this, see [Lesson 3 of the Rmd Bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+:::
+
+`r solbegin(": Example Write-Up of Analysis Strategy Section", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+The first dataset contained information on 397 participants, including their attendance records (in days), class times (ranging from 9AM-4PM, starting on the hour), year of study (UG Y1-Y4, MSc, PhD), levels of conscientiousness (categorized as low, moderate or high), and the frequency of which they accessed online course materials (categorized as rarely, sometimes, or often). The second dataset contained information on 200 participants, including their attendance records (in days) and their final course grades (ranging from 0 - 100). All participant data was complete (no missing values), with all values within possible ranges. 
+
+The aim of this report was to address three research questions (the first two RQs using dataset 1, and RQ3 using dataset 2):
+
+RQ1. Does conscientiousness, frequency of access of online access, and year of study influence class attendance?  
+RQ2. Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?  
+RQ3. Does class attendance influence grades?  
+
+To allow visual examination of the bivariate associations between attendance and the other variables of interest, a series of boxplots were used for RQs 1 and 2, and a scatterplot for RQ3. In order to comment on the strength of the linear association between attendance and grades in RQ3, we also computed the correlation coefficient. 
+
+To address RQ1, the following multiple regression model was used. We applied dummy coding for Conscientiousness (where 'Moderate' was designated as the reference group), OnlineAccess (where 'Sometimes' was designated as the reference group), and Year of study (where 'Y1' was designated as the reference group).  
+
+$$
+\begin{align*}
+\text{Class Attendance} ~=~ & \beta_0 + \beta_1 \cdot \text{Consc}_{\text{High}} + \beta_2 \cdot \text{Consc}_{\text{Low}}  \\     
+& + \beta_3 \cdot \text{Online Access}_\text{Often} + \beta_4 \cdot \text{Online Access}_\text{Rarely}   \\       
+& + \beta_5 \cdot \text{Year}_\text{2} + \beta_6 \cdot \text{Year}_\text{3} + \beta_7 \cdot \text{Year}_\text{4}  \\  
+& + \beta_8 \cdot \text{Year}_\text{MSc} + \beta_9 \cdot \text{Year}_\text{PhD} + \epsilon    
+\end{align*}
+\quad
+$$
+
+$$
+\begin{align}
+& \text{Where:} \\  
+& \text{Consc } = \text{Conscientiousness} \\  
+& \text{OnlineAccess } = \text{Frequency of Access to Online Material} \\  
+& \text{Year } = \text{Year of Study} \\  
+\end{align}
+$$
+
+where we tested whether there was a significant association between attendance and conscientiousness, frequency of access to online materials and/or year of study:
+
+$$
+H_0: \text{All}~~ \beta_j = 0 ~\text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)}
+$$
+
+$$
+H_1: \text{At least one}~ \beta_j \neq 0 ~\text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)}
+$$
+
+```{r include=FALSE}
+TimePeriod <- c("Early/Late", "Early/Late", "Midday", "Midday", "Midday", "Midday", "Early/Late", "Early/Late")
+Time <- c("9AM", "10AM", "11AM", "12PM", "1PM", "2PM", "3PM", "4PM")
+Weight <- c(1/4, 1/4, -1/4, -1/4, -1/4, -1/4, 1/4, 1/4)
+weights <- tibble(TimePeriod, Time, Weight)
+```
+
+To address RQ2, we first specified the following multiple regression model, where the Time variable was dummy coded ('9AM' was set as the reference group):
+
+$$
+\begin{align*}
+\text{Class Attendance} ~=~ & \beta_0 + \beta_1 \cdot \text{Time}_{10\text{AM}} + \beta_2 \cdot \text{Time}_{11\text{AM}} + \beta_3 \cdot \text{Time}_{12\text{PM}}   \\     
+& +  \beta_4 \cdot \text{Time}_{1\text{PM}} + \beta_5 \cdot \text{Time}_{2\text{PM}} + \beta_6 \cdot \text{Time}_{3\text{PM}} \\  
+& + \beta_7 \cdot \text{Time}_{4\text{PM}} + \epsilon    
+\end{align*}
+\quad
+$$
+
+Next, in order to determine whether there was a significant difference in attendance between early/late classes and midday classes, we conducted a contrast analysis using the following weights (see @tbl-rq3-weights). 
+
+```{r echo = FALSE}
+#| label: tbl-rq3-weights
+#| tbl-cap: Contrast Weights
+weights %>% 
+    kable(., caption = "Contrast Weights") %>%
+    kable_styling(full_width = FALSE)  
+```
+
+Here we wanted to formally test the following hypothesis:
+
+$$
+\begin{aligned}
+\quad H_0 &: \mu_\text{Early/Late Class} = \mu_\text{Midday Class} \\  
+\quad H_0 &: \frac{1}{4}(\mu_1+\mu_2+\mu_7+\mu_8) = \frac{1}{4}(\mu_3+\mu_4+\mu_5+\mu_6)  
+\\  
+\\  
+\quad H_1 &: \mu_\text{Early/Late Class} \neq \mu_\text{Midday Class} \\  
+\quad H_1 &: \frac{1}{4}(\mu_1+\mu_2+\mu_7+\mu_8) \neq \frac{1}{4}(\mu_3+\mu_4+\mu_5+\mu_6)  
+\\   
+\end{aligned}
+$$
+
+To address RQ3, the following simple linear regression model was used:
+
+$$    
+\text{Final Grade} = \beta_0 + \beta_1 \cdot \text{Attendance} + \epsilon     
+\quad
+$$
+
+where we tested whether there was a significant association between final grade and attendance. Formally, this corresponded to testing whether the attendance coefficient was equal to zero:
+
+$$
+H_0: \beta_1 = 0
+$$
+
+$$
+H_0: \beta_1 \neq 0
+$$
+
+For models related to all RQs, as we were using between-subjects datasets, we assumed independence of our error terms. For RQ1 and RQ2 models, we assumed linearity as all predictor variables were categorical. For the RQ3 model, we visually assessed linearity using a scatterplot with loess lines (where the loess line is expected to closely follow the data). For models related to all RQs, equal variances was assessed via partial residual plots (residuals should be evenly spread across the range of fitted values, where the spread should be constant across the range of fitted values), and normality was assessed via a qqplot of the residuals (points should follow along the diagonal line). If assumptions were found to be violated, we considered either conducting a sensitivity analysis or bootstrapping our model (depending on which assumption(s) are violated). 
+
+Throughout the report, effects were considered statistically significant at $\alpha = .05$. 
+
+`r solend()`
+
+#### Act II: Results
+
+`r qbegin(2)`
+
+Attempt to draft a results section based on your detailed analysis strategy and the analysis provided.
+
+`r qend()`
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Results - What To Include*
+
+The results section should follow from your analysis strategy. This is where you would present the evidence and results that will be used to answer the research questions and can support your conclusions. Make sure that you address all aspects of the approach you outlined in the analysis strategy (including the evaluation of assumptions and diagnostics). 
+
+In this section, it is useful to include tables and/or plots to clearly present your findings to your reader. It is important, however, to carefully select what is the key information that should be presented. You do **not** want to overload the reader with *unnecessary* or *duplicate* information (e.g., do not present print outs of the head of a dataset, or the same information in tables and plots, etc.), and you also want to save space in case there is a page limit. Make use of figures with multiple panels where you can. You can also make use of an Appendix to present your assumption and diagnostic* plots/tables, but remember that you must evaluate these in-text within the results section and clearly refer the reader to the relevant plots within the Appendix. 
+
+As a broad guideline, you want to start with the results of any exploratory data analysis, presenting tables of summary statistics and exploratory plots. You may also want to visualise associations between/among variables and report covariances or correlations. Then, you should move on to the results from your model.
+
+:::frame
+* Note, given time constraints in lab, we have not included any reference to diagnostic checks in this write-up example - you would be expected to include this in your report. You can find more information on diagnostic checks in the [S1 Week 9 Lab](https://uoepsy.github.io/dapr2/2425/labs/1_08_assump_diag.html) and [S1 Week 9 Lectures](https://uoepsy.github.io/dapr2/2425/lectures/dapr2_08_assumptions_diagnostics.html#1).
+::: 
+
+:::
+
+`r solbegin(": Example Write-Up of Results Section", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+Descriptive statistics related to RQ1 are displayed in @tbl-rq1-desctab. 
+
+```{r desctab, echo = FALSE}
+#| label: tbl-rq1-desctab
+#| tbl-cap: Attendance and Academic Year, Frequency of Online Material Access, Conscientiousness Descriptive Statistics
+data1 |>
+  group_by(Year, OnlineAccess, Conscientiousness) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance and Academic Year, Frequency of Online Material Access, Conscientiousness Descriptive Statistics", digits = 2) |>
+    kable_styling()   
+```
+
+```{r include=FALSE}
+sumM1 <- summary(m1)
+FDat <- round(sumM1$fstatistic, 2)
+m1Coefs <- round(coef(m1), 2)
+tStats <- round(coef(sumM1)[, "t value"],2)
+seVals <- round(coef(sumM1)[, "Std. Error"],2)
+```
+
+In relation to RQ1, full regression results, including 95\% Confidence Intervals, are shown in @tbl-rq1-results. 
+
+```{r echo = FALSE}
+#| label: tbl-rq1-results
+#| tbl-cap: RQ1 - Regression Table for Attendance Model
+tab_model(m1,
+          pred.labels = c('Intercept', 'Conscientiousness - High', 'Conscientiousness - Low', 'Online Access - Often', 'Online Access - Rarely', 
+                              'UG Y2', 'UG Y3', 'UG Y4', 'MSc', 'PhD'),
+          title = "RQ1: Regression Table for Attendance Model")
+```
+
+The model met assumptions of normality (see Appendix A @fig-rq1-assumpt-norm; the QQplot showed some deviation from the diagonal line at the tails, but this was not of concern) and equal variances (there was a constant spread of residuals; see Appendix A @fig-rq1-assumpt-eqvar). 
+
+The overall model was significant, $F(`r FDat[2]`, `r FDat[3]`) = `r FDat[1]`, p < .001$. Conscientiousness, frequency of online access, and year in university explained approximately `r round(sumM1$adj.r.squared*100, 0)`% of the variance in attendance. Both those with high and low levels of conscientiousness exhibited attendance rates that were significantly different than those with moderate levels of conscientiousness (see @fig-rq1(a)), when controlling for year of study and online access. Specifically, those with high levels of conscientiousness attended class significantly more often than those with moderate levels $(\beta = `r m1Coefs['ConscientiousnessHigh']`,~ SE = `r seVals['ConscientiousnessHigh']`,~ t = `r tStats['ConscientiousnessHigh']`,~ p < .001)$. Conversely, in comparison to those with moderate levels of conscientiousness, those with low levels attended class significantly less $(\beta = `r m1Coefs['ConscientiousnessLow']`,~ SE = `r seVals['ConscientiousnessLow']`,~ t = `r tStats['ConscientiousnessLow']`,~ p < .001$). Both those who rarely $(\beta = `r m1Coefs['OnlineAccessRarely']`,~ SE = `r seVals['OnlineAccessRarely']`,~ t = `r tStats['OnlineAccessRarely']`,~ p < .001)$ or often $(\beta = `r m1Coefs['OnlineAccessOften']`,~ SE = `r seVals['OnlineAccessOften']`,~ t = `r tStats['OnlineAccessOften']`,~ p = .009)$ accessed online materials had significantly lower attendance rates than those who accessed only sometimes regardless of conscientiousness levels and year of study (see @fig-rq1(b)). Holding constant conscientiousness and frequency of online access to materials, all years of study, with the exception of Y3, had significantly higher attendance rates than those in Y1 (see @fig-rq1(c)).  
+
+```{r echo = FALSE}
+#| label: fig-rq1
+#| fig-cap: "Association between Attendance and (a) Conscientiousness (b) Online Access (c) Year of Study"
+p5 / p6 / p7
+```
+
+Descriptive statistics related to RQ2 are displayed in @tbl-rq2-desctab. 
+
+```{r echo = FALSE}
+#| label: tbl-rq2-desctab
+#| tbl-cap: Attendance & Class Time Descriptive Statistics
+data1 %>%
+  group_by(Time) |>
+  summarise(n = n(), 
+            Mean = mean(Attendance), 
+            SD = sd(Attendance),
+            Minimum = min(Attendance),
+            Maximum = max(Attendance)) |>
+    kable(caption = "Attendance & Class Time Descriptive Statistics", digits = 2) |>
+    kable_styling()   
+```
+
+To determine whether there was a difference in attendance between those with early/late classes in comparison to those with midday classes, we performed a test against $H_0: \frac{1}{4}(\mu_1+\mu_2+\mu_7+\mu_8) -\frac{1}{4}(\mu_3+\mu_4+\mu_5+\mu_6) = 0$. The model met the assumptions of normality (there was no extreme deviation from the diagonal line; see Appendix B @fig-rq2-assumpt-norm) and equal variances (there was a constant spread of residuals; see Appendix B @fig-rq2-assumpt-eqvar).
+
+At the 5\% significance level, there was evidence that class attendance did significantly differ between those who had early/late classes and those who had classes in the middle of the day $(t(389) = 3.96,~ p < .001, \text{two-sided})$, where students with midday classes attended, on average, 5.36 $(SE = 1.35)$ more classes (see @fig-rq2-means). We were 95% confident that those who had midday classes attended approximately 2-8 classes more than those who had classes in the morning or late afternoon ($CI_{95}[2.70, 8.01]$). 
+
+```{r echo = FALSE}
+#| label: fig-rq2-means
+#| fig-cap: "Estimated Attendance Means by Year of Study"
+plot(time_mean)
+```
+
+In relation to RQ3, there was a strong positive correlation between attendance and marks $(r_{(\text{Attendance},~\text{Grade})} = .91)$. Our fitted model failed to satisfy all regression assumptions (see Appendix C). Although our model met the linearity (though there was a slight curve in the loess line; see Appendix C @fig-rq3-assumpt-lin), and normality of residuals assumptions (there was a slight skew, but not of concern; see Appendix C @fig-rq3-assumpt-norm), the assumption of equal variances was violated as the spread of residuals was not constant and suggested that there was evidence of heteroscedasticity (see Appendix C @fig-rq3-assumpt-eqvar). Therefore, since we could not trust that the SEs in our model results were reliable, we bootstrapped. Results suggested that there was a significant positive association between marks and attendance (see @fig-rq3). Specifically, we were 95% confident that for every day one attended class, their final mark would increase, on average, between `r round(confint(boot_m3)[2], 2)` and `r round(confint(boot_m3)[4], 2)` points. As the 95% CI did not contain zero, we rejected the null hypothesis as there was evidence of a significant association between student’ attendance and their final marks. 
+
+```{r echo = FALSE}
+#| label: fig-rq3
+#| fig-cap: "Association between Final Grades and Attendance"
+ggplot(data = data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE) + 
+    labs(x = "Attendance (in days)", y = "Final Grade")
+```
+
+`r solend()`
+
+#### Act III: Discussion  
+
+`r qbegin(3)`
+
+Attempt to draft a discussion section based on your results and the analysis provided.
+
+`r qend()`
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Discussion - What To Include
+
+In the discussion section, you should summarise the key findings from the results section and provide the reader with a few take-home sentences drawing the analysis together and relating it back to the original question. 
+
+The discussion should be relatively brief, and should not include any statistical analysis - instead think of the discussion as a conclusion, providing an answer to the research question(s).
+
+:::
+
+`r solbegin(": Example Write-Up of Discussion Section", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+Previous research had identified strong associations between attendance and both class grades and GPA, as well as associations between class attendance and a variety of student characteristics. In the first part of our analysis, we examined the associations of attendance with (1) conscientiousness, frequency of access to online materials, and year of study; and (2) class time. In the second part of our analysis, we examined the association between final grade and attendance.
+
+Our results suggested that: (1) level of conscientiousness, frequency of access to online materials, and year of study were all significant predictors of attendance. Specifically, higher conscientiousness and more advanced year of study were associated with higher attendance rates. In relation to online materials, it appeared that an over-reliance or lack of use was negatively associated with attendance - those who accessed regularly had the best attendance rates. (2) there were differences in attendance depending upon class time, where students with classes in the middle of the day were more likely to attend than those who had classes either early in the morning or later in the afternoon. (3) attendance was a significant predictor of final marks, where higher attendance was associated with higher grades. Therefore, we rejected the null hypotheses for each of our research questions. 
+
+`r solend()`
+
+#### Assumptions & Diagnostics Appendix
+
+`r qbegin(4)`
+
+Given that the report should be kept as concise as possible, you may wish to utilize the appendix to present assumption and diagnostic plots. You must however ensure that you have:
+
++ Described what assumptions you will check in the analysis strategy, including how you will evaluate them.
++ Summarized the evaluations of your assumptions and diagnostic checks in the results section of the main report.
++ Accurately referred to the figures and tables labels presented in the appendix in the main report (if you don't refer to them, the reader won't know what they are relevant to!).
+
+`r qend()`
+
+`r solbegin(": Example Assumptions & Diagnostics Appendix", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+##### Appendix A
+
+```{r echo = FALSE}
+#| label: fig-rq1-assumpt-norm
+#| fig-cap: "Normality Assumption Check for m1"
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m1, which = 2, main = "Normality Assumption Check for m1")
+```
+
+```{r echo = FALSE}
+#| label: fig-rq1-assumpt-eqvar
+#| fig-cap: "Equal Variances Assumption Check for m1"
+
+# Equal Variances
+residualPlot(m1, main = "Equal Variances Assumption Check for m1")
+```
+
+##### Appendix B
+
+```{r echo = FALSE}
+#| label: fig-rq2-assumpt-norm
+#| fig-cap: "Normality Assumption Check for m2"
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m2, which = 2, main = "Normality Assumption Check for m2")
+```
+
+```{r echo = FALSE}
+#| label: fig-rq2-assumpt-eqvar
+#| fig-cap: "Equal Variances Assumption Check for m2"
+
+# Equal Variances
+residualPlot(m2, main = "Equal Variances Assumption Check for m2")
+```
+
+##### Appendix C
+
+```{r echo = FALSE}
+#| label: fig-rq3-assumpt-lin
+#| fig-cap: "Linearity Assumption Check for m3"
+
+# Linearity (can also use plot(model, which = 1) in place of below)
+ggplot(data2, aes(x = Attendance, y = Marks)) + 
+    geom_point() + 
+    geom_smooth(method = 'lm', se = F) + 
+    geom_smooth(method = 'loess', se = F, colour = 'red') + 
+    labs(x = "Attendance", y = "Final Grade", title = "Scatterplot with linear (blue) and loess (red) lines for m3")
+```
+
+```{r echo = FALSE}
+#| label: fig-rq3-assumpt-norm
+#| fig-cap: "Normality Assumption Check for m3"
+
+# Normality (either use plot(model, which = 2) or hist(model$residuals))
+plot(m3, which = 2, main = "Normality Assumption Check for m3")
+```
+
+```{r echo = FALSE}
+#| label: fig-rq3-assumpt-eqvar
+#| fig-cap: "Equal Variances Assumption Check for m3"
+# Equal Variances
+residualPlot(m3, main = "Equal Variances Assumption Check for m3")
+```
+
+`r solend()`
+
+# Section B: Block 2 (Weeks 7 - 11) Recap
+
+In the second part of the lab, there is no new content - the purpose of the recap section is for you to revisit and revise the concepts you have learned over the last 4 weeks (or the full semester if you feel that it would be beneficial to revise the materials from block 1). 
+
+We would encourage you to complete any outstanding work on these exercises (e.g., complete partial write-ups), and review solutions. Doing so will allow you to have good quality materials to refer to during the assessed report (released in Semester 2). 
+
+Given that we are now $\frac{1}{2}$ of the way through the DAPR2 course, we would also strongly encourage you to start creating your revision materials in advance of the exam. You can access all the flashcards that you've been presented with in this block [here](https://uoepsy.github.io/dapr2/2526/labs/1_b2_reading.html). These will provide a good starting point for collating your notes together on the contents of blocks 1 & 2. We also suggest that you review your weekly quiz feedback (as many of you have learned in Psychology 2A, it is important to provide feedback to allow learners to improve their learning and retention of information, as well as correct any misunderstandings!).
+  
+
