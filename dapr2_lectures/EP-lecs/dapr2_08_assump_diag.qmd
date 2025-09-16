@@ -964,7 +964,8 @@ Keep the variable as-is and report the non-equal variance in your write-up.
 **{{< iconify lucide-lab pepper-chilli size=2em >}}**
 :::
 ::: {.column width="75%"}
-Include additional predictors or interation terms, which *may* help account for some of that extra variance.
+Include additional predictors or interaction terms (more on interactions next semester).
+These *may* help account for some of that extra variance.
 :::
 ::::
 
@@ -977,8 +978,6 @@ Use **weighted least squares regression** (WLS) instead of ordinary least square
 More details in this week's flash cards.
 :::
 ::::
-
-
 
 
 ## What a linear model assumes about the data
@@ -1030,14 +1029,14 @@ It relies on intuitions and vibes (sorry!!)
 
 # Diagnostics
 
-## Diagnostics to run on the data
+# Diagnostics to run on the data
 
 <br>
 
 :::: {.columns}
 ::: {.column width="50%"}
 
-**Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):**
+Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):
 
 1. Outlyingness
 2. High leverage
@@ -1046,7 +1045,7 @@ It relies on intuitions and vibes (sorry!!)
 :::
 ::: {.column width="50%"}
 
-**Diagnosing undesirable relationships <br> between predictors:**
+Diagnosing undesirable relationships <br> between predictors:
 
 1. Multicollinearity
 
@@ -1066,19 +1065,19 @@ It relies on intuitions and vibes (sorry!!)
   </tr>
   <tr>
     <td style="vertical-align: middle">
-    <b>1. Outlyingness:</b> Unusual value of the outcome.
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-outlier.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor.
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-levg.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome and the predictor.</td>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-infl.png" width="200px"/></td>
   </tr>
@@ -1088,18 +1087,55 @@ It relies on intuitions and vibes (sorry!!)
 
 ## 1. Outlyingness
 
-An **outlier** is a data point with an unusual value of the predictor variable.
+An **outlier** is a data point whose value for the outcome variable is unusually extreme.
 
-<!-- TODO: plot -->
-
-<!-- ask room hwo we imght detect -->
+The outcome is usually plotted on the y axis, so outliers are usually **weird in the vertical direction (↕).**
 
 
 <br>
 
-Look for residuals that pass some threshold.
+```{r fig outl, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(221020)
+df_outl <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_outl = y_good
+)
+df_outl[95, 'y_outl'] <- 1.236227
 
-## Goal: Find residuals beyond some threshold
+
+p_good <- df_outl |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No outliers'
+    ) +
+  NULL
+
+p_outl <- df_outl |>
+  ggplot(aes(x=x, y=y_outl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One outlier'
+    ) +
+  ## OUTL VLINE:
+  # geom_segment(x = 1.76, xend = 1.76, y = 1.236277, yend = 7.35, colour = dapr2red, linewidth = 1.5) +
+  NULL
+
+p_good + p_outl
+```
+
+"Unusually extreme" **for the model,** not necessarily for the overall distribution of data!
+
+
+
+
+## Goal: Find unusually big residuals
 
 :::{.dapr2callout}
 
@@ -1113,7 +1149,9 @@ The scales of these residuals will be totally different.
 How could we set a single threshold to detect outliers? (rhetorical)
 :::
 
+:::{.hcenter}
 $\downarrow$
+:::
 
 :::{.dapr2callout}
 
@@ -1126,8 +1164,9 @@ But to get **z-scores**, we compare each data point to the mean and SD of all da
 The mean and SD will *contain* our potential outliers, so we're kind of comparing a data point to itself.
 :::
 
-
+:::{.hcenter}
 $\downarrow$
+:::
 
 :::{.dapr2callout}
 
@@ -1135,37 +1174,187 @@ $\downarrow$
 
 :::
 
+
 ## To check outlyingness: Studentised residuals
 
 You might recognise "Student" from "Student's t-test".
-Essentially we're converting the residuals into values that follow a t distribution.
+
+Studentised residuals are a kind of residual that follows a t-distribution.
+
+<br>
+
+```{r echo=F, fig.width=12, fig.align='center', fig.asp = .5}
+tx <- seq(-4, 4, length.out = 500)
+p_t <- tibble(
+  x = tx,
+  t_dens = dt(tx, 98)  # 98 df because studentised resids follow dist w (n-k-2) df
+) |>
+  ggplot(aes(x = x, y = t_dens)) +
+  geom_line() +
+  # shade lower extreme
+  geom_ribbon(
+    aes(
+      x = ifelse(x <= -2, x, NA), 
+      ymin = 0,  ymax = t_dens), 
+    alpha = 0.3, fill = dapr2red) +
+  # shade upper extreme
+  geom_ribbon(
+    aes(
+      x = ifelse(x >= 2, x, NA), 
+      ymin = 0,  ymax = t_dens), 
+    alpha = 0.3, fill = dapr2red) +
+  labs(
+    y = 'Prob.\ndensity',
+  ) +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_x_continuous(breaks = seq(-6, 6, by=2)) +
+  NULL
+p_t
+```
 
 If you see data points with studentised residuals **less than –2 or more than 2**:
 
-- you *might* have an unusual data point.
-- but also, 5% of the time, we would *expect* to have values outside of this range.
+- you *might* have an outlier.
+- but also, 5% of the time, we would actually *expect* to have values outside of this range.
 
-<!-- TODO show t-distribution -->
+A value less than –2 or more than 2 is a **necessary but not sufficient condition.**
 
-So a studentised residual **less than –2 or more than 2** *might* mean there's an outlier, but not necessarily.
+**$\rightarrow$ The more extreme the studentised residual, the more likely it is that the data point is an outlier.**
 
-The larger the residual, the more unusual.
-
-Necessary but not sufficient condition.
 
 
 ## Studentised residuals in R
 
-<!-- TODO code -->
+Once we've fit a model, we can use the `rstudent()` function to get all the studentised residuals.
 
 ```{r}
-
+m_outl <- lm(y_outl ~ x, data = df_outl)
+rstudent(m_outl) |> head()
 ```
+
+<br>
+
+To plot the studentised residuals:
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.asp = .6}
+df_outl$stud_resid <- rstudent(m_outl)
+
+p_stud_resid <- df_outl |>
+  ggplot(aes(x = x, y = stud_resid)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  NULL
+p_stud_resid
+```
+:::
+::: {.column width="40%"}
+```{r eval=F}
+df_outl$stud_resid <- rstudent(m_outl)
+
+df_outl |>
+  ggplot(aes(x = x, y = stud_resid)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5)
+```
+
+<br>
+<br>
+
+$\leftarrow$ There's our outlier!
+:::
+::::
+
+
+
+
+## Studentised residuals in R
+
+<br>
+
+To filter these residuals for the ones more extreme than $\pm$ 2:
+
+```{r}
+df_outl |>
+  select(x, y_outl, stud_resid) |>
+  filter(stud_resid > 2 | stud_resid < -2)
+```
+
+<br>
+
+We expected one outlier.
+
+But it looks like we have four...?
+
+
+## Studentised residuals can give us "false alarms"
+
+:::: {.columns}
+::: {.column width="50%" #good}
+Studentised residuals for the data without outliers:
+
+```{r fig.align='center', fig.width=8, echo=F}
+m_good <- lm(y_good ~ x, data = df_outl)
+df_outl$stud_resid_good <- rstudent(m_good)
+
+df_outl |>
+  ggplot(aes(x = x, y = stud_resid_good)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'Stud.\nresid.') +
+  ylim(-8, 8) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+Studentised residuals for the data with one outlier:
+
+```{r fig.align='center', fig.width=8, echo=F}
+p_stud_resid +
+  labs(y = 'Stud.\nresid.') +
+  ylim(-8, 8) +
+  NULL
+```
+
+
+
+:::
+::::
+
+
+A value more extreme than $\pm$ 2 **does not necessarily mean** the data point is an outlier.
+
+We would expect extreme values 5% of the time.
+
+**$\rightarrow$ The more extreme the studentised residual, the more likely it is that the data point is an outlier.**
 
 
 ## What to do if we have an outlier
 
-We'll talk about how to deal with unusual data points after we've looked at all three kinds.
+<br>
+
+We'll talk in detail about how to deal with unusual data points after we've looked at all three kinds.
+
+<br>
+
+**Preview:** 
+
+- Mention the unusual data points in the written analysis report.
+- Check if these data points affect the model's estimates by running a sensitivity analysis.
+
+<br>
+
+More on that in a bit!
 
 
 ## Diagnosing unusual data points
@@ -1179,19 +1368,19 @@ We'll talk about how to deal with unusual data points after we've looked at all 
   </tr>
   <tr>
     <td style="vertical-align: middle">
-    <b>1. Outlyingness:</b> Unusual value of the outcome.
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-outlier.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor.
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-levg.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome and the predictor.</td>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-infl.png" width="200px"/></td>
   </tr>
@@ -1201,58 +1390,159 @@ We'll talk about how to deal with unusual data points after we've looked at all 
 
 ## 2. High leverage
 
-A data point with high leverage has an unusual value for a predictor variable.
+A data point with **high leverage** has an unusually extreme value for a predictor variable.
 
-<!-- TODO plot -->
+Predictors are usually plotted on the x axis, so high-leverage cases are usually **weird in the horizontal direction (↔).**
 
+<br>
 
-We can't use residuals to diagnose high leverage, because residuals are computed over outcome variables, not over predictors.
+```{r fig levg, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(221020)
+df_levg <- tibble(
+  x = seq(-2, 2, length.out = 103),
+  y_good = abs(4 + (2 * x) + rnorm(103, 0, 1)),
+  y_levg = y_good
+)
 
-But we can do something similar for the predictors using what we call **hat values**.
-(Why are they called this? 
-I don't know.)
+df_levg <- rbind(
+  df_levg,
+  tibble(x = 3.4, y_good = NA, y_levg = 6.06)
+)
+
+p_good <- df_levg |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No high-lev. points'
+    ) +
+  NULL
+
+p_levg <- df_levg |>
+  ggplot(aes(x=x, y=y_levg)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One high-lev. point'
+    ) +
+  NULL
+
+p_good + p_levg
+```
+
+Can't use residuals for high-leverage values, because residuals represent vertical (↕) distance.
+
+Instead, for measuring horizontal (↔) distance: **hat values**.
 
 
 ## To check leverage: Hat values
 
 Hat values $h$ are a standardised way of measuring how different a data point's value is from other data points.
-(The mathy details are in the appendix of the slides.)
+(More mathy details are in the appendix of the slides.)
+
+**Step 1:** Compute the mean hat value $\bar{h}$ for a model with $k$ predictors and $n$ data points.
+
+$$\bar{h} = \frac{k+1}{n}$$
+
+**Heuristic for high leverage:** data points with hat values larger than $2 \times \bar{h}$.
+
+<br>
+
+For example, a model with one predictor ($k=1$) and 104 observations ($n=104$) has a mean hat value $\bar{h}$ of:
+
+$$
+\begin{align}
+\bar{h} &= \frac{k+1}{n} \\
+\bar{h} &= \frac{1+1}{104} \\
+\bar{h} &= \frac{2}{104} \\
+\bar{h} &\approx 0.0192
+\end{align}
+$$
+
+**So our heuristic value for comparison is $2 \times \frac{2}{104} = 0.0384$.**
 
 
+
+## To check leverage: Hat values
+
+**Step 2:** Let R compute the hat value $h_i$ for each individual data point $i$ using `hatvalues()`.
+
+```{r}
+m_levg <- lm(y_levg ~ x, data = df_levg)
+hatvalues(m_levg) |> head()
+```
+
+
+**Step 3:** Compare each data point's hat values to the heuristic comparison value from Step 1.
+
+```{r}
+# Find the mean hat value 
+n_predictors <- 1
+n_observations <- nrow(df_levg)
+(mean_hat <- (n_predictors+1)/n_observations)
+```
+
+```{r}
+# Add hat values as column to df
+df_levg$hat <- hatvalues(m_levg)
+
+df_levg |>
+  select(x, y_levg, hat) |>
+  filter(hat > 2*mean_hat)
+```
+
+
+## To plot hat values
+
+<!-- TODO cols -->
+
+```{r}
+p_hat <- df_levg |>
+  ggplot(aes(x = x, y = hat)) +
+  geom_hline(yintercept = 2*mean_hat, colour = 'red') +
+  geom_point(size = 2) 
+p_hat
+```
+
+
+## Hat values can give us "false alarms"
+
+But not this time! :)
 
 :::: {.columns}
 ::: {.column width="50%"}
-**Step 1:** Compute the mean hat value $\bar{h}$ for all data points.
+Hat values for the data without high-leverage cases:
 
-$$\bar{h} = (k+1)/n$$
-
-- $k$ = number of predictors
-- $n$ = number of observations
-
-**Heuristic for high leverage:** data points with hat values larger than $2\bar{h}$.
-
-For example, a model with one predictor and 101 observations:
-
-
+```{r fig.align='center', fig.width=8, echo=F}
+tibble(
+  x = seq(-2, 2, length.out = 101),
+  hat = hatvalues(m_good)
+) |>
+  ggplot(aes(x = x, y = hat)) +
+  geom_point(size = 2) +
+  geom_hline(yintercept = 2*(2/101), colour = 'red') +
+  ylim(0.0, 0.09)
+```
 
 :::
+
 ::: {.column width="50%"}
-**Step 2:** Let R compute the hat value $h_i$ for each individual data point $i$.
+Hat values for the data with one high-leverage case:
 
+```{r fig.align='center', fig.width=8, echo=F}
+p_hat +
+  ylim(0.0, 0.09)
+```
 
-<!-- TODO code -->
 :::
 ::::
 
+The curved shape happens because hat values measure distance from the mean of **x**.
 
-## Hat values
-
-<!-- TODO hat val plot -->
-
-
-Again: a high hat value **does not necessarily mean** that we have a high leverage point.
-
-A necessary condition but not a sufficient condition.
+The mean of **x** is 0, so all the data points on either side of 0 get bigger as they get farther away.
 
 
 ## Diagnosing unusual data points
@@ -1266,26 +1556,24 @@ A necessary condition but not a sufficient condition.
   </tr>
   <tr>
     <td style="vertical-align: middle">
-    <b>1. Outlyingness:</b> Unusual value of the outcome.
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-outlier.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor.
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
     </td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-levg.png" width="200px"/></td>
   </tr>
   <tr>
-    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome and the predictor.</td>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
     <td><img src="figs/TODO-perfect.png" width="200px"/></td>
     <td><img src="figs/TODO-infl.png" width="200px"/></td>
   </tr>
 </table>
 ```
-
-
 
 
 ## 3. High influence
@@ -1298,13 +1586,13 @@ Two measures to diagnose high influence:
 2. COVRATIO
 
 
-## To check influence: Cook's distance
+## 3.1. To check influence: Cook's distance
 
 
 ## Cook's distance in R
 
 
-## To check influence: COVRATIO
+## 3.2. To check influence: COVRATIO
 
 
 ## COVRATIO in R
@@ -1341,6 +1629,13 @@ Two measures to diagnose high influence:
   </tr>
 </table>
 ```
+
+## Activity: What kind of unusual data points?
+
+[wooclap vote, a bunch of diff plots]
+
+
+
 
 ## One function to rule them all
 
@@ -1394,14 +1689,14 @@ If you leave out the weird data point(s), how much do our estimates change?
 <!-- + If they differ a lot, this should be reported as a limitation -->
 
 
-## Diagnostics to run on the data
+# Diagnostics to run on the data
 
 <br>
 
 :::: {.columns}
 ::: {.column width="50%"}
 
-**Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):**
+Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):
 
 1. Outlyingness
 2. High leverage
@@ -1410,7 +1705,7 @@ If you leave out the weird data point(s), how much do our estimates change?
 :::
 ::: {.column width="50%"}
 
-**Diagnosing undesirable relationships <br> between predictors:**
+Diagnosing undesirable relationships <br> between predictors:
 
 1. Multicollinearity
 
