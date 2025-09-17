@@ -418,35 +418,21 @@ Not just binary decisions.
 ```{r message = F}
 set.seed(221020)
 
-df <- tibble(
+df_infl <- tibble(
   x = seq(-2, 2, length.out = 101),
   y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
-  y_infl = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_infl = y_good,
 )
 
-# Use the same outlier values
-df[95, 'y_infl'] <- 1.236227
-df[98, 'y_infl'] <- 2.623973
-df[30, 'y_infl'] <- 5.643033
-df[20, 'y_infl'] <- 3.160261
-df[14, 'y_infl'] <- 3.762352
-
-# Add in the same high-leverage values
-df <- rbind(
-  df,
+df_infl <- rbind(
+  df_infl,
   tibble(
-    x = c(3,
-          4.5,
-          -3.5),
-    y_good = NA,
-    y_infl = c(
-      6.068172,
-      12.201827,
-      2.2368030)
+    # x = 0, y_good = NA, y_infl = 12.20182
+    x = -1, y_good = NA, y_infl = 6.5
   )
 )
 
-p_infl <- df |>
+p_infl <- df_infl |>
   ggplot(aes(x=x, y=y_infl)) +
   geom_point() +
   geom_smooth(method = 'lm', se = FALSE) +
@@ -466,30 +452,42 @@ Interpretation: the average distance the predicted outcome values will move, if 
 Possible thresholds:
 
 - 1
-- 4 / (sample_size - n_params - 1)
+- 4 / (sample_size - n_params - 1) = 4 / (n - k - 1)
 - relative to all Ds in the data set
 
 ```{r}
-m_infl <- lm(y_infl ~ x, data = df)
-df$D <- cooks.distance(m_infl)
+m_infl <- lm(y_infl ~ x, data = df_infl)
+df_infl$D <- cooks.distance(m_infl)
 
-df |>
+n_obs <- nrow(df_infl)
+n_pred <- 1
+
+# infl
+df_infl |>
   ggplot(aes(x = x, y = D)) +
   geom_point() +
-  geom_hline(yintercept = 4 / (n_observations - n_predictors - 1), colour = 'red') +
+  geom_hline(yintercept = 4 / (n_obs - n_pred - 1), colour = 'red') +
   NULL
+```
 
+
+```{r}
+# good
 tibble(
   x = seq(-2, 2, length.out = 101),
   D = cooks.distance(m_good)
 ) |>
   ggplot(aes(x = x, y = D)) +
   geom_point() +
-  geom_hline(yintercept = 4 / (101 - n_predictors - 1), colour = 'red')
+  geom_hline(yintercept = 4 / (101 - n_pred - 1), colour = 'red')
 ```
 
 ```{r}
 plot(m_infl, which = 4)
+```
+
+```{r}
+plot(m_good, which = 4)
 ```
 
 
@@ -549,6 +547,49 @@ influence.measures(m_infl)
 
 
 
+## Sensitivity analysis big change
+
+```{r}
+set.seed(221020)
+
+df_sens <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = 0 + rnorm(101, 0, 2),
+  y_infl = y_good,
+)
+
+df_sens <- rbind(
+  df_sens,
+  tibble(
+    x = 4, y_good = NA, y_infl = 20
+  )
+)
+```
+
+
+With data point:
+
+```{r}
+df_sens |>
+  ggplot(aes(x = x, y = y_infl)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = F) +
+  labs(y = 'y')
+
+summary(lm(y_infl ~ x, data = df_sens))
+```
+
+Without data point:
+
+```{r}
+df_sens |>
+  ggplot(aes(x = x, y = y_good)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = F) +
+  labs(y = 'y')
+
+summary(lm(y_good ~ x, data = df_sens))
+```
 
 
 ## Finally: one check for relationships between predictors

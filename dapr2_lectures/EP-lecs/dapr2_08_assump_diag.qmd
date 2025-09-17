@@ -1396,7 +1396,7 @@ Predictors are usually plotted on the x axis, so high-leverage cases are usually
 
 <br>
 
-```{r fig levg, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+```{r fig levg, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
 set.seed(221020)
 df_levg <- tibble(
   x = seq(-2, 2, length.out = 103),
@@ -1503,7 +1503,7 @@ df_levg |>
 p_hat <- df_levg |>
   ggplot(aes(x = x, y = hat)) +
   geom_hline(yintercept = 2*mean_hat, colour = 'red') +
-  geom_point(size = 2) 
+  geom_point(size = 3) 
 p_hat
 ```
 
@@ -1522,7 +1522,7 @@ tibble(
   hat = hatvalues(m_good)
 ) |>
   ggplot(aes(x = x, y = hat)) +
-  geom_point(size = 2) +
+  geom_point(size = 3) +
   geom_hline(yintercept = 2*(2/101), colour = 'red') +
   ylim(0.0, 0.09)
 ```
@@ -1539,6 +1539,8 @@ p_hat +
 
 :::
 ::::
+
+**Why are the dots curved?**
 
 The curved shape happens because hat values measure distance from the mean of **x**.
 
@@ -1578,24 +1580,384 @@ The mean of **x** is 0, so all the data points on either side of 0 get bigger as
 
 ## 3. High influence
 
+A data point with **high influence** has an unusually extreme value for the outcome variable **and/or** for a predictor variable.
+High influence points have the most potential to **influence a linear model's estimates.**
+
+High-influence cases can be weird (relative to the model) **in both the vertical direction (↕) and/or the horizontal direction (↔).**
 
 
-Two measures to diagnose high influence:
+```{r fig infl, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
+set.seed(221020)
+df_infl <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_infl = y_good,
+)
+
+df_infl <- rbind(
+  df_infl,
+  tibble(
+    x = -1, y_good = NA, y_infl = 6.5
+  )
+)
+
+p_good <- df_infl |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No high-infl. points'
+    ) +
+  NULL
+
+p_infl <- df_infl |>
+  ggplot(aes(x=x, y=y_infl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One high-infl. point'
+    ) +
+  NULL
+
+p_good + p_infl
+```
+
+
+**Two measures to diagnose high influence:**
 
 1. Cook's distance
 2. COVRATIO
 
 
-## 3.1. To check influence: Cook's distance
+## 3.1. To check high influence: Cook's distance
+
+<br>
+
+Interpretation: **the average distance that the predicted outcome values will move, if a given data point is removed.**
+
+<br>
+
+Cook's distance is essentially **outlyingness $\times$ leverage** (mathy details in appendix).
+
+<br>
+
+```{=html}
+<table class="tg">
+  <tr>
+    <td class="tg-0pky">small outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky">small leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky">small influence</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">small outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky"><b>BIG</b> leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky"><b>BIG</b> influence</td>
+  </tr>
+  <tr>
+    <th class="tg-0pky"><b>BIG</b> outlyingness</th>
+    <td class="tg-0pky">x</td>
+    <th class="tg-0pky">small leverage</th>
+    <th class="tg-0pky">=</th>
+    <th class="tg-0pky"><b>BIG</b> influence</th>
+  </tr>
+  <tr>
+    <td class="tg-0pky"><b>BIG</b> outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky"><b>BIG</b> leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky"><b>VERY BIG</b> influence</td>
+  </tr>
+</table>
+```
+
+<br>
+
+**A few possible threshold values for comparison:**
+
+- 1
+- 4 divided by (sample size – number of predictors – 1) **$~~~\leftarrow$ we'll use this one**
+- visually compare to the Cook's distance values of other data points
 
 
-## Cook's distance in R
+## 3.1. To check high influence: Cook's distance
+
+**Step 1:** Compute the threshold value of Cook's distance for our model and data: <br> $n = 102$ data points, $k = 1$ predictor.
+
+:::: {.columns}
+::: {.column width="50%"}
+**In maths:**
+
+$$
+\begin{align}
+D &= \frac{4}{n-k-1}\\
+D &= \frac{4}{102-1-1}\\
+D &= \frac{4}{100}\\
+D &= 0.04
+\end{align}
+$$
+
+:::
+::: {.column width="50%"}
+**In R:**
+
+```{r}
+n_obs  <- nrow(df_infl)
+n_pred <- 1
+
+(D_threshold <- 4 / (n_obs - n_pred - 1))
+```
+
+:::
+::::
 
 
-## 3.2. To check influence: COVRATIO
+**Heuristic for high influence for THIS model:** data points with Cook's distance $D$ larger than 0.04.
+
+<br>
+
+**Step 2:** Let R compute the Cook's distance $D_i$ for each data point using `cooks.distance()`.
+
+```{r}
+m_infl <- lm(y_infl ~ x, data = df_infl)
+cooks.distance(m_infl) |> head()
+```
 
 
-## COVRATIO in R
+## 3.1. To check high influence: Cook's distance
+
+**Step 3:** Compare each data point's $D_i$ to the heuristic comparison value from Step 1.
+
+```{r}
+# Add Cook's distance as column to df
+df_infl$D <- cooks.distance(m_infl)
+
+df_infl |>
+  select(x, y_infl, D) |>
+  filter(D > D_threshold)
+```
+
+
+<br>
+
+We expected one high-influence value, but now we have five...?
+
+
+## Cook's distance can give us "false alarms"
+
+:::: {.columns}
+::: {.column width="50%" #good}
+
+$D$ for the data with no extreme high-influence values:
+
+```{r fig.align='center', fig.width=8, echo=F}
+m_infl_good <- lm(y_good ~ x, data = df_infl)
+df_infl$D_good <- c(cooks.distance(m_infl_good), NA)
+
+df_infl |>
+  ggplot(aes(x = x, y = D_good)) +
+  geom_hline(yintercept = 4/(101-1-1), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'D') +
+  ylim(0, 0.166) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+
+$D$ for the data with one extreme high-influence value:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl |>
+  ggplot(aes(x = x, y = D)) +
+  geom_hline(yintercept = D_threshold, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  ylim(0, 0.166) +
+  NULL
+```
+
+
+:::
+::::
+
+
+**$\rightarrow$ The more extreme the Cook's distance, the higher the influence of that data point.**
+
+<br>
+
+Cook's distance looks at how each data point influences the **model predictions overall.**
+
+The next measure looks at how each data point influences **the regression coefficients (the slopes and intercepts).**
+
+
+## 3.2. To check high influence: COVRATIO
+
+COVRATIO stands for "covariance ratio".
+
+Interpretation: **how much a given data point affects the standard error (i.e., the variability) of the regression parameters.**
+
+A ratio is a fraction that compares two values.
+
+
+$$
+\text{COVRATIO} = \frac{\text{a parameter's standard error, including data point}\ i}{\text{a parameter's standard error, NOT including data point}\ i}
+$$
+
+<br>
+
+If the given data point does not affect the standard error, then the ratio = 1.
+
+:::: {.columns}
+::: {.column width="50%"}
+
+If the SE gets bigger without a data point:
+
+$$
+\frac
+{\text{small SE with}\ i}
+{\text{big SE without}\ i}
+= \frac{\text{small}}{\text{big}}
+< 1
+$$
+:::
+::: {.column width="50%"}
+
+If the SE gets smaller without a data point:
+
+$$
+\frac
+{\text{big SE with}\ i}
+{\text{small SE without}\ i}
+= \frac{\text{big}}{\text{small}}
+> 1
+$$
+:::
+::::
+
+<br>
+
+**Threshold values** for a model with $k$ parameters and $n$ data points:
+
+- COVRATIO bigger than  $1+\frac{3(k +1)}{n}$
+- COVRATIO smaller than $1-\frac{3(k +1)}{n}$
+
+
+
+## 3.2. To check high influence: COVRATIO
+
+**Step 1:** Compute the COVRATIO threshold value for our model and data: $n=102$ data points, $k=1$ predictor.
+
+:::: {.columns}
+::: {.column width="50%"}
+**In maths, just the bit we add/subtract from 1:** 
+
+$$
+\begin{align}
+& \frac{3(k + 1)}{n}\\
+= & \frac{3(1 + 1)}{102}\\
+= & \frac{3 \times 2}{102}\\
+= & \frac{6}{102}\\
+= & 0.059\\
+\end{align}
+$$
+
+:::
+::: {.column width="50%"}
+**In R:**
+
+```{r}
+n_obs  <- nrow(df_infl)
+n_pred <- 1
+
+covr_upper <- 1 + ((3 * (n_pred + 1))/n_obs)
+covr_lower <- 1 - ((3 * (n_pred + 1))/n_obs)
+
+c(covr_lower, covr_upper)
+```
+
+:::
+::::
+
+<br>
+
+**Heuristic for high influence for THIS model:** 
+
+- data points with COVRATIO larger than 1 + 0.059 = 1.059, **OR**
+- data points with COVRATIO smaller than 1 – 0.059 = 0.941.
+
+## 3.2. To check high influence: COVRATIO
+
+**Step 2:** Let R compute the COVRATIO for each data point using `covratio()`.
+
+```{r}
+covratio(m_infl) |> head()
+```
+
+<br>
+
+**Step 3:** Compare each data point's COVRATIO to the heuristic comparison values from Step 1.
+
+```{r}
+# Add COVRATIO as column to df
+df_infl$covr <- covratio(m_infl)
+
+df_infl |>
+  select(x, y_infl, covr) |>
+  filter(covr > covr_upper | covr < covr_lower)
+```
+
+Six values that affect the standard error of the regression parameters!
+
+## COVRATIO can give us "false alarms"
+
+
+:::: {.columns}
+::: {.column width="50%" #good}
+
+For the data with no extreme high-influence values:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl$covr_good <- c(covratio(m_infl_good), NA)
+
+df_infl |>
+  ggplot(aes(x = x, y = covr_good)) +
+  geom_hline(yintercept = 1 + ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = 1 - ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'covr') +
+  ylim(.65, 1.15) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+
+For the data with one extreme high-influence value:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl |>
+  ggplot(aes(x = x, y = covr)) +
+  geom_hline(yintercept = 1 + ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = 1 - ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'covr') +
+  ylim(.65, 1.15) +
+  NULL
+```
+
+:::
+::::
+
+**$\rightarrow$ The more extreme the COVRATIO, the higher the influence of that data point.**
 
 
 <!-- ================================================== -->
@@ -1637,46 +1999,184 @@ Two measures to diagnose high influence:
 
 
 
-## One function to rule them all
+## One function for most data point diagnostics
 
-`influence.measures()`
+`influence.measures()` computes all the data point diagnostics we've talked about <br> (except studentised residuals for outlyingness).
+
+<br>
 
 ```{r}
-# influence.measures(m_infl) |> 
-  # head()
+influence.measures(m_infl)$infmat |>
+  head()
 ```
 
+<br>
 
-- `dfb.1_`: difference between the predicted values for the intercept with and without this observation
-- `dfb.x`: difference between the predicted values for the slope with and without this observation <- there will be one of these per predictor
-- `dffit`: difference between predicted values for the outcome with and without this observation
-- `cov.r`: ratio of the covariance of regression parameters with and without this observation
-- `cook.d`: Cook's Distance of this observation
-- `hat`: hat value of this observation
+- `dfb.1_`: difference between the predicted values for the intercept with and without this data point
+- `dfb.x`: difference between the predicted values for a predictor's slope with and without this data point (there will be one of these measures per predictor)
+- `dffit`: difference between predicted values for the outcome with and without this data point
+- `cov.r`: covariance ratio of regression parameters with and without this data point
+- `cook.d`: Cook's Distance of this data point
+- `hat`: hat value of this data point
 
 
 
-## What to do if the dataset contains unusual data points
+## Vote: What to do if you find unusual data points
 
-Maybe it's fine.
-We would expect some values that pass the thresholds.
+<br>
 
-Necessary but not sufficient conditions.
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp;  &nbsp; Ignore them and pretend they don't exist
 
-A sign that something is *maybe* happening.
+<br>
 
-Is the data point supposed to be there?
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Check if they could be a mistake
 
-Report it.
+<br>
 
-Sensitivity analysis.
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Delete them
 
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Mention them in your write-up
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Replace them with less extreme values
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Check how much they influence your conclusions
 
 
 
 ## Sensitivity analysis
 
-If you leave out the weird data point(s), how much do our estimates change?
+A sensitivity analysis asks: **Do our conclusions change if we leave out the unusual data point(s)?**
+
+- If our conclusions don't change, then the data points don't matter too much.
+- If our conclusions DO change, then we need to report that as a limitation of our analysis.
+
+<br>
+
+**Example 1:**
+
+Imagine we want to know whether there's a significant positive association between **x** and **y**.
+
+```{r fig infl sens ana, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
+p_infl + labs(subtitle=element_blank(), y = 'y') +
+p_good + labs(subtitle=element_blank())
+```
+
+
+## Sensitivity analysis 
+
+
+:::: {.columns}
+::: {.column width="50%"}
+A model fit to the data that contains the high-influence value: 
+
+:::{style="font-size: 80%;"}
+```{r}
+summary(m_infl)
+```
+:::
+:::
+
+::: {.column width="50%"}
+A model fit to the data with the high-influence value **removed**:
+
+:::{style="font-size: 80%;"}
+```{r}
+summary(m_good)
+```
+:::
+:::
+
+::::
+
+<br>
+
+Even if we remove the data point, we still see a significant positive association between **x** and **y**.
+
+**$\rightarrow$ The high-influence point doesn't affect our conclusions, so it's not a major cause for concern.**
+
+
+
+## Sensitivity analysis: Example 2
+
+Again, imagine we want to know whether there's a significant positive association between **x** and **y**.
+
+```{r fig sens, message = FALSE, warning=F, echo=F, fig.asp = .4, fig.align='center', fig.width = 18}
+set.seed(221020)
+
+df_sens <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = 0 + rnorm(101, 0, 2),
+  y_infl = y_good,
+)
+
+df_sens <- rbind(
+  df_sens,
+  tibble(
+    x = 4, y_good = NA, y_infl = 20
+  )
+)
+
+p_with <- df_sens |>
+  ggplot(aes(x = x, y = y_infl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = F, linewidth = 2) +
+  labs(y = 'y', subtitle = 'With unusual point') +
+  ylim(-5, 20)
+
+p_without <- df_sens |>
+  ggplot(aes(x = x, y = y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = F, linewidth = 2) +
+  labs(y = 'y', subtitle = 'Unusual point removed') +
+  ylim(-5, 20)
+```
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r echo=F}
+p_with
+```
+
+
+:::{style="font-size: 80%;"}
+```{r echo=F}
+m_sens_infl <- lm(y_infl ~ x, data = df_sens)
+cat(paste0(capture.output(summary(m_sens_infl)), '\n')[9:12])
+
+```
+:::
+:::
+
+::: {.column width="50%"}
+
+```{r echo=F}
+p_without
+```
+
+:::{style="font-size: 80%;"}
+```{r echo=F}
+m_sens_good <- lm(y_good ~ x, data = df_sens)
+cat(paste0(capture.output(summary(m_sens_good)), '\n')[9:12])
+```
+:::
+:::
+
+::::
+
+<br>
+
+**$\rightarrow$ The high-influence point DOES affect our conclusions, so it IS a major problem for our analysis.**
+
+
+
 
 <!-- + Sensitivity analysis refers to the idea of checking whether you get similar results irrespective of the methodological decisions you make -->
 
@@ -1714,22 +2214,194 @@ Diagnosing undesirable relationships <br> between predictors:
 ::::
 
 
-## Diagnosing undesirable relationships between predictors
+## Multicollinearity
 
 ![](figs/TODO-collinear.jpeg)
 
+When two predictors are correlated, **they contain similar information: if you know one, you can guess the other.**
 
-## What happens if predictors are correlated
+The model cannot tell which predictor is contributing what information, so its estimates are less precise.
+
+In other words, **the variance of its estimates increases.**
 
 
 
+## Plotting correlations between predictors
+
+We have a data set called `corr_df` with an outcome variable `y` and two predictors `x1` and `x2`.
+
+```{r include=F}
+set.seed(1)
+
+n_obs <- 101
+corr_x1y  <- 0.8
+corr_x2y  <- 0.6
+# corr_x1x2 <- 0.9  # vif = 5.3
+corr_x1x2 <- 0.93   # vif = TBD
+
+corr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, corr_x1x2,
+     corr_x2y, corr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(corr_df) <- c('y', 'x1', 'x2')
+corr_df <- as_tibble(corr_df)
+```
+
+
+```{r eval=F}
+pairs(corr_df)
+```
+
+```{r echo=F, fig.align = 'center'}
+pairs(corr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+In `corr_df`, **`x1` and `x2` are highly correlated.**
+
+The correlation appears as a strong diagonal line.
+
+
+## Plotting correlations between predictors
+
+We have another data set called `uncorr_df`:
+
+```{r include=F}
+set.seed(1)
+
+uncorr_x1x2 <- 0.0  # ideally this quantity would be low
+
+uncorr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, uncorr_x1x2,
+     corr_x2y, uncorr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(uncorr_df) <- c('y', 'x1', 'x2')
+uncorr_df <- as_tibble(uncorr_df)
+```
+
+```{r eval=F}
+pairs(uncorr_df)
+```
+
+```{r echo=F, fig.align = 'center'}
+pairs(uncorr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+In `uncorr_df`, **`x1` and `x2` are not very correlated.**
+
+The lack of correlation appears as a cloud of data points.
+
+
+
+
+
+## Diagnosing multicollinearity
+
+When predictors are correlated, the model estimates are less precise—in other words, **the variance of its estimates increases.**
+
+We can detect this using the **Variance Inflation Factor** or VIF.
+
+- VIF measures **how much the standard error of a predictor is increased by correlations with other predictors.**
+- More precisely: $\sqrt{\text{VIF}}$ = how many times larger the standard error (SE) of each predictor is, compared to a version of the model without the other predictors.
+
+<br> 
+
+Intepreting VIF:
+
+- **Below 5 is low,** no need to worry.
+  - $\sqrt{5} = 2.24$, so SE is 2.24 times bigger than it would be if we removed the correlated predictors.
+- **Between 5 and 10 is moderate,** a little worrying but OK.
+  - $\sqrt{10} = 3.16$, so SE is 3.16 times bigger than it would be if we removed the correlated predictors.
+- **More than 10 is big,** cause for lots of concern.
+
+
+## VIF in R
+
+We calculate the Variance Inflation Factor in R using `vif()` from the package `car`.
+
+:::: {.columns}
+::: {.column width="50%"}
+Correlated predictors:
+
+```{r echo=F, fig.align = 'center'}
+pairs(corr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+```{r}
+m_corr <- lm(y ~ x1 + x2, data = corr_df)
+car::vif(m_corr)
+```
+
+The SE of each predictor is $\sqrt{7.4} = 2.72$ times bigger than it would be without the other predictors.
+
+Ideally we'd want to reduce this somehow.
+:::
+::: {.column width="50%"}
+Uncorrelated predictors:
+
+```{r echo=F, fig.align = 'center'}
+pairs(uncorr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+```{r}
+m_uncorr <- lm(y ~ x1 + x2, data = uncorr_df)
+car::vif(m_uncorr)
+```
+
+The SE of each predictor is $\sqrt{1} = 1$ times bigger—so no different at all!
+:::
+::::
 
 
 ## What to do if predictors are correlated
 
 
+<br>
 
+In order of increasing spiciness:
 
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+If the correlation isn't too worrying, then leave the model as-is and report the VIFs.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+If the correlations are large, remove one of the correlated predictors from the model—it's not adding any new information anyway.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Make a composite predictor that combines the correlated predictors somehow.
+For example: sum, average, or a cleverer technique like Principal Component Analysis (in DAPR3).
+:::
+::::
 
 
 
