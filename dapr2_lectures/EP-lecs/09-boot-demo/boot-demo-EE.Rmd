@@ -1,0 +1,256 @@
+---
+title: "DAPR2 Lecture 9 Bootstrapping demo"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup, message = F}
+library(tidyverse)
+
+theme_set(theme_bw())
+theme_update(
+  strip.background = element_blank()
+)
+```
+
+# v2
+
+The main sample:
+
+```{r}
+population <- 1:100
+
+# set the seed for the random number generator, so the random sample
+# is the same every time
+set.seed(2)
+
+# draw the sample and sort in ascending order.
+size_main_sample <- 10
+main_sample <- sort(sample(population, size = size_main_sample))
+
+for(i in 1:size_main_sample){
+  message(main_sample[i])
+}
+```
+
+```{r}
+matrix(main_sample, ncol = 5, byrow=T)
+```
+
+
+What's the average value, the mean, of the main sample?
+
+```{r}
+mean(main_sample)
+```
+
+
+If we drew many main samples from the population and repeatedly found their mean, then we would have a sense of the variability in the population.
+
+In a simulated world like this, we can.
+But in real life, it's not practical.
+
+BUT: we *can* get a sense of the variability in our main sample by repeatedly drawing samples from *it* and finding *their* means.
+
+**The variability in those means is our best guess about the variability in the population.**
+
+
+## Bootstrapped samples
+
+
+Read in CSV data downloaded from Qualtrics. 
+
+```{r message = F}
+DATAFILE <- "Bootstrapping v2_18 September 2025_13.29.csv"
+
+# source: https://stackoverflow.com/a/50314806 
+headers      <- read_csv(DATAFILE, col_names = FALSE, n_max = 1)
+df           <- read_csv(DATAFILE, skip = 3, col_names = FALSE)
+colnames(df) <- headers
+
+nrow(df)
+```
+
+
+Wrangle into tidy (tall) format.
+
+```{r}
+df_tall <- df |>
+  select(ResponseId, starts_with('Q')) |>
+  pivot_longer(cols = starts_with('Q'),names_to = 'q', values_to = 'sampled_value')
+head(df_tall)
+```
+
+All of the samples chosen, plotted as continuous.
+
+```{r warning=F, eval = F}
+df_tall |>
+  ggplot(aes(x = sampled_value, fill = ResponseId)) +
+  geom_histogram(binwidth = 1) +
+  scale_x_continuous(limits = c(0, 100), breaks = seq(0, 100, by=10)) +
+  theme(
+    legend.position = 'none'
+  ) +
+  NULL
+```
+
+All the samples chosen, shown as discrete (better):
+
+```{r}
+df_tall |>
+  mutate(sampled_value = factor(sampled_value)) |>
+  ggplot(aes(x = sampled_value, fill = ResponseId)) +
+  geom_bar() +
+  theme(
+    legend.position = 'none'
+  ) +
+  NULL
+```
+
+
+Look at a few individual bootstrapped samples.
+
+```{r}
+# compute how many different options each ppt chose
+n_types_df <- df_tall |>
+  group_by(ResponseId) |>
+  count(sampled_value) |>
+  count(ResponseId) |>
+  arrange(n) |>
+  ungroup()
+
+# set the number of plots to show at each end
+n_to_plot <- 3
+```
+
+
+Bootstrapped samples with the narrowest spread across choices:
+
+```{r fig.width = 10, fig.height = 3}
+ppts_narrow <- n_types_df |>
+  slice_head(n = n_to_plot) |>
+  pull(ResponseId)
+
+df_tall |>
+  mutate(sampled_value = factor(sampled_value)) |>
+  filter(ResponseId %in% ppts_narrow) |>
+  ggplot(aes(x = sampled_value, fill = ResponseId))+#, colour = ResponseId)) +
+  geom_bar() +
+  facet_wrap(~ ResponseId) +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 2)) +
+  scale_x_discrete(drop = FALSE)
+```
+
+
+Bootstrapped samples with the broadest spread across choices:
+
+```{r fig.width = 10, fig.height = 3}
+ppts_broad <- n_types_df |>
+  slice_tail(n = n_to_plot) |>
+  pull(ResponseId)
+
+df_tall |>
+  mutate(sampled_value = factor(sampled_value)) |>
+  filter(ResponseId %in% ppts_broad) |>
+  ggplot(aes(x = sampled_value, fill = ResponseId))+#, colour = ResponseId)) +
+  geom_bar() +
+  facet_wrap(~ ResponseId) +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 2)) +
+  scale_x_discrete(drop = FALSE)
+```
+
+
+## Making the sampling distribution 
+
+Put all the sample means together.
+By combining the sample means, we create the **sampling distribution of sample means**.
+
+```{r}
+sampling_distrib <- df_tall |>
+  group_by(ResponseId) |>
+  summarise(sample_means = mean(sampled_value))
+
+sampling_distrib
+```
+
+
+```{r warning=F}
+p_samp_dist_dens <- sampling_distrib |>
+  ggplot(aes(x = sample_means)) +
+  geom_density(fill = 'black', colour = 'black', alpha = 0.2) +
+  geom_rug(colour = 'black') +
+  labs(
+    title = 'Sampling distribution of sample means',
+    x = 'Mean of each bootstrapped sample'
+  ) +
+  xlim(0, 100)
+
+p_samp_dist_dens
+```
+
+
+
+
+## Mean of sampling distribution
+
+What is the mean of our sampling distribution of means?
+
+```{r}
+samp_distrib_mean <- mean( sampling_distrib$sample_means )
+samp_distrib_mean
+```
+
+```{r}
+p_samp_dist_dens +
+  geom_vline(xintercept = samp_distrib_mean, linewidth = 2, colour = 'red') +
+  geom_label(x = samp_distrib_mean+2, y = 0.005, colour = 'red', label = paste('mean of bootstrapped\nsample means =', round(samp_distrib_mean, 2)), hjust = 0)
+```
+
+
+Probably pretty close to the mean of our main sample:
+
+```{r}
+mean(main_sample)
+```
+
+
+... but probably not as close to the mean of our population, which was:
+
+```{r}
+population
+```
+
+```{r}
+mean(population)
+```
+
+
+If we draw the main sample at random from the population, then it's as representative as we can possibly make it.
+
+But bootstrapping only represents the population as well as the main sample does.
+
+In other words, bootstrapping assumes that we have an accurate representative sample of the population.
+(And, chances are, we do.)
+
+
+### The REALLY useful thing: Standard deviation of sampling distribution
+
+What is the standard deviation of our sampling distribution?
+
+```{r}
+samp_distrib_sd <- sd( sampling_distrib$sample_means )
+samp_distrib_sd
+```
+
+
+Why is this number useful?
+
+We use the **standard deviation of the sampling distribution** to represent the **standard error of the mean** in situations where the formula for the standard error can't be used (e.g., because the assumptions about errors are not met.)
+
+---
+
+When we bootstrap the estimates of a linear model, the same thing is happening.
+When we see the **standard error** of bootstrapped regression parameters (slope and intercept), what we are really seeing is the **standard deviation of the sampling distribution of those regression parameters**.
