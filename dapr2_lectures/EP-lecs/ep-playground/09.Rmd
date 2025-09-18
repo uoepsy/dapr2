@@ -185,14 +185,19 @@ Interesting, so apparently we want the t-values to be normally distributed.
 - summarise those distribs
 - that's what the model is doing
 
-```{r message = F}
-boot_sample_size <- 25
-n_resamples <- 50
 
+```{r message = F}
 orig_data <- df |>
   select(x, y_viol) |>
+  rename(y = y_viol) |>
   rowid_to_column()
 
+boot_sample_size <- nrow(orig_data)
+n_resamples <- 100
+```
+
+
+```{r message = F}
 draw_boot_samples <- function(dataset, resample_size, n_resamples){
   # dataset: dataframe or tibble
   # resample_size: integer, size of the sample to draw
@@ -211,8 +216,8 @@ draw_boot_samples <- function(dataset, resample_size, n_resamples){
 plot_boot_sample <- function(boot_sample){
   # boot_sample: dataset, outcome of draw_boot_sample
   boot_sample |>
-    ggplot(aes(x = x, y = y_viol)) +
-    geom_point() +
+    ggplot(aes(x = x, y = y)) +
+    geom_point(alpha = 0.3) +
     geom_smooth(method = 'lm', se = FALSE) +
     xlim(-2, 2) +
     NULL
@@ -230,10 +235,10 @@ wrap_plots(boot_plot_list[1:12])
 
 ```{r message=F}
 fit_lm <- function(boot_sample){
-  # boot_sample: df with cols x, y_viol
+  # boot_sample: df with cols x, y
   # returns coefs of LM fit to boot_sample
   
-  m <- lm(y_viol ~ x, data = boot_sample)
+  m <- lm(y ~ x, data = boot_sample)
   return(m$coefficients)
 }
 
@@ -247,34 +252,184 @@ boot_int_sd <- sd(boot_coefs_df$`(Intercept)`)
 boot_slp_mean <- mean(boot_coefs_df$x)
 boot_slp_sd <- sd(boot_coefs_df$x)
 
-
 p_intercept <- boot_coefs_df |>
   ggplot(aes(x = `(Intercept)`)) +
-  geom_histogram(fill = 'grey') +
+  geom_histogram(fill = 'darkgrey') +
   geom_vline(xintercept = boot_int_mean, linewidth = 2, colour = 'black') +
-  geom_vline(xintercept = boot_int_mean + boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dashed') +
-  geom_vline(xintercept = boot_int_mean - boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dashed') + 
-  geom_vline(xintercept = boot_int_mean + 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
-  geom_vline(xintercept = boot_int_mean - 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
-  geom_function(fun = function(x) dnorm(x, mean = boot_int_mean, sd = boot_int_sd) * 3, colour = 'black') +
+  labs(
+    x = 'Bootstrapped samples of intercept',
+    subtitle = paste0('mean of sampling dist. = ', round(boot_int_mean, 3), '\nSD of sampling dist. = standard error = ', round(boot_int_sd, 3)) 
+  ) +
+  geom_vline(xintercept = boot_int_mean + boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_vline(xintercept = boot_int_mean - boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_vline(xintercept = boot_int_mean + 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_vline(xintercept = boot_int_mean - 1.96*boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_function(fun = function(x) dnorm(x, mean = boot_int_mean, sd = boot_int_sd) * 3, colour = 'black') +
+  xlim(1.51, 2.71) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
   NULL
 
 p_slope <- boot_coefs_df |>
   ggplot(aes(x = x)) +
-  geom_histogram(fill = 'grey') +
+  geom_histogram(fill = 'darkgrey') +
   geom_vline(xintercept = boot_slp_mean, linewidth = 2, colour = 'black') +
-  geom_vline(xintercept = boot_slp_mean + boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dashed') +
-  geom_vline(xintercept = boot_slp_mean - boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dashed') + 
-  geom_vline(xintercept = boot_slp_mean + 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
-  geom_vline(xintercept = boot_slp_mean - 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
-  geom_function(fun = function(x) dnorm(x, mean = boot_slp_mean, sd = boot_slp_sd) * 3, colour = 'black') +
+  labs(
+    x = 'Bootstrapped samples of slope',
+    subtitle = paste0('mean of sampling dist. = ', round(boot_slp_mean, 3), '\nSD of sampling dist. = standard error = ', round(boot_slp_sd, 3)) 
+  ) +
+  geom_vline(xintercept = boot_slp_mean + boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  geom_vline(xintercept = boot_slp_mean - boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_vline(xintercept = boot_slp_mean + 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_vline(xintercept = boot_slp_mean - 1.96*boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+  # geom_function(fun = function(x) dnorm(x, mean = boot_slp_mean, sd = boot_slp_sd) * 20, colour = 'black') +
+  xlim(-1.29, -0.33) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
   NULL
 
 p_intercept + p_slope
 ```
 
-
 ^ would be cool to animate the way these sampling distributions change as samples trickle in, the way I did for bayes_stat.
+
+
+## animate boot using gifski
+
+```{r}
+boot_coefs_df <- boot_coefs_df |>
+  rename(Intercept = `(Intercept)`)
+```
+
+
+Produce a list of ggplots, each of which is one frame of the animation.
+
+```{r}
+plot_limits <- list(
+  'Intercept' = c(1.51, 2.71),
+  'x' = c(-1.29, -0.33)
+)
+```
+
+```{r}
+gen_boot_plots <- function(all_boot_data, plot_limits, param_to_plot){
+  # all_boot_data: dataset of the full sampling distribution
+  #                must contain col boot_idx
+  # plot_limits: list with upper and lower bounds of xlim for each param
+  # param_to_plot: string, the parameter we want to get the samples of
+  
+  n_boot_samples <- nrow(all_boot_data)
+  # n_boot_samples <- 3
+  
+  for(i in 1:n_boot_samples){
+    
+    curr_data <- all_boot_data |>
+      slice_head(n = i) |>
+      select(boot_idx, all_of(param_to_plot))
+    
+    curr_mean <- curr_data |>
+      pull(param_to_plot) |>
+      mean()
+    
+    curr_sd <- curr_data |>
+      pull(param_to_plot) |>
+      sd()
+
+    # print()
+    
+    # Make current plot
+    p <- curr_data |>
+      ggplot(aes_string(x = param_to_plot)) +
+      geom_histogram(fill = 'darkgrey', bins = 30) +
+      geom_vline(xintercept = curr_mean, linewidth = 2, colour = 'black') +
+      labs(
+        title = paste0(param_to_plot, '\nNumber of bootstrapped samples = ', i),
+        x = 'Mean of bootstrapped samples',
+        subtitle = paste0('Mean of sampling dist. = ', round(curr_mean, 3), '\nSD of sampling dist. = standard error = ', round(curr_sd, 3))
+      ) +
+      geom_vline(xintercept = curr_mean + curr_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+      geom_vline(xintercept = curr_mean - curr_sd, linewidth = 1, colour = 'black', linetype = 'dotted') +
+      xlim(
+        plot_limits[[param_to_plot]][1],
+        plot_limits[[param_to_plot]][2]
+      ) +
+      scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+      NULL
+  
+    print(p)
+   
+  }
+}
+
+# # will print 100 plots
+# gen_boot_plots(boot_coefs_df, plot_limits, 'Intercept')
+```
+
+
+
+```{r}
+# Intercept GIF
+gifski::save_gif(
+  gen_boot_plots(boot_coefs_df, plot_limits, 'Intercept'), 
+  'boot-int.gif', 
+  width = 600, 
+  height = 720, 
+  res = 144, 
+  delay = 0.2
+)
+
+# Slope GIF
+gifski::save_gif(
+  gen_boot_plots(boot_coefs_df, plot_limits, 'x'), 
+  'boot-slp.gif', 
+  width = 600, 
+  height = 720, 
+  res = 144, 
+  delay = 0.2
+)
+```
+
+
+
+
+---
+
+```{r}
+library(gapminder)
+library(ggplot2)
+makeplot <- function(){
+  datalist <- split(gapminder, gapminder$year)
+  lapply(datalist, function(data){
+    p <- ggplot(data, aes(gdpPercap, lifeExp, size = pop, color = continent)) +
+      scale_size("population", limits = range(gapminder$pop)) + geom_point() + ylim(20, 90) +
+      scale_x_log10(limits = range(gapminder$gdpPercap)) + ggtitle(data$year) + theme_classic()
+    print(p)
+  })
+}
+
+gif_file <- file.path('./gapminder.gif')
+gifski::save_gif(makeplot(), gif_file, 1280, 720, res = 144, delay=0.1)
+```
+
+
+```{r}
+# Make a function that returns a bunch of ggplot objects for use in save_gif() below.
+# More info: https://rdrr.io/cran/gifski/man/gifski.html 
+make_many_plots <- function(){
+  
+  for(plot_idx in 1:length(many_obs_unif)){
+    curr_unif <- many_obs_unif[[plot_idx]] +
+      labs(title = 'Began with uniform prior',
+           subtitle = paste0('Observation ', plot_idx, '/100'))
+    curr_inform <- many_obs_inform[[plot_idx]] +
+      labs(title = 'Began with informative prior',
+           subtitle = paste0('Observation ', plot_idx, '/100'))
+    
+    print(curr_unif + curr_inform)
+  }
+}
+
+path_to_gif <- paste0(getwd(), '/imgs/lotsofdata.gif')
+gifski::save_gif(make_many_plots(), path_to_gif, 1000, 720, res = 144, delay=0.1)
+```
 
 
 
