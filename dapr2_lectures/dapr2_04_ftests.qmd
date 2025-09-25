@@ -1,0 +1,944 @@
+---
+title: "Testing and Evaluating LM"
+author: "Emma Waterston"
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+library(simglm)
+source('_theme/theme_quarto.R')
+```
+
+
+# Course Overview {.smaller}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: asis
+
+block1_name = "Introduction to Linear Models"
+block1_lecs = c("Intro to Linear Regression",
+                "Interpreting Linear Models",
+                "Testing Individual Predictors",
+                "Model Testing & Comparison",
+                "Linear Model Analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical Predictors & Dummy Coding",
+                "	Effects Coding & Coding Specific Contrasts",
+                "Assumptions & Diagnostics",
+                "Bootstrapping",
+                "	Categorical Predictor Analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week=4)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: asis
+
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regression Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
+```
+
+:::
+
+::::
+
+## This Week's Learning Objectives
+
+1. Understand the use of $F$ and incremental $F$ tests 
+
+2. Be able to run and interpret $F$-tests in `R`
+
+3. Understand how to use model comparisons to test different types of questions
+
+4. Understand the difference between nested and non-nested models, and the appropriate statistics to use for comparison in each case
+
+# Part 1: Recap & Overview
+
+## Recap
+
++ Last week we looked at:
+  + The significance of individual predictors
+  + Overall model evaluation through $R^2$ and $\hat R^2$ to see how much variance in the outcome has been explained
+  
+  
++ This week we will:
+  + Look at significance tests of the overall model
+  + Discuss how we can use the same tools to do incremental tests (*how much does my model improve when I add variables*)
+  
+
+## Statistical Significance of the Overall Model 
+
++ Does our combination of $x$'s significantly improve prediction of $y$, compared to not having any predictors?
+
+. . .
+
++ Some indications that the model might be significant:
+  + Slopes for individual predictors associated with significant $p$-values
+  + High $R^2$
+  
++ But these do not directly show model significance
+
+. . .
+
++ To test the significance of the model as a whole, we conduct an $F$-test
+
+
+## $F$-test & $F$-ratio
+
++ An $F$-test involves testing the statistical significance of a test statistic called the $F$-ratio (also called $F$-statistic)
+
++ The $F$-ratio tests the null hypothesis that all the regression slopes in a model are zero
+
+. . .
+
+  + In other words, our predictors tell us nothing about our outcome
+  
+  + They explain no variance
+
+. . .
+
++ The more variance our predictors explain, the bigger our $F$-ratio
+
++ As with $t$-values and the $t$-distribution, we compare the $F$-statistic to the $F$-distribution to obtain a $p$-value
+
+
+## Our Results (Significant $F$)
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df2 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df2 %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2); summary(performance)
+```
+
+
+##  F-ratio: Some Details
+
++ $F$-ratio is a ratio of the explained to unexplained variance:
+
+$$
+F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} = \frac{MS_{Model}}{MS_{Residual}}
+$$
+
++ Where MS = mean squares
+
+. . .
+
++ **What are mean squares?**
+
+  + Mean squares are sums of squares calculations divided by the associated degrees of freedom
+  + We saw how to calculate model and residual sums of squares last week
+
++ But what are model and residual degrees of freedom?
+
+
+## Degrees of Freedom 
+
++ The degrees of freedom are defined as the number of independent values associated with the different calculations
+
+  + Conceptually, how many values in the calculation can vary, if we keep the outcome of the calculation fixed
+
+. . . 
+
++ $df$ are typically linked to:
+  + the amount of data you have (sample size, $n$)
+  + and the number of things you need to calculate/estimate based on that data (in our case the number of $beta$s)
+
+
+## Degrees of Freedom {.smaller}
+  
++ **Model degrees of freedom = $k$ **
+
+  + $SS_{model}$ are dependent on estimated $\beta$ s, which is $k + 1$ (the number of predictors plus the intercept)
+  + From $k + 1$, we subtract $1$ as not all the estimates can vary while holding the outcome constant
+  + This gives us $k$ for Model $df$
+  
+. . . 
+
++ **Residual degrees of freedom = $n-k-1$ **
+  + $SS_{residual}$ calculation is based on our individual data points and our model (in which we estimate $k + 1$ $\beta$ terms, i.e. the slopes and an intercept)
+  + For each coefficient estimated, we lose a degree of freedom, as we're fitting the model to the data and reducing the flexibility in how much the residuals (errors) can vary
+
+. . . 
+
++ **Total degrees of freedom = $n-1$ **
+  + $SS_{total}$ calculation is based on the observed $y_i$ and $\bar{y}$ . 
+  + In order to estimate $\bar{y}$ , all apart from one value of $y$ is free to vary, hence $n-1$
+
+
+## Our Example (note the $df$ at the bottom)
+
+```{r}
+summary(performance)
+```
+
+
+## $F$-ratio
+
++ Bigger $F$-ratios indicate better fitting models
+
+  + It means the variance explained by the model is big compared to the residual variance
+
+. . .
+
++ $H_0$ for the model says that the best guess of any individual's $y$ value is $\bar{y}$ (plus error)
+	+ Or, that the $x$ variables collectively carry no information about $y$
+	+ All slopes = 0
+
+. . .
+
+ $$F = \frac{MS_{Model}}{MS_{Residual}}$$
+
++ $F$-ratio will be close to 1 when $H_0$ is true
+  + If there is equivalent model to residual variation ( $MS_{model} = MS_{residual}$ ), then $F$=1
+	+ If there is more model than residual variation, then $F$ > 1
+
+
+## Testing the Significance of $F$
+
++ The $F$-ratio is our test statistic for the significance of our model 
+
+  + As with all statistical inferences, we would select an $\alpha$ level.
+  
+  + Identify the proper null $F$-distribution and calculate the critical value of $F$ associated with chosen level of $\alpha$
+  
+  + Compare our $F$-statistic to the critical value.
+  
+  + If our value is more extreme than the critical value, it is considered significant
+
+
+## Sampling Distribution for the Null
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
++ Similar to the $t$-distribution, the $F$-distribution changes shape based on $df$
+
++ With an $F$-statistic, we have to consider both the $df_{model}$ and $df_{residual}$
+
++ In parentheses, $df_{model}$ is shown before $df_{residual}$
+
+:::
+
+::: {.column width="50%"}
+
+```{r, echo = F, warning = F, message = F, fig.height = 5}
+ggplot() + 
+  xlim(0, 6) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=2, df2=20), 
+                colour = '#BF1932',
+                linewidth = 1) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=5, df2=20),
+                colour = '#0F4C81',
+                linewidth = 1) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df=2, df2=100),
+                colour = '#88B04B',
+                linewidth = 1) +
+  labs(x='F', y = '') +
+  annotate(geom = 'text', label = 'F(2, 20)', colour = '#BF1932', x = 4, y = .75, size = 5) +
+  annotate(geom = 'text', label = 'F(5, 20)', colour = '#0F4C81', x = 4, y = .65, size = 5) +
+  annotate(geom = 'text', label = 'F(2, 100)', colour = '#88B04B', x = 4, y = .55, size = 5) +
+  theme(axis.title = element_text(size = 12, face = 'bold'))
+```
+
+:::
+
+::::
+
+## A Decision about the Null
+
++ We have an $F$-statistic (from our model output summary):
+  
+  + $F = 148.9$
+
+. . .
+
++ We consider $df_{model}$ and $df_{residual}$ to get our null distribution:
+  
+  + $df_{model}=k=2$
+  
+  + $df_{residual}=n-k-1=150-2-1=147$
+
+. . .
+
++ We need to set our $\alpha$ level
+  
+  + $\alpha = .05$
+
+. . .
+
++ Now we can compute our critical value for $F$
+
+
+## Visualise the Test
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo = F, fig.height=5}
+
+(p <- ggplot() + 
+  xlim(-2, 200) +
+  stat_function(fun=df,
+                geom = "line",
+                args = list(df1=2, df2 = 147),
+                linewidth = .5) +
+  labs(x='\n F', y = '', title = 'F-distribution (2, 147)') +
+  theme(axis.title=element_text(size = 14, face = 'bold'),
+        plot.title=element_text(size = 14, face = 'bold')))
+
+```
+
+:::
+
+::: {.column width="50%"}
+
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
+:::
+
+::::
+
+
+## Visualise the Test {visibility="uncounted"}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo = F, fig.height=5, message = F}
+
+(p <- p + stat_function(fun = df, 
+                geom = "area",
+                xlim = c(qf(0.95, 2, 147), 200),
+                alpha=.25,
+                fill = "blue",
+                args = list(df1=2, df2=147)) +
+  geom_vline(xintercept = qf(0.95, 2, 147), linewidth = .5, linetype='dashed'))
+
+```
+
+:::
+
+::: {.column width="50%"}
+
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value (using the `qf()` function)
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
+:::
+
+::::
+
+
+## Visualise the Test {visibility="uncounted"}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo = F, fig.height=5, message = F}
+
+(p <-  p + geom_vline(xintercept = 148.90, colour = '#BF1932'))
+
+```
+
+:::
+
+::: {.column width="50%"}
+
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value (using the `qf()` function)
+
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
++ We can calculate the probability of an $F$-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
+
+```{r}
+(pVal = 1-pf(148.9, 2, 147))
+```
+
+:::
+
+::::
+
+
+## Visualise the Test {visibility="uncounted"}
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, echo = F, fig.height=5, message = F}
+
+p
+
+```
+
+:::
+
+::: {.column width="50%"}
+
++ $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
++ Our critical value (using the `qf()` function)
+```{r}
+(Crit = round(qf(0.95, 2, 147), 3))
+```
+
++ We can calculate the probability of an $F$-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
+
+```{r}
+(pVal = 1-pf(148.9, 2, 147))
+```
+
++ Our model significantly predicted the variance in test score, $F(2,147)= 148.90, p < .001$
+
+:::
+
+::::
+
+# Part 2: Model Comparison & Incremental $F$-tests 
+
+## Model Comparisons {.smaller}
+
++ So far, our questions have been _is our overall model better than nothing?_ ( $F$-test ) or _which variables, specifically, are good predictors of the outcome variable?_ ( $t$-tests of $\beta$ estimates )
+
+. . .
+
++ But what if instead we wanted to ask:
+
+> **When I make a change to my model, does it improve or not?**
+
++ This question is the core of model comparison
+
+. . .
+
++ We can adapt this to our models in a more specific way: 
+
+  + E.g. is a model with $x_1$ and $x_2$ and $x_3$ as predictors better than the model with just $x_1$?
+
+. . .
+
++ So far: 
+  
+  + We have tested individual predictors
+  + and we have tested overall models
+  + **but we have not tested the improvement when we add predictors**
+  
++ We have not looked at the combined performance of a _subset_ of predictors
+
+
+## $F$-test as an Incremental Test
+
++ One important way we can think about the $F$-test and the $F$-ratio is as an incremental test against an "empty" or null model
+
++ A null or empty model is a linear model with only the intercept
+  + In this model, our predicted value of the outcome for every case in our data set, is the mean of the outcome ( $\bar{y}$)
+  + That is, with no predictors, we have no information that may help us predict the outcome
+  + So we will be "least wrong" by guessing the mean of the outcome
+
++ An empty model is the same as saying all $\beta$ = 0
+
+  + And remember, this was the null hypothesis of the $F$-test
+
+. . .
+
++ So in this way, the $F$-test can be seen as **comparing two models**
+
+. . .
+
++ We can extend this idea, and use the $F$-test to compare two models that contain fewer or more predictors
+  + This is the **incremental $F$-test**
+
+
+## Incremental $F$-test
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
++ The incremental $F$-test evaluates the statistical significance of the improvement in variance explained in an outcome with the addition of further predictor(s)
+
++ It is based on the difference in $F$-values between two models.
+  + We call the model with the additional predictor(s) the **full model**
+  + We call the model without additional predictors the **restricted model**
+
+:::
+
+::: {.column width="50%"}
+
+$$
+F_{(df_R-df_F),df_F} = \frac{(SSR_R-SSR_F)/(df_R-df_F)}{SSR_F / df_F}
+$$
+
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SSR_R = \text{residual sums of squares for the restricted model} \\
+& SSR_F = \text{residual sums of squares for the full model} \\
+& df_R = \text{residual degrees of freedom from the restricted model} \\
+& df_F = \text{residual degrees of freedom from the full model} \\
+\end{align}
+$$
+
+:::
+
+::::
+
+
+## Example of Model Comparison
+
++ Consider this example based on data from the Midlife in United States (MIDUS2) study:
+
+  + Outcome: self-rated health
+
+  + Covariates: Age, sex
+
+  + Predictors: Big Five traits and Purpose in Life
+
++ Research Question: Does personality predict self-rated health over and above age and sex?
+
+
+## The Data
+
+```{r, warning=FALSE, message=FALSE}
+midus <- read_csv("data/MIDUS2.csv")
+midus2 <- midus %>%
+  select(1:4, 31:42) %>%
+  mutate(
+    PIL = rowMeans(.[grep("PIL", names(.))],na.rm=T)
+  ) %>%
+  select(1:4, 12:17) %>%
+  drop_na(.)
+slice(midus2, 1:3)
+
+```
+
+
+## The Models
+
++ Does personality significantly predict self-rated health over and above the effects of age and sex?
+
++ First step here is to run two models.
+  + M1: We predict from age and sex
+  + M2: we add in the FFM (personality) traits
+
+```{r}
+m1 <- lm(health ~ age + sex, data = midus2)
+```
+
+```{r}
+m2 <- lm(health ~ age + sex + O + C + E + A + N, data = midus2)
+```
+
+
+## Model 1 Output (Age + Sex)
+
+```{r, echo = FALSE}
+summary(m1)
+```
+
+
+## Model 2 Output (Age + Sex + Personality)
+
+```{r, echo = FALSE}
+summary(m2)
+```
+
+
+## Incremental $F$-test in R
+
++ Second step
+
+  + Compare the two models based on an incremental $F$-test
+
++ In order to apply the $F$-test for model comparison in R, we use the `anova()` function.
+
++ `anova()` takes as its arguments models that we wish to compare
+
+  + Here we see an example with 2 models, but we could use more
+
+```{r, eval=FALSE}
+anova(m1, m2)
+```
+
+
+## Incremental $F$-test in R
+
+```{r}
+anova(m1, m2)
+```
+
+
+# Part 3: Non-Nested Models and Alternatives to $F$-tests
+
+
+## Nested vs non-nested models
++ The $F$-ratio depends on the comparison models being nested
+
+  + Nested means that the predictors in one model are a subset of the predictors in the other
+
++ We also require the models to be computed on the same data
+  + Be careful when data contains NA's
+  + The `lm` function excludes the whole row of data if any of $y$ or $x$'s specified in the model have missing values on that row
+  + If the additional variables you add to the full model have NA's, the data sets used by the models could end up different!
+
+. . .
+
+
+> **You can only do an $F$-test if the models are nested: the variables are nested and the data are identical**
+
+
+## Nested vs Non-Nested Models
+
+Assuming no `NA`'s in `data`:
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+**Nested**
+
+```{r, eval=FALSE}
+
+m0 <- lm(outcome ~ x1 + x2 , data = data)
+
+m1 <- lm(outcome ~ x1 + x2 + x3, data = data)
+
+```
+
++ These models are nested.
+
++ `x1` and `x2` appear in both models
+
+:::
+
+::: {.column width="50%"}
+
+**Non-Nested**
+
+```{r, eval=FALSE}
+
+m0 <- lm(outcome ~ x1 + x2 + x4, data = data)
+
+m1 <- lm(outcome ~ x1 + x2 + x3, data = data)
+
+```
+
++ These models are non-nested
+
++ There are unique variables in both models
+  + `x4` in `m0`
+  + `x3` in `m1`
+
+:::
+
+::::
+
+
+## Model Comparison for Non-Nested Models
+
++ So what happens when we have non-nested models?
+
++ There are two commonly used alternatives
+  + AIC
+  + BIC
+
++ Unlike the incremental $F$-test AIC and BIC do not require two models to be nested
+
++ Smaller (more negative) values indicate better fitting models
+  + So we compare values and choose the model with the smaller AIC or BIC value
+
+
+## AIC & BIC
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+$$
+AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k
+$$
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SS_{residual} = \text{sum of squares residuals} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+& \text{ln} = \text{natural log function} 
+\end{align}
+$$
+
+:::
+
+::: {.column width="50%"}
+
+$$
+BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)
+$$
+
+$$
+\begin{align}
+& \text{Where:} \\
+& SS_{residual} = \text{sum of squares residuals} \\
+& n = \text{sample size} \\
+& k = \text{number of explanatory variables} \\
+& \text{ln} = \text{natural log function} 
+\end{align}
+$$
+
+:::
+
+::::
+
+
+## Parsimony Corrections
+
++ Both AIC and BIC contain something called a parsimony correction
+
+  + In essence, they penalise models for being complex
+  
+  + This is to help us avoid overfitting (adding predictors arbitrarily to improve fit)
+  
+$$
+AIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + 2k
+$$
+
+$$
+BIC = n\,\text{ln}\left( \frac{SS_{residual}}{n} \right) + k\,\text{ln}(n)
+$$
+
++ BIC has a harsher parsimony penalty for typical sample sizes when applying linear models than AIC
+  + When $\text{ln}(n) > 2$ , BIC will have a more severe parsimony penalty (i.e. essentially all the time!)
+
+
+## In R
+
++ Let's use AIC and BIC on our `m1` and `m2` models from previously:
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r}
+AIC(m1, m2)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r}
+BIC(m1, m2)
+```
+
+:::
+
+::::
+
+
+## A Different Example
+
++ Our previous models were nested
+  + `m1` had just covariates
+  + `m2` added personality
+  
++ Using the same data, let's consider a non-nested example
+
++ Suppose we want to compare a model that:
+  + predicts self-rated health from just 5 personality variables (`nn1` : non-nested model 1)
+  + to a model that predicts from age, sex and a variable called Purpose in Life (PIL) (`nn2`).
+
+
+## Applied to Non-Nested Models
+
+```{r}
+nn1 <- lm(health ~ O + C + E + A + N, data=midus2)
+nn2 <- lm(health ~ age + sex + PIL, data = midus2)
+```
+
+```{r}
+AIC(nn1, nn2)
+```
+
+
+```{r}
+BIC(nn1, nn2)
+```
+
+
+## Considerations for use of AIC and BIC
+
++ AIC and BIC can be used for both nested and non-nested models
+
+. . .
+
++ The AIC and BIC for a single model are not meaningful
+  + They only make sense for model comparisons
+  + We evaluate these comparisons by looking at the difference, $\Delta$, between two values
+
+. . .
+
++ There are no specific thresholds for $\Delta AIC$ to suggest how big a difference in two models is needed to conclude that one is substantively better than the other
+
+. . .
+
++ The following $\Delta BIC$ cutoffs have been suggested (Raftery, 1995):
+  
+| Value             | Interpretation                                    |
+|-------------------|---------------------------------------------------|
+| $\Delta < 2$      | No evidence of difference between models          |
+| $2 < \Delta < 6$  | Positive evidence of difference between models    |
+| $6 < \Delta < 10$ | Strong evidence of difference between models      |
+| $\Delta > 10$     | Very strong evidence of difference between models |
+
+
+## Block 1 Summary
+
++ So far we have seen how to:
+  + run a linear model with a single predictor
+  + extend this and add predictors
+  + interpret these coefficients either in original units or standardised units
+  + test the significance of $\beta$ coefficients
+  + test the significance of the overall model
+  + estimate the amount of variance explained by our model
+  + evaluate improvements to model fit when variables are added
+  + select a better-fitting model between two nested or non-nested models
+
++ You can now run and interpret linear models with continuous predictors
+
+
+
+## This Week 
+
+<br>
+
+:::: {.columns}
+                                  
+::: {.column width="50%"}
+
+### Tasks
+
+```{r, out.width='10%'}
+#| echo: false
+
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+<br>
+
+```{r, out.width='10%'}
+#| echo: false
+
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+:::
+
+::: {.column width="50%"}
+
+### Support
+
+```{r, out.width='10%'}
+#| echo: false
+
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+<br>
+
+```{r, out.width='10%'}
+#| echo: false
+
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+:::
+
+::::
+
