@@ -76,19 +76,19 @@ course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 0)
 
 ::: {.fragment}
 ::: {.dapr2callout}
-x
+What is bootstrapping?
 :::
 :::
 
 ::: {.fragment}
 ::: {.dapr2callout}
-x
+How does bootstrapping work?
 :::
 :::
 
 ::: {.fragment}
 ::: {.dapr2callout}
-x
+When would we bootstrap a linear model's estimates?
 :::
 :::
 
@@ -100,7 +100,13 @@ x
 
 <br>
 
+:::{.hcenter}
+
 **Unclear.**
+
+:::
+
+<br>
 
 We'll revisit this question later once we've seen the method in action.
 
@@ -108,52 +114,131 @@ We'll revisit this question later once we've seen the method in action.
 # Background
 
 
-## Motivation: Why bootstrap?
-
+## What problem does bootstrapping solve?
 <!-- intuitions borrowed from nice SO post: https://stats.stackexchange.com/a/26093 -->
 
-- we want to know something about a population, but that's impossible, we only have a sample
-- so we ask a question of the sample and get a single answer
-- do we think this answer is representative of the population overall?
+<br>
 
-- one solution: take many samples from the population, ask question of them, and get a sense of the variability
-- but we only have this one sample
-- so our chosen solution: we'll treat our sample as if it is the population, and take many samples from *it* 
+The core challenge in statistics: 
 
-- this is an OK thing to do for a few reasons
-  - the sample contains the best possible information we can get about a population (basically anything we guessed would be worse)
-  - if samples are randomly chosen, they'll probably look quite a bit like the population
-  - so consequently, it's likely that our current sample looks like the population too
+**We want to know something about a population, but we can't possibly study the whole population.**
 
-- sampling w replacement is a way to treat our sample like it's a population, mathematically speaking
+**We can only draw a sample from it.**
 
 
-## What is bootstrapping good for?
-
-Lots of things, but our main use case will be dealing with situations when assumptions about errors not met.
+<br>
 
 
-How do linear models typically estimate the standard error and confidence intervals of model coefficients?
+We ask a question of the sample (e.g., what's the mean?).
+And we get a single answer (e.g., 10).
 
- - With maths. Formulae are a little bit familiar by now.
- - This maths is relatively simple because it makes simplifying assumptions about the data: namely, that the errors are normally distributed and have equal variance.
+**How do we know if this answer is representative of the population overall?**
 
-But what if they don't?
-Then those formulae will all be bad estimates of the actual variability in the population.
+<br>
 
-Enter: bootstrapping.
+Ideally, we would take many samples from the population, get their means, and compare them all.
+
+**But we are constrained to this one sample.**
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+:::{.dapr2callout}
+
+One strategy: **Use mathematical tools** like the standard error.
+
+But those tools only give valid information if the assumptions behind them are met (e.g., that errors are normally distributed).
+
+Otherwise, they give bad estimates of the actual variability in the population.
+
+:::
+
+:::
+::: {.column width="50%"}
+:::{.dapr2callout}
+
+Another strategy: **Treat the sample we've drawn as if it is a population,** and draw many new samples from *it*.
+
+This strategy doesn't rely on mathematical assumptions.
+
+This method is called **bootstrapping.**
+
+:::
+
+:::
+::::
+
+---
+
+## Bootstrapping: Resampling from a sample
+
+![](figs/TODO-boot-schematic.jpeg)
+
+## Why is bootstrapping an OK thing to do?
+
+<br>
+
+Our main sample contains the best possible information we can get about a population.
+(Basically anything that we guessed would be worse.)
+
+If our main sample was drawn at random, it will probably look quite a bit like the population.
+
+So, drawing bootstrap samples from our main sample and summarising them will probably create a sampling distribution that looks a lot like the one we *would* get *if* we could sample repeatedly from the whole population.
 
 
+## Generate bootstrapped samples by sampling with replacement
 
-## Concretely: How bootstrap?
+:::: {.columns}
+::: {.column width="50%"}
 
-- process of repeatedly sampling w replacement
-- computing summary statistic for ea sample
+If we could only sample each data point once:
 
+![](figs/TODO-boot-norep.jpeg)
+
+:::
+::: {.column width="50%"}
+
+If we could sample each data point repeatedly:
+
+![](figs/TODO-boot-wrep.jpeg)
+
+:::
+::::
+
+
+To create diverse samples that are as big as possible, we need to be able to sample each data point repeatedly.
+This is called "sampling with replacement".
 
 
 
 # Bootstrapping demo
+
+## Activity: Drawing bootstrap samples
+
+<br>
+
+**Population:** All numbers from 1 to 100.
+
+**Main sample (size 10):**
+
+:::{.hcenter}
+
+x x x x x
+
+:::
+
+<br>
+
+**Bootstrapped samples (size 10):** Over to you! &nbsp; {{< iconify fluent-emoji-high-contrast index-pointing-at-the-viewer size=1.5em >}}
+
+<br>
+
+:::{.hcenter}
+link to Qualtrics
+
+QR to Qualtrics
+:::
 
 
 ## What just happened?
@@ -162,32 +247,37 @@ Enter: bootstrapping.
 
 
 
-## We used bootstrapping to find the 95% CI of the mean
+## Estimating uncertainty using the sampling distribution
 
-- SE of mean = SD of bootstrap means
-- 95% CI = 2.5th percentile up to 97.5th percentile
+The sampling distribution = the collection of every summary statistic that was computed from each bootstrapped sample.
 
-But there's nothing special about the mean.
-We can use bootstrapping for any summary statistic.
 
-Including linear model parameters.
+
+
+- SE of mean = SD of sampling distrib
+- 95% CI = 2.5th percentile up to 97.5th percentile of sampling distrib
+
+
+## Any summary statistic can be bootstrapped
+
+There's nothing special about the mean.
+We can use bootstrapping for any measure that summarises data points.
+
+<br>
+
+Most useful to us: We can bootstrap parameters of a linear model.
 
 
 # Bootstrapping linear model parameters
 
-- show data/model where assumptions are violated (can ask for votes on which assumptions)
+## Which model assumptions are not met?
 
+<br>
 
+:::: {.columns}
+::: {.column width="60%"}
 
-## Manual bootstrapping 
-
-
-- repeatedly sample + fit model + save coef estims
-- show distribution
-
-
-```{r bootstrap 100 samples, include=F, message=F}
-# Create original sample
+```{r create orig sample, include=F, message=F}
 shapes <- .3
 set.seed(1)
 beta_errors <- rbeta(101, shape1 = shapes, shape2 = shapes) |> datawizard::standardize()
@@ -197,7 +287,118 @@ orig_data <- tibble(
   y = 2 + (-1.1 * x) + beta_errors * error_inc_terms,
 ) |>
   rowid_to_column()
+```
 
+```{r echo=F, fig.width=10}
+orig_data |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point(size = 5)
+```
+:::
+::: {.column width="40%"}
+
+<br>
+<br>
+<br>
+
+{{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} &nbsp;  **L**inearity?
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} &nbsp; **I**ndependent errors?
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} &nbsp; **N**ormally-distributed errors?
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} &nbsp; **E**qual variance of errors?
+:::
+::::
+
+
+## Check: Linearity
+
+<br>
+
+Use `geom_smooth()` to plot a straight line (`method = 'lm'`) and a curvy line (`method = 'loess'`).
+The curvy line should match the straight line.
+
+```{r fig.align = 'center', echo=F, fig.asp = .7, fig.width = 8}
+orig_data |>
+  ggplot(aes(x=x, y=y)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', colour = 'blue', se = FALSE, linewidth = 3) +
+  geom_smooth(method = 'loess', colour = 'red', se = FALSE, linewidth = 3)
+```
+
+Not great, but at least the red LOESS line wobbles *around* the blue LM line and not off toward one side or the other.
+
+
+
+## Check: Normally-distributed errors
+
+<br>
+
+With a Q-Q plot, compare the actual standardised residuals from the model (y axis) to the ones we'd expect, if errors were perfectly normally distributed (x axis).
+
+```{r include=F}
+m1 <- lm(y ~ x, data = orig_data)
+```
+
+```{r echo=F, fig.asp = .7, fig.width = 8, fig.align = 'center'}
+plot(m1, which = 2, cex.axis = 1.5, cex.lab=1.5)
+```
+
+Big divergences toward the extremes: there are more large residuals in our data than a normal distribution would have.
+
+
+## Check: Equal variance of errors
+
+<br>
+
+With a plot of residuals vs. fitted values, check whether the residuals (y axis) are similar across all of the fitted/predicted values (x axis).
+
+```{r echo=F, fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m1, which = 1, cex.axis = 1.5, cex.lab=1.5)
+```
+
+There's a definite cone-shape here (ideally we'd want a random-looking cloud), so residuals do not have equal variance.
+
+
+## The verdict: uh oh
+
+<br>
+
+Bootstrapping can't make a maybe-linear effect more linear.
+
+But it *can* help us sidestep the problems that arise from non-normal residuals and unequal variance of residuals.
+
+<!-- Remember: We can use the relatively simple mathematical formulae for things like standard error when the assumptions that make those formulae simple are met. -->
+
+**When residuals are not normal and when they have unequal variance, then the standard error that a linear model gives us is a bad estimate of the actual variability**.
+
+So instead: we estimate the variability using bootstrapping.
+
+
+# Bootstrapping, step by step
+
+---
+
+## A note
+
+<br><br><br>
+
+:::{.dapr2callout}
+
+**You will never need to do bootstrapping step by step, the way I'm illustrating it here.**
+
+I am showing you the steps to help you understand what's happening behind the scenes when you run the simple code you'll see later.
+
+:::
+
+```{r bootstrap 100 samples, include=F, message=F}
 boot_sample_size <- nrow(orig_data)
 n_resamples <- 100
 
@@ -219,8 +420,8 @@ plot_boot_sample <- function(boot_sample){
   # boot_sample: dataset, outcome of draw_boot_sample
   boot_sample |>
     ggplot(aes(x = x, y = y)) +
-    geom_point(alpha = 0.3) +
-    geom_smooth(method = 'lm', se = FALSE) +
+    geom_point(alpha = 0.3, size = 5) +
+    # geom_smooth(method = 'lm', se = FALSE) +
     xlim(-2, 2) +
     NULL
   
@@ -230,14 +431,6 @@ set.seed(1)
 boot_samples <- draw_boot_samples(orig_data, boot_sample_size, n_resamples)
 boot_plot_list <- lapply(boot_samples, plot_boot_sample)
 ```
-
-
-```{r plot boot samples, echo=F}
-wrap_plots(boot_plot_list[1:6])
-```
-
-
----
 
 
 ```{r boot lm coefs, echo=F}
@@ -255,6 +448,213 @@ boot_coefs_df <- boot_coefs |>
   rename(Intercept = `(Intercept)`)
 ```
 
+
+## Bootstrapping, step by step
+
+1. From the main sample, take a new sample with replacement, sampling the same number of data points as there were in the main sample. One sample bootstrapped.
+
+2. Fit the linear model to the bootstrapped sample. Save the intercept and slope estimates.
+
+3. Do 1 and 2 again and again. We'll get a sampling distribution of intercept estimates and a sampling distribution of slope estimates.
+
+
+:::: {.columns}
+::: {.column width="5%"}
+**(1)**
+:::
+::: {.column width="35%"}
+```{r echo=F, warning = F, message = F, fig.width = 5}
+boot_plot_list[[1]]  +
+  ylim(-3.5, 5.5)
+```
+:::
+::: {.column width="5%"}
+**(2)**
+:::
+::: {.column width="55%"}
+```{r echo=F}
+lm(y ~ x, data = boot_samples[[1]])
+```
+:::
+::::
+
+:::: {.columns}
+::: {.column width="5%"}
+**(3)**
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(1) |>
+  ggplot(aes(x = Intercept)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Intercept',
+    x = 'Bootstrapped sample intercepts',
+  ) +
+  xlim( 1.51, 2.71 ) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(1) |>
+  ggplot(aes(x = x)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Slope',
+    x = 'Bootstrapped sample slopes',
+  ) +
+  xlim(-1.29, -0.33) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::::
+
+
+
+## Bootstrapping, step by step (Sample 2)
+
+1. From the main sample, take a new sample with replacement, sampling the same number of data points as there were in the main sample. One sample bootstrapped.
+
+2. Fit the linear model to the bootstrapped sample. Save the intercept and slope estimates.
+
+3. Do 1 and 2 again and again. We'll get a sampling distribution of intercept estimates and a sampling distribution of slope estimates.
+
+
+:::: {.columns}
+::: {.column width="5%"}
+**(1)**
+:::
+::: {.column width="35%"}
+```{r echo=F, warning = F, message = F, fig.width = 5}
+boot_plot_list[[2]]  +
+  ylim(-3.5, 5.5)
+```
+:::
+::: {.column width="5%"}
+**(2)**
+:::
+::: {.column width="55%"}
+```{r echo=F}
+lm(y ~ x, data = boot_samples[[2]])
+```
+:::
+::::
+
+:::: {.columns}
+::: {.column width="5%"}
+**(3)**
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(2) |>
+  ggplot(aes(x = Intercept)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Intercept',
+    x = 'Bootstrapped sample intercepts',
+  ) +
+  xlim( 1.51, 2.71 ) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(2) |>
+  ggplot(aes(x = x)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Slope',
+    x = 'Bootstrapped sample slopes',
+  ) +
+  xlim(-1.29, -0.33) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::::
+
+
+## Bootstrapping, step by step (Sample 3)
+
+1. From the main sample, take a new sample with replacement, sampling the same number of data points as there were in the main sample. One sample bootstrapped.
+
+2. Fit the linear model to the bootstrapped sample. Save the intercept and slope estimates.
+
+3. Do 1 and 2 again and again. We'll get a sampling distribution of intercept estimates and a sampling distribution of slope estimates.
+
+
+:::: {.columns}
+::: {.column width="5%"}
+**(1)**
+:::
+::: {.column width="35%"}
+```{r echo=F, warning = F, message = F, fig.width = 5}
+boot_plot_list[[3]] +
+  ylim(-3.5, 5.5)
+```
+:::
+::: {.column width="5%"}
+**(2)**
+:::
+::: {.column width="55%"}
+```{r echo=F}
+lm(y ~ x, data = boot_samples[[3]])
+```
+:::
+::::
+
+:::: {.columns}
+::: {.column width="5%"}
+**(3)**
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(3) |>
+  ggplot(aes(x = Intercept)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Intercept',
+    x = 'Bootstrapped sample intercepts',
+  ) +
+  xlim( 1.51, 2.71 ) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::: {.column width="47%"}
+```{r echo=F, fig.width = 7, fig.asp = .6, fig.align='center'}
+boot_coefs_df |>
+  head(3) |>
+  ggplot(aes(x = x)) +
+  geom_histogram(bins = 30) +
+  labs(
+    subtitle = 'Slope',
+    x = 'Bootstrapped sample slopes',
+  ) +
+  xlim(-1.29, -0.33) +
+      theme(panel.grid.minor = element_blank()) +
+  scale_y_continuous(limits = c(0, 12), breaks = seq(0, 12, by = 2)) +
+  NULL
+```
+:::
+::::
+
+
+## Sampling distribution of the intercept
 
 ```{r make gifs, echo=F, eval=F, message=F, warning=F}
 plot_limits <- list(
@@ -283,19 +683,20 @@ gen_boot_plots <- function(all_boot_data, plot_limits, param_to_plot){
     p <- curr_data |>
       ggplot(aes_string(x = param_to_plot)) +
       geom_histogram(fill = 'darkgrey', bins = 30) +
-      geom_vline(xintercept = curr_mean, linewidth = 2, colour = 'black') +
+      geom_vline(xintercept = curr_mean, linewidth = 4, colour = 'black') +
       labs(
-        title = paste0(param_to_plot, '\nNumber of bootstrapped samples = ', i),
-        x = 'Mean of bootstrapped samples',
+        title = paste0(param_to_plot, '\nBootstrapped samples = ', i),
+        x = 'Value from bootstrapped sample',
         subtitle = paste0(
           'Mean of sampling dist. = ', round(curr_mean, 3), 
           '\nSD of sampling dist. = standard error = ', round(curr_sd, 3))
       ) +
+      theme(panel.grid.minor = element_blank()) +
       geom_vline(
-        xintercept = curr_mean + curr_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+        xintercept = curr_mean + curr_sd, linewidth = 2, colour = 'black', linetype = 'dotted'
       ) +
       geom_vline(
-        xintercept = curr_mean - curr_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+        xintercept = curr_mean - curr_sd, linewidth = 2, colour = 'black', linetype = 'dotted'
       ) +
       xlim(
         plot_limits[[param_to_plot]][1],
@@ -311,48 +712,230 @@ gen_boot_plots <- function(all_boot_data, plot_limits, param_to_plot){
 # Intercept GIF
 gifski::save_gif(
   gen_boot_plots(boot_coefs_df, plot_limits, 'Intercept'), 
-  'figs/boot-int.gif', 
-  width = 600, 
-  height = 720, 
+  'EP-lecs/figs/boot-int.gif', 
+  width = 1400, 
+  height = 1600, 
   res = 144, 
-  delay = 0.2
+  delay = 0.25
 )
 
 # Slope GIF
 gifski::save_gif(
   gen_boot_plots(boot_coefs_df, plot_limits, 'x'), 
-  'figs/boot-slp.gif', 
-  width = 600, 
-  height = 720, 
+  'EP-lecs/figs/boot-slp.gif', 
+  width = 1400, 
+  height = 1600,
   res = 144, 
-  delay = 0.2
+  delay = 0.25
 )
 ```
 
-<!-- TODO include gifs -->
 
 
-## Automatic bootstrapping
+:::: {.columns}
+::: {.column width="50%"}
+![](figs/boot-int.gif)
+:::
+::: {.column width="50%"}
+
+<br>
+<br>
+<br>
+
+$\leftarrow$ This sampling distribution consists of every Intercept value estimated by a linear model that was fit to a bootstrapped sample of data.
+
+<br>
+
+As we draw more bootstrapped samples, the mean Intercept (solid line) will come to match the original sample's Intercept.
+
+<br>
+
+The standard deviation of the sampling distribution (dotted lines) = the standard error of the Intercept.
+
+:::
+::::
+
+## Sampling distribution of the slope
+
+:::: {.columns}
+::: {.column width="50%"}
+![](figs/boot-slp.gif)
+:::
+::: {.column width="50%"}
+
+
+<br>
+<br>
+<br>
+
+$\leftarrow$ This sampling distribution consists of every slope value estimated by a linear model that was fit to a bootstrapped sample of data.
+
+<br>
+
+As we draw more bootstrapped samples, the mean slope (solid line) will come to match the original sample's slope.
+
+<br>
+
+The standard deviation of the sampling distribution (dotted lines) = the standard error of the slope.
+
+<br>
+
+**Bootstrapping is a different way of estimating a parameter's standard error.**
+
+
+:::
+::::
+
+# Bootstrapping a linear model in R
+
+
+## Bootstrapping a linear model in R
+
+<br>
+
+Fit a standard linear model to the main sample.
 
 ```{r}
-m_viol <- lm(y ~ x, data = orig_data)
-m_viol_boot <- car::Boot(m_viol, R = 1000)
-summary(m_viol_boot)
+mod <- lm(y ~ x, data = orig_data)
+```
+
+<br>
+
+Use `Boot()` from the package `car` to draw `R = 1000` bootstrapped samples.
+
+```{r}
+mod_boot <- car::Boot(mod, R = 1000)
+```
+
+<br>
+
+Now `summary()` will give us a standard error for each parameter = the standard deviation of each parameter's sampling distribution.
+
+
+```{r}
+summary(mod_boot)
 ```
 
 
 
+## Manually bootstrapping matches `Boot()`
 
-## Interpreting the results of a bootstrapped linear model
+```{r bootstrap 1000 samples, include=F, message=F}
+n_resamples <- 1000
+
+set.seed(1)
+boot_samples_1k <- draw_boot_samples(orig_data, boot_sample_size, n_resamples)
+boot_coefs_1k <- lapply(boot_samples_1k, fit_lm)
+boot_coefs_df_1k <- boot_coefs_1k |>
+  bind_rows(.id = 'boot_idx') |>
+  rename(Intercept = `(Intercept)`)
+
+```
+
+```{r echo=F}
+summary(mod_boot)
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r echo=F, fig.width = 7, fig.asp = 1.2, fig.align='center'}
+boot_int_mean <- mean(boot_coefs_df_1k$Intercept)
+boot_int_sd <- sd(boot_coefs_df_1k$Intercept)
+
+boot_coefs_df_1k |>
+  ggplot(aes(x = Intercept)) +
+  geom_histogram(fill = 'darkgrey', bins = 30) +
+  geom_vline(xintercept = boot_int_mean, linewidth = 2, colour = 'black') +
+  labs(
+    title = 'Intercept',
+    subtitle = paste0('1000 bootstrapped samples\nMean = ', round(boot_int_mean, 3), '\nSD = ', round(boot_int_sd, 3)),
+    x = 'Bootstrapped sample intercepts'
+  ) +
+  theme(panel.grid.minor = element_blank()) +
+  geom_vline(
+    xintercept = boot_int_mean + boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+  ) +
+  geom_vline(
+    xintercept = boot_int_mean - boot_int_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+  ) +
+  xlim( 1.41, 2.81 ) +
+  ylim(0, 130) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%"}
+```{r echo=F, fig.width = 7, fig.asp = 1.2, fig.align='center'}
+boot_slp_mean <- mean(boot_coefs_df_1k$x)
+boot_slp_sd <- sd(boot_coefs_df_1k$x)
+
+boot_coefs_df_1k |>
+  ggplot(aes(x = x)) +
+  geom_histogram(fill = 'darkgrey', bins = 30) +
+  geom_vline(xintercept = boot_slp_mean, linewidth = 2, colour = 'black') +
+  labs(
+    title = 'Slope',
+    subtitle = paste0('1000 bootstrapped samples\nMean = ', round(boot_slp_mean, 3), '\nSD = ', round(boot_slp_sd, 3)),
+    x = 'Bootstrapped sample slopes'
+  ) +
+  theme(panel.grid.minor = element_blank()) +
+  geom_vline(
+    xintercept = boot_slp_mean + boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+  ) +
+  geom_vline(
+    xintercept = boot_slp_mean - boot_slp_sd, linewidth = 1, colour = 'black', linetype = 'dotted'
+  ) +
+  xlim(-1.49, -0.13) +
+  ylim(0, 130) +
+  NULL
+```
+
+:::
+::::
+
+
+## Getting our 95% confidence intervals
+
+<br>
+
+```{r}
+confint(mod_boot, type = 'perc')
+```
+
+<br>
+
+**Hypothesis tests:**
+
+Because these 95% confidence intervals don't include 0,
+
+- we can reject the H0 that the Intercept = 0 at $\alpha$ = 0.05.
+- we can reject the H0 that the slope = 0 at $\alpha$ = 0.05.
 
 
 
+## Reporting results of a bootstrapped linear model
 
+<br>
 
+Report parameter estimates the same way as usual, but make sure to include something like
 
+<br>
 
+> Because the assumptions of normality of errors and equal variance of errors were not met, all the standard errors and 95% CIs we report here were estimated from 1000 bootstrapped samples, using the `Boot()` function from the `car` package (Fox & Weisberg, 2019).
 
+<br>
 
+The citation:
+
+- Fox, J., & Weisberg, S. (2019). *An R companion to applied regression* (3rd edn). Sage. <https://www.john-fox.ca/Companion/>
+
+^ These are the people who developed the `car` (**C**ompanion to **A**pplied **R**egression) package.
+
+# What do bootstraps have to do with stats?
 
 
 ## What do bootstraps have to do with stats?
@@ -371,21 +954,10 @@ The internet's best guess: it has to do with the saying **"pull yourself up by y
 
 - Previously, this saying meant "a pointless/useless act".
 - These days, people use it to mean that 
-  - you're a self-starter, 
   - you're independent, 
+  - you're a self-starter, 
   - you're standing on your own two feet.
-- We think that "bootstrapping" is used in that sense: **you can get estimates of uncertainty from just a single sample, so in a way, your estimate is "pulling itself up by its bootstraps".**
-
-
-
-
-
-
-
-
-
-
-
+- We think that "bootstrapping" is used in that sense: **you can get estimates of uncertainty from just a single sample, so in a way, your sample is "pulling itself up by its bootstraps".**
 
 
 
@@ -510,8 +1082,42 @@ knitr::include_graphics('figs/oh.png')
 ::::
 
 
+# Appendix {.appendix} 
+
+## 95% CIs from the sampling distribution's quantiles
+
+```{r}
+confint(mod_boot, type = 'perc')
+```
+
+
+The CIs from `Boot()` are close to the 2.5th and 97.5th quantiles of our manually created sampling distribution:
+
+```{r}
+quantile(
+  boot_coefs_df_1k$Intercept,
+  probs = c(0.025, 0.975)
+)
+
+quantile(
+  boot_coefs_df_1k$x,
+  probs = c(0.025, 0.975)
+)
+```
 
 
 
 
 
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- style="font-size: 125%;" -->
+
+<!-- {{< iconify codicon thumbsup-filled size=1em >}} {{< iconify codicon thumbsdown-filled size=1em >}} -->

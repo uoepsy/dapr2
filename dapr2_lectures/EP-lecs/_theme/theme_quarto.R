@@ -52,7 +52,7 @@ options(digits=3,scipen=3)
 knitr::opts_chunk$set(
   fig.asp=.8,
   #tidy=TRUE,
-  tidy.opts=list(width.cutoff=70, arrow=TRUE, indent=2, args.newline=TRUE)
+  tidy.opts=list(width.cutoff=70, arrow=TRUE, indent=2, args.newline=TRUE, fig.align='center')
 )
 knitr::knit_hooks$set(crop = knitr::hook_pdfcrop)
 color_base <- "#BF1932"

@@ -1,0 +1,2640 @@
+---
+title: "Assumptions and diagnostics"
+author: "Elizabeth Pankratz (elizabeth.pankratz@ed.ac.uk)"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(patchwork)
+source('_theme/theme_quarto.R')
+
+theme_set(theme_quarto(title_font_size=42))
+theme_update(
+  text = element_text(family = 'Source Sans 3'),
+  axis.title.y = element_text(angle=0, 
+                              vjust=0.5, 
+                              hjust = 0,
+                              margin = margin(t = 0, r = 10, b = 0, l = 0)
+  ),
+  
+)
+
+dapr2red <- "#BF1932" 
+```
+
+
+# Course Overview
+
+<br>
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE, eval=F}
+block1_name = "Introduction to Linear Models"
+block1_lecs = c("Intro to Linear Regression",
+                "Interpreting Linear Models",
+                "Testing Individual Predictors",
+                "Model Testing & Comparison",
+                "Linear Model Analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical Predictors & Dummy Coding",
+                "	Effects Coding & Coding Specific Contrasts",
+                "Assumptions & Diagnostics",
+                "Bootstrapping",
+                "	Categorical Predictor Analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 8)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE, eval=F}
+block3_name = "Interactions"
+block3_lecs = c("Interactions I",
+                "Interactions II",
+                "Interactions III",
+                "Analysing Experiments",
+                "Interaction Analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power Analysis",
+                "Binary Logistic Regression I",
+                "Binary Logistic Regression II",
+                "Logistic Regression Analysis",
+                "	Exam Prep and Course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 0)
+```
+
+:::
+
+::::
+
+## This week's learning objectives
+
+<br>
+
+::: {style="font-size: 125%;"}
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+What does a linear model assume is true about the data that it models? (Four assumptions)
+:::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+What three properties of a single data point might affect a linear model's estimates? How can we diagnose each property?
+:::
+<!-- ::: -->
+
+<!-- ::: {.fragment} -->
+::: {.dapr2callout}
+What relationship between predictors do we want to avoid? How can we diagnose it?
+:::
+<!-- ::: -->
+
+:::
+
+
+# Assumptions
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td style="visibility: hidden;"><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td style="visibility: hidden;"></td>
+    <td style="visibility: hidden;"></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+ <!-- visibility: hidden; in style tag-->
+
+## **L**: Association between predictor and outcome is linear
+
+<br>
+
+```{r fig nonlin, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(221020)
+quadr <- function(x, a, b, c){ a + b*x + c*x^2  }
+
+x <- seq(-2, 2, length.out = 101)
+
+df_nonlin <- tibble(
+  y = abs(quadr(x + 0.5, 1, 0, 1) + rnorm(101, 0, 1)),
+  x1 = abs(1 + (3 * y) + rnorm(101, 0, 1)),
+  x2 = x
+)
+# pairs(df_nonlin)
+
+p_good <- df_nonlin %>%
+  ggplot(aes(x=x1, y=y)) +
+  geom_point(size = 3) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth=2) +
+  labs(
+    subtitle = 'Linear (straight line)'
+  ) +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  NULL
+
+p_quad <- df_nonlin |>
+  ggplot(aes(x=x2, y=y)) +
+  geom_point(size = 3) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth=2) +
+  labs(
+    y = element_blank(),
+    subtitle = 'Non-linear'
+  ) +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) +
+  NULL
+
+p_good + p_quad
+```
+
+
+## To check linearity of one predictor
+
+Make a scatterplot with a straight line and a "LOESS" line (**LO**cally **E**stimated **S**catterplot **S**moothing).
+
+:::: {.columns}
+::: {.column width="50%" style="font-size: 85%;" }
+
+**The linear variable:**
+
+```{r fig.asp = .8, fig.width = 10, fig.align = 'center', warning=F, message=F}
+df_nonlin |>
+  ggplot(aes(x=x1, y=y)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm',
+              colour = 'blue', se = FALSE, linewidth = 3) +
+  geom_smooth(method = 'loess',
+              colour = 'red', se = FALSE, linewidth = 3)
+```
+
+
+:::
+::: {.column width="50%" style="font-size: 85%;"}
+
+**The non-linear variable:**
+
+```{r fig.asp = .8, fig.width = 10, fig.align='center', warning=F, message=F}
+df_nonlin |>
+  ggplot(aes(x=x2, y=y)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm',
+              colour = 'blue', se = FALSE, linewidth = 3) +
+  geom_smooth(method = 'loess',
+              colour = 'red', se = FALSE, linewidth = 3)
+```
+
+:::
+::::
+
+You want the LOESS line (`method = 'loess'`, red) to stick close to the straight line (`method = 'lm'`, blue).
+Deviations suggest non-linearity.
+
+
+## To check linearity of multiple predictors
+
+<br> 
+
+With multiple predictors, we need to get slightly more complex.
+
+Now we to hold the other predictors constant while we look at each one in turn.
+
+**The solution: Component+residual plots** (aka "partial-residual plots").
+
+- **Component:** The association between one particular predictor and the outcome, with all the other predictors held constant. In other words, each predictor's contribution to the overall linear model.
+
+- **Residual:** The differences between the line the model predicts and the actual observed data points.
+
+Basically, we can look at the linearity of each predictor without any of the other predictors getting in the way.
+
+
+
+## To check linearity of multiple predictors
+
+A component-residual plot shows:
+
+- **x axis:** a predictor across its full range
+- **y axis:** that predictor's component + each data point's residual
+
+```{r fig.asp = .5, fig.align = 'center'}
+m1 <- lm(y ~ x1 + x2, data = df_nonlin)
+car::crPlots(m1)
+```
+
+Again, we want the LOESS line to match the straight line as closely as possible.
+Deviations suggest non-linearity.
+
+**How much of a deviation is a problem?** This is kind of a judgement call. 
+
+
+## What to do if a predictor is not linear
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Keep the variable as-is and report the non-linearity in your write-up. A good solution if the deviation isn't huge.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Transform the variable until it looks more linear (e.g., what if you take the exponential with `exp()`? the logarithm with `log()`?)
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Beyond DAPR3: You can use so-called "higher-order" regression terms, which let you model particular kinds of curves (quadratic functions, cubic functions, etc.).
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Beyond DAPR3: You can capture basically any non-linear relationship using "generalised additive models" (GAMs).
+:::
+::::
+
+
+
+
+
+
+
+
+
+
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle">
+    <p><b>Linearity:</b> The association between predictor and outcome is a straight line.</p>
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td style="visibility: hidden;"><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td style="visibility: hidden;"></td>
+    <td style="visibility: hidden;"></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+
+## **I**: Independence of errors
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- :::{.hcenter} -->
+<!-- {{< iconify arcticons rpg-dice size=5em >}} -->
+<!-- ::: -->
+
+<!-- <br> -->
+
+<!-- **If you roll a 20-sided die at 9 am everyday,** you'll generate a lot of values between 1 and 20. -->
+
+<!-- These values are totally unrelated to each other from one day to the next. -->
+
+<!-- What you roll today is not correlated at all with the number you rolled yesterday. -->
+
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- :::{.hcenter} -->
+<!-- {{< iconify ph thermometer-thin size=5em >}} -->
+<!-- ::: -->
+
+<!-- <br> -->
+
+<!-- **If you take the temperature in Edinburgh at 9 am everyday,** you'll also generate values between 1 and 20 (ish). -->
+
+<!-- These values *are* related to each other from one day to the next. -->
+
+<!-- A colder temperature yesterday is more likely to go with a colder temperature today. -->
+
+<!-- This is an example of **autocorrelation**. -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- ## To check for autocorrelation -->
+
+<!-- ```{r include=F} -->
+<!-- # simulate dice-rolling data -->
+<!-- set.seed(2023) -->
+<!-- acf_lo <- sample(1:20, size = 30, replace = TRUE) -->
+
+<!-- # simulate autocorrelated data -->
+<!-- # source: https://stackoverflow.com/a/77090029  -->
+<!-- acf.negbin <- function(N, mu, size, alpha, max.iter = 100, tol = 1e-5) { -->
+<!--   m = length(alpha) -->
+<!--   generate = function(){ -->
+<!--    x = sort(rnbinom(N,size=size,mu=mu)) -->
+<!--    y <- rnorm(length(x)) -->
+<!--    x[rank(stats::filter(y, alpha, circular = TRUE))] -->
+<!--   } -->
+<!--   a = generate() -->
+<!--   iter <- 0L -->
+<!--   ACF <- function(x) acf(x, lag.max = m - 1, plot = FALSE)$acf[1:m] -->
+<!--   SSE <- function(x,alpha) sum((ACF(x) - alpha)^2) -->
+<!--   while ((SSE0 <- SSE(a, alpha)) > tol) { -->
+<!--     if ((iter <- iter + 1L) == max.iter) break -->
+<!--     a1 <- generate() -->
+<!--     if(SSE(a1,alpha) < SSE0) a <- a1 -->
+<!--   } -->
+<!--   return(a) -->
+<!-- } -->
+
+<!-- set.seed(2023) -->
+<!-- acf_hi <- acf.negbin( -->
+<!--   30,           # how many obs to simulate -->
+<!--   mu = 10,      # mean of simulated data -->
+<!--   size = 5,     # dispersion parameter.  -->
+<!--                 # the bigger, the tighter the data will cluster around the mean. -->
+<!--   alpha=c(0.9, 0.8, 0.8, 0.8)  # target correl of points with lag = 1, 2, n -->
+<!--   ) -->
+
+<!-- autocorr_data <- tibble( -->
+<!--   day = 1:30, -->
+<!--   d20 = acf_lo, -->
+<!--   temp = acf_hi-3 -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- :::{.hcenter} -->
+<!-- {{< iconify arcticons rpg-dice size=5em >}} -->
+<!-- ::: -->
+
+
+<!-- ```{r echo=F} -->
+<!-- autocorr_data |> -->
+<!--   ggplot(aes(x = day, y = d20)) + -->
+<!--   geom_point(size = 5) + -->
+<!--   geom_line(linewidth = 2) + -->
+<!--   ylim(1, 20) -->
+<!-- ``` -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- :::{.hcenter} -->
+<!-- {{< iconify ph thermometer-thin size=5em >}} -->
+<!-- ::: -->
+
+<!-- ```{r echo=F} -->
+<!-- autocorr_data |> -->
+<!--   ggplot(aes(x = day, y = temp)) + -->
+<!--   geom_point(size = 5) + -->
+<!--   geom_line(linewidth = 2) + -->
+<!--   ylim(1, 20) -->
+<!-- ``` -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- ## To check for autocorrelation -->
+
+<!-- The **autocorrelation function** (ACF) quantifies how much each data point is correlated with each data point that came before it. -->
+
+<!-- **Lag**: How many data points are we looking back by? -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r fig.width=8, fig.asp = .7} -->
+<!-- acf(autocorr_data$d20,  -->
+<!--     cex.axis=1.7, cex.lab=1.6, cex.main = 3) -->
+<!-- ``` -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r fig.width=8, fig.asp = .7} -->
+<!-- acf(autocorr_data$temp,  -->
+<!--     cex.axis=1.7, cex.lab=1.6, cex.main = 3) -->
+<!-- ``` -->
+<!-- ::: -->
+<!-- :::: -->
+
+
+<!-- This was an illustration using autocorrelated **data points**. -->
+
+<!-- Strictly speaking, the linear model assumes that it's the **errors**, not the data points, that are independent—but where data points are autocorrelated, then often the errors are too. -->
+
+
+The most common source of non-independence is when multiple observations are gathered from the same source.
+
+<br>
+
+For example:
+
+- many test scores gathered from the same schools,
+- many reaction times gathered from the same participants,
+- and so on.
+
+<br>
+
+That said: 
+
+**Until DAPR3,** you can assume that errors are independent **as long as the experimental design is between-subjects** (i.e., as long as each person only contributes data to one experimental condition).
+
+
+## What to do if errors are non-independent
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Keep the variable as-is and report the non-independence in your write-up.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+In DAPR3, you'll learn how to tell a model that some data points probably behave more like one another than they behave like others by including so-called "random effects".
+:::
+::::
+
+
+
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+
+## **N**: Normally-distributed errors
+
+<br>
+
+```{r fig beta, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+# draw errors from a beta distribution, so they're all skewed
+set.seed(1)
+beta_errors <- rbeta(101, shape1 = 1, shape2 = 50) |> 
+  scale(scale = FALSE, center = TRUE) * 50
+
+df_nonnorm <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_norm = abs(4 + (2 * x) + rnorm(101, 0, 1)), 
+  y_nonnorm = abs(4 + (2 * x) + beta_errors),
+)
+
+p_good <- df_nonnorm |>
+  ggplot(aes(x=x, y=y_norm)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'Normal errors'
+    ) +
+  NULL
+
+p_beta <- df_nonnorm |>
+  ggplot(aes(x=x, y=y_nonnorm)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'Non-Normal errors'
+    ) +
+  NULL
+
+p_good + p_beta
+```
+
+
+
+## To check normality of errors
+
+<br>
+
+To find the residuals—the differences between the fitted line and each data point—we need a fitted line.
+
+So first, fit a model.
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+m_norm <- lm(
+  y_norm ~ x, 
+  data = df_nonnorm
+)
+```
+
+:::
+::: {.column width="50%"}
+```{r}
+m_nonnorm <- lm(
+  y_nonnorm ~ x, 
+  data = df_nonnorm
+)
+```
+:::
+::::
+
+<br>
+
+Now we have a couple of options:
+
+1. **A histogram of residuals**
+2. **A Q-Q plot**
+
+
+## 1. To check normality of errors: Histogram
+
+<br>
+
+With a histogram of the residuals, we can eyeball how normally-distributed they appear.
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Normally-distributed errors:**
+
+```{r}
+tibble(residuals = m_norm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram()
+```
+
+Matches the bell curve shape pretty well.
+:::
+::: {.column width="50%"}
+
+**Non-normally-distributed errors:**
+
+```{r}
+tibble(residuals = m_nonnorm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram()
+```
+
+Very right-skewed! This is not a normal distribution.
+:::
+::::
+
+
+
+## 2. To check normality of errors: Q-Q plots
+
+<br>
+
+We can compare the model's residuals to what the residuals WOULD look like in a world where they were perfectly normally-distributed.
+
+This is what a "quantile-quantile plot", a Q-Q plot, does.
+**The dots should follow the diagonal line.**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Normally-distributed errors:**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_norm, which = 2,
+     cex.axis = 1.5, cex.main = 20, cex.lab=1.5)
+```
+
+Top right: a few abnormally large residuals.
+
+
+:::
+::: {.column width="50%"}
+
+**Non-normally-distributed errors:**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_nonnorm, which = 2,
+     cex.axis = 1.5, cex.main = 20, cex.lab=1.5)
+```
+
+Bottom left and top right diverge a *lot* from the target diagonal.
+
+:::
+::::
+
+A perfect match to the diagonal is rare.
+Ask: **How big is the mismatch?**
+
+
+
+## What to do if errors are not normal
+
+:::: {.columns}
+::: {.column width="40%"}
+[x thru "keep calm and carry on"]
+:::
+::: {.column width="60%"}
+If errors aren't normally distributed, then a model which assumes they *are* will produce weird and biased estimates:
+
+```{r echo=F, fig.align = 'center'}
+mean_beta <- mean(m_nonnorm$residuals)
+sd_beta <- sd(m_nonnorm$residuals)
+
+tibble(residuals = m_nonnorm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram(fill = 'grey') +
+  geom_function(
+    fun = function(x) dnorm(x, mean = 0, sd = .95) * 35,
+    linewidth = 2
+  ) +
+  xlim(-4.5, 4.5)
+```
+
+Next week: we'll learn how to get around this problem using a method called **bootstrapping**.
+
+:::
+::::
+
+
+
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle; visibility: hidden;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td style="visibility: hidden;"><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td style="visibility: hidden;"><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+
+## **E**: Equal variance of errors
+
+
+<br>
+
+```{r fig unequal, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(1)
+inc_errors <- rnorm(101, mean = 0, sd = seq(0.1, 4, length.out = 101))
+
+df_unequal <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_equal = abs(4 + (2 * x) + rnorm(101, 0, 1)), 
+  y_unequal = abs(4 + (2 * x) + inc_errors),
+)
+
+p_good <- df_unequal |>
+  ggplot(aes(x=x, y=y_equal)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'Errors have\nequal variance'
+    ) +
+  NULL
+
+p_unequal <- df_unequal |>
+  ggplot(aes(x=x, y=y_unequal)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'Errors have\nunequal variance'
+    ) +
+  NULL
+
+p_good + p_unequal
+```
+
+- Equal variance of errors is also called **"homoscedasticity"** (homo = same).
+- Unequal variance of errors is also called **"heteroscedasticity"** (hetero = different).
+
+When variance if errors is not equal, the model is not good at predicting the outcome for all values of the predictor.
+
+
+## To check equal variance of errors
+
+<br>
+
+Again, to find the residuals—the differences between the fitted line and each data point—we need a fitted line.
+
+So first, fit a model.
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+m_equal <- lm(
+  y_equal ~ x, 
+  data = df_unequal
+)
+```
+
+:::
+::: {.column width="50%"}
+```{r}
+m_unequal <- lm(
+  y_unequal ~ x, 
+  data = df_unequal
+)
+```
+:::
+::::
+
+<br>
+
+**Investigate by plotting the residuals against the predicted outcome values** (also called the "fitted" values).
+
+
+## To check equal variance of errors
+
+A plot of residuals vs. predicted values shows:
+
+- **x axis:** the predicted outcome values (aka the "fitted values" across their whole range).
+- **y axis:** the residuals of each data point.
+
+:::: {.columns}
+::: {.column width="50%"}
+**Errors with equal variance**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_equal, which = 1,
+     cex.axis = 1.5, cex.lab=1.5)
+```
+
+:::
+::: {.column width="50%"}
+**Errors with unequal variance**
+
+```{r fig.asp=.7, fig.width=7, fig.align = 'center'}
+plot(m_unequal, which = 1,
+     cex.axis = 1.5, cex.lab=1.5)
+```
+:::
+::::
+
+**What we want to see:**
+
+1. A solid line which matches the horizontal dotted line **AND**
+2. A random-looking cloud of data points
+
+
+
+## What to do if errors don't have equal variance
+
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Keep the variable as-is and report the non-equal variance in your write-up.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Include additional predictors or interaction terms (more on interactions next semester).
+These *may* help account for some of that extra variance.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Use **weighted least squares regression** (WLS) instead of ordinary least squares (OLS).
+More details in this week's flash cards.
+:::
+::::
+
+
+## What a linear model assumes about the data
+
+```{=html}
+<table>
+  <tr>
+    <td></td>
+    <td><b>Assumption</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>L</b></td>
+    <td style="vertical-align: middle;"><b>Linearity:</b> The association between predictor and outcome is a straight line.</td>
+    <td><img src="figs/TODO-perfect.png" width="350px"/></td>
+    <td><img src="figs/TODO-nonlin.png" width="350px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>I</b></td>
+    <td><b>Independence:</b> Every data point's error is independent of every other data point's error. (Until DAPR3, we'll assume this is true as long as we have between-participant data.)</td>
+    <td></td>
+    <td></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>N</b></td>
+    <td style="vertical-align: middle;"><b>Normally-distributed errors:</b> The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.</td>
+    <td><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td><img src="figs/TODO-nonnorm-error.png" width="150px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle;"><b>E</b></td>
+    <td style="vertical-align: middle;"><b>Equal variance of errors:</b> The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.</td>
+    <td><img src="figs/TODO-perfect.png" width="150px"/></td>
+    <td><img src="figs/TODO-unequal-error.png" width="150px"/></td>
+  </tr>
+</table>
+```
+
+<br>
+
+Checking assumptions is not an absolute science.
+It relies on intuitions and vibes (sorry!!)
+
+**$\rightarrow$ Look at the plots, motivate your reasoning, and you'll be fine.**
+
+
+<!-- ================================================== -->
+
+# Diagnostics
+
+# Diagnostics to run on the data
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):
+
+1. Outlyingness
+2. High leverage
+3. High influence
+
+:::
+::: {.column width="50%"}
+
+Diagnosing undesirable relationships <br> between predictors:
+
+1. Multicollinearity
+
+
+:::
+::::
+
+
+## Diagnosing unusual data points
+
+```{=html}
+<table>
+  <tr>
+    <td><b>Unusual property of a data point</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle">
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-outlier.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-levg.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-infl.png" width="200px"/></td>
+  </tr>
+</table>
+```
+
+
+## 1. Outlyingness
+
+An **outlier** is a data point whose value for the outcome variable is unusually extreme.
+
+The outcome is usually plotted on the y axis, so outliers are usually **weird in the vertical direction (↕).**
+
+
+<br>
+
+```{r fig outl, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.width = 12}
+set.seed(221020)
+df_outl <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_outl = y_good
+)
+df_outl[95, 'y_outl'] <- 1.236227
+
+
+p_good <- df_outl |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No outliers'
+    ) +
+  NULL
+
+p_outl <- df_outl |>
+  ggplot(aes(x=x, y=y_outl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One outlier'
+    ) +
+  ## OUTL VLINE:
+  # geom_segment(x = 1.76, xend = 1.76, y = 1.236277, yend = 7.35, colour = dapr2red, linewidth = 1.5) +
+  NULL
+
+p_good + p_outl
+```
+
+"Unusually extreme" **for the model,** not necessarily for the overall distribution of data!
+
+
+
+
+## Goal: Find unusually big residuals
+
+:::{.dapr2callout}
+
+**Residuals** extracted from the linear model are on the scale of the outcome.
+For example:
+
+- **Model A** measures height in cm, so residuals are in cm.
+- **Model B** measures log reaction time, so residuals are in log units.
+
+The scales of these residuals will be totally different.
+How could we set a single threshold to detect outliers? (rhetorical)
+:::
+
+:::{.hcenter}
+$\downarrow$
+:::
+
+:::{.dapr2callout}
+
+**Standardised residuals** convert residuals from their original scale into **z-scores**.
+
+Now the residuals of Models A and B are on the same scale.
+
+But to get **z-scores**, we compare each data point to the mean and SD of all data points.
+
+The mean and SD will *contain* our potential outliers, so we're kind of comparing a data point to itself.
+:::
+
+:::{.hcenter}
+$\downarrow$
+:::
+
+:::{.dapr2callout}
+
+**Studentised residuals** are a version of standardised residuals that exclude the specific data point we're looking at.
+
+:::
+
+
+## To check outlyingness: Studentised residuals
+
+You might recognise "Student" from "Student's t-test".
+
+Studentised residuals are a kind of residual that follows a t-distribution.
+
+<br>
+
+```{r echo=F, fig.width=12, fig.align='center', fig.asp = .5}
+tx <- seq(-4, 4, length.out = 500)
+p_t <- tibble(
+  x = tx,
+  t_dens = dt(tx, 98)  # 98 df because studentised resids follow dist w (n-k-2) df
+) |>
+  ggplot(aes(x = x, y = t_dens)) +
+  geom_line() +
+  # shade lower extreme
+  geom_ribbon(
+    aes(
+      x = ifelse(x <= -2, x, NA), 
+      ymin = 0,  ymax = t_dens), 
+    alpha = 0.3, fill = dapr2red) +
+  # shade upper extreme
+  geom_ribbon(
+    aes(
+      x = ifelse(x >= 2, x, NA), 
+      ymin = 0,  ymax = t_dens), 
+    alpha = 0.3, fill = dapr2red) +
+  labs(
+    y = 'Prob.\ndensity',
+  ) +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_x_continuous(breaks = seq(-6, 6, by=2)) +
+  NULL
+p_t
+```
+
+If you see data points with studentised residuals **less than –2 or more than 2**:
+
+- you *might* have an outlier.
+- but also, 5% of the time, we would actually *expect* to have values outside of this range.
+
+A value less than –2 or more than 2 is a **necessary but not sufficient condition.**
+
+**$\rightarrow$ The more extreme the studentised residual, the more likely it is that the data point is an outlier.**
+
+
+
+## Studentised residuals in R
+
+Once we've fit a model, we can use the `rstudent()` function to get all the studentised residuals.
+
+```{r}
+m_outl <- lm(y_outl ~ x, data = df_outl)
+rstudent(m_outl) |> head()
+```
+
+<br>
+
+To plot the studentised residuals:
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.asp = .6}
+df_outl$stud_resid <- rstudent(m_outl)
+
+p_stud_resid <- df_outl |>
+  ggplot(aes(x = x, y = stud_resid)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  NULL
+p_stud_resid
+```
+:::
+::: {.column width="40%"}
+```{r eval=F}
+df_outl$stud_resid <- rstudent(m_outl)
+
+df_outl |>
+  ggplot(aes(x = x, y = stud_resid)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5)
+```
+
+<br>
+<br>
+
+$\leftarrow$ There's our outlier!
+:::
+::::
+
+
+
+
+## Studentised residuals in R
+
+<br>
+
+To filter these residuals for the ones more extreme than $\pm$ 2:
+
+```{r}
+df_outl |>
+  select(x, y_outl, stud_resid) |>
+  filter(stud_resid > 2 | stud_resid < -2)
+```
+
+<br>
+
+We expected one outlier.
+
+But it looks like we have four...?
+
+
+## Studentised residuals can give us "false alarms"
+
+:::: {.columns}
+::: {.column width="50%" #good}
+Studentised residuals for the data without outliers:
+
+```{r fig.align='center', fig.width=8, echo=F}
+m_good <- lm(y_good ~ x, data = df_outl)
+df_outl$stud_resid_good <- rstudent(m_good)
+
+df_outl |>
+  ggplot(aes(x = x, y = stud_resid_good)) +
+  geom_hline(yintercept =  2, colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = -2, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'Stud.\nresid.') +
+  ylim(-8, 8) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+Studentised residuals for the data with one outlier:
+
+```{r fig.align='center', fig.width=8, echo=F}
+p_stud_resid +
+  labs(y = 'Stud.\nresid.') +
+  ylim(-8, 8) +
+  NULL
+```
+
+
+
+:::
+::::
+
+
+A value more extreme than $\pm$ 2 **does not necessarily mean** the data point is an outlier.
+
+We would expect extreme values 5% of the time.
+
+**$\rightarrow$ The more extreme the studentised residual, the more likely it is that the data point is an outlier.**
+
+
+## What to do if we have an outlier
+
+<br>
+
+We'll talk in detail about how to deal with unusual data points after we've looked at all three kinds.
+
+<br>
+
+**Preview:** 
+
+- Mention the unusual data points in the written analysis report.
+- Check if these data points affect the model's estimates by running a sensitivity analysis.
+
+<br>
+
+More on that in a bit!
+
+
+## Diagnosing unusual data points
+
+```{=html}
+<table>
+  <tr>
+    <td><b>Unusual property of a data point</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle">
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-outlier.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-levg.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-infl.png" width="200px"/></td>
+  </tr>
+</table>
+```
+
+
+## 2. High leverage
+
+A data point with **high leverage** has an unusually extreme value for a predictor variable.
+
+Predictors are usually plotted on the x axis, so high-leverage cases are usually **weird in the horizontal direction (↔).**
+
+<br>
+
+```{r fig levg, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
+set.seed(221020)
+df_levg <- tibble(
+  x = seq(-2, 2, length.out = 103),
+  y_good = abs(4 + (2 * x) + rnorm(103, 0, 1)),
+  y_levg = y_good
+)
+
+df_levg <- rbind(
+  df_levg,
+  tibble(x = 3.4, y_good = NA, y_levg = 6.06)
+)
+
+p_good <- df_levg |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No high-lev. points'
+    ) +
+  NULL
+
+p_levg <- df_levg |>
+  ggplot(aes(x=x, y=y_levg)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One high-lev. point'
+    ) +
+  NULL
+
+p_good + p_levg
+```
+
+Can't use residuals for high-leverage values, because residuals represent vertical (↕) distance.
+
+Instead, for measuring horizontal (↔) distance: **hat values**.
+
+
+## To check leverage: Hat values
+
+Hat values $h$ are a standardised way of measuring how different a data point's value is from other data points.
+(More mathy details are in the appendix of the slides.)
+
+**Step 1:** Compute the mean hat value $\bar{h}$ for a model with $k$ predictors and $n$ data points.
+
+$$\bar{h} = \frac{k+1}{n}$$
+
+**Heuristic for high leverage:** data points with hat values larger than $2 \times \bar{h}$.
+
+<br>
+
+For example, a model with one predictor ($k=1$) and 104 observations ($n=104$) has a mean hat value $\bar{h}$ of:
+
+$$
+\begin{align}
+\bar{h} &= \frac{k+1}{n} \\
+\bar{h} &= \frac{1+1}{104} \\
+\bar{h} &= \frac{2}{104} \\
+\bar{h} &\approx 0.0192
+\end{align}
+$$
+
+**So our heuristic value for comparison is $2 \times \frac{2}{104} = 0.0384$.**
+
+
+
+## To check leverage: Hat values
+
+**Step 2:** Let R compute the hat value $h_i$ for each individual data point $i$ using `hatvalues()`.
+
+```{r}
+m_levg <- lm(y_levg ~ x, data = df_levg)
+hatvalues(m_levg) |> head()
+```
+
+
+**Step 3:** Compare each data point's hat values to the heuristic comparison value from Step 1.
+
+```{r}
+# Find the mean hat value 
+n_predictors <- 1
+n_observations <- nrow(df_levg)
+(mean_hat <- (n_predictors+1)/n_observations)
+```
+
+```{r}
+# Add hat values as column to df
+df_levg$hat <- hatvalues(m_levg)
+
+df_levg |>
+  select(x, y_levg, hat) |>
+  filter(hat > 2*mean_hat)
+```
+
+
+## To plot hat values
+
+<!-- TODO cols -->
+
+```{r}
+p_hat <- df_levg |>
+  ggplot(aes(x = x, y = hat)) +
+  geom_hline(yintercept = 2*mean_hat, colour = 'red') +
+  geom_point(size = 3) 
+p_hat
+```
+
+
+## Hat values can give us "false alarms"
+
+But not this time! :)
+
+:::: {.columns}
+::: {.column width="50%"}
+Hat values for the data without high-leverage cases:
+
+```{r fig.align='center', fig.width=8, echo=F}
+tibble(
+  x = seq(-2, 2, length.out = 101),
+  hat = hatvalues(m_good)
+) |>
+  ggplot(aes(x = x, y = hat)) +
+  geom_point(size = 3) +
+  geom_hline(yintercept = 2*(2/101), colour = 'red') +
+  ylim(0.0, 0.09)
+```
+
+:::
+
+::: {.column width="50%"}
+Hat values for the data with one high-leverage case:
+
+```{r fig.align='center', fig.width=8, echo=F}
+p_hat +
+  ylim(0.0, 0.09)
+```
+
+:::
+::::
+
+**Why are the dots curved?**
+
+The curved shape happens because hat values measure distance from the mean of **x**.
+
+The mean of **x** is 0, so all the data points on either side of 0 get bigger as they get farther away.
+
+
+## Diagnosing unusual data points
+
+```{=html}
+<table>
+  <tr>
+    <td><b>Unusual property of a data point</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle">
+    <b>1. Outlyingness:</b> Unusual value of the outcome (↕). 
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-outlier.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor (↔).
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-levg.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome (↕) and the predictor (↔).</td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-infl.png" width="200px"/></td>
+  </tr>
+</table>
+```
+
+
+## 3. High influence
+
+A data point with **high influence** has an unusually extreme value for the outcome variable **and/or** for a predictor variable.
+High influence points have the most potential to **influence a linear model's estimates.**
+
+High-influence cases can be weird (relative to the model) **in both the vertical direction (↕) and/or the horizontal direction (↔).**
+
+
+```{r fig infl, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
+set.seed(221020)
+df_infl <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = abs(4 + (2 * x) + rnorm(101, 0, 1)),
+  y_infl = y_good,
+)
+
+df_infl <- rbind(
+  df_infl,
+  tibble(
+    x = -1, y_good = NA, y_infl = 6.5
+  )
+)
+
+p_good <- df_infl |>
+  ggplot(aes(x=x, y=y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(
+    y = 'y',
+    subtitle = 'No high-infl. points'
+    ) +
+  NULL
+
+p_infl <- df_infl |>
+  ggplot(aes(x=x, y=y_infl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = FALSE, linewidth = 2) +
+  labs(y = 'y') +
+  labs(
+    y = element_blank(),
+    subtitle = 'One high-infl. point'
+    ) +
+  NULL
+
+p_good + p_infl
+```
+
+
+**Two measures to diagnose high influence:**
+
+1. Cook's distance
+2. COVRATIO
+
+
+## 3.1. To check high influence: Cook's distance
+
+<br>
+
+Interpretation: **the average distance that the predicted outcome values will move, if a given data point is removed.**
+
+<br>
+
+Cook's distance is essentially **outlyingness $\times$ leverage** (mathy details in appendix).
+
+<br>
+
+```{=html}
+<table class="tg">
+  <tr>
+    <td class="tg-0pky">small outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky">small leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky">small influence</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">small outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky"><b>BIG</b> leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky"><b>BIG</b> influence</td>
+  </tr>
+  <tr>
+    <th class="tg-0pky"><b>BIG</b> outlyingness</th>
+    <td class="tg-0pky">x</td>
+    <th class="tg-0pky">small leverage</th>
+    <th class="tg-0pky">=</th>
+    <th class="tg-0pky"><b>BIG</b> influence</th>
+  </tr>
+  <tr>
+    <td class="tg-0pky"><b>BIG</b> outlyingness</td>
+    <td class="tg-0pky">x</td>
+    <td class="tg-0pky"><b>BIG</b> leverage</td>
+    <td class="tg-0pky">=</td>
+    <td class="tg-0pky"><b>VERY BIG</b> influence</td>
+  </tr>
+</table>
+```
+
+<br>
+
+**A few possible threshold values for comparison:**
+
+- 1
+- 4 divided by (sample size – number of predictors – 1) **$~~~\leftarrow$ we'll use this one**
+- visually compare to the Cook's distance values of other data points
+
+
+## 3.1. To check high influence: Cook's distance
+
+**Step 1:** Compute the threshold value of Cook's distance for our model and data: <br> $n = 102$ data points, $k = 1$ predictor.
+
+:::: {.columns}
+::: {.column width="50%"}
+**In maths:**
+
+$$
+\begin{align}
+D &= \frac{4}{n-k-1}\\
+D &= \frac{4}{102-1-1}\\
+D &= \frac{4}{100}\\
+D &= 0.04
+\end{align}
+$$
+
+:::
+::: {.column width="50%"}
+**In R:**
+
+```{r}
+n_obs  <- nrow(df_infl)
+n_pred <- 1
+
+(D_threshold <- 4 / (n_obs - n_pred - 1))
+```
+
+:::
+::::
+
+
+**Heuristic for high influence for THIS model:** data points with Cook's distance $D$ larger than 0.04.
+
+<br>
+
+**Step 2:** Let R compute the Cook's distance $D_i$ for each data point using `cooks.distance()`.
+
+```{r}
+m_infl <- lm(y_infl ~ x, data = df_infl)
+cooks.distance(m_infl) |> head()
+```
+
+
+## 3.1. To check high influence: Cook's distance
+
+**Step 3:** Compare each data point's $D_i$ to the heuristic comparison value from Step 1.
+
+```{r}
+# Add Cook's distance as column to df
+df_infl$D <- cooks.distance(m_infl)
+
+df_infl |>
+  select(x, y_infl, D) |>
+  filter(D > D_threshold)
+```
+
+
+<br>
+
+We expected one high-influence value, but now we have five...?
+
+
+## Cook's distance can give us "false alarms"
+
+:::: {.columns}
+::: {.column width="50%" #good}
+
+$D$ for the data with no extreme high-influence values:
+
+```{r fig.align='center', fig.width=8, echo=F}
+m_infl_good <- lm(y_good ~ x, data = df_infl)
+df_infl$D_good <- c(cooks.distance(m_infl_good), NA)
+
+df_infl |>
+  ggplot(aes(x = x, y = D_good)) +
+  geom_hline(yintercept = 4/(101-1-1), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'D') +
+  ylim(0, 0.166) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+
+$D$ for the data with one extreme high-influence value:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl |>
+  ggplot(aes(x = x, y = D)) +
+  geom_hline(yintercept = D_threshold, colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  ylim(0, 0.166) +
+  NULL
+```
+
+
+:::
+::::
+
+
+**$\rightarrow$ The more extreme the Cook's distance, the higher the influence of that data point.**
+
+<br>
+
+Cook's distance looks at how each data point influences the **model predictions overall.**
+
+The next measure looks at how each data point influences **the regression coefficients (the slopes and intercepts).**
+
+
+## 3.2. To check high influence: COVRATIO
+
+COVRATIO stands for "covariance ratio".
+
+Interpretation: **how much a given data point affects the standard error (i.e., the variability) of the regression parameters.**
+
+A ratio is a fraction that compares two values.
+
+
+$$
+\text{COVRATIO} = \frac{\text{a parameter's standard error, including data point}\ i}{\text{a parameter's standard error, NOT including data point}\ i}
+$$
+
+<br>
+
+If the given data point does not affect the standard error, then the ratio = 1.
+
+:::: {.columns}
+::: {.column width="50%"}
+
+If the SE gets bigger without a data point:
+
+$$
+\frac
+{\text{small SE with}\ i}
+{\text{big SE without}\ i}
+= \frac{\text{small}}{\text{big}}
+< 1
+$$
+:::
+::: {.column width="50%"}
+
+If the SE gets smaller without a data point:
+
+$$
+\frac
+{\text{big SE with}\ i}
+{\text{small SE without}\ i}
+= \frac{\text{big}}{\text{small}}
+> 1
+$$
+:::
+::::
+
+<br>
+
+**Threshold values** for a model with $k$ parameters and $n$ data points:
+
+- COVRATIO bigger than  $1+\frac{3(k +1)}{n}$
+- COVRATIO smaller than $1-\frac{3(k +1)}{n}$
+
+
+
+## 3.2. To check high influence: COVRATIO
+
+**Step 1:** Compute the COVRATIO threshold value for our model and data: $n=102$ data points, $k=1$ predictor.
+
+:::: {.columns}
+::: {.column width="50%"}
+**In maths, just the bit we add/subtract from 1:** 
+
+$$
+\begin{align}
+& \frac{3(k + 1)}{n}\\
+= & \frac{3(1 + 1)}{102}\\
+= & \frac{3 \times 2}{102}\\
+= & \frac{6}{102}\\
+= & 0.059\\
+\end{align}
+$$
+
+:::
+::: {.column width="50%"}
+**In R:**
+
+```{r}
+n_obs  <- nrow(df_infl)
+n_pred <- 1
+
+covr_upper <- 1 + ((3 * (n_pred + 1))/n_obs)
+covr_lower <- 1 - ((3 * (n_pred + 1))/n_obs)
+
+c(covr_lower, covr_upper)
+```
+
+:::
+::::
+
+<br>
+
+**Heuristic for high influence for THIS model:** 
+
+- data points with COVRATIO larger than 1 + 0.059 = 1.059, **OR**
+- data points with COVRATIO smaller than 1 – 0.059 = 0.941.
+
+## 3.2. To check high influence: COVRATIO
+
+**Step 2:** Let R compute the COVRATIO for each data point using `covratio()`.
+
+```{r}
+covratio(m_infl) |> head()
+```
+
+<br>
+
+**Step 3:** Compare each data point's COVRATIO to the heuristic comparison values from Step 1.
+
+```{r}
+# Add COVRATIO as column to df
+df_infl$covr <- covratio(m_infl)
+
+df_infl |>
+  select(x, y_infl, covr) |>
+  filter(covr > covr_upper | covr < covr_lower)
+```
+
+Six values that affect the standard error of the regression parameters!
+
+## COVRATIO can give us "false alarms"
+
+
+:::: {.columns}
+::: {.column width="50%" #good}
+
+For the data with no extreme high-influence values:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl$covr_good <- c(covratio(m_infl_good), NA)
+
+df_infl |>
+  ggplot(aes(x = x, y = covr_good)) +
+  geom_hline(yintercept = 1 + ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = 1 - ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'covr') +
+  ylim(.65, 1.15) +
+  NULL
+```
+
+
+:::
+::: {.column width="50%" #outl}
+
+For the data with one extreme high-influence value:
+
+```{r fig.align='center', fig.width=8, echo=F}
+df_infl |>
+  ggplot(aes(x = x, y = covr)) +
+  geom_hline(yintercept = 1 + ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_hline(yintercept = 1 - ((3*(1+1))/101), colour = 'red', linewidth = 2) +
+  geom_point(size = 5) +
+  labs(y = 'covr') +
+  ylim(.65, 1.15) +
+  NULL
+```
+
+:::
+::::
+
+**$\rightarrow$ The more extreme the COVRATIO, the higher the influence of that data point.**
+
+
+<!-- ================================================== -->
+
+## Diagnosing unusual data points
+
+```{=html}
+<table>
+  <tr>
+    <td><b>Unusual property of a data point</b></td>
+    <td><b>Looks fine</b></td>
+    <td><b>Suspicious</b></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle">
+    <b>1. Outlyingness:</b> Unusual value of the outcome.
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-outlier.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>2. High leverage:</b> Unusual value of the predictor.
+    </td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-levg.png" width="200px"/></td>
+  </tr>
+  <tr>
+    <td style="vertical-align: middle"><b>3. High influence:</b> Unusual values of both the outcome and the predictor.</td>
+    <td><img src="figs/TODO-perfect.png" width="200px"/></td>
+    <td><img src="figs/TODO-infl.png" width="200px"/></td>
+  </tr>
+</table>
+```
+
+## Activity: What kind of unusual data points?
+
+[wooclap vote, a bunch of diff plots]
+
+
+
+
+## One function for most data point diagnostics
+
+`influence.measures()` computes all the data point diagnostics we've talked about <br> (except studentised residuals for outlyingness).
+
+<br>
+
+```{r}
+influence.measures(m_infl)$infmat |>
+  head()
+```
+
+<br>
+
+- `dfb.1_`: difference between the predicted values for the intercept with and without this data point
+- `dfb.x`: difference between the predicted values for a predictor's slope with and without this data point (there will be one of these measures per predictor)
+- `dffit`: difference between predicted values for the outcome with and without this data point
+- `cov.r`: covariance ratio of regression parameters with and without this data point
+- `cook.d`: Cook's Distance of this data point
+- `hat`: hat value of this data point
+
+
+
+## Vote: What to do if you find unusual data points
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp;  &nbsp; Ignore them and pretend they don't exist
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Check if they could be a mistake
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Delete them
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Mention them in your write-up
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Replace them with less extreme values
+
+<br>
+
+{{< iconify codicon thumbsup-filled size=1.5em >}} {{< iconify codicon thumbsdown-filled size=1.5em >}} &nbsp; &nbsp; Check how much they influence your conclusions
+
+
+
+## Sensitivity analysis
+
+A sensitivity analysis asks: **Do our conclusions change if we leave out the unusual data point(s)?**
+
+- If our conclusions don't change, then the data points don't matter too much.
+- If our conclusions DO change, then we need to report that as a limitation of our analysis.
+
+<br>
+
+**Example 1:**
+
+Imagine we want to know whether there's a significant positive association between **x** and **y**.
+
+```{r fig infl sens ana, message = FALSE, warning=F, echo=F, fig.asp = .5, fig.align='center', fig.width = 12}
+p_infl + labs(subtitle=element_blank(), y = 'y') +
+p_good + labs(subtitle=element_blank())
+```
+
+
+## Sensitivity analysis 
+
+
+:::: {.columns}
+::: {.column width="50%"}
+A model fit to the data that contains the high-influence value: 
+
+:::{style="font-size: 80%;"}
+```{r}
+summary(m_infl)
+```
+:::
+:::
+
+::: {.column width="50%"}
+A model fit to the data with the high-influence value **removed**:
+
+:::{style="font-size: 80%;"}
+```{r}
+summary(m_good)
+```
+:::
+:::
+
+::::
+
+<br>
+
+Even if we remove the data point, we still see a significant positive association between **x** and **y**.
+
+**$\rightarrow$ The high-influence point doesn't affect our conclusions, so it's not a major cause for concern.**
+
+
+
+## Sensitivity analysis: Example 2
+
+Again, imagine we want to know whether there's a significant positive association between **x** and **y**.
+
+```{r fig sens, message = FALSE, warning=F, echo=F, fig.asp = .4, fig.align='center', fig.width = 18}
+set.seed(221020)
+
+df_sens <- tibble(
+  x = seq(-2, 2, length.out = 101),
+  y_good = 0 + rnorm(101, 0, 2),
+  y_infl = y_good,
+)
+
+df_sens <- rbind(
+  df_sens,
+  tibble(
+    x = 4, y_good = NA, y_infl = 20
+  )
+)
+
+p_with <- df_sens |>
+  ggplot(aes(x = x, y = y_infl)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = F, linewidth = 2) +
+  labs(y = 'y', subtitle = 'With unusual point') +
+  ylim(-5, 20)
+
+p_without <- df_sens |>
+  ggplot(aes(x = x, y = y_good)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = F, linewidth = 2) +
+  labs(y = 'y', subtitle = 'Unusual point removed') +
+  ylim(-5, 20)
+```
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r echo=F}
+p_with
+```
+
+
+:::{style="font-size: 80%;"}
+```{r echo=F}
+m_sens_infl <- lm(y_infl ~ x, data = df_sens)
+cat(paste0(capture.output(summary(m_sens_infl)), '\n')[9:12])
+
+```
+:::
+:::
+
+::: {.column width="50%"}
+
+```{r echo=F}
+p_without
+```
+
+:::{style="font-size: 80%;"}
+```{r echo=F}
+m_sens_good <- lm(y_good ~ x, data = df_sens)
+cat(paste0(capture.output(summary(m_sens_good)), '\n')[9:12])
+```
+:::
+:::
+
+::::
+
+<br>
+
+**$\rightarrow$ The high-influence point DOES affect our conclusions, so it IS a major problem for our analysis.**
+
+
+
+
+<!-- + Sensitivity analysis refers to the idea of checking whether you get similar results irrespective of the methodological decisions you make -->
+
+<!-- + Sensitivity analysis can be used to check whether you get the same pattern of results. Do the estimated regression coefficients change substantially: -->
+<!-- 	+ With versus without including certain unusual cases? -->
+<!-- 	+ With versus without transforming a variable? -->
+
+<!-- + If results are highly similar, you have more confidence that the results aren't very dependent on those decisions -->
+
+<!-- + If they differ a lot, this should be reported as a limitation -->
+
+
+# Diagnostics to run on the data
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):
+
+1. Outlyingness
+2. High leverage
+3. High influence
+
+:::
+::: {.column width="50%"}
+
+Diagnosing undesirable relationships <br> between predictors:
+
+1. Multicollinearity
+
+
+:::
+::::
+
+
+## Multicollinearity
+
+![](figs/TODO-collinear.jpeg)
+
+When two predictors are correlated, **they contain similar information: if you know one, you can guess the other.**
+
+The model cannot tell which predictor is contributing what information, so its estimates are less precise.
+
+In other words, **the variance of its estimates increases.**
+
+
+
+## Plotting correlations between predictors
+
+We have a data set called `corr_df` with an outcome variable `y` and two predictors `x1` and `x2`.
+
+```{r include=F}
+set.seed(1)
+
+n_obs <- 101
+corr_x1y  <- 0.8
+corr_x2y  <- 0.6
+# corr_x1x2 <- 0.9  # vif = 5.3
+corr_x1x2 <- 0.93   # vif = TBD
+
+corr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, corr_x1x2,
+     corr_x2y, corr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(corr_df) <- c('y', 'x1', 'x2')
+corr_df <- as_tibble(corr_df)
+```
+
+
+```{r eval=F}
+pairs(corr_df)
+```
+
+```{r echo=F, fig.align = 'center'}
+pairs(corr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+In `corr_df`, **`x1` and `x2` are highly correlated.**
+
+The correlation appears as a strong diagonal line.
+
+
+## Plotting correlations between predictors
+
+We have another data set called `uncorr_df`:
+
+```{r include=F}
+set.seed(1)
+
+uncorr_x1x2 <- 0.0  # ideally this quantity would be low
+
+uncorr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, uncorr_x1x2,
+     corr_x2y, uncorr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(uncorr_df) <- c('y', 'x1', 'x2')
+uncorr_df <- as_tibble(uncorr_df)
+```
+
+```{r eval=F}
+pairs(uncorr_df)
+```
+
+```{r echo=F, fig.align = 'center'}
+pairs(uncorr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+In `uncorr_df`, **`x1` and `x2` are not very correlated.**
+
+The lack of correlation appears as a cloud of data points.
+
+
+
+
+
+## Diagnosing multicollinearity
+
+When predictors are correlated, the model estimates are less precise—in other words, **the variance of its estimates increases.**
+
+We can detect this using the **Variance Inflation Factor** or VIF.
+
+- VIF measures **how much the standard error of a predictor is increased by correlations with other predictors.**
+- More precisely: $\sqrt{\text{VIF}}$ = how many times larger the standard error (SE) of each predictor is, compared to a version of the model without the other predictors.
+
+<br> 
+
+Intepreting VIF:
+
+- **Below 5 is low,** no need to worry.
+  - $\sqrt{5} = 2.24$, so SE is 2.24 times bigger than it would be if we removed the correlated predictors.
+- **Between 5 and 10 is moderate,** a little worrying but OK.
+  - $\sqrt{10} = 3.16$, so SE is 3.16 times bigger than it would be if we removed the correlated predictors.
+- **More than 10 is big,** cause for lots of concern.
+
+
+## VIF in R
+
+We calculate the Variance Inflation Factor in R using `vif()` from the package `car`.
+
+:::: {.columns}
+::: {.column width="50%"}
+Correlated predictors:
+
+```{r echo=F, fig.align = 'center'}
+pairs(corr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+```{r}
+m_corr <- lm(y ~ x1 + x2, data = corr_df)
+car::vif(m_corr)
+```
+
+The SE of each predictor is $\sqrt{7.4} = 2.72$ times bigger than it would be without the other predictors.
+
+Ideally we'd want to reduce this somehow.
+:::
+::: {.column width="50%"}
+Uncorrelated predictors:
+
+```{r echo=F, fig.align = 'center'}
+pairs(uncorr_df, cex = 2, cex.axis=3, cex.labels=4)
+```
+
+```{r}
+m_uncorr <- lm(y ~ x1 + x2, data = uncorr_df)
+car::vif(m_uncorr)
+```
+
+The SE of each predictor is $\sqrt{1} = 1$ times bigger—so no different at all!
+:::
+::::
+
+
+## What to do if predictors are correlated
+
+
+<br>
+
+In order of increasing spiciness:
+
+<br>
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+If the correlation isn't too worrying, then leave the model as-is and report the VIFs.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+If the correlations are large, remove one of the correlated predictors from the model—it's not adding any new information anyway.
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**{{< iconify lucide-lab pepper-chilli size=2em >}} {{< iconify lucide-lab pepper-chilli size=2em >}}**
+:::
+::: {.column width="75%"}
+Make a composite predictor that combines the correlated predictors somehow.
+For example: sum, average, or a cleverer technique like Principal Component Analysis (in DAPR3).
+:::
+::::
+
+
+## Check lots (but not all) using `check_model()`
+
+<br> 
+
+:::: {.columns}
+::: {.column width="40%"}
+A few assumption/diagnostic checks are packaged together by `check_model(model)` from the `performance` package.
+
+You'll play with `check_model()` in the lab.
+
+<br>
+
+**Note: `check_model()` is only a partial shortcut.**
+
+It leaves out a lot of important checks too.
+
+
+:::
+::: {.column width="60%"}
+```{r fig.align='center', fig.asp = 1.3, fig.width = 8}
+performance::check_model(m_corr)
+```
+:::
+::::
+
+
+
+
+
+## Building an analysis workflow
+
+<br> 
+
+::: {.r-stack}
+![](figs/block2-flowchart-08-0.svg){.fragment height="550" }
+
+![](figs/block2-flowchart-08-1.svg){.fragment height="550" }
+
+![](figs/block2-flowchart-08-2.svg){.fragment height="550" }
+
+![](figs/block2-flowchart-08-3.svg){.fragment height="550" }
+
+:::
+
+
+
+
+
+## Revisiting this week's learning objectives
+
+::: {style="font-size: 125%;"}
+
+::: {}
+::: {.dapr2callout}
+**What does a linear model assume is true about the data that it models? (Four assumptions)**
+
+::: {style="font-size: 80%;"}
+- Linearity: The association between predictor and outcome is a straight line.
+- Independence: Every data point is independent of every other data point.
+- Normally-distributed errors: The differences between fitted line and each data point (i.e., the residuals) follow a normal distribution.
+- Equal variance of errors: The differences between fitted line and each data point (i.e., the residuals) are dispersed by a similar amount across the whole range of the predictor.
+:::
+
+:::
+:::
+
+
+
+::: {}
+::: {.dapr2callout}
+**What three properties of a single data point might affect a linear model's estimates? How can we diagnose each property?**
+
+::: {style="font-size: 80%;"}
+- Unusual outcome value, called "outlyingness". Diagnose with studentised residuals.
+- Unusual predictor value, called "high leverage". Diagnose with hat values.
+- Unusual outcome and/or predictor value, called "high influence". Diagnose with Cook's Distance and COVRATIO.
+:::
+
+:::
+:::
+
+:::
+
+## Revisiting this week's learning objectives
+
+::: {style="font-size: 125%;"}
+
+::: {}
+::: {.dapr2callout}
+**What relationship between predictors do we want to avoid? How can we diagnose it?**
+
+::: {style="font-size: 80%;"}
+- We want to avoid predictors being highly correlated with one another. If they are, we call the situation "multicollinearity".
+- When predictors are highly correlated, they contain very similar information, so the model is very uncertain how each one individually is associated with the outcome.
+- Diagnose multicollinearity with the Variance Inflation Factor (VIF).
+:::
+
+:::
+:::
+
+:::
+
+## This week 
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+### Tasks
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises** 
+
+:::
+::: {.column width="50%"}
+
+### Support
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+:::
+::::
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+:::
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+:::
+::::
+
+
+# Appendix {.appendix}
+
+## Hat values: The maths
+
+<br>
+
+**Hat values** ( $h_i$ ) are used to assess data points' leverage in a linear model.
+
+In essence: we find the difference between each data point and the mean.
+We standardise that difference with respect to how big *all* the differences are and with respect to how many data points we have overall.
+
+For a simple linear model, the hat value for case $i$ would be
+
+$$h_i = \frac{1}{n} + \frac{(x_i - \bar{x})^2}{\sum_{i=1}^n(x_i - \bar{x})^2}$$
+
+where
+
+- $n$ is the sample size
+- $(x_i - \bar{x})^2$ is the squared deviation of the predictor value for that case, $x_i$, from the mean $\bar x$
+- $\sum_{i=1}^n(x_i - \bar{x})^2$ is the sum of all these squared deviations, for all cases
+
+
+
+## Hat values: The maths
+
+<br>
+
+The mean of all hat values ( $\bar{h}$ ) is:
+
+$$\bar{h} = (k+1)/n$$
+
+- $k$ is the number of predictors
+- $n$ is the sample size
+
+In a simple linear regression with one predictor, $k=1$.
+
+So $\bar h = (1 + 1) / n = 2 /n$.
+
+
+## Cook's Distance: The maths
+
+**Cook's Distance** of a data point $i$:
+
+
+$$D_i = \frac{(\text{StandardizedResidual}_i)^2}{k+1} \times \frac{h_i}{1-h_i}$$
+
+Where
+
+$$\frac{(\text{StandardizedResidual}_i)^2}{k+1} = \text{Outlyingness}$$
+
+and
+
+$$\frac{h_i}{1-h_i} = \text{Leverage},$$
+
+So 
+
+$$D_i = \text{Outlyingness} \times \text{Leverage}.$$
+
+
+
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- style="font-size: 125;" -->
+
+<!-- {{< iconify icon-park-twotone brain >}} -->
+
