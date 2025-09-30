@@ -193,7 +193,6 @@ n <- nrow(mwdata)
 k <- 2
 tstar <- qt(0.975, df = n - k - 1)
 tstar
-#tstar = 1.972079
 ```
 
 As $|t|$ ($|t|$ = 3.93) is much larger than $t^*$ ($t^*$ = 1.97), we can reject the null hypothesis as we have strong evidence against it.
@@ -220,7 +219,7 @@ Before we interpret the results, note that sometimes $p$-values will be reported
 
 ::: {.callout-important icon=false appearance="minimal"}
 
-We performed a $t$-test against the null hypothesis that outdoor time was not associated with wellbeing scores after controlling for social interactions. A significant association was found between outdoor time (hours per week) and wellbeing (WEMWBS scores) $t(197) = 3.94,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
+We performed a test against the null hypothesis that outdoor time was not associated with wellbeing scores after controlling for social interactions. A significant association was found between outdoor time (hours per week) and wellbeing (WEMWBS scores) $t(197) = 3.94,\ p < .001$, two-sided. Thus, we have evidence to reject the null hypothesis.
 
 :::
 
@@ -249,23 +248,39 @@ To review how to calculate, extract, and interpret confidence intervals, see the
 
 ## Manually
 
-For 95\% confidence we have $t^* = 1.97$:
+In order to use the `qt()` function, we first we need to calculate our degrees of freedom:
+
 ```{r}
+#calculated as df = n - k - 1
 n <- nrow(mwdata)
 k <- 2
-tstar <- qt(0.975, df = n - k - 1)
-tstar
+df <- n - k -1
+df
 ```
 
-The confidence intervals are:
+We have 197 degrees of freedom, and so can calculate the confidence intervals as follows:
 ```{r}
 tibble(
-  b0_LowerCI = round(28.62018 - (qt(0.975, n-3) * 1.48786), 3),
-  b0_UpperCI = round(28.62018 + (qt(0.975, n-3)* 1.48786), 3),
-  b1_LowerCI = round(0.33488 - (qt(0.975, n-3) * 0.08929), 3),
-  b1_UpperCI = round(0.33488 + (qt(0.975, n-3)* 0.08929), 3),
-  b2_LowerCI = round(0.19909 - (qt(0.975, n-3) * 0.05060), 3),
-  b2_UpperCI = round(0.19909 + (qt(0.975, n-3)* 0.05060), 3)
+  b0_LowerCI = round(28.62018 - (qt(0.975, 197) * 1.48786), 3),
+  b0_UpperCI = round(28.62018 + (qt(0.975, 197)* 1.48786), 3),
+  b1_LowerCI = round(0.33488 - (qt(0.975, 197) * 0.08929), 3),
+  b1_UpperCI = round(0.33488 + (qt(0.975, 197)* 0.08929), 3),
+  b2_LowerCI = round(0.19909 - (qt(0.975, 197) * 0.05060), 3),
+  b2_UpperCI = round(0.19909 + (qt(0.975, 197)* 0.05060), 3)
+      )
+
+```
+
+Alternatively, we could use the `tstar` value we computed above in Question 2 in place of the `qt()` function: 
+
+```{r}
+tibble(
+  b0_LowerCI = round(28.62018 - (tstar * 1.48786), 3),
+  b0_UpperCI = round(28.62018 + (tstar * 1.48786), 3),
+  b1_LowerCI = round(0.33488 - (tstar  * 0.08929), 3),
+  b1_UpperCI = round(0.33488 + (tstar * 0.08929), 3),
+  b2_LowerCI = round(0.19909 - (tstar * 0.05060), 3),
+  b2_UpperCI = round(0.19909 + (tstar * 0.05060), 3)
       )
 
 ```
@@ -298,13 +313,13 @@ The result is exactly the same (up to rounding errors) as calculating manually.
 
 `r qbegin(4)`
 
-Fit two regression models using the standardized response and explanatory variables. For demonstration purposes, fit one model using z-scored variables, and the other using the `scale()` function.
+Fit two regression models using the standardized response and explanatory variables. For demonstration purposes, fit one model using the manually calculated z-scored variables (assigning the output to an object  called `mdl_z`), and the other using the `scale()` function (assigning the output to an object called `mdl_s`).
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint
 
-See the [data transofrmation flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#data-transformations), specifically the scaling and standardization flashcards.
+See the [data transformation flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#data-transformations), specifically the scaling and standardization flashcards.
 
 :::
 
@@ -327,7 +342,7 @@ mwdata <- mwdata |>
   )
 ```
 
-Check that they are standardized:
+Check that they are standardized (standardised variables should have a mean of 0, SD of 1).
 
 ```{r}
 mwdata |>
@@ -336,7 +351,6 @@ mwdata |>
     M_z_social_int = round(mean(z_social_int),2), SD_z_social_int = sd(z_social_int),
     M_z_outdoor_time = round(mean(z_outdoor_time),2), SD_z_outdoor_time = sd(z_outdoor_time)
   )
-#mean of 0, SD of 1 - all good to go
 ```
 
 Run model:
@@ -381,14 +395,14 @@ See the [data transofrmation flashcards](https://uoepsy.github.io/dapr2/2526/lab
 
 ```{r}
 summary(mdl_z)
-round(summary(mdl_z)$coefficients, 2)
+round(summary(mdl_z)$coefficients, 4)
 ```
 
 ## `scale()` function
 
 ```{r}
 summary(mdl_s)
-round(summary(mdl_s)$coefficients, 2)
+round(summary(mdl_s)$coefficients, 4)
 ```
 
 :::
@@ -444,12 +458,17 @@ round(summary(mdl_z)$coefficients, 2)
 + The $t$ and $p$-values are different in each model for the intercept. This is because:
     + In the unstandardized model, the intercept is significantly different from 0 (it is 28.62), and hence has a very small $p$-value (< .001)  
     + In the standardized model, the intercept is not significantly different from 0 (it is 0!), and hence has a $p$-value of 1. 
+    
+    
+Remember, whether to report standarsized or unstandardized coefficients can depend on a number of factors (e.g., the scales on which you measured the constructs of interest - were they arbitrary or meaningful?; and whether you want to compare estimates).
 
 `r solend()`
 
 <br>
 
 `r qbegin(7)`
+
+*Note this is quite a difficult question (really it could/should be optional), and the exercise is designed to get you to think about how semi-partial correlation coefficients and standardized $\beta$ coefficients are related.* 
 
 How do these standardized estimates relate to the semi-partial correlation coefficients?
 
@@ -470,12 +489,15 @@ To calculate semi-partial (part) correlation coefficients, you will need to use 
 
 Recall that you can look at the estimates from either 'mdl_s' or 'mdl_z' - they contain the same standardized model estimates. 
 
-*Note* this is quite a difficult question (really it could be optional), and the exercise is designed to get you to think about how semi-partial correlation coefficients and standardized $\beta$ coefficients are related. 
-
 *Plotting*  
+  
 To visualise just one association, you need to specify the `terms` argument in `plot_model()`. Don't forget you can look up the documentation by typing `?plot_model` in the console. 
 
-Since using `plot_model()`, We need to use 'mdl_z' here **not** 'mdl_s' - it won't work with a model that's used the `scale()` function.  
+  
+To visualise just one association, you need to specify the `terms` argument in `plot_model()`. The `type = "eff"` option is particularly useful when you want to focus on the estimated effects or marginal means of predictor variables whilst holding other predictors constant. Don't forget you can look up the documentation by typing `?plot_model` in the console. 
+  
+Important: Since using `plot_model()`, we need to use 'mdl_z' here **not** 'mdl_s' - it won't work with a model that's used the `scale()` function.  
+
 :::
 
 `r qend()`
