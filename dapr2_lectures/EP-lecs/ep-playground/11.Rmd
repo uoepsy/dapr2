@@ -1,0 +1,488 @@
+---
+title: "11 Playground – Interactions num cat, centering"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+library(interactions)  # for probe_interactions() plot
+
+salary <- read_csv("../../data/salary_lec.csv", show_col_types = FALSE) |>
+  mutate(
+    dept = ifelse(dept == 1, 'Accounts', 'Managers')
+  )
+
+palette_probe <- c('#4ab8fc', '#ff7b01')
+```
+
+# look at data
+
+`dept`:
+
+- 1 = store managers
+- 0 = accounts
+
+
+`salary`:
+
+- salary in thosuands of pounds
+
+
+`service`:
+
+- years of service
+
+```{r}
+# don't use this plot -- can use the one from probe_interaction() below
+
+salary |>
+  ggplot(aes(x = service, y = salary, colour = dept)) +
+  geom_point(size = 5) +
+  # geom_smooth(method = 'lm', se = F) +
+  # facet_wrap(~ dept) +
+  # theme(legend.position = 'none') +
+  scale_color_manual(values = palette_probe) +
+  NULL
+```
+
+
+# Model: no interaction
+
+```{r}
+m1 <- lm(salary ~ service + dept, data = salary)
+summary(m1)
+```
+
+
+```{r warning=F}
+salary_probedat <- salary |>
+  mutate(
+    pred = service,
+    modx_group = dept
+  )
+  
+plot_m1_probe <- probe_interaction(
+  model = m1,
+  pred = service,
+  modx = dept,
+  interval = T
+)$interactplot +
+  geom_point(data = salary_probedat, size = 5)
+
+plot_data_probe <- plot_m1_probe
+
+plot_data_probe$layers[[1]] <- NULL
+plot_data_probe$layers[[1]] <- NULL
+```
+
+```{r}
+plot_m1_probe
+```
+
+## plot raw data
+
+```{r}
+plot_data_probe
+```
+
+## Compute simple slopes
+
+
+Compute simple slopes.
+
+$$
+\begin{align}
+\widehat{salary} &= \beta_0 + (\beta_1 \cdot service) + (\beta_2 \cdot dept) \\
+\widehat{salary} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot dept) \\
+\end{align}
+$$
+
+When $dept = 0$ (Accounts):
+
+$$
+\begin{align}
+\widehat{salary}_{acct} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot 0) \\
+\widehat{salary}_{acct} &= 28.7    + (4.4 \cdot service)      \\
+\end{align}
+$$
+When $dept = 1$ (Managers):
+
+$$
+\begin{align}
+\widehat{salary}_{mng} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot 1) \\
+\widehat{salary}_{mng} &= 28.7 - 19.7   + (4.4 \cdot service)      \\
+\widehat{salary}_{mng} &= 9   + (4.4 \cdot service)      \\
+\end{align}
+$$
+
+
+
+# Model: with interaction
+
+```{r}
+m2 <- lm(salary ~ service + dept + service:dept, data = salary)
+summary(m2)
+```
+
+
+## Compute simple slopes
+
+### By hand
+
+$$
+\begin{align}
+\widehat{salary} &= \beta_0 + (\beta_1 \cdot serv) + (\beta_2 \cdot dept) + (\beta_3 \cdot serv \cdot dept)\\
+\widehat{salary} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
+\end{align}
+$$
+
+
+When $dept = 0$ (Accounts):
+
+$$
+\begin{align}
+\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
+\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot 0)    + (-3.1 \cdot serv \cdot 0)\\
+\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)\\
+\end{align}
+$$
+
+
+When $dept = 1$ (Managers):
+
+$$
+\begin{align}
+\widehat{salary}_{mng} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
+\widehat{salary}_{mng} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot 1)    + (-3.1 \cdot serv \cdot 1)\\
+\widehat{salary}_{mng} &= 21.4 -4.5   + (5.8 \cdot serv) + (-3.1 \cdot serv)\\
+\widehat{salary}_{mng} &= 16.9   + (5.8 \cdot serv) + (-3.1 \cdot serv)\\
+\widehat{salary}_{mng} &= 16.9   + ((5.8 - 3.1) \cdot serv) \\
+\widehat{salary}_{mng} &= 16.9   + (2.7 \cdot serv)\\
+\end{align}
+$$
+
+### in R
+
+When dept = 0 (acct):
+
+```{r}
+coef(m2)[['(Intercept)']]  # intercept
+coef(m2)[['service']]      # slope
+```
+
+
+When dept = 1 (mng)
+
+```{r}
+coef(m2)[['(Intercept)']] + coef(m2)[['deptManagers']]      # intercept
+coef(m2)[['service']] + coef(m2)[['service:deptManagers']]  # slope
+```
+
+
+
+
+## Plot asis model
+
+```{r warning = F}
+plot_m2_probe <- probe_interaction(
+  model = m2,
+  pred = service,
+  modx = dept,
+  interval = T
+)$interactplot +
+  geom_point(data = salary_probedat, size = 3) +
+
+  NULL
+
+plot_m2_probe
+```
+
+
+
+### Asis y-intercept plot
+
+```{r}
+m2_simple_effs <- tibble(
+  dept = c('Accounts', 'Managers'),
+  modx_group = c('Accounts', 'Managers'),
+  int = c(21.4, 16.9),
+  slp = c(5.8, 2.7)
+)
+
+plot_m2_probe_intercept <- plot_m2_probe
+plot_m2_probe_intercept$layers[[1]] <- NULL
+
+plot_m2_probe_intercept +
+  xlim(-7, 7) +
+  ylim(10, 75) +
+  geom_abline(
+    data = m2_simple_effs, 
+    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    linewidth = 1.5
+  ) +
+  geom_point(
+    data = m2_simple_effs,
+    x = 0,
+    aes(y = int),
+    size = 5,
+    shape = 15
+  ) +
+  geom_vline(xintercept = 0, linetype = 'dotted') +
+  labs(
+    subtitle = 'service as-is'
+  ) +
+  theme(
+    legend.position = 'bottom'
+  ) +
+  NULL
+```
+
+
+
+# Min-shift predictor
+
+Plot predictor as-is.
+
+```{r}
+salary |>
+  ggplot(aes(x = service, y = salary)) +
+  geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
+  geom_point() +
+  NULL
+```
+
+
+Plot min-shifted predictor.
+
+```{r}
+salary <- salary |>
+  mutate(
+    service_min = service - min(service)
+  )
+
+salary |>
+  ggplot(aes(x = service_min, y = salary)) +
+  geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
+  geom_point() +
+  NULL
+```
+
+0 is meaningful now = the minimum length of service.
+
+
+## Model
+
+```{r}
+m3 <- lm(salary ~ service_min + dept + service_min:dept, data = salary)
+summary(m3)
+```
+
+## Compute simple slopes
+
+### In R
+
+When dept = 0 (acct):
+
+```{r}
+coef(m3)[['(Intercept)']]  # intercept
+coef(m3)[['service_min']]      # slope
+```
+
+
+When dept = 1 (mng)
+
+```{r}
+coef(m3)[['(Intercept)']] + coef(m3)[['deptManagers']]      # intercept
+coef(m3)[['service_min']] + coef(m3)[['service_min:deptManagers']]  # slope
+```
+
+
+
+
+## Plot shifted model
+
+```{r warning=F}
+salary_probedat <- salary_probedat |>
+  mutate(
+    service_min = service - min(service)
+  )
+
+plot_m3_probe <- probe_interaction(
+  model = m3,
+  pred = service_min,
+  modx = dept,
+  interval = T
+)$interactplot +
+  geom_point(data = salary_probedat, size = 3)
+
+plot_m3_probe
+```
+
+### Shifted y-intercept plot
+
+```{r}
+m3_simple_effs <- tibble(
+  dept = c('Accounts', 'Managers'),
+  modx_group = c('Accounts', 'Managers'),
+  int = c(
+    coef(m3)[['(Intercept)']], 
+    coef(m3)[['(Intercept)']] + coef(m3)[['deptManagers']]
+    ),
+  slp = c(
+    coef(m3)[['service_min']],
+    coef(m3)[['service_min']] + coef(m3)[['service_min:deptManagers']]
+    )
+)
+
+plot_m3_probe_intercept <- plot_m3_probe
+plot_m3_probe_intercept$layers[[1]] <- NULL
+
+plot_m3_probe_intercept +
+  xlim(-7, 7) +
+  ylim(10, 75) +
+  geom_abline(
+    data = m3_simple_effs, 
+    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    linewidth = 1.5
+  ) +
+  geom_point(
+    data = m3_simple_effs,
+    x = 0,
+    aes(y = int),
+    size = 5,
+    shape = 15
+  ) +
+  geom_vline(xintercept = 0, linetype = 'dotted') +
+  labs(
+    subtitle = 'service min-shifted'
+  ) +
+  theme(
+    legend.position = 'bottom'
+  ) +
+  NULL
+```
+
+
+
+
+# Centre predictor
+
+Plot centered predictor.
+
+```{r}
+salary <- salary |>
+  mutate(
+    service_c = scale(service, center = TRUE, scale = FALSE)
+  )
+
+salary |>
+  ggplot(aes(x = service_c, y = salary)) +
+  geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
+  geom_point() +
+  NULL
+```
+
+```{r}
+round(mean(salary$service_c))
+```
+
+
+## Model
+
+```{r}
+m4 <- lm(salary ~ service_c + dept + service_c:dept, data = salary)
+summary(m4)
+```
+
+
+## Plot centered model
+
+```{r warning = F}
+salary_probedat <- salary_probedat |>
+  mutate(
+    service_c = scale(service, center = TRUE, scale = FALSE)
+  )
+
+plot_m4_probe <- probe_interaction(
+  model = m4,
+  pred = service_c,
+  modx = dept,
+  interval = T
+)$interactplot +
+  geom_point(data = salary_probedat, size = 3)
+plot_m4_probe
+```
+
+
+### Centered y-intercept plot
+
+```{r}
+m4_simple_effs <- tibble(
+  dept = c('Accounts', 'Managers'),
+  modx_group = c('Accounts', 'Managers'),
+  int = c(
+    coef(m4)[['(Intercept)']], 
+    coef(m4)[['(Intercept)']] + coef(m4)[['deptManagers']]
+    ),
+  slp = c(
+    coef(m4)[['service_c']],
+    coef(m4)[['service_c']] + coef(m4)[['service_c:deptManagers']]
+    )
+)
+
+plot_m4_probe_intercept <- plot_m4_probe
+plot_m4_probe_intercept$layers[[1]] <- NULL
+
+plot_m4_probe_intercept +
+  xlim(-7, 7) +
+  ylim(10, 75) +
+  geom_abline(
+    data = m4_simple_effs, 
+    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    linewidth = 1.5
+  ) +
+  geom_point(
+    data = m4_simple_effs,
+    x = 0,
+    aes(y = int),
+    size = 5,
+    shape = 15
+  ) +
+  geom_vline(xintercept = 0, linetype = 'dotted') +
+  labs(
+    subtitle = 'service mean-centered'
+  ) +
+  theme(
+    legend.position = 'bottom'
+  ) +
+  NULL
+```
+
+
+# Compare coef estims
+
+## As-is
+
+With `service` as-is:
+
+```{r}
+summary(m2)$coefficients |> round(3)
+```
+
+
+## Min-shifted
+
+With `service` min-shifted:
+
+```{r}
+summary(m3)$coefficients |> round(3)
+```
+
+
+## Centered
+
+With `service` mean-centered:
+
+```{r}
+summary(m4)$coefficients |> round(3)
+```
