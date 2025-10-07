@@ -6,16 +6,45 @@ output: html_notebook
 ```{r setup}
 library(tidyverse)
 library(interactions)  # for probe_interactions() plot
+```
 
+
+```{r}
 salary <- read_csv("../../data/salary_lec.csv", show_col_types = FALSE) |>
   mutate(
     dept = ifelse(dept == 1, 'Accounts', 'Managers')
   )
 
-palette_probe <- c('#4ab8fc', '#ff7b01')
+# make the acct slope a bit steeper to illustrate the point better
+salary <- salary |>
+  mutate(
+    salary_aug = ifelse(
+      dept == 'Accounts',
+      salary + (service^2)/1.5 - 10,
+      salary
+    ),
+    salary = salary_aug
+  )
 ```
 
-# look at data
+
+# Plot data
+
+```{r}
+palette_probe <- c('#4ab8fc', '#ff7b01')
+
+salary |>
+  ggplot(aes(x = service, y = salary, colour = dept)) +
+  geom_point(size = 5) +
+  geom_smooth(method = 'lm', se = F) +
+  # facet_wrap(~ dept) +
+  # theme(legend.position = 'none') +
+  scale_color_manual(values = palette_probe) +
+  NULL
+```
+
+
+
 
 `dept`:
 
@@ -32,18 +61,6 @@ palette_probe <- c('#4ab8fc', '#ff7b01')
 
 - years of service
 
-```{r}
-# don't use this plot -- can use the one from probe_interaction() below
-
-salary |>
-  ggplot(aes(x = service, y = salary, colour = dept)) +
-  geom_point(size = 5) +
-  # geom_smooth(method = 'lm', se = F) +
-  # facet_wrap(~ dept) +
-  # theme(legend.position = 'none') +
-  scale_color_manual(values = palette_probe) +
-  NULL
-```
 
 
 # Model: no interaction
@@ -52,7 +69,6 @@ salary |>
 m1 <- lm(salary ~ service + dept, data = salary)
 summary(m1)
 ```
-
 
 ```{r warning=F}
 salary_probedat <- salary |>
@@ -79,6 +95,13 @@ plot_data_probe$layers[[1]] <- NULL
 plot_m1_probe
 ```
 
+- blue line: too high at beginning, too low at end
+- orange line: too low at beginning, too high at end
+
+meeting in the middle means that neither line fits the data very well
+
+
+
 ## plot raw data
 
 ```{r}
@@ -87,13 +110,17 @@ plot_data_probe
 
 ## Compute simple slopes
 
+```{r}
+coef(m1)
+```
+
 
 Compute simple slopes.
 
 $$
 \begin{align}
 \widehat{salary} &= \beta_0 + (\beta_1 \cdot service) + (\beta_2 \cdot dept) \\
-\widehat{salary} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot dept) \\
+\widehat{salary} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot dept) \\ 
 \end{align}
 $$
 
@@ -101,17 +128,17 @@ When $dept = 0$ (Accounts):
 
 $$
 \begin{align}
-\widehat{salary}_{acct} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot 0) \\
-\widehat{salary}_{acct} &= 28.7    + (4.4 \cdot service)      \\
+\widehat{salary}_{dept=0} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot 0) \\
+\widehat{salary}_{dept=0} &= 19    + (7.8 \cdot service)      \\
 \end{align}
 $$
 When $dept = 1$ (Managers):
 
 $$
 \begin{align}
-\widehat{salary}_{mng} &= 28.7    + (4.4 \cdot service)     + (-19.7 \cdot 1) \\
-\widehat{salary}_{mng} &= 28.7 - 19.7   + (4.4 \cdot service)      \\
-\widehat{salary}_{mng} &= 9   + (4.4 \cdot service)      \\
+\widehat{salary}_{dept=1} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot 1) \\
+\widehat{salary}_{dept=1} &= 19 - 26.2   + (7.8 \cdot service)      \\
+\widehat{salary}_{dept=1} &= 9   + (7.8 \cdot service)      \\
 \end{align}
 $$
 
@@ -127,12 +154,17 @@ summary(m2)
 
 ## Compute simple slopes
 
+```{r}
+coef(m2)
+```
+
+
 ### By hand
 
 $$
 \begin{align}
 \widehat{salary} &= \beta_0 + (\beta_1 \cdot serv) + (\beta_2 \cdot dept) + (\beta_3 \cdot serv \cdot dept)\\
-\widehat{salary} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
+\widehat{salary} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
 \end{align}
 $$
 
@@ -141,9 +173,9 @@ When $dept = 0$ (Accounts):
 
 $$
 \begin{align}
-\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
-\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot 0)    + (-3.1 \cdot serv \cdot 0)\\
-\widehat{salary}_{acct} &= 21.4    + (5.8 \cdot serv)\\
+\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
+\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 0)    + (-9.6 \cdot serv \cdot 0)\\
+\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)\\
 \end{align}
 $$
 
@@ -152,11 +184,11 @@ When $dept = 1$ (Managers):
 
 $$
 \begin{align}
-\widehat{salary}_{mng} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot dept)    + (-3.1 \cdot serv \cdot dept)\\
-\widehat{salary}_{mng} &= 21.4    + (5.8 \cdot serv)     + (-4.5 \cdot 1)    + (-3.1 \cdot serv \cdot 1)\\
-\widehat{salary}_{mng} &= 21.4 -4.5   + (5.8 \cdot serv) + (-3.1 \cdot serv)\\
-\widehat{salary}_{mng} &= 16.9   + (5.8 \cdot serv) + (-3.1 \cdot serv)\\
-\widehat{salary}_{mng} &= 16.9   + ((5.8 - 3.1) \cdot serv) \\
+\widehat{salary}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
+\widehat{salary}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 1)    + (-9.6 \cdot serv \cdot 1)\\
+\widehat{salary}_{mng} &= -3.4 + 20.3   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
+\widehat{salary}_{mng} &= 16.9   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
+\widehat{salary}_{mng} &= 16.9   + ((12.3 - 9.6) \cdot serv) \\
 \widehat{salary}_{mng} &= 16.9   + (2.7 \cdot serv)\\
 \end{align}
 $$
@@ -205,8 +237,14 @@ plot_m2_probe
 m2_simple_effs <- tibble(
   dept = c('Accounts', 'Managers'),
   modx_group = c('Accounts', 'Managers'),
-  int = c(21.4, 16.9),
-  slp = c(5.8, 2.7)
+  int = c(
+    coef(m2)[['(Intercept)']], 
+    coef(m2)[['(Intercept)']] + coef(m2)[['deptManagers']]
+    ),
+  slp = c(
+    coef(m2)[['service']],
+    coef(m2)[['service']] + coef(m2)[['service:deptManagers']]
+    )
 )
 
 plot_m2_probe_intercept <- plot_m2_probe
@@ -214,7 +252,7 @@ plot_m2_probe_intercept$layers[[1]] <- NULL
 
 plot_m2_probe_intercept +
   xlim(-7, 7) +
-  ylim(10, 75) +
+  ylim(-10, 100) +
   geom_abline(
     data = m2_simple_effs, 
     aes(intercept = int, slope = slp, colour = dept, linetype = dept),
@@ -339,7 +377,7 @@ plot_m3_probe_intercept$layers[[1]] <- NULL
 
 plot_m3_probe_intercept +
   xlim(-7, 7) +
-  ylim(10, 75) +
+    ylim(-10, 100) +
   geom_abline(
     data = m3_simple_effs, 
     aes(intercept = int, slope = slp, colour = dept, linetype = dept),
@@ -435,7 +473,7 @@ plot_m4_probe_intercept$layers[[1]] <- NULL
 
 plot_m4_probe_intercept +
   xlim(-7, 7) +
-  ylim(10, 75) +
+    ylim(-10, 100) +
   geom_abline(
     data = m4_simple_effs, 
     aes(intercept = int, slope = slp, colour = dept, linetype = dept),
@@ -486,3 +524,12 @@ With `service` mean-centered:
 ```{r}
 summary(m4)$coefficients |> round(3)
 ```
+
+
+# Appendix
+
+- all simple slope calculations for all models
+
+
+
+

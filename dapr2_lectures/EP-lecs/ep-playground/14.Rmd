@@ -1,0 +1,167 @@
+---
+title: "14 Playground – Interactions cat cat effect + manual coded AND ALSO pairwise comparisons"
+output: html_notebook
+---
+
+```{r setup}
+library(tidyverse)
+library(emmeans)
+library(interactions)  # for probe_interactions() plot
+
+hosp <- read_csv("../../data/hospital.csv") |>
+  mutate(
+    Treatment = factor(Treatment),
+    Hospital = factor(Hospital),
+  )
+
+# get group means
+mean_A1 <- mean(filter(hosp, Treatment == 'TreatA', Hospital == 'Hosp1')$SWB)
+mean_B1 <- mean(filter(hosp, Treatment == 'TreatB', Hospital == 'Hosp1')$SWB)
+mean_C1 <- mean(filter(hosp, Treatment == 'TreatC', Hospital == 'Hosp1')$SWB)
+mean_A2 <- mean(filter(hosp, Treatment == 'TreatA', Hospital == 'Hosp2')$SWB)
+mean_B2 <- mean(filter(hosp, Treatment == 'TreatB', Hospital == 'Hosp2')$SWB)
+mean_C2 <- mean(filter(hosp, Treatment == 'TreatC', Hospital == 'Hosp2')$SWB)
+```
+
+# Plot the data
+
+```{r}
+hosp |>
+  ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  facet_wrap(~ Hospital)
+```
+
+
+# Sum coding
+
+```{r}
+contrasts(hosp$Treatment) <- contr.sum(3)
+contrasts(hosp$Hospital) <- contr.sum(2)
+```
+
+```{r}
+contrasts(hosp$Treatment)
+```
+
+
+```{r}
+contrasts(hosp$Hospital)
+```
+
+
+
+```{r}
+m1 <- lm(SWB ~ Treatment*Hospital, data = hosp)
+summary(m1)
+```
+
+
+# Post-hoc interactions using emmeans
+
+- Treatment A vs. (Treatment B, Treatment C)
+- is there a diff between those two chunks, across hospitals?
+
+- basically kind of compresses data into a 2x2 design
+
+
+## Plot the contrast we want to test
+
+```{r}
+hosp |>
+  mutate(
+    TreatmentPosthoc = ifelse(
+      Treatment == 'TreatA',
+      'TreatA',
+      'TreatBC'
+    )
+  ) |>
+  ggplot(aes(x = TreatmentPosthoc, y = SWB, colour = TreatmentPosthoc, fill = TreatmentPosthoc)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  facet_wrap(~ Hospital) +
+  stat_summary(geom = 'pointrange', colour = 'black') +
+  NULL
+```
+
+
+## Get estimated marginal means
+
+Create manual contrasts for each of the things we want to compare.
+
+Step by step from before, end up with
+
+```{r}
+treat_contrast <- c(
+  'TreatA' = 1,
+  'TreatB' = -1/2,
+  'TreatC' = -1/2
+)
+
+hosp_contrast <- c(
+  'Hosp1' = 1,
+  'Hosp2' = -1
+)
+```
+
+Get outer product (actually show table and fill in cell by cell)
+
+```{r}
+ixn_contrast <- outer(treat_contrast, hosp_contrast)
+ixn_contrast
+```
+
+
+```{r}
+m1_emm <- emmeans(m1, ~Treatment * Hospital)
+m1_emm
+```
+
+Before we used `levels()` to get the order, because we were only looking at one variable.
+Now we've got interplay between two variables, so we'll just base things on the order they appear in the emmeans table here.
+
+```{r}
+ixn_comp <- list(
+  "A vs. BC in diff Hospitals" = 
+    c(
+      1,     # TreatA Hosp1 
+      -1/2,  # TreatB Hosp1
+      -1/2,  # TreatC Hosp1
+      -1,    # TreatA Hosp2
+      1/2,   # TreatB Hosp2
+      1/2    # TreatC Hosp2
+    )
+)
+```
+
+
+Test the contrast using `contrast()` from emmeans.
+
+```{r}
+ixn_contrast_test <- contrast(m1_emm, ixn_comp)
+ixn_contrast_test
+```
+
+We can reject the H0 that there's no difference between hospitals in the effectiveness of A vs. BC.
+Symmetrically, we can reject the H0 that the relationship between A vs. BC is the same in both hospitals.
+
+
+Where does this number 3.73 come from?
+
+It's the sum of all of the group means, each multiplied by the coding from our matrix.
+
+```{r}
+ixn_contrast
+
+1 * mean_A1 +
+  -1   * mean_A2 +
+  -0.5 * mean_B1 +
+   0.5 * mean_B2 +
+  -0.5 * mean_C1 +
+   0.5 * mean_C2
+```
+
+It's positive, so that means that the means that received positive weights are bigger than the means that received negative weights.
+
+
