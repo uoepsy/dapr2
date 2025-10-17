@@ -1,0 +1,372 @@
+---
+title: 'LM Analysis: Report and Notes'
+output: bookdown::html_document2
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE)
+```
+
+```{r, echo = FALSE, message=FALSE}
+#load libraries
+library(tidyverse)
+library(sjPlot)
+library(psych)
+library(kableExtra)
+library(patchwork)
+
+#read in data
+fomo <- read_csv('https://uoepsy.github.io/data/FOMOdataset.csv') 
+```
+
+```{r, include = FALSE}
+######## DATA CHECKS
+
+#look at structure of dataset
+str(fomo)
+
+#`summary` will give us the range and the mean for each of our numeric variables, and also allow us to check whether our variables were imported in a way we would expect. Have a look to see whether everything looks ok (e.g., are there any unexpected values, given the measurable range of scores?). In this example, the data are all clean and ready to use, but in future weeks (and in your dissertation), you'll likely come across messier data and need to know how to handle it.  
+fomo |>
+  summary()
+
+#check for missing values
+table(is.na(fomo)) #no NAs present, all false
+
+```
+
+
+```{r, include = FALSE}
+######## GENERAL DESCRIPTIVES
+
+# the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
+# We are first renaming our variables to give more appropriate / informative names.
+#Next we are selecting columns 2, 3, 4, 8, and 9 from the describe output (n, mean, sd, min, max)
+
+fomo |> 
+    select(FOMO, Age, TotalFollowers, N, E, O, C, A) |>
+    rename("Fear of Missing Out" = FOMO, "Age (in years)" = Age, "Number of Instagram Followers" = TotalFollowers, "Neuroticism" = N, "Extraversion" = E, "Openness" = O, "Conscientiousness" = C, "Agreeableness" = A) |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+        kable(caption = "FoMO, Socio-Demographic Factors, and Personality Traits Descriptive Statistics", digits = 2) |>
+        kable_styling()   
+
+#from above, no missing values and scores within range (look at min and max values)
+
+
+# scatterplot matrix, hist, and corr of FoMO, Socio-Demographic Factors, and Personality Traits Descriptive Statistics
+pairs.panels(fomo)
+```
+
+
+```{r, include = FALSE}
+########### RQ1
+
+##### DESCRIPTIVES
+fomo |> 
+    select(FOMO, Age) |>
+    rename("Fear of Missing Out" = FOMO, "Age (in years)" = Age) |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "FoMO and Age Descriptive Statistics", digits = 2) |>
+        kable_styling()    
+
+
+##### VISUALISATION
+p1 <- ggplot(data = fomo, aes(x = Age, y = FOMO)) + 
+    geom_point() + 
+  geom_smooth(method = 'lm', se = FALSE, colour = 'red', linewidth=2) +
+  labs(x = "(a) Age (in years)", y = "Fear of Missing Out")
+p1
+
+
+##### MODEL BUILDING
+fomo_mdl1 <- lm(FOMO ~ Age, data = fomo)
+summary(fomo_mdl1)
+confint(fomo_mdl1)
+
+
+##### RESULTS TABLE
+tab_model(fomo_mdl1,
+          dv.labels = "FoMO",
+          pred.labels = c("Age" = "Age (in years)"), 
+          title = "RQ1: Regression Table for FoMO Model")
+```
+
+
+```{r, include = FALSE}
+########### RQ2
+
+##### DESCRIPTIVES
+fomo |> 
+    select(FOMO, Age, TotalFollowers) |>
+    rename("Fear of Missing Out" = FOMO, "Age (in years)" = Age, "Number of Instagram Followers" = TotalFollowers) |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "FoMO and Socio-Demographic Factors Descriptive Statistics", digits = 2) |>
+        kable_styling()    
+
+
+##### VISUALISATION
+p2 <- ggplot(data = fomo, aes(x = TotalFollowers, y = FOMO)) + 
+    geom_point() + 
+  geom_smooth(method = 'lm', se = FALSE, colour = 'purple', linewidth=2) +
+  labs(x = "(b) Total Number of \nInstagram Followers", y = "Fear of Missing Out")
+p2
+
+
+##### MODEL BUILDING
+fomo_mdl2 <- lm(FOMO ~ Age + TotalFollowers, data = fomo)
+summary(fomo_mdl2)
+confint(fomo_mdl2)
+
+
+##### MODEL COMPARISON
+anova(fomo_mdl1 ,fomo_mdl2) |>
+    kable(caption = "Model Comparison - fomo_mdl1 vs fomo_mdl2", align = "c", digits = c(2,2,2,2,2,60)) |>
+    kable_styling(full_width = FALSE)
+
+
+##### RESULTS TABLE
+tab_model(fomo_mdl1 ,fomo_mdl2,
+          dv.labels = c("FoMO","FoMO"),
+          pred.labels = c("Age" = "Age (in years)",
+                          "TotalFollowers" = "Number of Instagram Followers"), 
+          title = "RQ2 - Regression Table for FoMO Model")
+```
+
+
+```{r, include = FALSE}
+########### RQ3
+
+##### DESCRIPTIVES
+fomo |> 
+    select(FOMO, N, E, O, C, A) |>
+    rename("Fear of Missing Out" = FOMO, "Neuroticism" = N, "Extraversion" = E, "Openness" = O, "Conscientiousness" = C, "Agreeableness" = A) |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "FoMO and Personality Descriptive Statistics", digits = 2) |>
+        kable_styling()  
+
+
+##### OPTIONAL EXTRA VISUALISATION
+
+#We can produce multiple histograms at once. This is especially useful if the variables reflect a similar theme (as is the case with our Big 5 data). To produce this grid of plots, you'll first need to reformat the data slightly using the `gather` function, which converts the dataset into 2 columns - one with the original column names and another with the values from the columns. Note that I'm using `select` to pass only the Big 5 columns to `gather`.
+fomo |> 
+  select(c('O', 'C', 'E', 'A', 'N')) |>
+  gather() |>
+  head()
+
+#The reformatted data can then be passed to `ggplot`, and the `facet_wrap` function can be used to group the data by the `key` variable (which contains the names of the original columns):
+fomo |>
+  select(c('O', 'C', 'E', 'A', 'N')) |>
+  gather() |>
+    ggplot(aes(value)) + geom_histogram(binwidth = 2, color='black', fill='darkred') + 
+    theme(axis.title = element_text(size = 12, face='bold'), 
+        axis.text = element_text(size = 10),
+        strip.text = element_text(size = 12, face = 'bold')) +
+    facet_wrap(~key)
+
+
+##### STANDARDISE FOMO & PERSONALITY
+fomo <- 
+  fomo |> 
+    mutate(
+      FOMOz = (FOMO-mean(FOMO))/sd(FOMO),
+      Oz = (O-mean(O))/sd(O),
+      Cz = (C-mean(C))/sd(C),
+      Ez = (E-mean(E))/sd(E),
+      Az = (A-mean(A))/sd(A),      
+      Nz = (N-mean(N))/sd(N))
+
+
+##### MODEL BUILDING
+fomo_mdl3 <- lm(FOMOz ~ Nz + Ez + Oz + Cz + Az, data = fomo)
+summary(fomo_mdl3)
+confint(fomo_mdl3)
+
+
+##### PLOT MODEL - EXAMINE SIGNIFICANT PERSONALITY TRAITS
+N_plot <- plot_model(fomo_mdl3, type = "eff",
+           terms = c("Nz"),
+           show.data = TRUE,
+           axis.title = c("Neuroticsm \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FoMO & N")
+
+C_plot <- plot_model(fomo_mdl3, type = "eff",
+           terms = c("Cz"),
+           show.data = TRUE,
+           axis.title = c("Conscientiousness \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FoMO & C")
+
+A_plot <- plot_model(fomo_mdl3, type = "eff",
+           terms = c("Az"),
+           show.data = TRUE,
+           axis.title = c("Agreeableness \n(z-scored)","FoMO Score (z-scored)"),
+           title = "FoMO & A")
+
+N_plot | C_plot | A_plot
+
+
+##### RESULTS TABLE
+tab_model(fomo_mdl3,
+          dv.labels = "FoMO (Z-Scored)",
+          pred.labels = c("Nz" = "Neuroticism (Z-Scored)",
+                          "Ez" = "Extraversion (Z-Scored)",
+                          "Oz" = "Openness (Z-Scored)",
+                          "Az" = "Agreeableness (Z-Scored)",
+                          "Cz" = "Conscientiousness (Z-Scored)"),
+          title = "RQ3 - Regression Table for FoMO Model")
+```
+
+# Analysis Strategy
+
+The dataset contained information on 3370 participants, including scores on 5 personality traits assessed by the a reduced version of the 45 item Big Five Inventory (BFI; Openness, Conscientiousness, Extraversion, Agreeableness and Neuroticism), where 43 items were used. Participants were also assessed on the FoMO scale - a 10 item measure which assessed the extent to which individuals experienced apprehension regarding missing out on interesting events of others. Items on both the BFI and FoMO scales were measured on a 5-point scale, meaning that scores on the BFI could range 8-40 for Neuroticism, 8-40 for Extraversion, 10-50 for Openness to Experience, 8-40 for Agreeableness, and 9-45 for Conscientiousness; and scores on the FoMO scale could range 10-50. For both of these measures, only total scores were available. Two socio-demographic questions were also asked of all participants - their age (in years) and total number of Instagram followers. 
+
+The aim of this report was to address three research questions:
+
+1. Does age predict FoMO?
+2. Does the total number of people one follows on Instagram predict FoMO over and above age?
+3. Does personality predict FoMO?
+
+To examine the associations among the variables of interest, a scatter plot of matrices (SPLOM) was used. This allowed for visual examination of marginal distributions via histograms, and bivariate associations between variables via scatter plots. The SPLOM also provided bivariate correlations between each of the variables. 
+
+To address RQ1, the following simple linear regression model was used:
+
+$$
+\text{FoMO} = \beta_0 + \beta_1 \cdot \text{Age} + \epsilon
+$$
+
+where we tested whether there was a significant association between FoMO and age. Formally, this corresponded to testing whether the age coefficient was equal to zero:
+
+$$
+H_0: \beta_1 = 0
+$$
+
+$$
+H_1: \beta_1 \neq 0
+$$
+
+To address RQ2, the two following models were used:
+$$
+\text{FoMO} = \beta_0 + \beta_1 \cdot \text{Age} + \epsilon
+$$
+
+$$
+\text{FoMO} = \beta_0 + \beta_1 \cdot \text{Age} + \beta_2 \cdot \text{Number of Instagram Followers} + \epsilon
+$$
+
+To determine whether the model with the number of Instagram followers and age was a significantly better fitting than the model with age alone, we used an incremental $F$-test to formally test the following hypothesis:
+
+$$
+H_0: \beta_2 = 0
+$$
+
+$$
+H_1: \beta_2 \neq 0
+$$
+
+To address RQ3, the following multiple linear regression model was used, where all measures were $z$-scored:
+
+$$
+\text{FoMO} = \beta_0 + \beta_1 \cdot \text{N} + \beta_2 \cdot \text{E} + \beta_3 \cdot \text{O} + \beta_4 \cdot \text{C} + \beta_5 \cdot \text{A} + \epsilon
+\quad \\  
+$$
+
+$$
+\begin{align}
+& \text{Where:} \\
+& \text{FoMO} = \text{FoMO, z-scored} \\
+& \text{N} = \text{Neuroticism, z-scored} \\
+& \text{E} = \text{Extraversion, z-scored} \\
+& \text{O} = \text{Openness, z-scored} \\
+& \text{C} = \text{Conscientiousness, z-scored} \\
+& \text{A} = \text{Agreeableness, z-scored} \\
+\end{align}
+$$
+
+To investigate whether personality predicted FoMO, this corresponded to testing whether each of the Big 5 personality traits were equal to zero:
+
+$$
+H_0: \text{All}~~ \beta_j = 0 ~\text{(for j = 1, 2, 3, 4, 5)}
+$$
+$$ 
+H_1: \text{At least one}~ \beta_j \neq \text{(for j = 1, 2, 3, 4, 5)}
+$$
+
+All participant data was complete (no missing values), with scores on the FoMO and BFI scales within possible ranges. Throughout the report, effects were considered statistically significant at $\alpha = .05$.  
+
+
+# Results
+
+Descriptive statistics are displayed in \@ref(tab:tbl-desctab). 
+
+```{r, tbl-desctab}
+fomo |> 
+    select(FOMO, Age, TotalFollowers, N, E, O, C, A) |>
+    rename("Fear of Missing Out" = FOMO, "Age (in years)" = Age, "Number of Instagram Followers" = TotalFollowers, "Neuroticism" = N, "Extraversion" = E, "Openness" = O, "Conscientiousness" = C, "Agreeableness" = A) |>
+    describe() |>
+    select(2:4, 8:9) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>    
+        kable(caption = "FoMO, Socio-Demographic Factors, and Personality Traits Descriptive Statistics", digits = 2) |>
+        kable_styling() 
+```
+
+Bivariate correlations showed a moderate negative association between FoMO and age; moderate positive associations between FoMO and Neuroticism and between FoMO and number of Instagram followers; and weak associations between FoMO and the remaining Big 5 personality variables (see Figure \@ref(fig:fig-sphcor)). 
+
+```{r, fig-sphcor, fig.cap="Bivariate scatter plots (below diagonal), histograms (diagonal), and Pearson correlation coefficient (above diagonal) for FoMO, Socio-Demographic Factors, and Personality Traits"}
+pairs.panels(fomo)
+```
+
+In relation to RQ1, full regression results, including 95% Confidence Intervals, are shown in Table \@ref(tab:rq1tab). This model was significant $(F(1, 3368) = 380.1, p < .001)$, and results indicated that age was a significant predictor of FoMO $(\beta = -0.2, CI_{95} = [-0.22, -0.18], SE = 0.01, p < .001)$. Age explained approximately 10% of the variance in FoMO scores. For every one-year increase in age, participants’ FoMO scores decreased by 0.20 points. This suggested that older participants experienced less FoMO than younger participants (see Figure \@ref(fig:rq12-plot)(a)).
+
+```{r tbl-rq1-results}
+tab_model(fomo_mdl1,
+          dv.labels = "FoMO",
+          pred.labels = c("Age" = "Age (in years)"), 
+          title = "(\\#tab:rq1tab) RQ1: Regression Table for FoMO Model")
+```
+
+```{r, rq12-plot, fig.cap = "(a) Association between FoMO and Age (b) Association between FoMO and Instagram Followers"}
+p1 | p2
+```
+
+As presented in \@ref(tab:tbl-rq2-results), we found evidence that an individual's total number of followers on Instagram and age provided a significantly better fitting model predicting FoMO over age alone $(F(1, 3367) = 267.04, p < .001)$. Together, age and the number of Instagram followers explained approximately 17% of the variance in FoMO scores.
+
+```{r tbl-rq2-results}
+anova(fomo_mdl1 ,fomo_mdl2) |>
+    kable(caption = "Model Comparison - fomo_mdl1 vs fomo_mdl2", align = "c") |>
+    kable_styling(full_width = FALSE)
+```
+
+In order to address the third research question, all scores were converted to $z$-scores. The Big 5 personality traits significantly predicted FoMO scores ($F(5, 3364) = 184.53, p < .001$). The personality traits collectively explained approximately 21% of variance in FoMO scores. Full model results are presented in \@ref(tab:rq3tab). For every 1 standard deviation unit increase in Neuroticism scores, FoMO scores increased by 0.43 standard deviations after controlling for other personality traits. When accounting for other personality traits, for every 1 standard deviation unit increase in Conscientiousness scores, FoMO scores decreased by 0.31 standard deviations. For every 1 standard deviation unit increase in Agreeableness scores, FoMO scores decreased by 0.09 standard deviations after controlling for other personality traits. Neither Extraversion $(p = .27)$ nor Openness $(p = .47)$ were significant predictors of FoMO. 
+
+```{r tbl-rq3-results}
+tab_model(fomo_mdl3,
+          dv.labels = "FoMO (Z-Scored)",
+          pred.labels = c("Nz" = "Neuroticism (Z-Scored)",
+                          "Ez" = "Extraversion (Z-Scored)",
+                          "Oz" = "Openness (Z-Scored)",
+                          "Az" = "Agreeableness (Z-Scored)",
+                          "Cz" = "Conscientiousness (Z-Scored)"),
+          title = "(\\#tab:rq3tab) RQ3 - Regression Table for FoMO Model")
+```
+
+Associations between FoMO and the three significant personality traits (whilst holding the others constant) are shown in Figure \@ref(fig:rq3-results).
+
+```{r, rq3-results, fig.cap = "Predicted FoMO Scores by Neuroticsm, Conscientiousness, and Agreeableness after accounting for other Big 5 Traits"}
+N_plot | C_plot | A_plot
+```
+
+
+# Discussion
+
+Previous research had identified an association between an individual’s fear of missing out, various socio-demographic factors, and personality. In this analysis, we examined the associations of FoMO with age, total number of Instagram followers, and personality.
+
+Our results suggested that: (1) age was a significant predictor of FoMO, where older age was associated with lower levels of FoMO; (2) including the total number of Instagram followers as well as age resulted in a significantly better fitting model for explaining FoMO scores (where more followers were associated with higher levels of FoMO); and (3) three of the Big Five personality traits - Neuroticism, Agreeableness, and Conscientiousness - were significant predictors of FoMO (specifically high Neuroticism, low Agreeableness, and low Conscientiousness). Therefore, we can reject the null hypotheses for each of our research questions. 
+
+However, it is important to note that we can make no causal claims on the directions of these associations from these data - we cannot conclude that being a young person who is highly Neurotic and low on Agreeableness and Conscientiousness with a large number of Instagram followers will __cause__ feelings of FoMO.
+
+
