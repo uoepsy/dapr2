@@ -365,7 +365,7 @@ gen_boot_plots <- function(all_boot_data, plot_limits, param_to_plot){
 
 
 
-```{r}
+```{r eval=F}
 # Intercept GIF
 gifski::save_gif(
   gen_boot_plots(boot_coefs_df, plot_limits, 'Intercept'), 
@@ -392,7 +392,8 @@ gifski::save_gif(
 
 ---
 
-```{r}
+
+```{r eval=F}
 library(gapminder)
 library(ggplot2)
 makeplot <- function(){
@@ -410,7 +411,7 @@ gifski::save_gif(makeplot(), gif_file, 1280, 720, res = 144, delay=0.1)
 ```
 
 
-```{r}
+```{r eval=F}
 # Make a function that returns a bunch of ggplot objects for use in save_gif() below.
 # More info: https://rdrr.io/cran/gifski/man/gifski.html 
 make_many_plots <- function(){
@@ -430,6 +431,246 @@ make_many_plots <- function(){
 path_to_gif <- paste0(getwd(), '/imgs/lotsofdata.gif')
 gifski::save_gif(make_many_plots(), path_to_gif, 1000, 720, res = 144, delay=0.1)
 ```
+
+
+# TODO CI simulate
+
+Confidence intervals are a weird concept.
+
+What we want them to mean: "we are 95% sure that the true value is between X and Y"
+
+this is not what they really mean :(
+
+--
+
+So what do they mean?
+
+Some backstory first:
+
+Confidence intervals rely on the idea of "hypothetical repeated sampling"
+
+- hypothetical: we're imagining something that isn't really happening
+- repeated: we're imagining that we're doing something over and over again
+- sampling: we're imagining that we're drawing samples from the same population over and over again
+
+--
+
+"Hypothetical repeated sampling" is DIFFERENT from bootstrapping because 
+
+ - HRS *imagines* repeatedly drawing samples *from the population*
+ - bootstrapping *really* repeatedly draws samples *from our original sample*
+ 
+(Bootstrapping is the closest we can actually really get to hypothetical repeated sampling)
+
+
+--
+
+IRL, we've drawn one single sample from a population.
+I'm gonna play God and define a population—IRL we can't know what it is, but when I create my own simulated world, we can know what it is.
+And I'm gonna use the simulated world to illustrate the idea of hypothetical repeated sampling.
+
+Let's look at the relationship between sleep and test scores.
+In this world, the more hours of sleep you get, the better your test scores will be.
+
+The true slope is n: for every additional hour of sleep, you're likely to score n points higher.
+
+
+```{r}
+get_ci <- function(df){
+  m <- lm(test_score ~ hrs_sleep, data = df)
+  return(confint(m)['hrs_sleep',] |> as.data.frame())
+}
+```
+
+
+## repeated sampling from the population
+
+```{r message=F}
+n_obs <- 20
+n_rptd_samples <- 100
+
+true_int <- 30
+true_slope <- 4
+
+set.seed(2)
+
+df_ci2 <- tibble(
+  sample_idx = rep(1:n_rptd_samples, each = n_obs),
+  hrs_sleep = rep(
+    seq(0, 12, length.out = n_obs),
+    n_rptd_samples
+  ),
+  test_score = true_int + (true_slope * hrs_sleep) + rnorm(n_obs*n_rptd_samples, 0, 10)
+) |>
+  mutate(
+    test_score = case_when(
+      test_score < 0 ~ 0,
+      test_score > 100 ~ 100,
+      .default = test_score
+    )
+  )
+
+df_confints <- df_ci2 |>
+  group_by(sample_idx) |>
+  group_map(~ get_ci(.x)) |>
+  bind_cols() |>
+  t() |>
+  as.tibble() |>
+  rownames_to_column(var = 'sample_idx') |>
+  mutate(
+    true_val_in_ci = (`2.5 %` < true_slope) & (`97.5 %` > true_slope)
+  )
+
+df_confints |>
+  summarise(
+    sum(true_val_in_ci)
+  )
+```
+
+^ 95 of CIs contain the true population value.
+
+## Plots
+
+```{r}
+df_ci2 |>
+  ggplot(aes(x = hrs_sleep, y = test_score, colour = factor(sample_idx))) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = 'lm', se = F) +
+  theme(legend.position = 'none')
+```
+
+Let's look at the data from a few different samples.
+
+```{r}
+df_confints <- df_confints |>
+  mutate(
+    pretty_printed = paste0('95% CI [', round(`2.5 %`, 1), ', ', round(`97.5 %`, 1), ']')
+  )
+
+first_sample <- 10
+last_sample <- first_sample + 5
+
+df_ci2 |>
+  filter(sample_idx %in% first_sample:last_sample) |>
+  ggplot(aes(x = hrs_sleep, y = test_score)) +
+  geom_abline(intercept = true_int, slope = true_slope, colour = 'black', linetype = 'dotted') +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = 'lm', se = F) +
+  geom_text(data = filter(df_confints, sample_idx %in% first_sample:last_sample), 
+            aes(label = pretty_printed, colour = true_val_in_ci), 
+            x = 0, y = 95, hjust = 0) +
+  facet_wrap(~ factor(sample_idx)) +
+  ylim(0, 100) +
+  theme(legend.position = 'none',
+        # strip.background = element_blank(),
+        strip.text = element_blank(),
+        ) +
+  NULL
+```
+
+
+Another way of looking at that data ^ is just comparing the CIs of the slope to the true value
+
+```{r}
+df_confints |>
+  mutate(true_val = true_slope) |>
+  ggplot(aes(x = sample_idx, y = true_val, group = 1)) +
+  geom_line() +
+  geom_errorbar(aes(ymin = `2.5 %`, ymax = `97.5 %`, colour = true_val_in_ci)) +
+  theme(
+    legend.position = 'bottom',
+    axis.text.x = element_blank()
+    ) 
+```
+
+
+## plot true line in population
+
+```{r}
+ggplot() +
+  geom_abline(intercept = true_int, slope = true_slope) +
+  xlim(0, 12) +
+  ylim(0, 100)
+```
+
+
+# Debunking CI myths + misconceptions
+
+Let's draw one more sample and pretend that this is our actual experimental sample.
+
+```{r}
+set.seed(150)
+
+expt_sample <- tibble(
+  hrs_sleep = seq(0, 12, length.out = n_obs),
+  test_score = true_int + (true_slope * hrs_sleep) + rnorm(n_obs, 0, 10)
+) |>
+  mutate(
+    test_score = case_when(
+      test_score < 0 ~ 0,
+      test_score > 100 ~ 100,
+      .default = test_score
+    )
+  )
+
+expt_sample |>
+  ggplot(aes(x = hrs_sleep, y = test_score)) +
+  geom_point()
+```
+
+
+```{r}
+m1 <- lm(test_score ~ hrs_sleep, data = expt_sample)
+confint(m1)['hrs_sleep', ] |> t() |> as.data.frame()
+```
+
+## Debunk: 95% prob that the true value is in CI
+
+nope: the true value IS in the CI in this case, it's just true. we know it bc we know the pop value. 100% prob bc it is true.
+
+BUT: usually we don't know the pop value, but we still cannot say with 95% probability that the true value is in CI
+
+
+confidence != probability
+
+Less good phrasing:
+
+> "We are 95% confident that this interval contains the true mean population"
+
+comment on this phrasing:
+
+> it derives from a flawed understanding of the notion of “confidence” in the statistical sense, and it’s okay, in my opinion the notion of confidence is hard to understand and it is very easy to equate confidence with probability. A more correct interpretation would be, in my opinion, the following: “With a confidence of 95%, we can assert that the population mean is within the interval [x,y]”. It may sound similar to your interpretation, but I think the interpretation I’m suggesting phrases better the notion of confidence as something different from probability
+
+source: [this nice reddit thread](https://www.reddit.com/r/statistics/comments/1je70xr/q_whats_the_point_of_calculating_a_confidence/)
+
+
+# brilliant CI explanation from reddit
+
+source: [very nice reddit comment](https://www.reddit.com/r/explainlikeimfive/comments/sc5k53/comment/hu4mqf4/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+
+> “confidence” == “probability”, since “confidence” is not a measure in the mathematical sense whereas “probability” is.
+
+**The "confidence" of a confidence interval refers to the process that generates the intervals. A 95% confidence interval is one generated by a process that constructs 95 intervals that include the true value (the one being estimated) for every 5 that don't ("on average" or "in the long run").** (To be clear, generating a new interval implies also collecting a new random sample of the population.)
+
+Importantly, we cannot say for a particular 95% CI that there is a 95% chance that it includes the true value. For a frequentist (the interpretation of probability the CIs are grounded in), that is a statement about three fixed values, so no probability besides 0 and 1 is conceivable: of the times you draw a random sample that has a CI with those bounds, the CI will contain the true value either 0% of the time or 100% of the time. **If you want an interval that has a 95% chance of including the true value, you need a different interpretation of probability (Bayesian instead of frequentist) and different math.**
+
+**link to nhst:**
+
+If you're familiar with null hypothesis significance testing, you can also think of it in similar terms. **You know what it means when you fail to reject the null? Well the 95% CI is just (usually) the set of values that the null hypothesis could take for which we would fail to reject it at the 5% significance level.**
+
+**In hypothesis testing, when we fail to reject the null hypothesis we don't accept it. And when we reject the null hypothesis we don't know how likely it is to be true (or even that it is unlikely to be true).** You could say we decide to act as though the null hypothesis is not true, not as if it's unlikely to be true. This is done on the basis of having controlled the false positive rate, which is how often we would reject the null hypothesis if it were true. Similarly, we decide to act as though the true value is in the interval, not as if it's likely to be.
+
+Another way to look at it is with disjunctions like Fisher's. If the p-value is small enough, we can say that either the null hypothesis is false or something unusual has occurred. **But we cannot say which of these is more likely.** As the xkcd illustrates, it maybe be far more likely that the null hypothesis is true (the sun has not exploded) and something usual has occurred (two 6s) than that the null hypothesis is false (the sun has exploded).
+
+Same logic with confidence intervals: For a sufficiently high confidence CI, either the interval contains the true value or something unusual has occurred.
+
+
+--
+
+In practice, because the standard error is used to compute confidence intervals, CIs give us a sense of how precise our estimate is.
+The bigger the CI around the estimated value, the less precise.
+The smaller the CI around the estimated value, the more precise.
+**But CIs don't tell us anything about the probable true value in the real world.**
 
 
 
