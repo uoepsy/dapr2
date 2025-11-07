@@ -30,6 +30,52 @@ dapr2red <- "#BF1932"
 ```
 
 
+```{r message=F, warning=F, include=F}
+# simulate the data
+library(simglm)
+
+set.seed(3119) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation + study + method,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1),
+               study = list(var_type = 'factor', 
+                            levels = c('alone', 'others'),
+                            prob = c(0.53, 0.47)),
+               method = list(var_type = 'factor', 
+                            levels = c('read', 'summarise', 'self-test'),
+                            prob = c(0.3, 0.4, 0.3))),
+  error = list(variance = 20),
+  sample_size = 250,
+  reg_weights = c(0.6, 1.4, 1.5, 6, 6, 2)
+)
+
+df3 <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+score_data <- df3 %>%
+  dplyr::select(y, hours, motivation, study, method) %>%
+  mutate(
+    ID = paste("ID", 101:350, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2),
+    study = factor(study),
+    method = factor(method)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation, study, method)
+
+score_data <- score_data |>
+  mutate(study_num = ifelse(study == 'alone', 0, 1))
+
+# get group means
+mean_alone <- filter(score_data, study == 'alone')$score |> mean()
+sd_alone <- filter(score_data, study == 'alone')$score |> sd()
+mean_others <- filter(score_data, study == 'others')$score |> mean()
+sd_others <- filter(score_data, study == 'others')$score |> sd()
+```
+
 # Course Overview
 
 <br>
@@ -109,6 +155,26 @@ What relationship between predictors do we want to avoid? How can we diagnose it
 :::
 
 :::
+
+# Big picture: Why does a model make assumptions?
+
+## Why does a model make assumptions?
+
+<br>
+
+![](figs/gen-process.svg){fig-align="center" height="100"}
+
+<br>
+
+When we use any statistical model, we are saying **"This model is the process that I think the world used to generate my data."**
+
+<br>
+
+**Linear models are constrained in certain ways:** for example, associations between predictors and outcomes can only be linear.
+
+<br>
+
+These constraints are the **assumptions** that the linear model makes about how the data was generated.
 
 
 # Assumptions
@@ -208,12 +274,14 @@ p_good + p_quad
 
 Make a scatterplot with a straight line and a "LOESS" line (**LO**cally **E**stimated **S**catterplot **S**moothing).
 
-:::: {.columns .fragment}
+:::{.fragment}
+
+:::: {.columns}
 ::: {.column width="50%" style="font-size: 85%;"}
 
 **The linear variable:**
 
-```{r fig.asp = .8, fig.width = 10, fig.align = 'center', warning=F, message=F}
+```{r fig.asp = .7, fig.width = 10, fig.align = 'center', warning=F, message=F}
 df_nonlin |>
   ggplot(aes(x=x1, y=y)) +
   geom_point(size = 5) +
@@ -229,7 +297,7 @@ df_nonlin |>
 
 **The non-linear variable:**
 
-```{r fig.asp = .8, fig.width = 10, fig.align='center', warning=F, message=F}
+```{r fig.asp = .7, fig.width = 10, fig.align='center', warning=F, message=F}
 df_nonlin |>
   ggplot(aes(x=x2, y=y)) +
   geom_point(size = 5) +
@@ -242,11 +310,10 @@ df_nonlin |>
 :::
 ::::
 
-:::{.fragment}
 You want the LOESS line (`method = 'loess'`, red) to stick close to the straight line (`method = 'lm'`, blue).
 Deviations suggest non-linearity.
-:::
 
+:::
 
 ## Checking linearity with >1 predictor
 
@@ -331,7 +398,7 @@ Transform the variable until it looks more linear (e.g., what if you take the ex
 
 :::: {.columns}
 ::: {.column width="25%"}
-**<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">**
+**<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">**
 :::
 ::: {.column width="75%"}
 Beyond DAPR3: You can use so-called "higher-order" regression terms, which let you model particular kinds of curves (quadratic functions, cubic functions, etc.).
@@ -340,7 +407,7 @@ Beyond DAPR3: You can use so-called "higher-order" regression terms, which let y
 
 :::: {.columns}
 ::: {.column width="25%"}
-**<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">**
+**<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">**
 :::
 ::: {.column width="75%"}
 Beyond DAPR3: You can capture basically any non-linear relationship using "generalised additive models" (GAMs).
@@ -2506,7 +2573,7 @@ The lack of correlation appears as a cloud of data points.
 
 <br>
 
-When predictors are correlated, the model estimates are less precise—in other words, **the variance of its estimates increases.**
+When predictors are correlated, the variance of the model's estimates increases.
 
 We can detect this using the **Variance Inflation Factor** or VIF.
 
@@ -2598,7 +2665,6 @@ If the correlations are large, remove one of the correlated predictors from the 
 
 :::: {.columns}
 ::: {.column width="25%"}
-<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 :::
