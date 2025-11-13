@@ -1,0 +1,270 @@
+---
+title: "DAPR2 10 – RQ2 step by step"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+# # load libraries
+library(tidyverse)  # for all things!
+# library(psych)      # good for descriptive stats
+# library(kableExtra) # useful for creating nice tables
+# library(sjPlot)     # regression tables & plots
+# library(emmeans)    # for contrasts
+# library(car)        # for assumptions (crPlots, residualPlots, VIF) and bootstrapping
+
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+```
+
+RQ2: Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
+
+---
+
+# (1) Before model fitting
+
+## Identify the relevant variables
+
+```{r}
+data1 |> head()
+```
+
+RQ2: Is there a difference in attendance between those with early/late classes in comparison to those with midday classes?
+
+- `Time`
+- `Attendance`
+
+## Data tidying (e.g., missingness? factor levels?)
+
+Missingness:
+
+```{r}
+is.na(data1) |> table()
+```
+
+Factor levels:
+
+```{r}
+unique(data1$Time)
+```
+
+```{r}
+data1 <- data1 |>
+  mutate(
+    Time = factor(Time, levels = c('9AM', '10AM', '11AM', '12PM', '1PM', '2PM', '3PM', '4PM'))
+  )
+```
+
+
+## Get summary statistics for the relevant variables
+
+```{r}
+data1$Time |> table()
+```
+
+Mode: 4PM
+
+```{r}
+psych::describe(data1$Attendance)
+```
+
+
+## Plot each relevant variable individually
+
+```{r}
+data1 |>
+  ggplot(aes(x = Time, fill = Time)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+```{r}
+data1 |>
+  ggplot(aes(x = Attendance)) +
+  geom_histogram()
+```
+
+## Plot the relevant variables together
+
+```{r}
+data1 |>
+  ggplot(aes(x = Time, y = Attendance, fill = Time, colour = Time)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(geom = 'point', fun = 'mean', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+```
+
+Our rsch q is about early/late versus midday.
+
+- Early/late = 9AM, 10AM, 3PM, 4PM.
+- Midday = 11AM, 12PM, 1PM, 2PM.
+
+```{r}
+data1 |>
+  mutate(
+    TimeBinary = ifelse(
+      Time %in% c('9AM', '10AM', '3PM', '4PM'),
+      'Early/late',
+      'Midday'
+    )
+  ) |>
+  ggplot(aes(x = TimeBinary, y = Attendance, fill = TimeBinary, colour = TimeBinary)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(geom = 'point', fun = 'mean', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+```
+
+
+## Set up categorical predictors (e.g., what a priori coding scheme?)
+
+```{r}
+contrasts(data1$Time)
+```
+
+## Set up continuous predictors (e.g., any transformations?)
+
+NA
+
+
+## Think what the model coefficients might look like
+
+- all positive (but not that interesting)
+
+
+## Formally state null and alternative hypotheses
+
+H0 in words:
+- The mean of early/late classes is equal to the mean of the midday classes.
+
+$$
+H0 : \mu_{\text{early/late}} = \mu_{\text{midday}}
+$$
+
+The mean of early/late classes is the mean of all the groups in chunk 1 (9AM, 10AM, 3PM, 4PM)
+The mean of midday classes is the mean of all the groups in chunk 1 (9AM, 10AM, 3PM, 4PM)
+
+So:
+
+$$
+\begin{align}
+H0 &: (\mu_{\text{9AM}} + \mu_{\text{10AM}} + \mu_{\text{3PM}} + \mu_{\text{4PM}})/4 = (\mu_{\text{11AM}} + \mu_{\text{12PM}} + \mu_{\text{1PM}} + \mu_{\text{2PM}})/4  \\
+H0 &: \frac{1}{4} (\mu_{\text{9AM}} + \mu_{\text{10AM}} + \mu_{\text{3PM}} + \mu_{\text{4PM}}) = \frac{1}{4} (\mu_{\text{11AM}} + \mu_{\text{12PM}} + \mu_{\text{1PM}} + \mu_{\text{2PM}})
+\end{align}
+$$
+
+Then H1:
+
+$$
+H1 : \frac{1}{4} (\mu_{\text{9AM}} + \mu_{\text{10AM}} + \mu_{\text{3PM}} + \mu_{\text{4PM}}) \neq \frac{1}{4} (\mu_{\text{11AM}} + \mu_{\text{12PM}} + \mu_{\text{1PM}} + \mu_{\text{2PM}})
+$$
+
+# (2) Model fitting
+
+## Fit the linear model to the data
+
+```{r}
+m2 <- lm(Attendance ~ Time, data = data1)
+```
+
+
+# (3) After model fitting
+
+## Check model assumptions 
+
+Linearity: Assumed bc categorical.
+
+Independence of errors: Assumed bc between subjects.
+
+Normality of errors:
+
+```{r}
+plot(m2, which = 2)
+```
+
+Some deviations around the edges ... meh.
+
+
+
+```{r}
+car::residualPlot(m2)
+```
+
+There are so few diff values because these are the fitted values = the means for each time.
+
+```{r}
+m2$model |>
+  mutate(
+    yhat = fitted(m2)
+  ) |>
+  ggplot(aes(x = Time, y = yhat)) + 
+  geom_point()
+  
+```
+
+Looks fine.
+
+
+## Bootstrap the linear model
+
+NA.
+
+
+## Run diagnostics for multicollinearity
+
+NA
+
+
+## Interpret the model coefficients
+
+```{r}
+summary(m2)
+```
+
+as expected.
+
+## Run sensitivity analysis
+
+NA.
+
+
+## Get estimated marginal means
+
+```{r}
+m2_emm <- emmeans::emmeans(m2, ~Time)
+m2_emm
+```
+
+
+## Plot estimated marginal means
+
+```{r}
+plot(m2_emm) + coord_flip()
+```
+
+
+## Create and test manual contrasts
+
+```{r}
+levels(data1$Time)
+```
+
+Four in each chunk, so the weights will be –1/4 and +1/4.
+
+```{r}
+m2_comparison <- list(
+  'earlylate vs. midday' = c(1/4, 1/4,  -1/4, -1/4, -1/4, -1/4, 1/4, 1/4)
+)
+
+(m2_contrast <- emmeans::contrast(m2_emm, m2_comparison))
+```
+
+```{r}
+confint(m2_contrast)
+```
+
+
+## Write up your analysis
+
+[in lab]

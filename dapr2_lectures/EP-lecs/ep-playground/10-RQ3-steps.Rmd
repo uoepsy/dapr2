@@ -1,0 +1,191 @@
+---
+title: "DAPR2 10 – RQ3 step by step"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)  # for all things!
+
+data2 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart2.csv")
+```
+
+RQ3: Is class attendance associated with final grades?
+
+---
+
+# (1) Before model fitting
+
+## Identify the relevant variables
+
+```{r}
+head(data2)
+```
+
+- `Marks`
+- `Attendance`
+
+
+## Data tidying (e.g., missingness? factor levels?)
+
+```{r}
+is.na(data2) |> table()
+```
+
+All continuous, so no factors.
+
+
+## Get summary statistics for the relevant variables
+
+```{r}
+data2 |> 
+  psych::describe()
+```
+
+
+## Plot each relevant variable individually
+
+```{r}
+data2 |>
+  ggplot(aes(x = Attendance)) +
+  geom_histogram()
+```
+
+```{r}
+data2 |>
+  ggplot(aes(x = Marks)) +
+  geom_histogram()
+```
+
+## Plot the relevant variables together
+
+```{r}
+data2 |>
+  ggplot(aes(x = Attendance, y = Marks)) +
+  geom_point()
+```
+
+
+## Set up categorical predictors (e.g., what a priori coding scheme?)
+
+NA
+
+
+## Set up continuous predictors (e.g., any transformations?)
+
+NA
+
+
+## Think what the model coefficients might look like
+
+- `Intercept`: less than 20 ish? (follow to left to where Attendance = 0)
+- `Attendance`: positive
+
+
+## Formally state null and alternative hypotheses
+
+In words: The null hypothesis for this RQ is that the slope of the line over Attendance is 0.
+
+If our line is
+
+$$
+\text{Marks} = \beta_0 + (\beta_1 \cdot \text{Attendance}) + \epsilon
+$$
+
+then our H0 and H1 are
+
+$$
+H0 : \beta_1 = 0 \\
+H1 : \beta_1 \neq 0
+$$
+
+
+# (2) Model fitting
+
+## Fit the linear model to the data
+
+```{r}
+m3 <- lm(Marks ~ Attendance, data = data2)
+```
+
+
+# (3) After model fitting
+
+## Check model assumptions 
+
+Linearity:
+
+```{r}
+data2 |>
+  ggplot(aes(y = Marks, x = Attendance)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = F) +
+  geom_smooth(method = 'loess', se = F, colour = 'red') +
+  NULL
+```
+
+Linearity looks fine.
+
+
+Independence of errors: Assumed true bc assume between-subjects.
+
+Normality of errors:
+
+```{r}
+plot(m3, which = 2)
+```
+
+There are some bigger positive residuals than we'd expect if things were normally distributed.
+
+Equal variance of errors:
+
+```{r}
+car::residualPlot(m3)
+```
+
+Fan shape flares out – no bueno.
+
+We won't be able to trust the estimates of our LM because the error assumptions aren't supported by the data.
+So we'll need to bootstrap.
+
+
+## Bootstrap the linear model
+
+```{r}
+m3_boot <- car::Boot(m3, R = 1000)
+
+summary(m3_boot)
+```
+
+```{r}
+confint(m3_boot)
+```
+
+
+## Run diagnostics for multicollinearity
+
+NA
+
+
+## Interpret the model coefficients
+
+- `Intercept`: expected mark when attendance = 0.
+- `Attendance`: pos assoc.
+
+## Get estimated marginal means
+
+NA (imposs once bootstrapped)
+
+## Plot estimated marginal means
+
+NA
+
+## Create and test manual contrasts
+
+NA
+
+## Write up your analysis
+
+[in lab]
+

@@ -1,0 +1,373 @@
+---
+title: "DAPR2 10 – RQ1 step by step"
+output: 
+  html_notebook:
+    toc: true
+---
+
+
+```{r setup, message=FALSE, warning=FALSE}
+# # load libraries
+library(tidyverse)  # for all things!
+# library(psych)      # good for descriptive stats
+# library(kableExtra) # useful for creating nice tables
+# library(sjPlot)     # regression tables & plots
+# library(emmeans)    # for contrasts
+# library(car)        # for assumptions (crPlots, residualPlots, VIF) and bootstrapping
+
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+```
+
+RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?
+
+---
+
+# (1) Before model fitting
+
+
+## Identify the relevant variables
+
+```{r}
+head(data1)
+```
+ 
+RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?
+
+- `Conscientiousness`
+- `OnlineAccess`
+- `Year`
+- `Attendance`
+
+
+## Data tidying (e.g., missingness? factor levels?)
+
+### missingness
+
+```{r}
+is.na(data1) |> table()
+```
+
+No NAs.
+
+
+### factor levels
+
+`Conscientiousness`:
+
+```{r}
+unique(data1$Conscientiousness)
+```
+
+We'll make "Moderate" the reference level, so one coef will compare that to "High" and the other will compare it to "Low".
+
+
+`OnlineAccess`
+
+```{r}
+unique(data1$OnlineAccess)
+```
+
+We'll make "Sometimes" the reference level, so one coef will compare that to "Often" and the other will compare it to "Rarely".
+
+
+`Year`
+
+```{r}
+unique(data1$Year)
+```
+
+We'll make this chronological, so Y1 will be the reference level.
+
+
+```{r}
+data1 <- data1 |>
+  mutate(
+    Conscientiousness = factor(Conscientiousness, levels = c('Moderate', 'High', 'Low')),
+    OnlineAccess = factor(OnlineAccess, levels = c('Sometimes', 'Often', 'Rarely')),
+    Year = factor(Year, levels = c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+  )
+```
+
+
+
+## Get summary statistics for the relevant variables
+
+`Conscientiousness` – categorical
+
+```{r}
+data1$Conscientiousness |> table()
+```
+
+Mode = 'Moderate' conscientiousness
+
+
+`OnlineAccess` – categorical
+
+```{r}
+data1$OnlineAccess |> table()
+```
+
+Mode = 'Sometimes' online access
+
+
+`Year` – categorical
+
+```{r}
+data1$Year |> table()
+```
+
+Mode = Y2 
+
+
+`Attendance` – continuous
+
+```{r}
+data1$Attendance |> psych::describe()
+```
+
+
+## Plot each relevant variable individually
+
+`Conscientiousness` – categorical
+
+```{r}
+data1 |>
+  ggplot(aes(x = Conscientiousness, fill = Conscientiousness)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+
+`OnlineAccess` – categorical
+
+```{r}
+data1 |>
+  ggplot(aes(x = OnlineAccess, fill = OnlineAccess)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+
+`Year` – categorical
+
+```{r}
+data1 |>
+  ggplot(aes(x = Year, fill = Year)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+
+`Attendance` – continuous
+
+```{r}
+data1 |>
+  ggplot(aes(x = Attendance)) +
+  geom_histogram()
+```
+
+
+## Plot the relevant variables together
+
+Each categorical variable plotted against attendance.
+
+`Conscientiousness`:
+
+```{r}
+data1 |>
+  ggplot(aes(x = Conscientiousness, y = Attendance, fill = Conscientiousness, colour = Conscientiousness)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(geom = 'point', fun = 'mean', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+```
+
+
+`OnlineAccess`
+
+```{r}
+data1 |>
+  ggplot(aes(x = OnlineAccess, y = Attendance, fill = OnlineAccess, colour = OnlineAccess)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(geom = 'point', fun = 'mean', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+```
+
+
+`Year`
+
+```{r}
+data1 |>
+  ggplot(aes(x = Year, y = Attendance, fill = Year, colour = Year)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(geom = 'point', fun = 'mean', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+```
+
+
+## Set up categorical predictors (e.g., what a priori coding scheme?)
+
+Treatment coding.
+Check what contrasts we should expect.
+
+```{r}
+contrasts(data1$Conscientiousness)
+```
+
+```{r}
+contrasts(data1$OnlineAccess)
+```
+
+```{r}
+contrasts(data1$Year)
+```
+
+
+## Set up continuous predictors (e.g., any transformations?)
+
+NA
+
+
+## Think what the model coefficients might look like
+
+What coefs will we have?
+
+- `(Intercept)` - mean `Attendance` when `Consc` = moderate, `OnlineAccess` = Sometimes, and `Year` = Y1
+- `ConscientiousnessHigh` - moderate vs. high - positive
+- `ConscientiousnessLow`  - moderate vs. low  - negative
+- `OnlineAccessOften`  - sometimes vs. often - negative
+- `OnlineAccessRarely` - sometimes vs. rarely - even more negative
+- `YearY2` - Y1 vs Y2 - pos
+- `YearY3` - Y1 vs Y3 - small pos
+- `YearY4` - Y1 vs Y4 - pos
+- `YearMSc` - Y1 vs MSc - pos
+- `YearPhD` - Y1 vs PhD - big pos
+
+
+## Formally state null and alternative hypotheses
+
+We'll end up writing something about betas being equal or not equal to zero, but we gotta define those betas in the context of the linear model first.
+Otherwise beta1 could be anything!
+
+$$
+\begin{align}
+\text{Attendance} ~=~ & \beta_0 +
+(\beta_1 \cdot \text{C}_{\text{High}}) +
+(\beta_2 \cdot \text{C}_{\text{Low}}) + 
+(\beta_3 \cdot \text{OA}_{\text{Often}}) +
+(\beta_4 \cdot \text{OA}_{\text{Rarely}}) + \\
+& (\beta_5 \cdot \text{Y}_{\text{Y2}}) +
+(\beta_6 \cdot \text{Y}_{\text{Y3}}) +
+(\beta_7 \cdot \text{Y}_{\text{Y4}}) +
+(\beta_8 \cdot \text{Y}_{\text{MSc}}) +
+(\beta_9 \cdot \text{Y}_{\text{PhD}}) +
+\epsilon
+\end{align}
+$$
+where C = Conscientiousness, OA = Online Access, and Y = Year.
+
+The H0 = all the non-Intercept betas are equal to 0.
+That means we can reject the H0 as soon as any single one of those is sufficiently unlikely to equal 0.
+
+$$
+\begin{align}
+H_0 &: \text{All}\ \beta_j = 0\ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)}\\
+H_1 &: \text{At least one}\ \beta_j \neq 0\ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)}
+\end{align}
+$$
+
+
+# (2) Model fitting
+
+## Fit the linear model to the data
+
+```{r}
+m1 <- lm(Attendance ~ Conscientiousness + OnlineAccess + Year, data = data1)
+```
+
+
+# (3) After model fitting
+
+## Check model assumptions 
+
+**Linearity:** Assumed bc categorical.
+
+**Independence of errors:** Assumed bc between-subj design.
+
+**Normality of errors:**
+
+```{r}
+plot(m1, which = 2)
+```
+
+Not a cause for concern.
+
+**Equal variance of errors:**
+
+```{r}
+car::residualPlot(m1)
+```
+
+Enough of a horizontal line + random cloud that it looks OK.
+
+
+## Bootstrap the linear model
+
+NA
+
+
+
+## Run diagnostics for multicollinearity
+
+```{r}
+car::vif(m1)
+```
+
+All close to 1, so not a cause for worry.
+
+
+## Interpret the model estimates
+
+```{r}
+summary(m1)
+```
+
+- Overall model significant?
+  - F-statistic (this model vs. intercept-only model)
+  - yes significant, so the slopes sig diff from 0
+  
+- How much variance explained?
+  - Adjusted R^2: 34%
+  
+- Slopes go in predicted directions?
+  - yes
+
+- Reject H0?
+  - yes
+
+
+## Run sensitivity analysis
+
+NA
+
+
+## Get estimated marginal means
+
+NA
+
+
+## Plot estimated marginal means
+
+NA
+
+
+## Create and test manual contrasts
+
+NA
+
+
+## Write up your analysis
+
+[in lab]
