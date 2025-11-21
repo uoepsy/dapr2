@@ -6,25 +6,26 @@ output: html_notebook
 ```{r setup}
 library(tidyverse)
 library(interactions)  # for probe_interactions() plot
-```
 
-
-```{r}
 salary <- read_csv("../../data/salary_lec.csv", show_col_types = FALSE) |>
   mutate(
-    dept = ifelse(dept == 1, 'Accounts', 'Managers')
+    envt = factor(ifelse(dept == 1, 'nature', 'urban'))
   )
 
 # make the acct slope a bit steeper to illustrate the point better
-salary <- salary |>
+outdoors <- salary |>
   mutate(
     salary_aug = ifelse(
-      dept == 'Accounts',
+      envt == 'nature',
       salary + (service^2)/1.5 - 10,
       salary
     ),
-    salary = salary_aug
-  )
+    wellbeing = salary_aug
+  ) |>
+  rename(
+    outdoor_time = service
+  ) |>
+  select(wellbeing, envt, outdoor_time)
 ```
 
 
@@ -33,11 +34,11 @@ salary <- salary |>
 ```{r}
 palette_probe <- c('#4ab8fc', '#ff7b01')
 
-salary |>
-  ggplot(aes(x = service, y = salary, colour = dept)) +
+outdoors |>
+  ggplot(aes(x = outdoor_time, y = wellbeing, colour = envt)) +
   geom_point(size = 5) +
   geom_smooth(method = 'lm', se = F) +
-  # facet_wrap(~ dept) +
+  # facet_wrap(~ envt) +
   # theme(legend.position = 'none') +
   scale_color_manual(values = palette_probe) +
   NULL
@@ -46,44 +47,48 @@ salary |>
 
 
 
-`dept`:
+`envt`:
 
-- 1 = store managers
-- 0 = accounts
+- 1 = urban
+- 0 = nature
+
+```{r}
+contrasts(outdoors$envt)
+```
 
 
-`salary`:
+`wellbeing`:
 
-- salary in thosuands of pounds
+- wellbeing in thosuands of pounds
 
 
-`service`:
+`outdoor_time`:
 
-- years of service
+- years of outdoor_time
 
 
 
 # Model: no interaction
 
 ```{r}
-m1 <- lm(salary ~ service + dept, data = salary)
+m1 <- lm(wellbeing ~ outdoor_time + envt, data = outdoors)
 summary(m1)
 ```
 
 ```{r warning=F}
-salary_probedat <- salary |>
+outdoors_probedat <- outdoors |>
   mutate(
-    pred = service,
-    modx_group = dept
+    pred = outdoor_time,
+    modx_group = envt
   )
   
 plot_m1_probe <- probe_interaction(
   model = m1,
-  pred = service,
-  modx = dept,
+  pred = outdoor_time,
+  modx = envt,
   interval = T
 )$interactplot +
-  geom_point(data = salary_probedat, size = 5)
+  geom_point(data = outdoors_probedat, size = 5)
 
 plot_data_probe <- plot_m1_probe
 
@@ -119,26 +124,26 @@ Compute simple slopes.
 
 $$
 \begin{align}
-\widehat{salary} &= \beta_0 + (\beta_1 \cdot service) + (\beta_2 \cdot dept) \\
-\widehat{salary} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot dept) \\ 
+\widehat{wellbeing} &= \beta_0 + (\beta_1 \cdot outdoor_time) + (\beta_2 \cdot envt) \\
+\widehat{wellbeing} &= 19    + (7.8 \cdot outdoor_time)     + (-26.2 \cdot envt) \\ 
 \end{align}
 $$
 
-When $dept = 0$ (Accounts):
+When $envt = 0$ (nature):
 
 $$
 \begin{align}
-\widehat{salary}_{dept=0} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot 0) \\
-\widehat{salary}_{dept=0} &= 19    + (7.8 \cdot service)      \\
+\widehat{wellbeing}_{envt=0} &= 19    + (7.8 \cdot outdoor_time)     + (-26.2 \cdot 0) \\
+\widehat{wellbeing}_{envt=0} &= 19    + (7.8 \cdot outdoor_time)      \\
 \end{align}
 $$
-When $dept = 1$ (Managers):
+When $envt = 1$ (urban):
 
 $$
 \begin{align}
-\widehat{salary}_{dept=1} &= 19    + (7.8 \cdot service)     + (-26.2 \cdot 1) \\
-\widehat{salary}_{dept=1} &= 19 - 26.2   + (7.8 \cdot service)      \\
-\widehat{salary}_{dept=1} &= 9   + (7.8 \cdot service)      \\
+\widehat{wellbeing}_{envt=1} &= 19    + (7.8 \cdot outdoor_time)     + (-26.2 \cdot 1) \\
+\widehat{wellbeing}_{envt=1} &= 19 - 26.2   + (7.8 \cdot outdoor_time)      \\
+\widehat{wellbeing}_{envt=1} &= 9   + (7.8 \cdot outdoor_time)      \\
 \end{align}
 $$
 
@@ -147,7 +152,7 @@ $$
 # Model: with interaction
 
 ```{r}
-m2 <- lm(salary ~ service + dept + service:dept, data = salary)
+m2 <- lm(wellbeing ~ outdoor_time + envt + outdoor_time:envt, data = outdoors)
 summary(m2)
 ```
 
@@ -163,51 +168,52 @@ coef(m2)
 
 $$
 \begin{align}
-\widehat{salary} &= \beta_0 + (\beta_1 \cdot serv) + (\beta_2 \cdot dept) + (\beta_3 \cdot serv \cdot dept)\\
-\widehat{salary} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
+\widehat{wellbeing} &= \beta_0 + (\beta_1 \cdot serv) + (\beta_2 \cdot envt) + (\beta_3 \cdot serv \cdot envt)\\
+\widehat{wellbeing} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot envt)    + (-9.6 \cdot serv \cdot envt)\\
 \end{align}
 $$
 
 
-When $dept = 0$ (Accounts):
+When $envt = 0$ (nature):
 
 $$
 \begin{align}
-\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
-\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 0)    + (-9.6 \cdot serv \cdot 0)\\
-\widehat{salary}_{acct} &= -3.4    + (12.3 \cdot serv)\\
+\widehat{wellbeing}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot envt)    + (-9.6 \cdot serv \cdot envt)\\
+\widehat{wellbeing}_{acct} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 0)    + (-9.6 \cdot serv \cdot 0)\\
+\widehat{wellbeing}_{acct} &= -3.4    + (12.3 \cdot serv)\\
 \end{align}
 $$
 
 
-When $dept = 1$ (Managers):
+When $envt = 1$ (urban):
 
 $$
 \begin{align}
-\widehat{salary}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot dept)    + (-9.6 \cdot serv \cdot dept)\\
-\widehat{salary}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 1)    + (-9.6 \cdot serv \cdot 1)\\
-\widehat{salary}_{mng} &= -3.4 + 20.3   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
-\widehat{salary}_{mng} &= 16.9   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
-\widehat{salary}_{mng} &= 16.9   + ((12.3 - 9.6) \cdot serv) \\
-\widehat{salary}_{mng} &= 16.9   + (2.7 \cdot serv)\\
+\widehat{wellbeing}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot envt)    + (-9.6 \cdot serv \cdot envt)\\
+\widehat{wellbeing}_{mng} &= -3.4    + (12.3 \cdot serv)     + (20.3 \cdot 1)    + (-9.6 \cdot serv \cdot 1)\\
+\widehat{wellbeing}_{mng} &= -3.4 + 20.3   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
+\widehat{wellbeing}_{mng} &= 16.9   + (12.3 \cdot serv) + (-9.6 \cdot serv)\\
+\widehat{wellbeing}_{mng} &= 16.9   + ((12.3 - 9.6) \cdot serv) \\
+\widehat{wellbeing}_{mng} &= 16.9   + (2.7 \cdot serv)\\
 \end{align}
 $$
+
 
 ### in R
 
-When dept = 0 (acct):
+When envt = 0 (nature):
 
 ```{r}
 coef(m2)[['(Intercept)']]  # intercept
-coef(m2)[['service']]      # slope
+coef(m2)[['outdoor_time']]      # slope
 ```
 
 
-When dept = 1 (mng)
+When envt = 1 (urban)
 
 ```{r}
-coef(m2)[['(Intercept)']] + coef(m2)[['deptManagers']]      # intercept
-coef(m2)[['service']] + coef(m2)[['service:deptManagers']]  # slope
+coef(m2)[['(Intercept)']] + coef(m2)[['envturban']]      # intercept
+coef(m2)[['outdoor_time']] + coef(m2)[['outdoor_time:envturban']]  # slope
 ```
 
 
@@ -218,11 +224,11 @@ coef(m2)[['service']] + coef(m2)[['service:deptManagers']]  # slope
 ```{r warning = F}
 plot_m2_probe <- probe_interaction(
   model = m2,
-  pred = service,
-  modx = dept,
+  pred = outdoor_time,
+  modx = envt,
   interval = T
 )$interactplot +
-  geom_point(data = salary_probedat, size = 3) +
+  geom_point(data = outdoors_probedat, size = 3) +
 
   NULL
 
@@ -235,15 +241,15 @@ plot_m2_probe
 
 ```{r}
 m2_simple_effs <- tibble(
-  dept = c('Accounts', 'Managers'),
-  modx_group = c('Accounts', 'Managers'),
+  envt = c('nature', 'urban'),
+  modx_group = c('nature', 'urban'),
   int = c(
     coef(m2)[['(Intercept)']], 
-    coef(m2)[['(Intercept)']] + coef(m2)[['deptManagers']]
+    coef(m2)[['(Intercept)']] + coef(m2)[['envturban']]
     ),
   slp = c(
-    coef(m2)[['service']],
-    coef(m2)[['service']] + coef(m2)[['service:deptManagers']]
+    coef(m2)[['outdoor_time']],
+    coef(m2)[['outdoor_time']] + coef(m2)[['outdoor_time:envturban']]
     )
 )
 
@@ -255,7 +261,7 @@ plot_m2_probe_intercept +
   ylim(-10, 100) +
   geom_abline(
     data = m2_simple_effs, 
-    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    aes(intercept = int, slope = slp, colour = envt, linetype = envt),
     linewidth = 1.5
   ) +
   geom_point(
@@ -267,7 +273,7 @@ plot_m2_probe_intercept +
   ) +
   geom_vline(xintercept = 0, linetype = 'dotted') +
   labs(
-    subtitle = 'service as-is'
+    subtitle = 'outdoor_time as-is'
   ) +
   theme(
     legend.position = 'bottom'
@@ -282,8 +288,8 @@ plot_m2_probe_intercept +
 Plot predictor as-is.
 
 ```{r}
-salary |>
-  ggplot(aes(x = service, y = salary)) +
+outdoors |>
+  ggplot(aes(x = outdoor_time, y = wellbeing)) +
   geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
   geom_point() +
   NULL
@@ -293,25 +299,25 @@ salary |>
 Plot min-shifted predictor.
 
 ```{r}
-salary <- salary |>
+outdoors <- outdoors |>
   mutate(
-    service_min = service - min(service)
+    outdoor_time_min = outdoor_time - min(outdoor_time)
   )
 
-salary |>
-  ggplot(aes(x = service_min, y = salary)) +
+outdoors |>
+  ggplot(aes(x = outdoor_time_min, y = wellbeing)) +
   geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
   geom_point() +
   NULL
 ```
 
-0 is meaningful now = the minimum length of service.
+0 is meaningful now = the minimum length of outdoor_time.
 
 
 ## Model
 
 ```{r}
-m3 <- lm(salary ~ service_min + dept + service_min:dept, data = salary)
+m3 <- lm(wellbeing ~ outdoor_time_min + envt + outdoor_time_min:envt, data = outdoors)
 summary(m3)
 ```
 
@@ -319,19 +325,19 @@ summary(m3)
 
 ### In R
 
-When dept = 0 (acct):
+When envt = 0 (acct):
 
 ```{r}
 coef(m3)[['(Intercept)']]  # intercept
-coef(m3)[['service_min']]      # slope
+coef(m3)[['outdoor_time_min']]      # slope
 ```
 
 
-When dept = 1 (mng)
+When envt = 1 (mng)
 
 ```{r}
-coef(m3)[['(Intercept)']] + coef(m3)[['deptManagers']]      # intercept
-coef(m3)[['service_min']] + coef(m3)[['service_min:deptManagers']]  # slope
+coef(m3)[['(Intercept)']] + coef(m3)[['envturban']]      # intercept
+coef(m3)[['outdoor_time_min']] + coef(m3)[['outdoor_time_min:envturban']]  # slope
 ```
 
 
@@ -340,18 +346,18 @@ coef(m3)[['service_min']] + coef(m3)[['service_min:deptManagers']]  # slope
 ## Plot shifted model
 
 ```{r warning=F}
-salary_probedat <- salary_probedat |>
+outdoors_probedat <- outdoors_probedat |>
   mutate(
-    service_min = service - min(service)
+    outdoor_time_min = outdoor_time - min(outdoor_time)
   )
 
 plot_m3_probe <- probe_interaction(
   model = m3,
-  pred = service_min,
-  modx = dept,
+  pred = outdoor_time_min,
+  modx = envt,
   interval = T
 )$interactplot +
-  geom_point(data = salary_probedat, size = 3)
+  geom_point(data = outdoors_probedat, size = 3)
 
 plot_m3_probe
 ```
@@ -360,15 +366,15 @@ plot_m3_probe
 
 ```{r}
 m3_simple_effs <- tibble(
-  dept = c('Accounts', 'Managers'),
-  modx_group = c('Accounts', 'Managers'),
+  envt = c('nature', 'urban'),
+  modx_group = c('nature', 'urban'),
   int = c(
     coef(m3)[['(Intercept)']], 
-    coef(m3)[['(Intercept)']] + coef(m3)[['deptManagers']]
+    coef(m3)[['(Intercept)']] + coef(m3)[['envturban']]
     ),
   slp = c(
-    coef(m3)[['service_min']],
-    coef(m3)[['service_min']] + coef(m3)[['service_min:deptManagers']]
+    coef(m3)[['outdoor_time_min']],
+    coef(m3)[['outdoor_time_min']] + coef(m3)[['outdoor_time_min:envturban']]
     )
 )
 
@@ -380,7 +386,7 @@ plot_m3_probe_intercept +
     ylim(-10, 100) +
   geom_abline(
     data = m3_simple_effs, 
-    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    aes(intercept = int, slope = slp, colour = envt, linetype = envt),
     linewidth = 1.5
   ) +
   geom_point(
@@ -392,7 +398,7 @@ plot_m3_probe_intercept +
   ) +
   geom_vline(xintercept = 0, linetype = 'dotted') +
   labs(
-    subtitle = 'service min-shifted'
+    subtitle = 'outdoor_time min-shifted'
   ) +
   theme(
     legend.position = 'bottom'
@@ -408,27 +414,27 @@ plot_m3_probe_intercept +
 Plot centered predictor.
 
 ```{r}
-salary <- salary |>
+outdoors <- outdoors |>
   mutate(
-    service_c = scale(service, center = TRUE, scale = FALSE)
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE)
   )
 
-salary |>
-  ggplot(aes(x = service_c, y = salary)) +
+outdoors |>
+  ggplot(aes(x = outdoor_time_c, y = wellbeing)) +
   geom_vline(xintercept = 0, colour = 'red', linewidth = 2) +
   geom_point() +
   NULL
 ```
 
 ```{r}
-round(mean(salary$service_c))
+round(mean(outdoors$outdoor_time_c))
 ```
 
 
 ## Model
 
 ```{r}
-m4 <- lm(salary ~ service_c + dept + service_c:dept, data = salary)
+m4 <- lm(wellbeing ~ outdoor_time_c + envt + outdoor_time_c:envt, data = outdoors)
 summary(m4)
 ```
 
@@ -436,18 +442,18 @@ summary(m4)
 ## Plot centered model
 
 ```{r warning = F}
-salary_probedat <- salary_probedat |>
+outdoors_probedat <- outdoors_probedat |>
   mutate(
-    service_c = scale(service, center = TRUE, scale = FALSE)
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE)
   )
 
 plot_m4_probe <- probe_interaction(
   model = m4,
-  pred = service_c,
-  modx = dept,
+  pred = outdoor_time_c,
+  modx = envt,
   interval = T
 )$interactplot +
-  geom_point(data = salary_probedat, size = 3)
+  geom_point(data = outdoors_probedat, size = 3)
 plot_m4_probe
 ```
 
@@ -456,15 +462,15 @@ plot_m4_probe
 
 ```{r}
 m4_simple_effs <- tibble(
-  dept = c('Accounts', 'Managers'),
-  modx_group = c('Accounts', 'Managers'),
+  envt = c('nature', 'urban'),
+  modx_group = c('nature', 'urban'),
   int = c(
     coef(m4)[['(Intercept)']], 
-    coef(m4)[['(Intercept)']] + coef(m4)[['deptManagers']]
+    coef(m4)[['(Intercept)']] + coef(m4)[['envturban']]
     ),
   slp = c(
-    coef(m4)[['service_c']],
-    coef(m4)[['service_c']] + coef(m4)[['service_c:deptManagers']]
+    coef(m4)[['outdoor_time_c']],
+    coef(m4)[['outdoor_time_c']] + coef(m4)[['outdoor_time_c:envturban']]
     )
 )
 
@@ -476,7 +482,7 @@ plot_m4_probe_intercept +
     ylim(-10, 100) +
   geom_abline(
     data = m4_simple_effs, 
-    aes(intercept = int, slope = slp, colour = dept, linetype = dept),
+    aes(intercept = int, slope = slp, colour = envt, linetype = envt),
     linewidth = 1.5
   ) +
   geom_point(
@@ -488,7 +494,7 @@ plot_m4_probe_intercept +
   ) +
   geom_vline(xintercept = 0, linetype = 'dotted') +
   labs(
-    subtitle = 'service mean-centered'
+    subtitle = 'outdoor_time mean-centered'
   ) +
   theme(
     legend.position = 'bottom'
@@ -501,7 +507,7 @@ plot_m4_probe_intercept +
 
 ## As-is
 
-With `service` as-is:
+With `outdoor_time` as-is:
 
 ```{r}
 summary(m2)$coefficients |> round(3)
@@ -510,7 +516,7 @@ summary(m2)$coefficients |> round(3)
 
 ## Min-shifted
 
-With `service` min-shifted:
+With `outdoor_time` min-shifted:
 
 ```{r}
 summary(m3)$coefficients |> round(3)
@@ -519,7 +525,7 @@ summary(m3)$coefficients |> round(3)
 
 ## Centered
 
-With `service` mean-centered:
+With `outdoor_time` mean-centered:
 
 ```{r}
 summary(m4)$coefficients |> round(3)
