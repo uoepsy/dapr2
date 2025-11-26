@@ -16,22 +16,300 @@ data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
 
 # Phase 1
 
-```{r}
+## Identify the relevant variables
 
+- outcome: course attendance, `Attendance`
+- predictors:
+  - consc `Conscientiousness`
+  - freq of access `OnlineAccess`
+  - year of study `Year`
+  
+  
+## Data tidying
+
+```{r}
+is.na(data1) |> table()
 ```
+
+```{r}
+data1 <- data1 |>
+  mutate(
+    Conscientiousness = factor(Conscientiousness, levels = c('Moderate', 'High', 'Low')),
+    OnlineAccess = factor(OnlineAccess, levels = c('Sometimes', 'Often', 'Rarely')),
+    Year = factor(Year, c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+  )
+```
+
+```{r}
+str(data1)
+```
+
+## Get summary statistics
+
+- outcome: course attendance, `Attendance` – continuous
+- predictors:
+  - consc `Conscientiousness` – categ
+  - freq of access `OnlineAccess` – categ
+  - year of study `Year` – categ
+
+```{r}
+psych::describe(data1$Attendance)
+```
+
+```{r}
+table(data1$Conscientiousness)
+```
+
+Mode = Moderate.
+
+```{r}
+table(data1$OnlineAccess)
+```
+
+Mode = Sometimes.
+
+```{r}
+table(data1$Year)
+```
+
+Mode = Y2.
+
+## Plot each variable individually
+
+- outcome: course attendance, `Attendance` – continuous
+
+```{r}
+data1 |>
+  ggplot(aes(x = Attendance)) +
+  geom_histogram()
+```
+
+- predictors:
+  - consc `Conscientiousness` – categ
+  
+```{r}
+data1 |>
+  ggplot(aes(x = Conscientiousness, fill = Conscientiousness)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+  
+  
+  - freq of access `OnlineAccess` – categ
+  
+```{r}
+data1 |>
+  ggplot(aes(x = OnlineAccess, fill = OnlineAccess)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+  
+  - year of study `Year` – categ
+
+```{r}
+data1 |>
+  ggplot(aes(x = Year, fill = Year)) +
+  geom_bar() +
+  theme(legend.position = 'none')
+```
+
+## Plot variables together
+
+predictor = x axis – x3 for our three predictors 
+
+outcome = y axis – Attendance
+
+```{r}
+data1 |>
+  ggplot(aes(x = Conscientiousness, y = Attendance, colour = Conscientiousness, fill = Conscientiousness)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter() +
+  theme(legend.position = 'none')
+```
+
+```{r}
+data1 |>
+  ggplot(aes(x = OnlineAccess, y = Attendance, colour = OnlineAccess, fill = OnlineAccess)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter() +
+  theme(legend.position = 'none')
+```
+
+```{r}
+data1 |>
+  ggplot(aes(x = Year, y = Attendance, colour = Year, fill = Year)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter() +
+  theme(legend.position = 'none') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black')
+```
+
+**RQ1: Does conscientiousness, frequency of access to online materials, and year of study in University predict course attendance?**
+
+everyday / colloquial:
+
+- H0: there's no association between conscientiousness OR frequency of access OR year of study and course attendance.
+- H1: there is an association between conscientiousness OR frequency of access OR year of study and course attendance.
+
+
+a bit more formal:
+
+- H0: the association between attendance and consc. OR freq. OR year is equal to 0.
+- H1: the association between attendance and consc. OR freq. OR year is not equal to 0.
+
+
+in mathematical notation:
+
+first we have to define the linear expression that our model is gonna be based on.
+
+
+
+(for that, we need to know how the predictors will be coded)
+
+```{r}
+contrasts(data1$Conscientiousness)
+```
+
+- two predictors: one called ConscHigh and one called ConscLow
+  - ConscHigh: compare Moderate to High
+  - ConscLow: compare Moderate to Low
+  
+```{r}
+contrasts(data1$OnlineAccess)
+```
+
+- OnlineAccessOften: Sometimes to Often
+- OnlineAccessRarely: Sometimes to Rarely
+
+```{r}
+contrasts(data1$Year)
+```
+
+- YearY2: Y1 compared to Y2
+- YearY3: Y1 compared to Y3
+- ...
+- YearPhD: Y1 compared to PhD
+
+
+- two predictors from Consc
+- two predictors from OnlineAccess
+- five predictors from Year
+
+beta0 and nine other betas
+
+$$
+\text{Attendance} = \beta_0 + (\beta_1 \cdot C_{\text{High}})
++ (\beta_2 \cdot C_{\text{Low}})
++ (\beta_3 \cdot OA_{\text{Often}})
++ (\beta_4 \cdot OA_{\text{Rarely}}) + \\
+ (\beta_5 \cdot Y_{\text{Y2}})
++ (\beta_6 \cdot Y_{\text{Y3}})
++ (\beta_7 \cdot Y_{\text{Y4}})
++ (\beta_8 \cdot Y_{\text{MSc}})
++ (\beta_9 \cdot Y_{\text{PhD}}) + \epsilon
+$$
+where C = Conscientiousness, OA = Online Access, Y = Year.
+
+$$
+H0 : \text{All} ~ \beta_j = 0 ~ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)} \\
+H1 : \text{At least one} ~ \beta_j \neq 0 ~ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)} \\
+$$
+
+$$
+\begin{align}
+H0 &: \text{All} ~ \beta_j = 0 ~ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)} \\
+H1 &: \text{At least one} ~ \beta_j \neq 0 ~ \text{(for j = 1, 2, 3, 4, 5, 6, 7, 8, 9)} \\
+\end{align}
+$$
+
 
 
 
 # Phase 2
 
 ```{r}
-
+m1 <- lm(Attendance ~ Conscientiousness + OnlineAccess + Year, data = data1)
+m1
 ```
 
 
 # Phase 3
 
-```{r}
+## Interpret the model coefficients
 
+```{r}
+summary(m1)
 ```
+
+TODO add these in version I put on Learn
+
+Intercept: mean attendance when everything is at its reference level, so: when C = Moderate, OA = Sometimes, Y = Y1. 27.9 mean attendance for that subset of the data.
+
+ConscientiousnessHigh: the difference in mean attendance between Intercept and 
+when C = High. So when OA = Sometimes, Y = Y1, then there's a difference in attendance of about 7.4. attendance goes up when OA = Sometimes and Y = Y1 have higher conscientiousness. and this difference is significant at alpha = 0.05.
+  - key: all the variables that aren't at issue are held constant at their reference level. 
+  
+OnlineAccessOften: when C = Moderate, Y = Y1, the difference in mean attendance from OA = Sometimes to OA = Often is -3.5. that means that when people access online material more often, attendance goes down. mean attendance for this group of people (OA = Often) is 27.9 - 3.5 = 24.4. significant difference.
+
+YearY2: when C = Moderate, when OA = Sometimes, diff between Y1 and Y2 attendance is 4.6. 27.9 + 4.6 = something over 30. and the diff is significant.
+
+
+## Check model assumptions
+
+L linearity
+
+- we can assume linearity because we've got categorical predictors.
+
+
+I independence of errors
+
+- we can assume independence of errors because data from between-subjects design.
+
+
+N normality of errors 
+
+```{r}
+plot(m1, which = 1)
+```
+
+
+```{r}
+plot(m1, which = 2)
+```
+
+no cause for concern. 
+
+
+E equal variance of errors
+
+```{r}
+car::residualPlot(m1)
+```
+- no fan/funnel structure
+- good to go
+
+
+## Multicollinearity
+
+correlations between the predictors.
+
+```{r}
+car::vif(m1)
+```
+
+no multicollinearity. 
+
+## emmeans
+
+```{r}
+m1_emm <- emmeans::emmeans(m1, ~ Conscientiousness + OnlineAccess + Year)
+```
+
+```{r}
+plot(m1_emm)
+```
+
+
+
 
