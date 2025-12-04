@@ -1,0 +1,594 @@
+---
+title: "Interactions I: Numeric and categorical predictors"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(interactions)  # for probe_interactions() plot
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_bw(
+    base_size = 24
+  )
+)
+
+salary <- read_csv("../data/salary_lec.csv", show_col_types = FALSE) |>
+# salary <- read_csv("data/salary_lec.csv", show_col_types = FALSE) |>
+  mutate(
+    envt = factor(ifelse(dept == 1, 'nature', 'urban'))
+  )
+
+# make the acct slope a bit steeper to illustrate the point better
+# and rename/relabel the data so it's about time outdoors and not salary
+outdoors <- salary |>
+  mutate(
+    salary_aug = ifelse(
+      envt == 'nature',
+      salary + (service^2)/1.5 - 10,
+      salary
+    ),
+    wellbeing = salary_aug
+  ) |>
+  rename(
+    outdoor_time = service
+  ) |>
+  select(wellbeing, envt, outdoor_time)
+
+palette_probe <- c('#4ab8fc', '#ff7b01')
+```
+
+
+# Course Overview
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block1_name = "Introduction to Linear Models" -->
+<!-- block1_lecs = c("Intro to Linear Regression", -->
+<!--                 "Interpreting Linear Models", -->
+<!--                 "Testing Individual Predictors", -->
+<!--                 "Model Testing & Comparison", -->
+<!--                 "Linear Model Analysis") -->
+<!-- block2_name = "Analysing Experimental Studies" -->
+<!-- block2_lecs = c("Categorical Predictors & Dummy Coding", -->
+<!--                 "	Effects Coding & Coding Specific Contrasts", -->
+<!--                 "Assumptions & Diagnostics", -->
+<!--                 "Bootstrapping", -->
+<!--                 "	Categorical Predictor Analysis") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block3_name = "Interactions" -->
+<!-- block3_lecs = c("Interactions I", -->
+<!--                 "Interactions II", -->
+<!--                 "Interactions III", -->
+<!--                 "Analysing Experiments", -->
+<!--                 "Interaction Analysis") -->
+<!-- block4_name = "Advanced Topics" -->
+<!-- block4_lecs = c("Power Analysis", -->
+<!--                 "Binary Logistic Regression I", -->
+<!--                 "Binary Logistic Regression II", -->
+<!--                 "Logistic Regression Analysis", -->
+<!--                 "	Exam Prep and Course Q&A") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 1) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- :::: -->
+
+<!-- # Welcome back warm-up -->
+
+<!-- ## Welcome back warm-up on Wooclap -->
+
+<!-- [TODO wooclap link] -->
+
+
+<!-- ## This week's learning objectives -->
+
+<!-- <br> -->
+
+<!-- ::::: {style="font-size: 125%;"} -->
+
+<!-- <!-- :::: {.fragment} --> -->
+<!-- :::: {} -->
+<!-- ::: {.dapr2callout} -->
+<!-- x -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- <!-- :::: {.fragment} --> -->
+<!-- :::: {} -->
+<!-- ::: {.dapr2callout} -->
+<!-- x -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- ::::: -->
+
+
+
+# Refresher: Modelling multiple predictors
+
+```{r warning=F, message=F, include=F}
+# fit no-interaction model and generate plot
+
+m1 <- lm(wellbeing ~ outdoor_time + envt, data = outdoors)
+
+outdoors_probedat <- outdoors |>
+  mutate(
+    pred = outdoor_time,
+    modx_group = envt
+  )
+  
+plot_m1_probe <- probe_interaction(
+  model = m1, pred = outdoor_time,
+  modx = envt,
+  interval = F
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8)
+
+plot_data_probe <- plot_m1_probe
+
+plot_data_probe$layers[[1]] <- NULL
+# plot_data_probe$layers[[1]] <- NULL
+```
+
+
+## Today's data with two predictors
+
+<br>
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align = "center", fig.dim=c(10, 8)}
+plot_data_probe +
+  theme(text = element_text(size = 28))
+```
+:::
+::: {.column width="40%"}
+```{r}
+outdoors |>
+  head(12)
+```
+:::
+::::
+
+
+:::{.hcenter style="font-size:125%;"}
+How are **outdoor time** and **environment** associated with people's **wellbeing?**
+:::
+
+
+## Fitting the model
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt})  + \epsilon
+$$
+
+```{r eval=F}
+m1 <- lm(wellbeing ~ outdoor_time + envt, data = outdoors)
+```
+
+<!-- :::{.fragment} -->
+:::{}
+
+```{r}
+summary(m1)
+```
+
+:::
+
+## Interpreting the model
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+plot_m1_probe +
+  theme(text = element_text(size = 28))
+```
+
+::::{ style="font-size:90%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[9:13])
+```
+::::
+:::
+::: {.column width="40%"}
+
+**Intercept:**
+
+- When `outdoor_time = 0` and `envt = 0`, the average `wellbeing` is about 19.
+  - `outdoor_time = 0` means zero hours spent outdoors.
+  - `envt = 0` means `envt = nature` (the reference level).
+
+
+**Outdoor time:**
+
+- When `envt = 0`, spending an additional hour outdoors is associated with an increase in wellbeing of about 8 points.
+
+
+**Environment:**
+
+- When `outdoor_time = 0`, being in an urban environment is associated with a decrease in wellbeing of about 26 points.
+:::
+::::
+
+
+
+
+## Two key ideas for multiple regression
+
+<br>
+<br>
+
+:::{.dapr2callout style="font-size:150%;"}
+
+A model's intercept is the mean outcome **when every predictor in the model is at zero.**
+
+:::
+
+<br>
+
+:::{.dapr2callout style="font-size:150%;"}
+
+Each predictor's slope represents the effect of the given predictor **when ever other predictor is at zero.**
+
+:::
+
+
+
+
+## Back to interpreting the model
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+plot_m1_probe +
+  theme(text = element_text(size = 28))
+```
+
+::::{ style="font-size:90%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[9:13])
+```
+::::
+:::
+::: {.column width="40%"}
+
+**A couple things to notice:**
+
+1. The model assumes that whatever your environment, an extra hour of being outdoors improves your wellbeing by about 8.
+
+2. The model assumes that whatever your time spent outdoors, being in an urban environment reduces your wellbeing by about 26 points.
+
+**But these assumptions don't totally match the data.**
+
+::::{.dapr2callout}
+Back to Wooclap (code `BMLTOH`): 
+**This model fails to capture some patterns in the data. What does it miss?**
+::::
+
+:::
+::::
+
+## Wouldn't it be better if...
+
+```{r include=F, warning=F, message=F}
+m2 <- lm(wellbeing ~ outdoor_time + envt + outdoor_time:envt, data = outdoors)
+```
+
+::::{.r-stack}
+
+```{r echo=F, fig.dim=c(12, 9), fig.align="center"}
+plot_data_probe +
+  ylim(18, 95) +
+  theme(text = element_text(size=28)) +
+  NULL
+```
+
+
+:::{.fragment}
+```{r echo=F, fig.dim=c(12, 9), fig.align="center"}
+plot_m2_probe <- probe_interaction(
+  model = m2,
+  pred = outdoor_time,
+  modx = envt,
+  interval = F
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8) +
+  ylim(18, 95) +
+  theme(text = element_text(size=28)) +
+  NULL
+
+plot_m2_probe
+```
+
+
+:::
+
+::::
+
+:::{.fragment style="font-size:120%;"}
+What if the association between time outdoors and wellbeing is different, **depending on** your environment?
+
+- In nature, more time outdoors improves wellbeing _more_ than in an urban environment.
+- In an urban environment, time outdoors still helps, but _less_ than in nature.
+
+:::
+
+# "Depends on" $\rightarrow$ Interactions
+
+## "Depends on" $\rightarrow$ Interactions
+
+<br>
+
+When the association between one predictor and the outcome **depends on the value of another predictor**, we are dealing with an **interaction** between predictors.
+
+<!-- TODO make own version of this fig -->
+![](https://uoepsy.github.io/usmr/2526/readings/images/ints/ints.png){fig-align="center"}
+
+
+## How do we tell our model that it depends?
+
+<br>
+ 
+We need an extra bit of information to tell us "how _much_ does the association between outdoor time and wellbeing change between natural and urban environments"?
+
+This information appears in the model as the product of the two original variables (that is, both original variables multiplied together.)
+
+<br>
+
+The previous model:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt})  + \epsilon
+$$
+
+The updated model that includes an interaction:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time} \cdot \text{envt}) + \epsilon
+$$
+
+<br>
+
+This updated model says that `wellbeing` is predicted by
+
+- some amount of `outdoor_time`
+- some amount of `envt`
+- and a little addition to one of those amounts, depending on the value of the other variable.
+
+<br>
+
+(Why multiplication? See appendix!)
+
+
+# Interactions in R
+
+## Interactions in R
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#fitting-interactions-in-r  -->
+
+
+
+## Interpreting coefficients in interaction models
+
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#interpretation  -->
+
+<!-- Recall that when there is an interaction AB, the coefficients A and B are no longer _main effects_. Instead, they are _conditional effects_, conditional on the other being zero. -->
+
+<!-- - simple slopes = slope of association between x and y at a specific value of interacting variable Z -->
+
+
+## Visualising interaction models
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#visualisation -->
+
+
+
+# Changing the interpretation by mean-centering
+
+## Mean-centering: what is?
+
+
+## Flashback to standardising predictors
+
+
+## Mean-centering in R
+
+
+
+## How mean-centering changes an interaction model's interpretation
+
+Remember "Find the intercept"?
+
+[non-centered and centered plots of data]
+
+[wooclap: try to put the difference into words (I know it's hard)]
+
+
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#mean-centering -->
+
+<!-- > If we have the interaction `y ~ x1 + x2 + x1:x2`, then mean centering `x1` will make the coefficient for `x2` now represent “the association between x2 and y for someone at the _average_ of x1”.  -->
+
+<!-- compare uncentered and centered model summaries – which betas change? (all but ixn term) -->
+
+# The #1 key to interpreting linear models
+
+## The #1 key to interpreting linear models
+
+<br>
+
+For every predictor that's going into your model, make sure you know what zero represents.
+
+<!-- **The key to interpreting LM estimates: for every predictor, know what zero represents** -->
+
+
+# Where are we in the analysis plan from last term?
+
+## Where are we in the analysis plan from last term?
+
+[TODO fig of full analysis plan w circle of "we are here"]
+
+<!-- ## This week  -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Tasks -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/labs.svg') -->
+<!-- ``` -->
+
+<!-- **Attend your lab and work together on the exercises**  -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Support -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/forum.svg') -->
+<!-- ``` -->
+
+<!-- **Help each other on the Piazza forum** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/exam.svg') -->
+<!-- ``` -->
+
+<!-- **Complete the weekly quiz** -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/oh.png') -->
+<!-- ``` -->
+
+<!-- **Attend office hours (see Learn page for details)** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+
+# Appendix {.appendix} 
+
+
+## Simple slopes for the no-interaction model
+
+The linear expression:
+
+$$
+\widehat{wellbeing} = \beta_0 + (\beta_1 \cdot outdoor\_time) + (\beta_2 \cdot envt) \\
+$$
+
+Substituting in the coefficient values:
+
+```{r}
+coef(m1) |> round(1)
+```
+
+
+$$
+\widehat{wellbeing} = 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot envt) \\ 
+$$
+
+When $envt = 0$ (nature):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{envt=0} &= 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot 0) \\
+\widehat{wellbeing}_{envt=0} &= 19    + (7.8 \cdot outdoor\_time)      \\
+\end{align}
+$$
+
+When $envt = 1$ (urban):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{envt=1} &= 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot 1) \\
+\widehat{wellbeing}_{envt=1} &= 19 - 26.2   + (7.8 \cdot outdoor\_time)      \\
+\widehat{wellbeing}_{envt=1} &= 9   + (7.8 \cdot outdoor\_time)      \\
+\end{align}
+$$
+
+
+
+## Why multiplication?
+
+<br>
+
+In the basic model without the interaction, the effect of `outdoor_time` on `wellbeing` is just $\beta_1$, a single constant number.
+
+
+$$
+\text{wellbeing} = \beta_0 + (\underbrace{\beta_1}_{\text{effect of}\\ \text{outdoor}\\ \text{time}} \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + \epsilon
+$$
+But if the effect of `outdoor_time` *depends* on `envt`, then the effect isn't just a single constant number.
+It's more like "some number plus some amount of `envt`".
+
+To represent "some amount of `envt`, let's use $\beta_3 \cdot \text{envt}$.
+
+$$
+\text{wellbeing} = \beta_0 + (\underbrace{(\overbrace{\beta_1}^{\text{some}\\ \text{number}} + \overbrace{\beta_3 \cdot \text{envt}}^{\text{some amount}\\ \text{of environment}})}_{\text{effect of outdoor time}} \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + \epsilon
+$$
+
+And if you expand this expression by multiplying both $\beta_1$ and $\beta_3 \cdot \text{envt}$ by $\text{outdoor_time}$, you get the final linear expression we use for this model:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time} \cdot \text{envt}) + \epsilon
+$$
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- style="font-size: 125%;" -->
