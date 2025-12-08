@@ -6,8 +6,14 @@ output: html_notebook
 ```{r setup}
 library(tidyverse)
 library(interactions)  # for probe_interactions() plot
+library(simglm)  # for simulating data
 
-salary <- read_csv("../../data/salary2.csv", show_col_types = FALSE)
+outdoors <- read_csv("../../data/salary2.csv", show_col_types = FALSE) |>
+  rename(
+    wellbeing = salary,
+    outdoor_time = serv,
+    hrs_sun = perf  # hrs sun in a day
+  )
 
 # palette_probe <- c('#4ab8fc', '#ff7b01')
 ```
@@ -16,26 +22,26 @@ salary <- read_csv("../../data/salary2.csv", show_col_types = FALSE)
 # Plot data
 
 ```{r}
-salary |>
+outdoors |>
   mutate() |>
-  ggplot(aes(x = serv, y = salary, colour = perf, size = perf)) +
+  ggplot(aes(x = outdoor_time, y = wellbeing, colour = hrs_sun, size = hrs_sun)) +
   geom_point()
 ```
 
-## Facet by perf
+## Facet by hrs_sun
 
 
 ```{r}
-salary |>
+outdoors |>
   mutate() |>
-  ggplot(aes(x = serv, y = salary)) +
+  ggplot(aes(x = outdoor_time, y = wellbeing)) +
   geom_point() +
   geom_smooth(method = 'lm', se = F) +
-  facet_wrap(~ factor(perf), nrow=1)
+  facet_wrap(~ factor(hrs_sun), nrow=1)
 ```
 
-Slopes over `serv` are different at different levels of `perf`.
-In particular, slopes over `serv` get more positive as `perf` gets larger.
+Slopes over `outdoor_time` are different at different levels of `hrs_sun`.
+In particular, slopes over `outdoor_time` get more positive as `hrs_sun` gets larger.
 
 Hard to plot the symmetrical interaction in the data, because we don't have the plane yet that we slice to get each of the lines.
 
@@ -43,15 +49,15 @@ Hard to plot the symmetrical interaction in the data, because we don't have the 
 # Fit asis model
 
 ```{r}
-m1 <- lm(salary ~ serv * perf, data = salary)
+m1 <- lm(wellbeing ~ outdoor_time * hrs_sun, data = outdoors)
 summary(m1)
 ```
 
 ```{r}
 m1_probe <- probe_interaction(
   m1,
-  pred = serv,
-  modx = perf,
+  pred = outdoor_time,
+  modx = hrs_sun,
   cond.int = T,
   interval = T,
   jnplot = T
@@ -76,22 +82,23 @@ m1_probe$simslopes
 m1_probe$simslopes$slopes
 ```
 
+^ sig test is whether slope is diff from 0.
 
 ```{r}
 m1_probe$simslopes$jnplot
 ```
 
 JN plot illustrates:
-- At which levels of performance (x axis) is the slope of the line that associates `serv` with `salary` significantly different from zero?
-- **At which levels of performance (x axis) do years of service (serv, not on plot) significantly predict salary (not on plot)?**
+- At which levels of hrs_sunormance (x axis) is the slope of the line that associates `outdoor_time` with `wellbeing` significantly different from zero?
+- **At which levels of hrs_sunormance (x axis) do years of outdoor_timeice (outdoor_time, not on plot) significantly predict wellbeing (not on plot)?**
 
 
-- when performance is less than like 1.8: 
-  - then the slope of service is significantly different from zero (and negative)
-- and when performance is above like 4.3: 
-  - then the slope of service is significantly different from zero (and positive)
+- when hrs_sunormance is less than like 1.8: 
+  - then the slope of outdoor_timeice is significantly different from zero (and negative)
+- and when hrs_sunormance is above like 4.3: 
+  - then the slope of outdoor_timeice is significantly different from zero (and positive)
   
-OK, put this plot on the same slide as the plot of the data at each level of `perf`, and draw lines to connect.
+OK, put this plot on the same slide as the plot of the data at each level of `hrs_sun`, and draw lines to connect.
 
 
 
@@ -104,68 +111,68 @@ coef(m1)
 
 $$
 \begin{align}
-\widehat{salary} &= \beta_0 + (\beta_1 \cdot serv) + (\beta_2 \cdot perf) + (\beta_3 \cdot serv \cdot perf)\\
-\widehat{salary} &= 87.9    + (-10.9 \cdot serv)     + (3.2 \cdot perf)    + (3.3 \cdot serv \cdot perf)\\
+\widehat{wellbeing} &= \beta_0 + (\beta_1 \cdot outdoor_time) + (\beta_2 \cdot hrs_sun) + (\beta_3 \cdot outdoor_time \cdot hrs_sun)\\
+\widehat{wellbeing} &= 87.9    + (-10.9 \cdot outdoor_time)     + (3.2 \cdot hrs_sun)    + (3.3 \cdot outdoor_time \cdot hrs_sun)\\
 \end{align}
 $$
 
 (working-out with bad rounding on p. 31 of book)
 
 
-### For perfs 0 thru 7
+### For hrs_suns 0 thru 7
 
-When perf = 0:
+When hrs_sun = 0:
 
 ```{r}
 coef(m1)[['(Intercept)']]  # intercept
-coef(m1)[['serv']]      # slope
+coef(m1)[['outdoor_time']]      # slope
 ```
 
 
-When perf = 1:
+When hrs_sun = 1:
 
 ```{r}
-coef(m1)[['(Intercept)']] + coef(m1)[['perf']]      # intercept
-coef(m1)[['serv']] + coef(m1)[['serv:perf']]  # slope
+coef(m1)[['(Intercept)']] + coef(m1)[['hrs_sun']]      # intercept
+coef(m1)[['outdoor_time']] + coef(m1)[['outdoor_time:hrs_sun']]  # slope
 ```
 
 
-When perf = 7:
+When hrs_sun = 7:
 
 ```{r}
-coef(m1)[['(Intercept)']] + (7 * coef(m1)[['perf']]) # intercept
-coef(m1)[['serv']] + (7 * coef(m1)[['serv:perf']])   # slope
+coef(m1)[['(Intercept)']] + (7 * coef(m1)[['hrs_sun']]) # intercept
+coef(m1)[['outdoor_time']] + (7 * coef(m1)[['outdoor_time:hrs_sun']])   # slope
 ```
 
 
-### For perfs -1SD, mean, +1SD
+### For hrs_suns -1SD, mean, +1SD
 
 ```{r}
-(meanperf <- mean(salary$perf))
-(lowerperf <- meanperf - sd(salary$perf))
-(upperperf <- meanperf + sd(salary$perf))
+(meanhrs_sun <- mean(wellbeing$hrs_sun))
+(lowerhrs_sun <- meanhrs_sun - sd(wellbeing$hrs_sun))
+(upperhrs_sun <- meanhrs_sun + sd(wellbeing$hrs_sun))
 ```
 
-When perf is at its mean – 1 SD:
+When hrs_sun is at its mean – 1 SD:
 
 ```{r}
-coef(m1)[['(Intercept)']] + (lowerperf * coef(m1)[['perf']]) # intercept
-coef(m1)[['serv']] + (lowerperf * coef(m1)[['serv:perf']])   # slope
+coef(m1)[['(Intercept)']] + (lowerhrs_sun * coef(m1)[['hrs_sun']]) # intercept
+coef(m1)[['outdoor_time']] + (lowerhrs_sun * coef(m1)[['outdoor_time:hrs_sun']])   # slope
 ```
 
-When perf is at its mean:
+When hrs_sun is at its mean:
 
 ```{r}
-coef(m1)[['(Intercept)']] + (meanperf * coef(m1)[['perf']]) # intercept
-coef(m1)[['serv']] + (meanperf * coef(m1)[['serv:perf']])   # slope
+coef(m1)[['(Intercept)']] + (meanhrs_sun * coef(m1)[['hrs_sun']]) # intercept
+coef(m1)[['outdoor_time']] + (meanhrs_sun * coef(m1)[['outdoor_time:hrs_sun']])   # slope
 ```
 
 
-When perf is at its mean + 1 SD:
+When hrs_sun is at its mean + 1 SD:
 
 ```{r}
-coef(m1)[['(Intercept)']] + (upperperf * coef(m1)[['perf']]) # intercept
-coef(m1)[['serv']] + (upperperf * coef(m1)[['serv:perf']])   # slope
+coef(m1)[['(Intercept)']] + (upperhrs_sun * coef(m1)[['hrs_sun']]) # intercept
+coef(m1)[['outdoor_time']] + (upperhrs_sun * coef(m1)[['outdoor_time:hrs_sun']])   # slope
 ```
 
 
@@ -176,13 +183,13 @@ Those lines match the ones generated by `probe_interaction()`.
 # Centre both predictors
 
 ```{r}
-salary <- salary |>
+outdoors <- outdoors |>
   mutate(
-    serv_c = scale(serv, center = TRUE, scale = FALSE),
-    perf_c = scale(perf, center = TRUE, scale = FALSE),
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE),
+    hrs_sun_c = scale(hrs_sun, center = TRUE, scale = FALSE),
   )
 
-m2 <- lm(salary ~ serv_c * perf_c, data = salary)
+m2 <- lm(wellbeing ~ outdoor_time_c * hrs_sun_c, data = outdoors)
 summary(m2)
 ```
 
@@ -190,8 +197,8 @@ summary(m2)
 ```{r}
 m2_probe <- probe_interaction(
   m2,
-  pred = serv_c,
-  modx = perf_c,
+  pred = outdoor_time_c,
+  modx = hrs_sun_c,
   cond.int = T,
   interval = T,
   jnplot = T
@@ -228,8 +235,8 @@ m2_probe$simslopes$jnplot
 ```{r}
 probe_interaction(
   m2,
-  pred = perf_c,
-  modx = serv_c,
+  pred = hrs_sun_c,
+  modx = outdoor_time_c,
   cond.int = T,
   interval = T,
   jnplot = T
@@ -239,6 +246,237 @@ probe_interaction(
 Can flip the interpretation
 
 
+# OLD Simdat to illustrate diff types of ixns
+
+## ord / disord
+
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, .2, .2, .25)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('disordinal interaction')
+```
+
+
+
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 15, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, .05, .05, .15)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('ordinal interaction')
+```
+
+## not useful for seeing diff coef constellations
+
+```{r eval=F}
+# from simglm vignette
+# https://cran.r-project.org/web/packages/simglm/vignettes/tidy_simulation.html
+set.seed(321) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + weight + age + sex,
+  fixed = list(weight = list(var_type = 'continuous', mean = 180, sd = 30),
+               age = list(var_type = 'ordinal', levels = 30:60),
+               sex = list(var_type = 'factor', levels = c('male', 'female'))),
+  error = list(variance = 25),
+  sample_size = 50,
+  reg_weights = c(2, 0.3, -0.1, 0.5)
+)
+
+simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |>
+  ggplot(aes(x = weight, y = y, colour = age)) +
+  geom_point() +
+  facet_wrap(~ sex)
+```
+
+
+reg weights where c(intercept, x1 slope, x2 slope, ixn slope)
+
+synergistic: 
+  - c(1, 1, 1, 1)
+  - c(1, -1, -1, -1)
+  
+antagonistic:
+  - c(1, 1, 1, -1)
+  - c(1, -1, -1, 1)
+  
+buffering
+  - c(1, 1, -1, 1) or  c(1, 1, -1, -1)
+  - c(1, -1, 1, -1) or c(1, -1, 1, 1)
+  
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, .2, .2, 0)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('no ixn')
+```
+  
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, .2, .2, .2)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('synergistic pos')
+```
+
+
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, -.2, -.2, -.2)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('synergistic neg')
+```
+
+
+  
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, .2, .2, -.2)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('antagonistic (mostly pos)')
+```
+
+
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, -.2, -.2, .2)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('antagonistic (mostly neg)')
+```
+
+
+```{r}
+sim_arguments <- list(
+  formula = y ~ 1 + x1 + x2 + x1:x2,
+  fixed = list(x1 = list(var_type = 'continuous', mean = 0, sd = 5),
+               x2 = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 25),
+  sample_size = 100,
+  reg_weights = c(1, -.2, .2, .2)
+)
+
+set.seed(1)
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+
+m1 <- lm(y ~ x1 * x2, data = d1)
+summary(m1)
+
+probe_interaction(m1, pred = x1, modx = x2, interval = T)$interactplot +
+  ggtitle('buffering')
+```
+
+
+OK, results look kind of the same.
+
+So that means that this kind of thing is restricted to looking at hte coefs and interpreting htem, not actuallky looking at the data.
+
+Whereas the ordinal vs. disordinal thing IS for looking at the plots, not hte coefs.
+OK.
+That's useful!
 
 
 # Appendix

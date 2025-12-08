@@ -1,0 +1,1026 @@
+---
+title: "Interactions II: <br> Two numeric predictors"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(interactions)  # for probe_interactions() plot
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_minimal(
+    base_size = 28
+  )
+)
+
+outdoors <- read_csv("data/salary2.csv", show_col_types = FALSE) |>
+  rename(
+    wellbeing = salary,
+    outdoor_time = serv,
+    hrs_sun = perf  # hrs sun in a day
+  )
+
+palette_probe <- c('#4ab8fc', '#ff7b01')
+```
+
+
+# Course Overview
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block1_name = "Introduction to Linear Models" -->
+<!-- block1_lecs = c("Intro to Linear Regression", -->
+<!--                 "Interpreting Linear Models", -->
+<!--                 "Testing Individual Predictors", -->
+<!--                 "Model Testing & Comparison", -->
+<!--                 "Linear Model Analysis") -->
+<!-- block2_name = "Analysing Experimental Studies" -->
+<!-- block2_lecs = c("Categorical Predictors & Dummy Coding", -->
+<!--                 "	Effects Coding & Coding Specific Contrasts", -->
+<!--                 "Assumptions & Diagnostics", -->
+<!--                 "Bootstrapping", -->
+<!--                 "	Categorical Predictor Analysis") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block3_name = "Interactions" -->
+<!-- block3_lecs = c("Interactions I", -->
+<!--                 "Interactions II", -->
+<!--                 "Interactions III", -->
+<!--                 "Analysing Experiments", -->
+<!--                 "Interaction Analysis") -->
+<!-- block4_name = "Advanced Topics" -->
+<!-- block4_lecs = c("Power Analysis", -->
+<!--                 "Binary Logistic Regression I", -->
+<!--                 "Binary Logistic Regression II", -->
+<!--                 "Logistic Regression Analysis", -->
+<!--                 "	Exam Prep and Course Q&A") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 2) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- :::: -->
+
+## This week's learning objectives
+
+<br>
+
+::::: {style="font-size: 125%;"}
+
+<!-- :::: {.fragment} -->
+:::: {}
+::: {.dapr2callout}
+x
+:::
+::::
+
+<!-- :::: {.fragment} -->
+:::: {}
+::: {.dapr2callout}
+x
+:::
+::::
+
+:::::
+
+
+## Where we are in the analysis plan
+
+![](figs/block3-flowchart-02.svg){height="550"}
+
+
+## What's an interaction again?
+
+An interaction is how we allow a model to estimate that **the association between one predictor and the outcome is different, _depending on_ the value of another predictor**.
+
+<!-- TODO make own version of this fig for today's data -->
+![](https://uoepsy.github.io/usmr/2526/readings/images/ints/ints.png){fig-align="center"}
+
+
+## Today's data
+
+
+<br>
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
+outdoors |>
+  mutate() |>
+  ggplot(aes(x = outdoor_time, y = wellbeing, colour = hrs_sun, size = hrs_sun)) +
+  geom_point() +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp")
+```
+:::
+
+::: {.column width="40%"}
+
+::::{ style="font-size:85%;"}
+```{r}
+outdoors |>
+  head(12)
+```
+::::
+
+:::
+
+::::
+
+:::{.hcenter style="font-size:125%;"}
+How does the association between **outdoor time** and people's **wellbeing** change, <br> _depending on_ the **number of hours of sunlight** in a day?
+:::
+
+
+## Another way to plot the data
+
+```{r echo=F, fig.align = 'center', fig.dim = c(16, 8), warning = F}
+p_sun_panel <- outdoors |>
+  ggplot(aes(x = outdoor_time, y = wellbeing, colour = hrs_sun)) +
+  geom_point(aes(size = hrs_sun))+#, alpha = .5) +
+  facet_wrap(~ hrs_sun, nrow = 1, labeller = label_both) +
+  geom_smooth(se = F, method = 'lm', colour = 'black', show.legend = F) +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp") +
+  theme(
+    legend.position = 'none',
+    panel.grid.minor = element_blank()
+  )
+p_sun_panel
+```
+
+
+<br>
+
+
+:::{style="font-size:125%;"}
+Different slopes in different panels $\rightarrow$ The association between outdoor time and wellbeing appears **different for different numbers of sunlight hours.**
+:::
+
+
+# Specifying the interaction model
+
+## Specifying the interaction model
+
+<br>
+
+**In mathematical notation:**
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) +
+(\beta_2 \cdot \text{hrs_sun}) +
+(\beta_3 \cdot \text{outdoor_time} \cdot \text{hrs_sun}) +
+\epsilon
+$$
+
+<br>
+
+**In R,** where both of these options have the same result:
+
+<br>
+
+```{r eval=F}
+lm(wellbeing ~ outdoor_time + hrs_sun + outdoor_time:hrs_sun, data = outdoors)
+
+lm(wellbeing ~ outdoor_time * hrs_sun, data = outdoors)
+```
+
+<br>
+
+:::{.dapr2callout}
+**Does an interaction model need to contain each of the interacting predictors on their own, too?**
+Yes—otherwise we'd only see how one predictor depends on another, with no idea how they behave individually.
+
+- Good: `wellbeing ~ outdoor_time + hrs_sun + outdoor_time:hrs_sun`
+- Less good: `wellbeing ~ outdoor_time:hrs_sun`
+
+Including each interacting predictor as well as the interaction is an example of the **"principle of marginality"** (yet another terrible name for a stats concept)
+:::
+
+
+## Before we fit the model, remember our adages about multiple regression
+
+```{r eval=F}
+lm(wellbeing ~ outdoor_time * hrs_sun, data = outdoors)
+```
+
+<br>
+
+:::{.dapr2callout style="font-size:100%"}
+**For every predictor that goes into your model, know what zero represents.**
+:::
+
+- What does `outdoor_time = 0` represent?
+- What does `hrs_sun = 0` represent?
+
+<br>
+
+:::{.dapr2callout style="font-size:100%;"}
+
+A model's intercept is the mean outcome **when every predictor in the model is at zero.**
+
+:::
+
+- What will this model's intercept represent?
+
+<br>
+
+:::{.dapr2callout style="font-size:100%;"}
+
+Each predictor's slope represents the association of the given predictor with the outcome **when every other predictor is at zero.**
+
+:::
+
+- What will the slope of `outdoor_time` represent?
+- What will the slope of `hrs_sun` represent?
+
+
+## Fitting the model
+
+```{r}
+m1 <- lm(wellbeing ~ outdoor_time * hrs_sun, data = outdoors)
+summary(m1)
+```
+
+
+
+## Interpreting the model
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+p_sun_panel +
+  facet_wrap(~ hrs_sun, nrow = 1)
+```
+
+::::{ style="font-size:80%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[10:14])
+```
+::::
+:::
+::: {.column width="40%"}
+
+**`Intercept`**
+
+- When `outdoor_time = 0` hours outdoors and `hrs_sun = 0` sunlight hours, the estimated average `wellbeing` is about 88.
+
+
+**`outdoor_time`**
+
+- When `hrs_sun = 0` sunlight hours, spending an additional hour outdoors is associated with a decrease in wellbeing of about 11 points.
+
+
+**`hrs_sun`**
+
+- When `outdoor_time = 0` hours spent outdoors, the sun shining for an extra hour is associated with an increase in wellbeing of about 3 points. (This change is not significantly different from zero.)
+
+
+**`outdoor_time:hrs_sun`**
+
+- Increasing sunlight hours by 1 changes the association of `outdoor_time` with `wellbeing` by about 3.
+
+:::
+::::
+
+
+## But wait! There's another way to interpret the interaction term
+
+<!-- **Interpretation 1 (what we just saw):** -->
+
+<!-- ```{r echo=F, fig.align='center', fig.dim=c(16, 4)} -->
+<!-- p_sun_panel -->
+<!-- ``` -->
+
+<!-- - Increasing sunlight hours by 1 changes the association of `outdoor_time` with `wellbeing` by about 3. -->
+
+
+```{r echo=F, fig.align='center', fig.dim=c(16, 8)}
+p_out_panel <- outdoors |>
+  mutate(
+    out_time_bin = cut(outdoor_time, 3)
+  ) |>
+  ggplot(aes(x = hrs_sun, y = wellbeing, colour = hrs_sun)) +
+  geom_point(aes(size = hrs_sun))+#, alpha = .5) +
+  facet_wrap(~ out_time_bin, nrow = 1, labeller = label_both) +
+  geom_smooth(se = F, method = 'lm', colour = 'black', show.legend = F) +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp") +
+  theme(
+    legend.position = 'none',
+    panel.grid.minor = element_blank()
+  )
+
+p_out_panel
+```
+
+Now the x axis shows hours of sunlight, and each panel shows a group of `outdoor_time`s, binned together.
+
+Even though the plot is reversed, the pattern of slopes stays the same.
+
+**The association between sunlight hours and wellbeing is different, when different amounts of time are spent outdoors.**
+
+
+## Both ways of interpreting the interaction term
+
+**Interpretation 1:**
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.dim = c(10, 4)}
+p_sun_panel +
+  facet_wrap(~ hrs_sun, nrow = 1)
+```
+:::
+
+::: {.column width="40%"}
+
+<br>
+
+Increasing `hrs_sun` by 1 means that the association between `outdoor_time` and `wellbeing` changes by about 3.
+:::
+::::
+
+
+**Interpretation 2:**
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.dim = c(10, 4)}
+p_out_panel +
+  facet_wrap(~ out_time_bin, nrow = 1)
+```
+:::
+
+::: {.column width="40%"}
+
+<br>
+
+Increasing `outdoor_time` by 1 means that the association between `sun_hrs` and `wellbeing` changes by about 3.
+:::
+::::
+
+:::{.dapr2callout}
+**Interactions are symmetrical.**
+Both interpretations are always true.
+Usually we choose the interpretation that's narratively simpler or makes more intuitive sense (like I secretly did last week).
+:::
+
+
+# Simple slopes
+
+## Simple slopes
+
+Imagine that we wanted to work out mathematically **what the model thinks the values of these slopes are.**
+
+```{r echo=F, fig.dim = c(16, 6), fig.align = 'center'}
+p_sun_panel
+```
+
+
+Specifically, we want to know the slopes of the associations between `outdoor_time` and `wellbeing` for particular values of `hrs_sun`.
+These are **simple slopes**.
+
+<br>
+
+We have all the information we need:
+
+- The model's linear expression
+- The values of each $\beta$ coefficient
+
+
+## Calculating simple slopes by hand (Example 1)
+
+**The model's linear expression** (where w stands for wellbeing):
+ 
+$$
+\text{w} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) +
+(\beta_2 \cdot \text{hrs_sun}) +
+(\beta_3 \cdot \text{outdoor_time} \cdot \text{hrs_sun}) +
+\epsilon
+$$ 
+
+**The model's coefficients:**
+
+```{r echo=F}
+m1_coef_tab <- coef(m1) |> 
+  round(2) |> 
+  as.data.frame() |> 
+  cbind(paste0('beta', 0:3)) |>
+  rownames_to_column()
+names(m1_coef_tab) <- c('param', 'estim', 'beta')
+select(m1_coef_tab, param, beta, estim) |>
+  kableExtra::kable()
+```
+
+
+
+<br>
+
+:::{.dapr2callout}
+
+**Step 1:** Substitute the estimated coefficients into the linear expression.
+
+$$
+\text{w} = 87.92 + (-10.94 \cdot \text{outdoor_time}) +
+(3.15 \cdot \text{hrs_sun}) +
+(3.25 \cdot \text{outdoor_time} \cdot \text{hrs_sun}) +
+\epsilon
+$$ 
+
+:::
+
+## Calculating simple slopes by hand (Example 1)
+
+<br>
+
+
+:::{.dapr2callout}
+
+**Step 1:** Substitute the estimated coefficients into the linear expression.
+
+$$
+\text{w} = 87.92 + (-10.94 \cdot \text{outdoor_time}) +
+(3.15 \cdot \text{hrs_sun}) +
+(3.25 \cdot \text{outdoor_time} \cdot \text{hrs_sun}) +
+\epsilon
+$$ 
+
+:::
+
+<br>
+
+:::{.dapr2callout}
+
+
+**Step 2:** Decide what specific value of `hrs_sun` we want to find the slope over `outdoor_time` for.
+Substitute that value in for `hrs_sun`.
+
+Let's start with `hrs_sun = 0`.
+
+$$
+\text{w}_{\text{hrs_sun} = 0} = 87.92 + (-10.94 \cdot \text{outdoor_time}) + (3.15 \cdot 0) + (3.25 \cdot \text{outdoor_time} \cdot 0) + \epsilon
+$$ 
+:::
+
+<br>
+
+:::{.dapr2callout}
+
+**Step 3:** Simplify this expression by working out the multiplication and addition step by step.
+
+$$
+\begin{align}
+\text{w}_{\text{hrs_sun} = 0}  &= 87.92 + (-10.94 \cdot \text{outdoor_time}) + (3.15 \cdot 0) + (3.25 \cdot \text{outdoor_time} \cdot 0) + \epsilon \\
+\text{w}_{\text{hrs_sun} = 0} &= 87.92 + (-10.94 \cdot \text{outdoor_time}) + \epsilon \\
+\end{align}
+$$ 
+
+So the line that associates `outdoor_time` with `wellbeing`, when `hrs_sun = 0`, has an intercept of 87.92 and a slope of –10.94.
+
+:::
+
+
+## Calculating simple slopes by hand (Example 2)
+
+<br>
+
+
+:::{.dapr2callout}
+
+**Step 1:** Substitute the estimated coefficients into the linear expression.
+
+$$
+\text{w} = 87.92 + (-10.94 \cdot \text{outdoor_time}) +
+(3.15 \cdot \text{hrs_sun}) +
+(3.25 \cdot \text{outdoor_time} \cdot \text{hrs_sun}) +
+\epsilon
+$$ 
+
+:::
+
+<br>
+
+:::{.dapr2callout}
+
+
+**Step 2:** Decide what specific value of `hrs_sun` we want to find the slope over `outdoor_time` for.
+Substitute that value in for `hrs_sun`.
+
+**Let's do the mean value for `hrs_sun`, which is 3.8.**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8} = 87.92 + (-10.94 \cdot \text{outdoor_time}) + (3.15 \cdot 3.8) + (3.25 \cdot \text{outdoor_time} \cdot 3.8) + \epsilon
+$$ 
+:::
+
+<br>
+
+:::{.dapr2callout}
+
+**Step 3:** Simplify this expression by working out the multiplication and addition step by step.
+
+:::
+
+## Step 3 breakdown
+
+<br>
+
+**The starting expression that we want to simplify:**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8}  = 87.92 + (-10.94 \cdot \text{outdoor_time}) + (3.15 \cdot 3.8) + (3.25 \cdot \text{outdoor_time} \cdot 3.8) + \epsilon
+$$
+
+**Multiply the 3.8s together with the numbers in the same brackets.**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8}  = 87.92 + (-10.94 \cdot \text{outdoor_time}) + 11.97 + (12.35 \cdot \text{outdoor_time}) + \epsilon
+$$
+
+**Add together the numbers that aren't multiplied by $\text{outdoor_time}$.**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8}  = 99.89 + (-10.94 \cdot \text{outdoor_time}) + (12.35 \cdot \text{outdoor_time}) + \epsilon
+$$
+
+**Factor out the variable $\text{outdoor_time}$ from both terms that contain it.**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8}  = 99.89 + ((-10.94 + 12.35) \cdot \text{outdoor_time}) + \epsilon
+$$
+
+**Add together those remaining numbers.**
+
+$$
+\text{w}_{\text{hrs_sun} = 3.8}  = 99.89 + (1.41 \cdot \text{outdoor_time}) + \epsilon
+$$
+
+:::{.dapr2callout}
+So the line that associates `outdoor_time` with `wellbeing`, when `hrs_sun` is at its mean of 3.8, has an intercept of about 99.89 and a slope of about 1.41. 
+:::
+
+
+```{r include=F}
+coef(m1)[['(Intercept)']] + (coef(m1)[['hrs_sun']] * 3.8)
+
+coef(m1)[['outdoor_time']] + (coef(m1)[['outdoor_time:hrs_sun']] * 3.8)
+```
+
+
+## Plotting simple slopes in R
+
+```{r eval=F}
+library(interactions)
+
+probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+  interval = T
+)$interactplot
+```
+
+```{r echo=F, fig.dim = c(10, 8), fig.align='center'}
+
+probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+  interval = T
+)$interactplot +
+  theme(text = element_text(size = 28))
+
+```
+
+
+
+## Computing simple slopes in R 
+
+`probe_interaction()` can also compute simple slopes _and_ test if they're significantly different from zero.
+
+<br>
+
+:::: {.columns}
+::: {.column width="40%"}
+```{r eval=F}
+probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+)$simslopes
+```
+:::
+::: {.column width="60%" style = "font-size:80%"}
+```{r echo=F}
+m1_simslopes <- probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+)$simslopes
+
+m1_simslopes
+```
+:::
+::::
+
+
+## The Johnson-Neyman interval
+
+The JN interval tells us **the values for one predictor when the simple slope of the other predictor is significantly different from zero.**
+(This is also called a **region of significance analysis.**)
+
+```{r echo=F}
+cat(paste0(capture.output(m1_simslopes), '\n')[1:7])
+```
+
+<br>
+
+**To plot the JN interval:**
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r echo=F, fig.dim = c(8, 6), fig.align = 'center'}
+m1_jnp <- probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+  jnplot = T
+)$simslopes$jnplot
+m1_jnp +
+  theme(text = element_text(size = 18))
+```
+
+
+:::
+
+::: {.column width="50%"}
+
+```{r eval=F}
+probe_interaction(
+  m1,
+  pred = outdoor_time,
+  modx = hrs_sun,
+  jnplot = T
+)$simslopes$jnplot
+```
+
+- x: `hrs_sun`
+- y: Slope of `outdoor_time`
+- Red area: Slope of `outdoor_time` not significantly diff. from zero
+- Blue area: Slope of `outdoor_time` IS significantly diff. from zero
+
+:::
+
+::::
+
+
+# Numeric/numeric interactions, Round 2: Mean-centering
+
+## What's mean-centering again?
+
+To mean-centre a variable means to **transform it so that the mean of the centered version is zero.**
+
+Specifically, this involves **subtracting the mean** of a variable from every observation of that variable.
+
+
+```{r}
+outdoors <- outdoors |>
+  mutate(
+    outdoor_time_c = outdoor_time - mean(outdoor_time),
+    hrs_sun_c      = hrs_sun - mean(hrs_sun),
+  )
+
+head(outdoors)
+```
+
+<br>
+
+```{r}
+mean(outdoors$outdoor_time_c) |> round(2)
+mean(outdoors$hrs_sun_c) |> round(2)
+```
+
+
+## Before and after mean-centering (1)
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Before:**
+
+```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
+outdoors |>
+  mutate() |>
+  ggplot(aes(x = outdoor_time, y = wellbeing, colour = hrs_sun, size = hrs_sun)) +
+  geom_point() +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp")
+```
+:::
+::: {.column width="50%"}
+
+**After:**
+
+```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
+outdoors |>
+  mutate() |>
+  ggplot(aes(x = outdoor_time_c, y = wellbeing, colour = hrs_sun_c, size = hrs_sun_c)) +
+  geom_point() +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp")
+```
+:::
+::::
+
+
+## Before and after mean-centering (2)
+
+**Before** (each panel is one value of `hrs_sun`):
+
+```{r echo=F, fig.align = 'center', fig.dim = c(16, 5), warning = F}
+p_sun_panel +
+  facet_wrap(~ hrs_sun, nrow = 1)
+```
+
+
+**After** (each panel is one value of `hrs_sun_c`):
+
+```{r echo=F, fig.align = 'center', fig.dim = c(16, 5), warning = F}
+p_sun_panel_c <- outdoors |>
+  ggplot(aes(x = outdoor_time_c, y = wellbeing, colour = hrs_sun_c)) +
+  geom_point(aes(size = hrs_sun_c))+#, alpha = .5) +
+  facet_wrap(~ hrs_sun_c, nrow = 1) +
+  geom_smooth(se = F, method = 'lm', colour = 'black', show.legend = F) +
+  scale_colour_viridis_c(guide = "legend") +
+  scale_size_continuous(range = c(3, 15), transform = "exp") +
+  theme(
+    legend.position = 'none',
+    panel.grid.minor = element_blank()
+  ) +
+  scale_x_continuous(breaks = c(-2, 0, 2)) 
+p_sun_panel_c
+```
+
+
+
+## Think–Pair–Share: Mean-centered interactions
+
+<br>
+
+The interaction model will have four coefficients:
+
+- `Intercept`
+- `outdoor_time_c`
+- `hrs_sun_c`
+- `outdoor_time_c:hrs_sun_c`
+
+**What will each coefficient represent?**
+
+
+<br>
+
+:::{.dapr2callout style="font-size:125%"}
+
+- **Think** to yourself about each coefficient's meaning. / **Pair** up with your neighbour and think together.
+
+- Then **share** anonymously on `wooclap.com`, enter code `BIAHTI`
+
+:::
+
+
+## Specify the model
+
+<br>
+
+**In mathematical notation:**
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) +
+(\beta_2 \cdot \text{hrs_sun_c}) +
+(\beta_3 \cdot \text{outdoor_time_c} \cdot \text{hrs_sun_c}) +
+\epsilon
+$$
+
+<br>
+<br>
+
+**In R:**
+
+<br>
+
+```{r}
+m2 <- lm(wellbeing ~ outdoor_time_c * hrs_sun_c, data = outdoors)
+```
+
+
+
+<!-- ## Fit the model -->
+
+<!-- ```{r} -->
+<!-- m2 <- lm(wellbeing ~ outdoor_time_c * hrs_sun_c, data = outdoors) -->
+<!-- summary(m2) -->
+<!-- ``` -->
+
+
+
+## Compare the coefficients
+
+**The old coefficients in the non-centered model, `m1`:**
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[10:14])
+
+```
+
+<br>
+
+**The new coefficients in the mean-centered model, `m2`:**
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m2)), '\n')[10:14])
+
+```
+
+<br>
+<br>
+
+:::{.hcenter style="font-size: 125%;"}
+
+`wooclap.com`, enter code `BIAHTI`
+
+:::
+
+
+
+
+## Interpreting the mean-centered model
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+p_sun_panel_c
+```
+
+::::{style="font-size:70%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m2)), '\n')[10:14])
+```
+::::
+
+:::
+
+::: {.column width="40%"}
+
+::::{ style="font-size:90%;"}
+
+**`Intercept`**
+
+- When `outdoor_time = 0` (mean hrs outdoors) and `hrs_sun = 0` (mean sunlight hours), the estimated average `wellbeing` is about 105.
+
+
+**`outdoor_time_c`**
+
+- When `hrs_sun = 0` (at the mean value for sunlight hours), spending an additional hour outdoors is associated with an increase in wellbeing of about 1 point (not significant).
+
+
+**`hrs_sun_c`**
+
+- When `outdoor_time = 0` (at the mean number of hours spent outdoors), the sun shining for an extra hour is associated with an increase in wellbeing of about 14 points.
+
+
+**`outdoor_time_c:hrs_sun_c`**
+
+- Increasing sunlight hours by 1 changes the association of `outdoor_time_c` with `wellbeing` by about 3.
+- **OR:** Increasing outdoor time by 1 changes the association of `hrs_sun_c` with `wellbeing` by about 3.
+
+::::
+
+:::
+::::
+
+
+# Simple slopes in a mean-centered model
+
+## Simple slopes
+
+```{r fig.align = "center"}
+probe_interaction(
+  m2,
+  pred = outdoor_time_c,
+  modx = hrs_sun_c,
+  interval = T,
+)$interactplot
+```
+
+Compare to the old plot: The relationships between the simple slopes do not change when the predictors are mean-centered.
+
+
+## Region of significance analysis
+
+```{r fig.align="center"}
+probe_interaction(
+  m2,
+  pred = outdoor_time_c,
+  modx = hrs_sun_c,
+  jnplot = T
+)$simslopes$jnplot
+```
+
+Compare to the old plot: The relationships between the regions of (non)significance don't change when predictors are mean-centered.
+
+
+<!-- ## This week  -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Tasks -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/labs.svg') -->
+<!-- ``` -->
+
+<!-- **Attend your lab and work together on the exercises**  -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Support -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/forum.svg') -->
+<!-- ``` -->
+
+<!-- **Help each other on the Piazza forum** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/exam.svg') -->
+<!-- ``` -->
+
+<!-- **Complete the weekly quiz** -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/oh.png') -->
+<!-- ``` -->
+
+<!-- **Attend office hours (see Learn page for details)** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+
+# Appendix {.appendix} 
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
