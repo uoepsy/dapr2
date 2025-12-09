@@ -5,10 +5,448 @@ output: html_notebook
 
 ```{r setup}
 library(tidyverse)
-library(interactions)  # for probe_interactions() plot
-
-salary <- read_csv("../../data/salary2.csv", show_col_types = FALSE)
-
+library(interactions)   
 ```
 
+# data set-up
+
+```{r eval=F}
+set.seed(1)
+anx <- read_csv("https://uoepsy.github.io/data/lmm_ef_sdmt.csv") |>
+  slice_sample(prop = .6) |>
+  rename(
+   anx = SDMT,
+  ) |>
+  mutate(
+    transport = ifelse(headphones == 'H', 'Cyclist', 'Motorist'),
+    road_type  = case_when(
+      audio == 'music' ~ 'RuralRoad',
+      audio == 'no_audio' ~ 'CityStreet',
+      audio == 'white_noise' ~ 'DualCarriageway'
+    )
+  ) |>
+  select(anx, transport, road_type) |>
+  rownames_to_column(var = 'ppt_id')
+
+# write_csv(anx, '../../data/post_travel_anx.csv')
+# write_csv(anx, '../data/post_travel_anx.csv')
+```
+
+```{r}
+anx <- read_csv('../../data/post_travel_anx.csv')
+```
+
+```{r}
+anx |> 
+  ggplot(aes(x = road_type, y = anx)) +
+  geom_violin() +
+  stat_summary(geom = 'pointrange') +
+  facet_wrap(~ transport)
+```
+
+
+# 2x2 data
+
+```{r}
+anx1 <- filter(
+  anx,
+  road_type %in% c('CityStreet', 'RuralRoad')
+)
+```
+
+
+## violin plots (symmetrical)
+
+```{r}
+anx1 |>
+  ggplot(aes(x = road_type, y = anx, colour = road_type, fill = road_type)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
+  facet_wrap(~ transport) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+```{r}
+anx1 |>
+  ggplot(aes(x = transport, y = anx, colour = transport, fill = transport)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
+  facet_wrap(~ road_type) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+TODO: add diff of diffs into plot as vertical line between means, at x = 1.5 in each facet.
+
+
+
+## pointrange plots
+
+```{r}
+anx1 |>
+  ggplot(aes(x = road_type, y = anx, colour = transport)) +
+  stat_summary(geom = 'pointrange', position = position_dodge(width = .5)) +
+  NULL
+```
+
+```{r}
+anx1 |>
+  ggplot(aes(x = transport, y = anx, colour = road_type)) +
+  stat_summary(geom = 'pointrange', position = position_dodge(width = .5)) +
+  NULL
+```
+
+
+## set up data
+
+Set ref levels to the group that has the lower scores, so we can measure how anx increases in diff scenarios.
+
+```{r}
+anx1 <- anx1 |>
+  mutate(
+    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
+    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet'))
+  )
+```
+
+```{r}
+contrasts(anx1$transport)
+```
+
+```{r}
+contrasts(anx1$road_type)
+```
+
+
+### contrast coding the interaction
+
+
+| transport | road_type |
+|---|---|
+| Motorist | Rural |
+| Motorist | City  |
+| Cyclist  | Rural |
+| Cyclist  | City  |
+
+
+| transport | road_type |
+|---|---|
+| 0 | 0 |
+| 0 | 1 |
+| 1 | 0 |
+| 1 | 1 |
+
+
+| transport | road_type | transport:road_type |
+|---|---|---|
+| 0 | 0 | 0 |
+| 0 | 1 | 0 |
+| 1 | 0 | 0 |
+| 1 | 1 | 1 |
+
+
+
+## fit the model
+
+$$
+\text{anx} = \beta_0 + 
+(\beta_1 \cdot \text{transport}) + 
+(\beta_2 \cdot \text{road_type}) + 
+(\beta_3 \cdot \text{transport} \cdot \text{road_type}) + 
+\epsilon
+$$
+
+```{r}
+m1 <- lm(anx ~ transport * road_type, data = anx1)
+summary(m1)
+```
+
+## cat_plots
+
+```{r}
+cat_plot(
+  m1,
+  pred = transport,
+  modx = road_type,
+  # geom = 'line'
+)
+```
+
+```{r}
+cat_plot(
+  m1,
+  pred = road_type,
+  modx = transport,
+  # geom = 'line'
+)
+```
+
+
+
+
+
+## simple effects by hand
+
+(simple slopes = continuous, simple effects = categorical)
+
+```{r}
+coef(m1) |> round(2)
+```
+
+$$
+\text{anx} = \beta_0 + 
+(\beta_1 \cdot \text{transport}) + 
+(\beta_2 \cdot \text{road_type}) + 
+(\beta_3 \cdot \text{transport} \cdot \text{road_type}) + 
+\epsilon \\
+
+\text{anx} = 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot \text{transport} \cdot \text{road_type}) +  \epsilon \\
+$$
+
+
+### RuralRoad
+
+$$
+\text{anx}_{\text{Rural}} = 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot 0) +  (7.76 \cdot \text{transport} \cdot 0) +  \epsilon \\
+\text{anx}_{\text{Rural}} = 27.03 +  (0.44 \cdot \text{transport}) + \epsilon \\
+$$
+
+### CityStreet
+
+$$
+\text{anx}_{\text{City}} = 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot 1) +  (7.76 \cdot \text{transport} \cdot 1) +  \epsilon \\
+\text{anx}_{\text{City}} = 27.03 + 4.89 +  (0.44 \cdot \text{transport}) + (7.76 \cdot \text{transport}) +  \epsilon \\
+\text{anx}_{\text{City}} = 31.92 +  ((0.44 + 7.76) \cdot \text{transport}) +  \epsilon \\
+\text{anx}_{\text{City}} = 31.92 +  (8.2 \cdot \text{transport}) +  \epsilon \\
+$$
+
+
+### Motorist
+
+$$
+\text{anx}_{\text{Motorist}} = 27.03 +  (0.44 \cdot 0) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot 0 \cdot \text{road_type}) +  \epsilon \\
+\text{anx}_{\text{Motorist}} = 27.03 + (4.89 \cdot \text{road_type}) + \epsilon \\
+$$
+
+### Cyclist
+
+$$
+\text{anx}_{\text{Cyclist}} = 27.03 +  (0.44 \cdot 1) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot 1 \cdot \text{road_type}) +  \epsilon \\
+\text{anx}_{\text{Cyclist}} = 27.03 + 0.44 +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot \text{road_type}) +  \epsilon \\
+\text{anx}_{\text{Cyclist}} = 27.47 +  ((4.89 + 7.76) \cdot \text{road_type})  +  \epsilon \\
+\text{anx}_{\text{Cyclist}} = 27.47 +  (12.65 \cdot \text{road_type})  +  \epsilon \\
+$$
+
+
+
+
+
+
+
+
+
+# 2x3 data
+
+```{r}
+anx2 <- anx
+```
+
+
+## set up the data
+
+```{r}
+anx2 <- anx2 |>
+  mutate(
+    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
+    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet', 'DualCarriageway')),
+  )
+anx2
+```
+
+```{r}
+contrasts(anx2$transport)
+```
+
+```{r}
+contrasts(anx2$road_type)
+```
+
+
+### contrast coding CityStreet ixn
+
+| transport | road_type |
+|---|---|
+| Motorist | Rural |
+| Motorist | City  |
+| Motorist | Dual  |
+| Cyclist  | Rural |
+| Cyclist  | City  |
+| Cyclist  | Dual  |
+
+
+| transport | road_typeCityStreet |
+|---|---|
+| 0 | 0 |
+| 0 | 1 |
+| 0 | 0 |
+| 1 | 0 |
+| 1 | 1 |
+| 1 | 0 |
+
+
+| transport | road_typeCityStreet | transport:road_typeCityStreet |
+|---|---| --- |
+| 0 | 0 | 0 |
+| 0 | 1 | 0 |
+| 0 | 0 | 0 |
+| 1 | 0 | 0 |
+| 1 | 1 | 1 |
+| 1 | 0 | 0 |
+
+
+
+### contrast coding DualCarriageway ixn
+
+| transport | road_type |
+|---|---|
+| Motorist | Rural |
+| Motorist | City  |
+| Motorist | Dual  |
+| Cyclist  | Rural |
+| Cyclist  | City  |
+| Cyclist  | Dual  |
+
+
+| transport | road_typeDualCarriageway |
+|---|---|
+| 0 | 0 |
+| 0 | 0 |
+| 0 | 1 |
+| 1 | 0 |
+| 1 | 0 |
+| 1 | 1 |
+
+
+| transport | road_typeDualCarriageway | transport:road_typeDualCarriageway |
+|---|---| --- |
+| 0 | 0 | 0 |
+| 0 | 0 | 0 |
+| 0 | 1 | 0 |
+| 1 | 0 | 0 |
+| 1 | 0 | 0 |
+| 1 | 1 | 1 |
+
+
+
+## fit the model
+
+
+$$
+\text{anx} = \beta_0 + 
+(\beta_1 \cdot \text{transport}) + 
+(\beta_2 \cdot \text{road_type}_{\text{CS}}) + 
+(\beta_2 \cdot \text{road_type}_{\text{DC}}) +  \\
+(\beta_3 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) + 
+(\beta_3 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) + 
+\epsilon
+$$
+
+```{r}
+m2 <- lm(anx ~ transport * road_type, data = anx2)
+summary(m2)
+```
+
+
+## cat_plots
+
+```{r}
+cat_plot(
+  m2,
+  pred = transport,
+  modx = road_type,
+  geom = 'line'
+)
+```
+
+```{r}
+cat_plot(
+  m2,
+  pred = road_type,
+  modx = transport,
+  # geom = 'line'
+)
+```
+
+## simple effects by hand
+
+### RuralRoad
+
+To get RuralRoad, we have $\text{road_type}_{\text{CS}} = 0$ and $\text{road_type}_{\text{DC}} = 0$.
+(We know this bc of the contrast coding)
+
+$$
+\begin{align}
+\text{anx}_{\text{RR}} ~=&~ \beta_0 +  (\beta_1 \cdot \text{transport}) +  (\beta_2 \cdot \text{road_type}_{\text{CS}}) +  (\beta_3 \cdot \text{road_type}_{\text{DC}}) +  
+\\ & (\beta_4 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) +  (\beta_5 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) +  \epsilon \\
+
+
+\text{anx}_{\text{RR}} ~=&~ \beta_0 +  (\beta_1 \cdot \text{transport}) +  (\beta_2 \cdot 0) +  (\beta_3 \cdot 0) +  
+\\ & (\beta_4 \cdot \text{transport} \cdot 0) +  (\beta_5 \cdot \text{transport} \cdot 0) +  \epsilon \\
+
+\text{anx}_{\text{RR}} ~=&~ \beta_0 + (\beta_1 \cdot \text{transport}) + \epsilon \\
+\end{align}
+$$
+
+
+### DualCarriageway
+
+To get DualCarriageway, we have $\text{road_type}_{\text{CS}} = 0$ and $\text{road_type}_{\text{DC}} = 1$.
+(We know this bc of the contrast coding)
+
+$$
+\begin{align}
+\text{anx}_{\text{DC}} ~=&~ \beta_0 +  (\beta_1 \cdot \text{transport}) +  (\beta_2 \cdot \text{road_type}_{\text{CS}}) +  (\beta_3 \cdot \text{road_type}_{\text{DC}}) +  
+\\ & (\beta_4 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) +  (\beta_5 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) +  \epsilon \\
+
+\text{anx}_{\text{DC}} ~=&~ \beta_0 +  (\beta_1 \cdot \text{transport}) +  (\beta_2 \cdot 0) +  (\beta_3 \cdot 1) +  
+\\ & (\beta_4 \cdot \text{transport} \cdot 0) +  (\beta_5 \cdot \text{transport} \cdot 1) +  \epsilon \\
+
+\text{anx}_{\text{DC}} ~=&~ \beta_0 + \beta_3 + ((\beta_1 + \beta_5) \cdot \text{transport}) +  \epsilon \\
+
+\end{align}
+$$
+
+
+### Motorist
+
+To get Motorist, we set transport = 0.
+
+$$
+\begin{align}
+\text{anx}_{\text{Motorist}} ~=&~ \beta_0 +  (\beta_1 \cdot \text{transport}) +  (\beta_2 \cdot \text{road_type}_{\text{CS}}) +  (\beta_3 \cdot \text{road_type}_{\text{DC}}) +  
+\\ & (\beta_4 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) +  (\beta_5 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) +  \epsilon \\
+
+\text{anx}_{\text{Motorist}} ~=&~ \beta_0 +  (\beta_1 \cdot 0) +  (\beta_2 \cdot \text{road_type}_{\text{CS}}) +  (\beta_3 \cdot \text{road_type}_{\text{DC}}) +  
+\\ & (\beta_4 \cdot 0 \cdot \text{road_type}_{\text{CS}}) +  (\beta_5 \cdot 0 \cdot \text{road_type}_{\text{DC}}) +  \epsilon \\
+
+\text{anx}_{\text{Motorist}} ~=&~ \beta_0 + (\beta_2 \cdot \text{road_type}_{\text{CS}}) +  (\beta_3 \cdot \text{road_type}_{\text{DC}}) + \epsilon \\
+
+\end{align}
+$$
+
+
+
+# Imagine 2x3x2
+
+What if this pattern of results looks different in different countries?
+
+Might compare Scotland (not that much bike infrastructure) to the Netherlands (lots of bike infrastructure).
+
+Reasonable question but big pain to analyse/interpret.
+
+Only way to really interpret is to visualise.
 
