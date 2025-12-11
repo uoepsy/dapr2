@@ -525,7 +525,12 @@ contrasts(anx1$road_type)
 
 <br>
 
-| transport | road_type  | transportCyclist | road_typeCityStreet | interaction |
+In other words: To get the interaction's contrast, we multiply together the two contrasts for the interacting predictors.
+
+<br>
+
+
+| transport | road_type  | transportCyclist | road_typeCityStreet | tC:rtCS |
 | --------- | ---------- | ---------------- | ------------------- | ----------- |
 | Motorist  | RuralRoad  | 0                | 0                   | 0 * 0 = 0   |
 | Motorist  | CityStreet | 0                | 1                   | 0 * 1 = 0   |
@@ -744,7 +749,7 @@ $$
 $$
 
 
-## The simple effect for `transport` for rural roads
+## The simple effect of `transport` for rural roads
 
 Rural roads are represented by `road_type = 0`, so we substitute 0 for $\text{road_type}$ below.
 
@@ -770,7 +775,7 @@ cat_plot(
 **When we ask for a "simple effect", we ask for the _slope_ of this line: the difference between groups at a specific level of another predictor. So here, the simple effect is 0.44.**
 
 
-## The simple effect for `transport` for city streets
+## The simple effect of `transport` for city streets
 
 City streets are represented by `road_type = 1`, so we substitute 1 for $\text{road_type}$ below.
 
@@ -800,11 +805,9 @@ cat_plot(
 
 ## What about simple effects for `road_type`?
 
-<br>
+Also doable! Those would be the symmetrical simple effects: also true, just a different angle of looking at the same data.
 
-Also doable!
-
-Those simple effects would match the blue and orange slopes in this equivalent plot:
+Those simple effects would match the blue and orange slopes in this plot:
 
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
 cat_plot(
@@ -817,13 +820,168 @@ cat_plot(
 ```
 
 
+<br>
+
 To let you practice working out simple effects by hand, I leave these to you.
 
 
+# Interactions with sum-coded predictors
 
-# Interactions with 2x3 data
+## What's sum coding again?
 
-## Interactions with 2x3 data
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+**Treatment coding (aka dummy coding):**
+
+![](figs/trtmt.svg)
+:::
+::: {.column width="50%"}
+**Sum coding (aka effects coding):**
+
+![](figs/sum.svg)
+:::
+::::
+
+## Set up the data
+
+<br>
+
+```{r}
+contrasts(anx1$transport) <- contr.sum(2)
+contrasts(anx1$road_type) <- contr.sum(2)
+```
+
+<br>
+
+```{r}
+contrasts(anx1$transport)
+```
+
+
+<br>
+
+```{r}
+contrasts(anx1$road_type)
+```
+
+
+## The interaction's contrast is the product of the two interacting contrasts
+
+<br>
+
+In other words: To get the interaction's contrast, we multiply together the two contrasts for the interacting predictors.
+
+<br>
+
+| transport | road_type  | transport1 | road_type1 | t:rt |
+| --------- | ---------- | ---------: | ---------: | -----------: |
+| Motorist  | RuralRoad  |  1         |  1         |  1 *  1 =  1 |
+| Motorist  | CityStreet |  1         | –1         |  1 * –1 = –1 |
+| Cyclist   | RuralRoad  | –1         |  1         | –1 *  1 = –1 |
+| Cyclist   | CityStreet | –1         | –1         | –1 * –1 =  1 |
+
+
+
+
+## A visual intuition
+
+[todo an updated version of]
+
+![](https://uoepsy.github.io/dapr2/2425/labs/1_b4_reading_files/figure-html/fig-sumplot2-1.png)
+
+<!-- However, when we change to using effects (or sum-to-zero) coding, we’re switching where zero is in our model. So if we change to sum contrasts (here we’ve changed both predictors to using sum-to-zero coding), then we end up estimating the effect of each predictor averaged across the other. -->
+
+<!-- Coefficients: -->
+<!--                      Estimate Std. Error t value Pr(>|t|)     -->
+<!-- (Intercept)           1.13577    0.08796  12.912  < 2e-16 *** -->
+<!-- conditionB            0.05141    0.08796   0.584     0.56     -->
+<!-- grouping2            -1.36607    0.08796 -15.530  < 2e-16 *** -->
+<!-- conditionB:grouping2 -0.54066    0.08796  -6.146 1.15e-08 *** -->
+<!-- --- -->
+<!-- The intercept is the grey X in Figure 6. -->
+<!-- The coefficient for condition is the difference between the grey X and the grey triangle in Figure 6. -->
+<!-- The coefficient for grouping is the difference between the grey X and the blue line in Figure 6. -->
+<!-- The interaction coefficient is the difference from the slope of the grey line to slope of the blue line. -->
+
+<!-- https://uoepsy.github.io/dapr2/2425/labs/1_b4_reading_files/figure-html/fig-sumplot2-1.png -->
+
+
+
+## Fit the model
+
+[todo model specification]
+
+```{r}
+m2 <- lm(anx ~ transport * road_type, data = anx1)
+summary(m2)
+```
+
+
+
+
+## Interpreting the model
+
+```{r}
+summary(m2)$coefficients |> round(2)
+```
+
+
+It will be useful to consult a table of group means and marginal means (i.e., means of each row and each column; the grand mean is bottom right).
+
+```{r include=F}
+anx1 |>
+  group_by(transport, road_type) |>
+  summarise(m = round(mean(anx), 1)) |>
+  pivot_wider(names_from = road_type, values_from = m) |>
+  rbind(list(transport = NA, RuralRoad = NA, CityStreet = NA)) |>
+  rbind(list(transport = 'Marginal means', RuralRoad = 27.25, CityStreet = 36)) |>
+  cbind(list("NA" = NA)) |>
+  cbind(list("Marginal means" = c(29.45, 33.8, NA, 31.625))) |>
+  kableExtra::kable()
+```
+
+
+|                     | RuralRoad (1) | CityStreet (–1) | \| | **Marginal means**|
+|:------------------- |---------:|----------:|:---|--------------:|
+| <b>Motorist (1)</b> |     27.00|       31.9| \| |         29.450|
+| <b>Cyclist (–1)</b> |     27.50|       40.1| \| |         33.800|
+|                     |          |           |    |               |
+| **Marginal means**  |     27.25|       36.0| \| |         31.625|
+
+Sum coding changes what zero represents.
+As a consequence, it changes what the intercept and all the slopes (and the interaction!) represent.
+
+
+- `Intercept`: The grand mean, 31.625.
+
+- `transport1`: The marginal mean for the level of `transport` coded as 1 (Motorist), minus the grand mean
+  - 29.450 – 31.625 = –2.175
+  - Can interpret this as the difference between Motorists and the grand mean, _when `road_type` is at its mean_
+  
+- `road_type1`: The marginal mean for the level of `road_type` coded as 1 (RuralRoad), minus the grand mean
+  - 27.25 – 31.625 = –4.375
+  - Can interpret this as the difference between Motorists and the grand mean, _when `road_type` is at its mean_
+
+- `transport1:road_type1`: The mean when both predictors = 1 (Motorists and RuralRoads), minus the grand mean, also minus the coefficient `transport1`, also minus the coefficient `road_type1`
+  - (27.00 – 31.625) – (–2.175) –  (–4.375) = 1.925
+  - Can interpret this as the difference between the observed mean for motorists on rural roads versus what we'd otherwise estimate that mean to be, based only on the individual effects of transport and road type
+  - Like the interaction coefficient in treatment coded models, it lets us give an extra boost to one specific combination of levels, to account for different patterns in the data
+
+
+
+
+## Slopes with treatment-coded predictors vs. slopes with sum-coded predictors
+
+x
+
+
+
+
+# Interactions with 2x3 data, treatment-coded
+
+## Interactions with 2x3 data, treatment-coded
 
 **Post-travel anxiety ratings for people using two different kinds of `transport`:**
 
@@ -872,10 +1030,26 @@ To let you practice working out simple effects by hand, I leave these to you.
 
 ## Visualise the data
 
-```{r}
+```{r echo=F, fig.align = "center", fig.dim = c(14, 8)}
+p_anx2_transfacet <- anx2 |> 
+  mutate(
+    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
+    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet', 'DualCarriageway'))
+  ) |>
+  ggplot(aes(x = road_type, y = anx, colour = road_type, fill = road_type)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
+  facet_wrap(~ transport) +
+  theme(legend.position = 'none') +
+  NULL
 
+p_anx2_transfacet
 ```
 
+<br>
+
+The data is all exactly the same as before, with the addition of more anxiety data for journeys on `DualCarriageway`s.
 
 
 ## Set up the data
@@ -890,26 +1064,246 @@ anx2 <- anx2 |>
   )
 ```
 
+<br>
 
 The default contrast coding (treatment coding):
 
 ```{r}
-
+contrasts(anx2$transport)
 ```
 
-
-
-## The interaction's contrast is the product of the two interacting contrasts
+```{r}
+contrasts(anx2$road_type)
+```
 
 <br>
 
-<!-- | transport | road_type  | transportCyclist | road_typeCityStreet | interaction | -->
-<!-- | --------- | ---------- | ---------------- | ------------------- | ----------- | -->
-<!-- | Motorist  | RuralRoad  | 0                | 0                   | 0 * 0 = 0   | -->
-<!-- | Motorist  | CityStreet | 0                | 1                   | 0 * 1 = 0   | -->
-<!-- | Cyclist   | RuralRoad  | 1                | 0                   | 1 * 0 = 0   | -->
-<!-- | Cyclist   | CityStreet | 1                | 1                   | 1 * 1 = 1   | -->
+Our model of this data will have **two interaction terms**: 
 
+- `transportCyclist:road_typeCityStreet` **and**
+- `transportCyclist:road_typeDualCarriageway`
+
+
+## Each interaction's contrast is the product of the two interacting contrasts (1)
+
+<br>
+
+**Let's start with `transportCyclist:road_typeCityStreet`:**
+
+<br>
+
+| transport | road_type | transportCyclist | road_typeCityStreet | tC:rtCS |
+|---|---|--:|--:|--:|
+| Motorist | RuralRoad |  0 |  0 | ? |
+| Motorist | CityStreet  |  0 |  1 | ? |
+| Motorist | DualCarriageway  |  0 |  0 | ? |
+| Cyclist  | RuralRoad |  1 |  0 | ? |
+| Cyclist  | CityStreet  |  1 |  1 | ? |
+| Cyclist  | DualCarriageway  |  1 |  0 | ? |
+
+<br>
+
+:::{.hcenter style="font-size: 125%;"}
+
+`wooclap.com`, enter code `GECHXE`
+
+:::
+
+
+
+## Each interaction's contrast is the product of the two interacting contrasts (2)
+
+<br>
+
+**Continue on with `transportCyclist:road_typeDualCarriageway`:**
+
+<br>
+
+| transport | road_type | transportCyclist | road_typeDualCarriageway | tC:rtDC |
+|---|---|--:|--:|--:|
+| Motorist | RuralRoad |  0 |  0 | ? |
+| Motorist | CityStreet  |  0 |  0 | ? |
+| Motorist | DualCarriageway  |  0 |  1 | ? |
+| Cyclist  | RuralRoad |  1 |  0 | ? |
+| Cyclist  | CityStreet  |  1 |  0 | ? |
+| Cyclist  | DualCarriageway  |  1 |  1 | ? |
+
+<br>
+
+
+:::{.hcenter style="font-size: 125%;"}
+
+`wooclap.com`, enter code `GECHXE`
+
+:::
+
+
+# Fitting the model
+
+## Fitting the model
+
+$$
+\begin{align}
+\text{anx} ~=~& \beta_0 + 
+(\beta_1 \cdot \text{transport}) + 
+(\beta_2 \cdot \text{road_type}_{\text{CS}}) + 
+(\beta_2 \cdot \text{road_type}_{\text{DC}}) +  \\
+& (\beta_3 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) + 
+(\beta_3 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) + 
+\epsilon
+\end{align}
+$$
+
+<!-- :::{style = "font-size:90%"} -->
+
+```{r}
+m3 <- lm(anx ~ transport * road_type, data = anx2)
+
+summary(m3)$coefficients |> round(2)
+```
+
+<!-- ::: -->
+
+
+
+
+## Interpreting the model (1)
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(14, 8)}
+p_anx2_transfacet
+```
+
+::::{ style="font-size:65%;"}
+```{r echo=F}
+summary(m3)$coefficients |> round(2)
+```
+::::
+:::
+::: {.column width="40%"}
+:::: {style="font-size:90%"}
+
+**`Intercept`**
+
+- For Motorists on RuralRoads (i.e., at the reference levels of `transport` and `road_type`, where all predictors = 0), the estimated average `anx` is about 27.
+
+**`transportCyclist`**
+
+- At the reference level of `road_type` (RuralRoad), being a cyclist is associated with an increase in anxiety of about 0.44. (Not significantly different from zero.)
+
+**`road_typeCityStreet`**
+
+- At the reference level of `transport` (Motorist), being on city streets is associated with an increase in anxiety of about 4.9.
+
+**`road_typeDualCarriageway`**
+
+- At the reference level of `transport` (Motorist), being on dual carriageways is associated with an increase in anxiety of about 6.
+
+<!-- **`transportCyclist:road_typeCityStreet`** -->
+
+<!-- - Being a cyclist changes the association of `road_type` with `anx` by about 7.76, **OR** -->
+<!-- - Being on city streets changes the association of `transport` with `anx` by about 7.76. -->
+
+::::
+
+:::
+::::
+
+
+## Interpreting the model (2)
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(14, 8)}
+p_anx2_transfacet
+```
+
+::::{ style="font-size:65%;"}
+```{r echo=F}
+summary(m3)$coefficients |> round(2)
+```
+::::
+:::
+::: {.column width="40%"}
+:::: {style="font-size:90%"}
+
+**`transportCyclist:road_typeCityStreet`**
+
+- Being a cyclist changes the association of `road_typeCityStreet` with `anx` by about 7.76, **OR**
+- Being on city streets changes the association of `transport` with `anx` by about 7.76.
+
+
+**`transportCyclist:road_typeDualCarriageway`**
+
+- Being a cyclist changes the association of `road_typeDualCarriageway` with `anx` by about 14.33, **OR**
+- Being on dual carriageways changes the association of `transport` with `anx` by about 14.33.
+
+::::
+
+
+
+:::
+::::
+
+
+
+
+
+
+## Visualising the model's estimates
+
+:::: {.columns}
+::: {.column width="30%"}
+**One option:**
+
+```{r eval=F}
+cat_plot(
+  m3,
+  pred = transport,
+  modx = road_type,
+)
+```
+:::
+::: {.column width="70%"}
+```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
+cat_plot(
+  m3,
+  pred = transport,
+  modx = road_type,
+) +
+  theme(text = element_text(size = 32))
+```
+:::
+::::
+
+:::: {.columns}
+::: {.column width="30%"}
+**Another option:**
+
+```{r eval=F}
+cat_plot(
+  m3,
+  pred = transport,
+  modx = road_type,
+  geom = 'line'
+)
+```
+:::
+::: {.column width="70%"}
+```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
+cat_plot(
+  m3,
+  pred = transport,
+  modx = road_type,
+  geom = 'line'
+) +
+  theme(text = element_text(size = 32))
+```
+
+
+:::
+::::
 
 
 
@@ -990,11 +1384,12 @@ $$
 \text{anx}_{\text{Cyclist}} = 27.47 +  (12.65 \cdot \text{road_type})  +  \epsilon \\
 $$
 
+## Simple effects for 2x2 data sum-coded
+
 
 ## Simple effects for 2x3 data
 
 
-## Simple effects for 2x2 data sum-coded
 
 
 <!-- :::: {.columns} -->
