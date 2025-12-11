@@ -1,0 +1,116 @@
+---
+title: "15 original code"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r}
+notes <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
+```
+
+```{r}
+######Step 1 is always to read in the data, then to explore, check, describe, and visualise it.
+
+#check coding of variables - are they coded as they should be?
+str(notes)
+
+head(notes)
+```
+
+```{r}
+#check for NAs - none in dataset, so no missing values
+table(is.na(notes))
+```
+
+```{r}
+#make variables factors
+notes <- notes %>%
+    mutate(medium = as_factor(medium),
+           study = as_factor(study))
+
+#create descriptives table
+descript <- notes %>% 
+    group_by(study, medium) %>%
+   summarise(
+       M_Score = round(mean(test_score), 2),
+       SD_Score = round(sd(test_score), 2),
+       SE_Score = round(sd(test_score)/sqrt(n()), 2),
+       Min_Score = round(min(test_score), 2),
+       Max_Score = round(max(test_score), 2)
+    )
+descript
+```
+
+```{r}
+#boxplot
+p1 <- ggplot(data = notes, aes(x = study, y = test_score, color = medium)) + 
+  geom_boxplot() + 
+    ylim(0,100) +
+    labs(x = "Study Condition", y = "Test Score")
+p1
+```
+
+```{r}
+#plot showing the mean score for each condition
+# p2 is useful to notice that lines do not run in parallel - suggests interaction
+p2 <- ggplot(descript, aes(x = study, y = M_Score, color = medium)) + 
+  geom_point(size = 3) +
+  geom_linerange(aes(ymin = M_Score - 2 * SE_Score, ymax = M_Score + 2 * SE_Score)) +
+  geom_path(aes(x = as.numeric(study)))
+p2
+```
+
+
+```{r}
+######Step 2 is to run your model(s) of interest to answer your research question, and make sure that the data meet the assumptions of your chosen test
+
+#set reference levels
+notes$medium <- fct_relevel(notes$medium , "Longhand")
+notes$study <- fct_relevel(notes$study , "No")
+
+#build model
+notes_mdl <- lm(test_score ~ study*medium, data = notes)
+
+#check assumptions - note should check diagnostics here too!
+par(mfrow=c(2,2))
+plot(notes_mdl)
+```
+
+
+```{r}
+par(mfrow=c(1,1))
+
+# look at model output - summary()
+summary(notes_mdl)
+```
+
+
+```{r}
+#int model plot
+plt_notes_mdl <- cat_plot(model = notes_mdl, 
+                  pred = study, 
+                  modx = medium, 
+                  main.title = "Scores across Study and Medium",
+                  x.label = "Study",
+                  y.label = "Score",
+                  legend.main = "Medium")
+plt_notes_mdl
+```
+
+```{r}
+#####Step 3 somewhat depends on the outcomes of step 2. Here, you may need to consider conducting further analyses before writing up / describing your results in relation to the research question. 
+
+#Perform a pairwise comparison of the mean accuracy (as measured by points accrued) across the 2×2 factorial design, making sure to adjust for multiple comparisons. 
+
+m1_emm <- emmeans(notes_mdl, ~study*medium)
+
+pairs_res <- pairs(m1_emm)
+pairs_res 
+```
+
+```{r}
+#plot
+plot(pairs_res)
+```
+

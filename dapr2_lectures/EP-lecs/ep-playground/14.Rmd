@@ -1,6 +1,8 @@
 ---
-title: "14 Playground – Interactions cat cat effect + manual coded AND ALSO pairwise comparisons"
-output: html_notebook
+title: "14 Playground – Interactions with manual contrasts, pairwise comparisons"
+output: 
+  html_notebook:
+    toc: true
 ---
 
 ```{r setup}
@@ -10,20 +12,32 @@ library(interactions)  # for probe_interactions() plot
 
 hosp <- read_csv("../../data/hospital.csv") |>
   mutate(
+    Treatment = case_when(
+      Treatment == 'TreatA' ~ 'Meds',
+      Treatment == 'TreatB' ~ 'EMDR',
+      Treatment == 'TreatC' ~ 'CBT',
+    ),
     Treatment = factor(Treatment),
     Hospital = factor(Hospital),
   )
 
 # get group means
-mean_A1 <- mean(filter(hosp, Treatment == 'TreatA', Hospital == 'Hosp1')$SWB)
-mean_B1 <- mean(filter(hosp, Treatment == 'TreatB', Hospital == 'Hosp1')$SWB)
-mean_C1 <- mean(filter(hosp, Treatment == 'TreatC', Hospital == 'Hosp1')$SWB)
-mean_A2 <- mean(filter(hosp, Treatment == 'TreatA', Hospital == 'Hosp2')$SWB)
-mean_B2 <- mean(filter(hosp, Treatment == 'TreatB', Hospital == 'Hosp2')$SWB)
-mean_C2 <- mean(filter(hosp, Treatment == 'TreatC', Hospital == 'Hosp2')$SWB)
+mean_Meds_1 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp1')$SWB)
+mean_EMDR_1 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp1')$SWB)
+mean_CBT_1  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp1')$SWB)
+mean_Meds_2 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp2')$SWB)
+mean_EMDR_2 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp2')$SWB)
+mean_CBT_2  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp2')$SWB)
 ```
 
+
 # Plot the data
+
+Story: different ways of treating patients with depression.
+
+A = antidepressants
+B = EMDR
+C = CBT
 
 ```{r}
 hosp |>
@@ -33,37 +47,18 @@ hosp |>
   facet_wrap(~ Hospital)
 ```
 
-
-# Sum coding
-
-```{r}
-contrasts(hosp$Treatment) <- contr.sum(3)
-contrasts(hosp$Hospital) <- contr.sum(2)
-```
+# Fit model
 
 ```{r}
-contrasts(hosp$Treatment)
+m1 <- lm(SWB ~ Treatment * Hospital, data = hosp)
 ```
 
 
-```{r}
-contrasts(hosp$Hospital)
-```
+# Manual post-hoc contrasts and interactions
 
+We want to know whether there's a difference in how effective talk therapies vs. medications are, across the two hospitals.
 
-
-```{r}
-m1 <- lm(SWB ~ Treatment*Hospital, data = hosp)
-summary(m1)
-```
-
-
-# Post-hoc interactions using emmeans
-
-- Treatment A vs. (Treatment B, Treatment C)
-- is there a diff between those two chunks, across hospitals?
-
-- basically kind of compresses data into a 2x2 design
+- CBT and EMDR vs. Meds
 
 
 ## Plot the contrast we want to test
@@ -71,13 +66,13 @@ summary(m1)
 ```{r}
 hosp |>
   mutate(
-    TreatmentPosthoc = ifelse(
-      Treatment == 'TreatA',
-      'TreatA',
-      'TreatBC'
+    TalkTherapy = ifelse(
+      Treatment == 'Meds',
+      'No',
+      'Yes'
     )
   ) |>
-  ggplot(aes(x = TreatmentPosthoc, y = SWB, colour = TreatmentPosthoc, fill = TreatmentPosthoc)) +
+  ggplot(aes(x = TalkTherapy, y = SWB, colour = TalkTherapy, fill = TalkTherapy)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5) +
   facet_wrap(~ Hospital) +
@@ -88,15 +83,23 @@ hosp |>
 
 ## Get estimated marginal means
 
-Create manual contrasts for each of the things we want to compare.
+```{r}
+m1_emm <- emmeans(m1, ~Treatment * Hospital)
+m1_emm
+```
+
+
+## Create manual contrasts
+
+Step 1: Create manual contrasts for each of the things we want to compare.
 
 Step by step from before, end up with
 
 ```{r}
 treat_contrast <- c(
-  'TreatA' = 1,
-  'TreatB' = -1/2,
-  'TreatC' = -1/2
+  'CBT' = -1/2,
+  'EMDR' = -1/2,
+  'Meds' = 1
 )
 
 hosp_contrast <- c(
@@ -105,32 +108,36 @@ hosp_contrast <- c(
 )
 ```
 
-Get outer product (actually show table and fill in cell by cell)
+Step 2: To get the correct contrast coding for the interaction, combine these two predictors by getting the "outer product".
+The column that appears first in the `emmeans()` table should be first in this list.
+
+(IRL fill in matrix cell by cell, so students see where the numbers come from)
 
 ```{r}
 ixn_contrast <- outer(treat_contrast, hosp_contrast)
 ixn_contrast
 ```
 
+We need this in a single list of numbers in the same order as the emmeans table.
+Because the first emmeans col came first in the outer product, we can just use `as.vector()`  to flatten the matrix, and it will be in the right order.
 
 ```{r}
-m1_emm <- emmeans(m1, ~Treatment * Hospital)
-m1_emm
+ixn_contrast |> as.vector()
 ```
 
-Before we used `levels()` to get the order, because we were only looking at one variable.
-Now we've got interplay between two variables, so we'll just base things on the order they appear in the emmeans table here.
+
+Or if you'd prefer, you can write it out manually:
 
 ```{r}
 ixn_comp <- list(
-  "A vs. BC in diff Hospitals" = 
+  "Treat:Hosp" =
     c(
-      1,     # TreatA Hosp1 
-      -1/2,  # TreatB Hosp1
-      -1/2,  # TreatC Hosp1
-      -1,    # TreatA Hosp2
-      1/2,   # TreatB Hosp2
-      1/2    # TreatC Hosp2
+       -0.5,       # CBT  Hosp1 
+       -0.5,       # EMDR Hosp1
+          1,       # Meds Hosp1
+        0.5,       # CBT  Hosp2
+        0.5,       # EMDR Hosp2
+         -1        # Meds Hosp2
     )
 )
 ```
@@ -143,8 +150,8 @@ ixn_contrast_test <- contrast(m1_emm, ixn_comp)
 ixn_contrast_test
 ```
 
-We can reject the H0 that there's no difference between hospitals in the effectiveness of A vs. BC.
-Symmetrically, we can reject the H0 that the relationship between A vs. BC is the same in both hospitals.
+- We can reject the H0 that there's no difference between hospitals in the effectiveness of talk therapies vs. medication.
+- Symmetrically, we can reject the H0 that the relationship between talk therapies vs. medication is the same in both hospitals.
 
 
 Where does this number 3.73 come from?
@@ -154,14 +161,63 @@ It's the sum of all of the group means, each multiplied by the coding from our m
 ```{r}
 ixn_contrast
 
-1 * mean_A1 +
-  -1   * mean_A2 +
-  -0.5 * mean_B1 +
-   0.5 * mean_B2 +
-  -0.5 * mean_C1 +
-   0.5 * mean_C2
+1 * mean_Meds_1 +
+  -1   * mean_Meds_2 +
+  -0.5 * mean_EMDR_1 +
+   0.5 * mean_EMDR_2 +
+  -0.5 * mean_CBT_1 +
+   0.5 * mean_CBT_2
 ```
 
 It's positive, so that means that the means that received positive weights are bigger than the means that received negative weights.
+
+
+# Multiple comparisons
+
+## get pairwise comparisons with emmeans
+
+(By default, Tukey adjustment)
+
+## No adjustment
+
+```{r}
+pair_comp <- pairs(m1_emm, adjust = 'none')
+
+#examine output
+pair_comp
+
+plot(pair_comp)
+```
+
+All but two comparisons are "significant".
+
+
+## Bonferroni
+
+```{r}
+pair_comp <- pairs(m1_emm, adjust = 'bonferroni')
+
+#examine output
+pair_comp
+
+plot(pair_comp)
+```
+
+## Tukey
+
+```{r}
+pair_comp <- pairs(m1_emm, adjust = 'tukey')
+
+#examine output
+pair_comp
+
+plot(pair_comp)
+```
+
+## Editorialising
+
+Why do I think this is not a great thing to do?
+It encourages poor scientific practice like HARKing (Hypothesising After Results are Known).
+
 
 
