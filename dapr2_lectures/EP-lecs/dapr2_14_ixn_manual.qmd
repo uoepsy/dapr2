@@ -1,0 +1,642 @@
+---
+title: "Interactions IV: <br> Manual contrasts, <br> pairwise comparisons"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(emmeans)
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_minimal(
+    base_size = 28
+  )
+)
+
+hosp <- read_csv("data/hospital.csv") |>
+  mutate(
+    Treatment = case_when(
+      Treatment == 'TreatA' ~ 'Meds',
+      Treatment == 'TreatB' ~ 'EMDR',
+      Treatment == 'TreatC' ~ 'CBT',
+    ),
+    Treatment = factor(Treatment),
+    Hospital = factor(Hospital),
+  )
+
+# get group means
+mean_Meds_1 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp1')$SWB)
+mean_EMDR_1 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp1')$SWB)
+mean_CBT_1  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp1')$SWB)
+mean_Meds_2 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp2')$SWB)
+mean_EMDR_2 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp2')$SWB)
+mean_CBT_2  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp2')$SWB)
+```
+
+
+# Course Overview
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block1_name = "Introduction to Linear Models" -->
+<!-- block1_lecs = c("Intro to Linear Regression", -->
+<!--                 "Interpreting Linear Models", -->
+<!--                 "Testing Individual Predictors", -->
+<!--                 "Model Testing & Comparison", -->
+<!--                 "Linear Model Analysis") -->
+<!-- block2_name = "Analysing Experimental Studies" -->
+<!-- block2_lecs = c("Categorical Predictors & Dummy Coding", -->
+<!--                 "	Effects Coding & Coding Specific Contrasts", -->
+<!--                 "Assumptions & Diagnostics", -->
+<!--                 "Bootstrapping", -->
+<!--                 "	Categorical Predictor Analysis") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r echo = FALSE, results='asis', warning = FALSE} -->
+<!-- block3_name = "Interactions" -->
+<!-- block3_lecs = c("Interactions I", -->
+<!--                 "Interactions II", -->
+<!--                 "Interactions III", -->
+<!--                 "Analysing Experiments", -->
+<!--                 "Interaction Analysis") -->
+<!-- block4_name = "Advanced Topics" -->
+<!-- block4_lecs = c("Power Analysis", -->
+<!--                 "Binary Logistic Regression I", -->
+<!--                 "Binary Logistic Regression II", -->
+<!--                 "Logistic Regression Analysis", -->
+<!--                 "	Exam Prep and Course Q&A") -->
+
+<!-- source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R") -->
+
+<!-- course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 2) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- :::: -->
+
+## This week's learning objectives
+
+<br>
+
+::::: {style="font-size: 125%;"}
+
+<!-- :::: {.fragment} -->
+:::: {}
+::: {.dapr2callout}
+x
+:::
+::::
+
+<!-- :::: {.fragment} -->
+:::: {}
+::: {.dapr2callout}
+x
+:::
+::::
+
+:::::
+
+
+## Where we are in the analysis plan today
+
+![](figs/block3-flowchart-04.svg){height="925" fig-align="center"}
+
+# Interactions between manual post-hoc contrasts
+
+## Today's data
+
+**The subjective wellbeing (`SWB`) of patients at two different hospitals:**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+`Hosp1`:
+<br>
+![](figs/Hosp1.jpg){height="300"}
+:::
+::: {.column width="50%"}
+`Hosp2`:
+<br>
+![](figs/Hosp2.jpg){height="300"}
+:::
+::::
+
+
+**who have undergone one of three different treatments for depression:**
+
+:::: {.columns}
+::: {.column width="33%"}
+Cognitive Behavioural Therapy (`CBT`)
+<br>
+![](figs/CBT.jpg){height="300"}
+:::
+::: {.column width="33%"}
+Eye Movement Desensitisation and Reprocessing therapy (`EMDR`)
+<br>
+![](figs/EMDR.jpg){height="300"}
+:::
+
+::: {.column width="33%"}
+Antidepressant medication <br> (`Meds`):
+<br>
+![](figs/Meds.jpg){height="300"}
+:::
+::::
+
+
+## Visualising the data
+
+
+<br>
+
+:::: {.columns}
+::: {.column width="70%"}
+```{r echo=F, fig.align = 'center', fig.dim = c(12, 8)}
+hosp |>
+  ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = F) +
+  theme(legend.position = 'none') +
+  NULL
+```
+:::
+
+::: {.column width="30%"}
+
+::::{ style="font-size:85%;"}
+```{r}
+hosp |>
+  head(12)
+```
+::::
+
+:::
+
+::::
+
+What we want to know: **Are the associations between SWB and talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different at the two different hospitals?**
+
+- We'll manually chunk CBT and EMDR together in a post-hoc contrast, which we'll call `TherapyType`.
+- Then we'll make a **post-hoc interaction contrast** to test whether `Hospital` interacts with `TherapyType`.
+
+
+## Fit the model
+
+<br>
+
+We only care about the post-hoc contrasts, so it's fine to fit the model using R's default treatment coding.
+
+<br>
+
+Check reference levels, so we can write our predictors out correctly:
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+contrasts(hosp$Treatment)
+```
+:::
+::: {.column width="50%"}
+```{r}
+contrasts(hosp$Hospital)
+```
+:::
+::::
+
+<br>
+
+$$
+\begin{align}
+\text{SWB} ~=~& \beta_0 + 
+(\beta_1 \cdot \text{Treatment}_{\text{EMDR}}) +
+(\beta_2 \cdot \text{Treatment}_{\text{Meds}}) +
+(\beta_3 \cdot \text{Hospital}) ~ + \\
+& (\beta_4 \cdot \text{Treatment}_{\text{EMDR}} \cdot \text{Hospital}) +
+(\beta_5 \cdot \text{Treatment}_{\text{Meds}} \cdot \text{Hospital}) +
+\epsilon
+\end{align}
+$$
+<br>
+
+```{r}
+m1 <- lm(SWB ~ Treatment * Hospital, data = hosp)
+```
+
+
+## Get estimated marginal means
+
+<br>
+
+```{r}
+m1_emm <- emmeans(m1, ~ Treatment * Hospital)
+m1_emm
+```
+
+```{r echo=F, fig.align = 'center', fig.dim = c(14, 6)}
+plot(m1_emm) + 
+  coord_flip() +
+  theme(text = element_text(size=28))
+```
+
+
+# Defining post-hoc contrasts
+
+## Define post-hoc contrast for `TherapyType`
+
+:::: {.columns}
+::: {.column width="35%"}
+:::{.hcenter}
+
+| `Treatment`  | `TherapyType` |
+| :----------- | ------------: |
+| `CBT`        |          1/2  |
+| `EMDR`       |          1/2  |
+| `Meds`       |           –1  |
+|||
+
+:::
+:::
+::: {.column width="65%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: `CBT`, `EMDR`.
+- Chunk 2: `Meds`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+
+::::
+
+## Define post-hoc contrast for `Hospital`
+
+
+:::: {.columns}
+::: {.column width="35%"}
+:::{.hcenter}
+
+| `Hospital`  | `Hosp` |
+| :---------- | -----: |
+| `Hosp1`     |   1    |
+| `Hosp2`     |  –1    |
+|||
+
+:::
+:::
+::: {.column width="65%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: `Hosp1`.
+- Chunk 2: `Hosp2`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+
+::::
+
+## Visualising the interaction we'll test
+
+We want to know: Is there a difference between hospitals in how different therapy types (talk therapy vs. pharmaceutical therapy) are associated with SWB?
+
+```{r echo=F, fig.dim = c(14, 8), fig.align = "center"}
+hosp |>
+  mutate(
+    TherapyType = ifelse(Treatment == 'Meds', 'PharmaTherapy', 'TalkTherapy')
+  ) |>
+  ggplot(aes(x = TherapyType, y = SWB)) +
+  geom_violin() +
+  geom_jitter(aes(colour = Treatment), alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  NULL
+```
+
+
+
+## Post-hoc contrasts in R
+
+<br>
+
+
+:::: {.columns}
+::: {.column width="50%"}
+::::{.hcenter}
+
+| `Treatment`  | `TherapyType` |
+| :----------- | ------------: |
+| `CBT`        |          1/2  |
+| `EMDR`       |          1/2  |
+| `Meds`       |           –1  |
+|||
+
+::::
+:::
+
+::: {.column width="50%"}
+::::{.hcenter}
+
+| `Hospital`  | `Hosp` |
+| :---------- | -----: |
+| `Hosp1`     |   1    |
+| `Hosp2`     |  –1    |
+|||
+
+::::
+:::
+::::
+
+<br>
+
+```{r}
+TherapyType_contr <- c(
+  'CBT'  = 1/2,
+  'EMDR' = 1/2,
+  'Meds' =  -1
+)
+
+Hosp_contr <- c(
+  'Hosp1' =  1,
+  'Hosp2' = -1
+)
+```
+
+
+
+## The interaction's contrast is the product of the two interacting contrasts
+
+<br>
+
+In other words: To get the interaction's contrast, we multiply together the two contrasts for the interacting predictors.
+
+<br>
+
+| Treatment | Hospital | TherapyType | Hosp | TherapyType:Hosp |
+| --------- | -------- | ----------: | ---: | ---------------: |
+| CBT       | Hosp1    | 0.5         | 1    | 0.5              |
+| EMDR      | Hosp1    | 0.5         | 1    | 0.5              |
+| Meds      | Hosp1    | –1          | 1    | –1               |
+| CBT       | Hosp2    | 0.5         | –1   | –0.5             |
+| EMDR      | Hosp2    | 0.5         | –1   | –0.5             |
+| Meds      | Hosp2    | –1          | –1   | 1                |
+
+
+## Put the interaction's contrast into R
+
+**(1) The fancy way:**
+
+- Use `outer()` to multiply everything together, then
+- "flatten" the resulting table using `as.vector()`.
+
+
+```{r}
+(interaction_contr <- outer(TherapyType_contr, Hosp_contr) |> as.vector())
+```
+
+- **IMPORTANT: Inside `outer()`, put TherapyType first, then Hosp second,** because that's the order that `emmeans` uses for their original variables (we wrote `Treatment` first, `Hospital` second).
+
+Then format the contrast the way that `emmeans` expects:
+
+```{r}
+interaction_contr <- list('TreatmentType:Hospital' = interaction_contr)
+```
+
+
+<br>
+
+**(2) The manual way** (matching the order of items by hand!):
+
+```{r}
+interaction_contr <- list( "TreatmentType:Hospital" =
+    c(
+        0.5,    # CBT  Hosp1 
+        0.5,    # EMDR Hosp1
+         -1,    # Meds Hosp1
+       -0.5,    # CBT  Hosp2
+       -0.5,    # EMDR Hosp2
+          1     # Meds Hosp2
+    )
+)
+```
+
+
+## Test the interaction contrast
+
+
+<br>
+
+Test the contrast (i.e., test the H0 that the estimate is different from 0):
+
+```{r}
+(m1_ixn_test <- contrast(m1_emm, interaction_contr))
+```
+
+<br>
+
+Get the associated 95% CIs:
+
+```{r}
+(m1_ixn_confint <- confint(m1_ixn_test))
+```
+
+<br>
+
+Can we reject the null hypothesis that in both hospitals, the associations between subjective wellbeing and talk therapy, and subjective wellbeing and pharmaceutical therapy, are the same?
+
+
+
+## Where does this estimate of –3.73 come from?
+
+
+It's the result of multiplying each group mean by the corresponding value from the interaction's contrast, and then taking the sum.
+
+```{r echo=F}
+(hosp_manual <- hosp |>
+  group_by(Treatment, Hospital) |>
+  summarise(mean_SWB = mean(SWB)) |>
+  arrange(Hospital) |>
+  ungroup() |>
+  mutate(
+    `TreatmentType:Hospital` = c(0.5, 0.5, -1, -0.5, -0.5, 1),
+    product  = mean_SWB * `TreatmentType:Hospital`
+  )) |>
+  kableExtra::kable(digits = 2)
+```
+
+<br>
+
+```{r}
+sum(hosp_manual$product)
+```
+
+<br>
+
+Can we give this number a more intuitive explanation?
+
+Not really tbh... 
+**Interaction coefficients are adjustments to other effects.
+But we don't have any other coefficients to relate this adjustment to, so it's not very useful to interpret this single number on its own.**
+
+The reason manual interactions are useful is essentially just the significance test.
+
+
+
+<!-- | Treatment | Hospital | Group mean SWB  |  TherapyType:Hosp | Product | -->
+<!-- | --------- | -------- | --------------: |  ---------------: | ------: | -->
+<!-- | CBT       | Hosp1    | 10.10           |  0.5              |    5.05 | -->
+<!-- | EMDR      | Hosp1    | 9.43            |  0.5              |    4.72 | -->
+<!-- | Meds      | Hosp1    | 10.80           |  –1               |  –10.80 | -->
+<!-- | CBT       | Hosp2    | 7.98            |  –0.5             |   –3.95 | -->
+<!-- | EMDR      | Hosp2    | 13.12           |  –0.5             |   –6.56 | -->
+<!-- | Meds      | Hosp2    | 7.85            |  1                |    7.85 | -->
+<!-- | | | | | **Sum = –3.69**| -->
+
+<!-- (–3.69 is slightly different from –3.73 because of error introduced by rounding to two decimal places.) -->
+
+
+# Testing differences between _all_ pairs of groups
+
+
+
+# The multiple comparisons problem
+
+
+
+
+
+
+<!-- ## This week -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Tasks -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/labs.svg') -->
+<!-- ``` -->
+
+<!-- **Attend your lab and work together on the exercises**  -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ### Support -->
+
+<!-- <br> -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/forum.svg') -->
+<!-- ``` -->
+
+<!-- **Help each other on the Piazza forum** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- <br> -->
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/exam.svg') -->
+<!-- ``` -->
+
+<!-- **Complete the weekly quiz** -->
+
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+
+<!-- ```{r, echo = F, out.width='15%'} -->
+<!-- knitr::include_graphics('figs/oh.png') -->
+<!-- ``` -->
+
+<!-- **Attend office hours (see Learn page for details)** -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+# Appendix {.appendix} 
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
