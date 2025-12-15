@@ -1,5 +1,5 @@
 ---
-title: "Interactions IV: <br> Manual contrasts, <br> pairwise comparisons"
+title: "Interactions IV: <br> Manual contrasts, <br> multiple comparisons"
 editor_options: 
   chunk_output_type: console
 format:
@@ -574,17 +574,20 @@ The reason manual interactions are useful is essentially just the significance t
 
 ![](figs/TODO-pairwise.jpeg)
 
-We call this "pairwise comparisons", because we're comparing groups in pairs, that is, "pairwise".
+We call this "pairwise comparisons", because we're comparing groups _in all possible pairs_.
 
 ## To test all pairwise comparisons
 
 ```{r}
-(m1_pairwise <- pairs(m1_emm))
+m1_pairwise <- pairs(m1_emm)
 ```
 
-<br>
+```{r}
+m1_pairwise
+```
 
-Turns out that most of these groups are significantly different from one another.
+
+<br>
 
 What's this "P value adjustment: tukey method" thing at the bottom?
 We'll get there soon, but first...
@@ -616,21 +619,184 @@ Because it raises an issue that you _should_ be aware of: **the multiple compari
 
 # The multiple comparisons problem
 
-## The multiple comparisons problem
+## Relevant XKCD (<https://xkcd.com/882/>)
 
-We've just run fifteen different statistical tests.
+![](figs/xkcd-significant-1.png)
+
+---
+
+![](figs/xkcd-significant-2.png)
+
+---
+
+![](figs/xkcd-significant-3.png)
+
+---
+
+![](figs/xkcd-significant-4.png)
+
+## The more tests you run, the more likely you are to see something unlikely just due to chance
+
+- With $\alpha = 0.05$, we accept the risk that, **one time in twenty, we will get a false positive result.**
+  - In other words, one time in twenty, we will incorrectly reject the null hypothesis.
+  - In other other words, one time in twenty, we'll make what's called a "type I error".
+
+- The problem: If we do twenty tests with a false positive rate of 1 in 20 (aka $\alpha = 0.05$), then purely due to random chance and sampling variation, out of those twenty tests, we should expect at least one positive result.
+
+[todo 20 tests graphic]
+
+And if we accept that positive result and ignore all the true negatives (green jelly bean style), then we run into **the multiple comparisons problem: we are more than 5% likely to see at least one false positive, the more tests (aka, the more comparisons) we run.**
+  
+## How much more likely are we to see a false positive and incorrectly reject the null?
+
+<br>
+
+Depends on the number of tests.
+
+$$
+\begin{align}
+P(\text{incorrectly reject H0}) &= \alpha \\
+P(\text{correctly reject H0}) &= 1 - \alpha \\
+P(\text{correctly reject H0 in} ~m~ \text{tests}) &= (1 - \alpha)^m \\
+P(\text{incorrectly reject H0 in} ~m~ \text{tests}) &= 1 - (1 - \alpha)^m \\
+\end{align}
+$$
+
+<br>
+
+In the jelly bean scenario:
+
+$$
+\begin{align}
+P(\text{incorrectly reject H0 in 20 tests}) &= 1 - (1 - 0.05)^{20} \\
+ &= 1 - (0.95)^{20} \\
+ &= 1 - 0.36 \\
+ &= 0.64 \\
+\end{align}
+$$
+
+How do we fix it?
+
+Adjust the $\alpha$ level, aka our false positive rate, aka the threshold $p$ value we use to test statistical significance.
+
+
+# Back to our data
+
+## Back to our data
+
+![](figs/TODO-pairwise.jpeg)
+
+There are fifteen possible pairwise comparisons for our six combinations of predictor levels.
+
+If we did not account for running all these tests together, we'd incorrectly reject the H0 with a probability of 
+
+$$
+\begin{align}
+P(\text{incorrectly reject H0 in 15 tests}) &= 1 - (1 - 0.05)^{15} \\
+ &= 1 - (0.95)^{15} \\
+ &= 1 - 0.46 \\
+ &= 0.54 \\
+\end{align}
+$$
+
+
+## `pairs()` automatically corrects the p-values
+
+<br>
 
 ```{r}
 m1_pairwise
 ```
 
+<br>
 
-RESUME
-
-
-## Common p-value adjustments 
+The "P value adjustment: tukey method" thing is telling us _how_ `pairs()` has corrected the p-values to account for the multiple comparisons problem.
 
 
+
+
+
+## Common methods to adjust p-values
+
+<br>
+
+- Tukey
+- Bonferroni
+- Šídák
+- Scheffe
+- Holm's step-down
+- Hochberg's step-up
+- ...
+
+<br>
+
+We'll only focus on Tukey and Bonferroni, the two most common.
+We'll start with Bonferroni.
+
+
+## The Bonferroni correction
+
+If we run a test twice, we're essentially doubling the likelihood of seeing a false positive.
+
+[todo bonferroni one test, two test, three test graphic]
+
+
+<!-- So if we run three tests, say, then to get _back_ to our acceptable level of risk, which is a one-in-twenty chance, we should divide our $p$ value significance threshold by three (equivalent to multiplying our $) -->
+
+So to get back to our desired level of risk, our original $\alpha$:
+
+$$
+\alpha_{\text{Bonferroni}} = \frac{\alpha}{\text{number of tests}}
+$$
+
+In our fifteen-test scenario: 
+
+```{r}
+0.05 / 15
+```
+
+Our new $\alpha$ (aka our new $p$-value threshold for statistical significance) is about 0.003.
+
+
+## Bonferroni in action
+
+<br>
+
+```{r}
+pairs(m1_emm, adjust = "bonferroni")
+```
+
+
+## Tukey's Honest Significant Differences (HSD)
+
+<br>
+
+At heart, Tukey's HSD is very similar to a t-test of whether two group means are significantly different.
+
+You do not need to know how to calculate this adjustment by hand.
+
+If you *want* to know, here's [a YouTube video that walks through the calculation](https://www.youtube.com/watch?v=EBGnAJHs3G4&t=218s).
+(The main action is between 3:41–7:42.)
+
+Where Bonferroni sets a single new significance value that applies to every test, Tukey's HSD compares every pair of groups separately, so there is no single new $\alpha$ value.
+
+
+## Tukey in action
+
+<br>
+
+```{r}
+pairs(m1_emm, adjust = "tukey")
+```
+
+
+## When to choose Bonferroni vs. Tukey
+
+- you're interested in a small number of comparisons. -> Bonferroni
+
+- you're interested in all/most pairwise comparisons between groups. -> Tukey
+
+Check [flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b4_reading.html#multiple-comparisons) for more details.
 
 
 <!-- ## This week -->
