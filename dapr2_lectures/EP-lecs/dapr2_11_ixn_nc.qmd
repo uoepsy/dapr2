@@ -138,26 +138,85 @@ To notice that **sometimes the line's intercept is far away from the range of da
 
 [show again same plots]
 
-In such cases, sometimes it doesn't even make sense for a predictor to *have* a value of zero!
+In such cases, sometimes it doesn't even make sense to for a predictor to *have* a value of zero!
 
 <!-- - Imagine analysing a group's `shoe size ~ height in m`. A height of zero metres is nonsense. -->
+
+In such cases, we can *transform* our variable so that the value zero becomes more meaningful in the context of that variable.
+
+
+## Where we are in the analysis workflow
+
+![](figs/block3-flowchart-00.svg){height="550" fig-align="center"}
 
 
 ## A new tool in our toolkit: Mean-centering predictors
 
-![](figs/block3-flowchart-00.svg){height="550"}
-
-
-## TODO A new tool in our toolkit: Mean-centering predictors
-
 To mean-centre a variable means to **transform it so that the mean of the centered version is zero.**
 
-How?
 
-Subtract the variable's mean from every observation.
+**An example variable, x1:**
 
-If we subtract the _mean_, then what used to be the mean of the data will now be zero.
-(Imagine the mean is 5. If a data point is equal to 5, and we subtract the mean of 5, then now that data point is equal to 0.)
+:::: {.columns}
+::: {.column width="35%"}
+
+::::{.hcenter}
+
+|  x1 |
+| --: |
+|  1 |
+|  8 |
+|  3 |
+|  2 |
+|  6 |
+::::
+
+:::
+::: {.column width="65%"}
+
+The mean of **x1:**
+
+$$
+\begin{align}
+=& \frac{1 + 8 + 3 + 2 + 6}{5} \\
+=& ~\frac{20}{5}  \\
+=& ~4
+\end{align}
+$$
+:::
+::::
+
+**To mean-centre x1, subtract the mean of x1 from every observation:**
+
+:::: {.columns}
+::: {.column width="35%"}
+
+::::{.hcenter}
+
+|  x1_c |
+| --: |
+|  1 – 4 = –3 |
+|  8 – 4 =  4 |
+|  3 – 4 = –1 |
+|  2 – 4 = –2 |
+|  6 – 4 =  2 |
+::::
+
+:::
+::: {.column width="65%"}
+
+The mean of **x1_c:**
+
+$$
+\begin{align}
+=& \frac{-3 + 4 - 1 - 2 + 2}{5} \\
+=& ~\frac{0}{5}  \\
+=& ~0
+\end{align}
+$$
+:::
+::::
+
 
 
 ## Today's data: Wellbeing and time outdoors
@@ -193,7 +252,11 @@ outdoors1 |>
 ```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
 outdoors1 |>
   ggplot(aes(x = outdoor_time, y = wellbeing)) +
-  geom_point(size = 8)
+  # geom_vline(aes(xintercept = 4.78), colour = '#888', linewidth = 3) +
+  geom_point(size = 8) +
+  # scale_x_continuous(breaks = c(3, 4, 4.78, 5, 6, 7),
+                     # labels = c('3', '4', '4.78', '5', '6', '7'))
+  NULL
 ```
 
 ```{r}
@@ -208,7 +271,9 @@ mean(outdoors1$outdoor_time) |> round(2)
 ```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
 outdoors1 |>
   ggplot(aes(x = outdoor_time_c, y = wellbeing)) +
-  geom_point(size = 8)
+  # geom_vline(aes(xintercept = 0), colour = '#888', linewidth = 3) +
+  geom_point(size = 8) +
+  NULL
 ```
 
 ```{r}
@@ -231,7 +296,7 @@ mean(outdoors1$outdoor_time_c)|>round(2)
 outdoors1 |>
   ggplot(aes(x = outdoor_time, y = wellbeing)) +
   geom_point(size = 8) +
-  geom_abline(aes(intercept = m_outdoors1$coefficients[['(Intercept)']], slope = m_outdoors1$coefficients[['outdoor_time']]), colour = dapr2red, linewidth = 2) +
+  geom_abline(aes(intercept = m_outdoors1$coefficients[['(Intercept)']], slope = m_outdoors1$coefficients[['outdoor_time']]), colour = dapr2red, linewidth = 3) +
   ylim(10, 40) +
   xlim(-7, 7) +
   NULL
@@ -246,7 +311,7 @@ outdoors1 |>
 outdoors1 |>
   ggplot(aes(x = outdoor_time_c, y = wellbeing)) +
   geom_point(size = 8) +
-  geom_abline(aes(intercept = m_outdoors2$coefficients[['(Intercept)']], slope = m_outdoors2$coefficients[['outdoor_time_c']]), colour = dapr2red, linewidth = 2) +
+  geom_abline(aes(intercept = m_outdoors2$coefficients[['(Intercept)']], slope = m_outdoors2$coefficients[['outdoor_time_c']]), colour = dapr2red, linewidth = 3) +
   ylim(10, 40) +
   xlim(-7, 7)
 ```
@@ -290,50 +355,81 @@ b
 
  
 
-## TODO If this seems a little familiar...
+## If this seems a little familiar...
 
-Flashback to [standardising predictors in week 2 lecture](https://uoepsy.github.io/dapr2/2526/lectures/dapr2_02_lm2.html#/option-2-standardising-the-variables)
+Flashback to [standardising predictors in week 2](https://uoepsy.github.io/dapr2/2526/lectures/dapr2_02_lm2.html#/option-2-standardising-the-variables)!
 
-[venn diagram of mean-centering and z-scoring]
+![](figs/TODO-venn-meancentre-zscore.jpeg){fig-align="center"}
 
-[L: plot of data mean-centered]
-
-[R: plot of data z-scored]
-
+Mean-centered variables still have their original standard deviation.
 
 
 # Modelling with a mean-centered predictor
 
-## TODO Mean-centre a predictor in R
+## Mean-centre a predictor in R
 
-Subtract the mean.
+<br>
+
+We have a couple ways to subtract the mean from each observation using `mutate()`.
+
+<br>
+
+**The first option:** explicitly subtract the mean (I prefer this way).
+
+```{r eval=F}
+outdoors1 <- outdoors1 |>
+  mutate(
+    outdoor_time_c = outdoor_time - mean(outdoor_time)
+  )
+```
+
+<br>
+
+**The second option:** use `scale()` with `center = TRUE, scale = FALSE`.
+
+```{r eval=F}
+outdoors1 <- outdoors1 |>
+  mutate(
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE)
+  )
+```
+
+I don't like using `scale()` for mean-centering because its output is slightly weirdly formatted, and this prevents us from using certain functions later.
+
+
+## Fit the model after mean-centering
+
+<br>
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + \epsilon
+$$
 
 ```{r}
-
+m_c <- lm(wellbeing ~ outdoor_time_c, data = outdoors1)
+summary(m_c)
 ```
 
 
-<!-- NB: Not teaching `scale()` for centering because scale() can produce funny behaviour down the road. -->
 
+## Intepreting coefficients after mean-centering
 
-
-## TODO Fit the model after mean-centering
-
-
-```{r}
-
+```{r echo=F}
+cat(paste0(capture.output(summary(m_c)), '\n')[9:12])
 ```
 
+<br>
+
+**`(Intercept)`**
+
+- When centered outdoor time is equal to zero, **i.e., when outdoor time is at its mean value,** the estimated mean wellbeing is 29.9.
 
 
-## TODO Intepreting the new coefficients after centering
+**`outdoor_time_c`**
 
-<!-- https://stefanocoretta.github.io/sqmb/slides/w09/#53 -->
+- When centered outdoor time increases by one hour, wellbeing increases by about 2.7 points. This change is significantly different from zero.
 
-```{r}
-
-```
-
+RESUME
 
 
 ## In general: When to mean-centre?
@@ -588,7 +684,7 @@ cat(paste0(capture.output(summary(m2)), '\n')[9:13])
 
 **Environment:**
 
-- When `outdoor_time = 0` = **at the mean of outdoor time** (!!!), being in an urban environment is associated with a decrease in wellbeing of about 26 points.
+- When `outdoor_time = 0`, so **when outdoor time is at its mean,**, being in an urban environment is associated with a decrease in wellbeing of about 26 points.
 :::
 ::::
 
@@ -803,10 +899,10 @@ cat(paste0(capture.output(summary(m3)), '\n')[9:14])
 
 
 :::{.dapr2callout}
-`outdoor_time:envturban`: When we change environment from `natural` to `urban`, the association between `outdoor_time` and `wellbeing` changes by about –10.
+`outdoor_time:envturban`: When we change environment from `natural` to `urban`, the **association between `outdoor_time` and `wellbeing` changes** by about –10.
 
-- When `envt = natural`, the association is about 12 (the `outdoor_time` coef above).
-- When `envt = urban`, the association is about 12 – 10 = 2-ish.
+- When `envt = natural`, the association doesn't change, so it's 12 (the `outdoor_time` coef above).
+- When `envt = urban`, the association changes! 12 (`outdoor_time` coef) – 10 (interaction coef) = 2-ish.
 :::
 
 
@@ -1163,7 +1259,7 @@ cat(paste0(capture.output(summary(m4)), '\n')[9:14])
 :::
 
 :::{.dapr2callout}
-`outdoor_time_c:envturban`: When we change environment from `natural` to `urban`, the association between `outdoor_time_c` and `wellbeing` changes by about –10.
+`outdoor_time_c:envturban`: When we change environment from `natural` to `urban`, the **association** between `outdoor_time_c` and `wellbeing` changes by about –10.
 
 - When `envt = natural`, the association is about 12 (the `outdoor_time_c` coef above).
 - When `envt = urban`, the association is about 12 – 10 = 2-ish.
@@ -1199,7 +1295,6 @@ cat(paste0(capture.output(summary(m4)), '\n')[9:14])
 For every predictor that goes into your model, know what zero represents.
 :::
 
-<!-- **The key to interpreting LM estimates: for every predictor, know what zero represents** -->
 
 
 ## Building an analysis workflow: With interactions
