@@ -12,6 +12,8 @@ format:
 #| include: false
 library(tidyverse)
 library(interactions)  # for probe_interactions() plot
+library(simglm)        # for illustrative simulated data
+
 dapr2red <- "#BF1932" 
 
 theme_set(
@@ -101,9 +103,16 @@ palette_probe <- c('#4ab8fc', '#ff7b01')
 
 # Welcome-back warm-up
 
-## TODO Welcome-back warm-up on Wooclap
+## Welcome-back warm-up on Wooclap
 
-[wooclap link]
+<br>
+<br>
+
+:::{.hcenter style="font-size: 125%;"}
+
+`wooclap.com`, enter code `BMLTOH`
+
+:::
 
 
 ## This week's learning objectives
@@ -132,17 +141,194 @@ x
 
 ## Why did we practice finding the intercept?
 
-<br>
+To notice that the intercept (the part of the line where x = 0) might be in lots of different places, compared to the actual data.
 
-To notice that **sometimes the line's intercept is far away from the range of data we observe.**
+:::: {.columns}
+::: {.column width="50%"}
 
-[show again same plots]
+**Right in the middle of the data:**
 
-In such cases, sometimes it doesn't even make sense to for a predictor to *have* a value of zero!
+```{r include=F}
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 5),
+  sample_size = 100,
+  reg_weights = c(1, .2)
+)
 
-<!-- - Imagine analysing a group's `shoe size ~ height in m`. A height of zero metres is nonsense. -->
+set.seed(1)
 
-In such cases, we can *transform* our variable so that the value zero becomes more meaningful in the context of that variable.
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |>
+  mutate(
+    x = x - mean(x)
+  )
+# mean(d1$x)
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d1 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point(size = 3) +
+  geom_smooth(se = F, method = 'lm') +
+  geom_point(x = 0, y = 1, size = 20, alpha = .005, colour = 'black')
+```
+
+
+:::
+::: {.column width="50%"}
+
+**Off to one side of the data:**
+
+```{r include=F}
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 0, sd = 6)),
+  error = list(variance = 200),
+  sample_size = 35,
+  reg_weights = c(50, -5)
+)
+
+set.seed(1)
+
+d2 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |>
+  mutate(
+    x = x - min(x)
+  )
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d2 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(se = F, method = 'lm') +
+  geom_point(x = 0, y = 120, size = 20, alpha = .01, colour = 'black') +
+  ylim(0, 125) +
+  NULL
+```
+:::
+::::
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Totally outside of the data's range:**
+
+```{r include=F}
+int <- 10
+slp <- 1
+  
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 20, sd = 5)),
+  error = list(variance = 50),
+  sample_size = 100,
+  reg_weights = c(int, slp)
+)
+
+set.seed(1)
+
+d3 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d3 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  geom_abline(aes(slope = slp, intercept = int), colour = '#3366ff', linewidth = 2.5) +
+  geom_point(x = 0, y = 10, size = 20, alpha = .005, colour = 'black') +
+  xlim(-10, 35) +
+  ylim(-10, 55) +
+  NULL
+```
+
+:::
+::: {.column width="50%"}
+**Why does this matter?**
+:::
+::::
+
+
+
+
+## Sometimes data = 0 doesn't make sense
+
+Imagine using people's height in cm to predict their UK shoe size.
+
+```{r echo=F, fig.align='center', fig.dim = c(14, 8)}
+int <- -10
+slp <- 0.1
+
+sim_arguments <- list(
+  formula = shoesize ~ 1 + height,
+  fixed = list(height = list(var_type = 'continuous', mean = 170, sd = 18)),
+  error = list(variance = 6),
+  sample_size = 80,
+  reg_weights = c(int, slp)
+)
+
+set.seed(1)
+
+d_shoe <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |> 
+  filter(shoesize > 1) |>
+  mutate(shoesize = plyr::round_any(shoesize, 0.5))
+
+d_shoe |>
+  ggplot(aes(x = height, y = shoesize)) +
+  geom_point() +
+  # geom_smooth(method= 'lm', se = F) +
+  geom_abline(aes(intercept = int, slope = slp),
+              , colour = '#3366ff',
+              linewidth = 3) +
+  xlim(-10, 220) +
+  ylim(-15, 20) +
+  NULL
+```
+
+
+
+- A height of 0 cm is nonsense!
+- And the predicted shoe size of –10-ish is even more nonsense!
+
+In case like this, we can *transform* our variable to make the value zero make sense in the context of our variable.
+
+
+## Change what data = 0 represents
+
+For example, if we make the value zero represent the *mean* height in our sample...
+
+```{r echo=F, fig.align='center', fig.dim = c(14, 8)}
+d_shoe |>
+  mutate(
+    height_mean_is_zero = height - mean(height)
+  ) |>
+  ggplot(aes(x = height_mean_is_zero, y = shoesize)) +
+  geom_point() +
+  geom_abline(aes(intercept = 7, slope = slp),
+              , colour = '#3366ff',
+              linewidth = 3) +
+  NULL
+```
+
+
+... then the line's intercept represents **the UK shoe size we'd expect for someone with average height: 7.**
+
+That's a LOT nicer than "for someone who's 0 cm tall, their estimated shoe size is –10!"
+
+**Transforming variables like this is a really useful tool to make the model's coefficients make more sense.**
+
 
 
 ## Where we are in the analysis workflow
@@ -150,7 +336,7 @@ In such cases, we can *transform* our variable so that the value zero becomes mo
 ![](figs/block3-flowchart-00.svg){height="550" fig-align="center"}
 
 
-## A new tool in our toolkit: Mean-centering predictors
+## A new tool in our toolkit: "Mean-centering"
 
 To mean-centre a variable means to **transform it so that the mean of the centered version is zero.**
 
@@ -247,7 +433,7 @@ outdoors1 |>
 :::: {.columns}
 ::: {.column width="50%"}
 
-**Original (not mean-centered):**
+**Original (the predictor is not mean-centered):**
 
 ```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
 outdoors1 |>
@@ -266,7 +452,7 @@ mean(outdoors1$outdoor_time) |> round(2)
 
 ::: {.column width="50%"}
 
-**Mean-centered:**
+**The predictor IS mean-centered:**
 
 ```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
 outdoors1 |>
@@ -327,31 +513,10 @@ outdoors1 |>
 :::
 
 
-## TODO Vote: Which data is mean-centered?
+<!-- ## Vote: Which data is mean-centered? -->
+<!-- NOTE: prob won't have time for this -->
 
-[grid of four plots and thumbs up/down for each]
-
-:::: {.columns}
-::: {.column width="50%"}
-a
-:::
-
-::: {.column width="50%"}
-b
-:::
-::::
-
-
-:::: {.columns}
-::: {.column width="50%"}
-a
-:::
-
-::: {.column width="50%"}
-b
-:::
-::::
-
+<!-- [grid of four plots and thumbs up/down for each] -->
 
  
 
@@ -367,8 +532,6 @@ Mean-centered variables still have their original standard deviation.
 # Modelling with a mean-centered predictor
 
 ## Mean-centre a predictor in R
-
-<br>
 
 We have a couple ways to subtract the mean from each observation using `mutate()`.
 
@@ -399,14 +562,16 @@ I don't like using `scale()` for mean-centering because its output is slightly w
 
 ## Fit the model after mean-centering
 
-<br>
-
 $$
 \text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + \epsilon
 $$
 
 ```{r}
 m_c <- lm(wellbeing ~ outdoor_time_c, data = outdoors1)
+```
+
+
+```{r}
 summary(m_c)
 ```
 
@@ -429,7 +594,6 @@ cat(paste0(capture.output(summary(m_c)), '\n')[9:12])
 
 - When centered outdoor time increases by one hour, wellbeing increases by about 2.7 points. This change is significantly different from zero.
 
-RESUME
 
 
 ## In general: When to mean-centre?
@@ -439,16 +603,17 @@ RESUME
 **When would you mean-centre a predictor `x`?**
 
 - When `x` doesn't have a meaningful/interpretable zero point.
-  - e.g., if modelling `shoe size ~ weight`, a weight of zero is nonsense.
-- When you want the model's intercept to represent the average outcome at the mean value of `x`.
+  - e.g., if modelling `shoesize ~ height`, a height of zero is nonsense. And so the predicted value for `shoesize` will probably also be nonsense.
+- When you want the model's intercept to represent the estimated outcome at the mean value of `x`.
 
 <br>
 
 **When would you _not_ mean-centre a predictor `x`?**
 
 - When `x` has a meaningful/interpretable zero point.
-  - e.g., if modelling `skill ~ years of training`, it makes sense to think about someone with zero years of training.
-- When you want the model's intercept to represent the average outcome for whatever `x = 0` already represents.
+  - e.g., if modelling `skill ~ years of training`, it makes sense to think about someone's skills when they have zero years of training, that is, before their training begins.
+  - e.g., if modelling `wellbeing ~ weeks in therapy`, it makes sense to think about someone's wellbeing after zero weeks of therapy, that is, before they've done any therapy.
+- When you want the model's intercept to represent the estimated outcome for whatever `x = 0` already represents.
 
 
 # Refresher: Modelling multiple predictors
@@ -596,6 +761,8 @@ outdoors <- outdoors |>
 head(outdoors)
 ```
 
+<br>
+
 ```{r}
 mean(outdoors$outdoor_time_c) |> round(2)
 ```
@@ -634,7 +801,7 @@ plot_data_probe_c +
 ```
 
 
-## Fit the model (now outdoor time is mean-centered)
+## Fit the model (with mean-centered predictor)
 
 $$
 \text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + (\beta_2 \cdot \text{envt})  + \epsilon
@@ -672,8 +839,8 @@ cat(paste0(capture.output(summary(m2)), '\n')[9:13])
 
 **Intercept:**
 
-- When `outdoor_time = 0` and `envt = 0`, the average `wellbeing` is about 57.
-  - !!! **now `outdoor_time = 0` means at the mean of time spent outdoors** !!!
+- When `outdoor_time_c = 0` and `envt = 0`, the average `wellbeing` is about 57.
+  - **`outdoor_time_c = 0` means at the mean of time spent outdoors**
   - `envt = 0` means `envt = nature` (the reference level).
 
 
@@ -684,16 +851,16 @@ cat(paste0(capture.output(summary(m2)), '\n')[9:13])
 
 **Environment:**
 
-- When `outdoor_time = 0`, so **when outdoor time is at its mean,**, being in an urban environment is associated with a decrease in wellbeing of about 26 points.
+- When `outdoor_time_c = 0`, so **when outdoor time is at its mean,** being in an urban environment is associated with a decrease in wellbeing of about 26 points.
 :::
 ::::
 
 
 
 
-# But: These models are not quite right for this data
+# But: This model is not quite right for this data
 
-## These models are not quite right for this data
+## This model is not quite right for this data
 
 :::: {.columns}
 ::: {.column width="60%"}
@@ -710,13 +877,15 @@ plot_m1_probe +
 :::
 ::: {.column width="40%"}
 
+
+1. This model assumes that **whatever your environment,** an extra hour of being outdoors improves your wellbeing by about 8.
+
 <br>
 
-**A couple things to notice:**
+2. This model assumes that **whatever your time spent outdoors,** being in an urban environment reduces your wellbeing by about 26 points.
 
-1. Both versions of the model assume that **whatever your environment,** an extra hour of being outdoors improves your wellbeing by about 8.
 
-2. Both versions of the model assume that **whatever your time spent outdoors,** being in an urban environment reduces your wellbeing by about 26 points.
+<br>
 
 **But these assumptions don't totally match the data.**
 
@@ -725,8 +894,8 @@ plot_m1_probe +
 
 
 ::::{.dapr2callout style="font-size:125%"}
-Back to Wooclap (code `BMLTOH`): 
-**This model fails to capture some patterns in the data. What does it miss?**
+Back to Wooclap (code `JXOBYL`): 
+**This model fails to capture some patterns in the data. Can you try to put into words what it misses?**
 ::::
 
 ## Wouldn't it be better if...
@@ -984,13 +1153,13 @@ p_m3_int <- plot_m3_probe_intercept +
     aes(intercept = int, slope = slp, colour = envt, linetype = envt),
     linewidth = 1.5
   ) +
-  geom_point(
-    data = m3_simple_effs,
-    x = 0,
-    aes(y = int),
-    size = 5,
-    shape = 15
-  ) +
+  # geom_point(
+  #   data = m3_simple_effs,
+  #   x = 0,
+  #   aes(y = int),
+  #   size = 5,
+  #   shape = 15
+  # ) +
   geom_vline(xintercept = 0, linetype = 'dotted') +
   # labs(
   #   subtitle = 'original outdoor_time'
@@ -1130,6 +1299,8 @@ p_m3_int +
 
 :::{.dapr2callout}
 `outdoor_time:envturban`: When we change environment from `natural` to `urban`, the association between `outdoor_time` and `wellbeing` changes by about –10.
+
+To get the slope for `urban`, we add up the slope for `natural` and the interaction coefficient: 12 + (–10) = 2.
 :::
 
 
@@ -1140,7 +1311,7 @@ p_m3_int +
 :::: {.columns}
 ::: {.column width="50%"}
 
-**Not centered:**
+**Not mean-centered:**
 
 ```{r echo=F, fig.align='center', fig.dim = c(7,7)}
 p_m3_int
@@ -1217,9 +1388,9 @@ p_m4_int +
 :::
 ::::
 
-How will the meaning of each coefficient change when `outdoor_time` is mean-centered?
+<!-- What will each coefficient mean when `outdoor_time` is mean-centered? -->
 
-<!-- FIXME: In future years, prediction activity here would be nice. -->
+<!-- NOTE: If time, in future years, add a prediction activity here. -->
 
 ## Fit the new model
 
@@ -1246,7 +1417,7 @@ cat(paste0(capture.output(summary(m4)), '\n')[9:14])
 :::{.dapr2callout}
 `(Intercept)`: When all predictors are zero, the average wellbeing is about 56.
 
-  - !!! **`outdoor_time_c = 0` means when the average number of hours are spent outdoors** !!!
+  -  **`outdoor_time_c = 0` means when the average number of hours are spent outdoors** 
   - `envt = 0` means `envt = nature` (the reference level).
 :::
  
