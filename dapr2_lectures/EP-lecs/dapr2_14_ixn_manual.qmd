@@ -207,8 +207,8 @@ hosp |>
 
 What we want to know: **Are the associations between SWB and talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different at the two different hospitals?**
 
-- We'll manually chunk CBT and EMDR together in a post-hoc contrast, which we'll call `TherapyType`.
-- Then we'll make a **post-hoc interaction contrast** to test whether `Hospital` interacts with `TherapyType`.
+- We'll manually chunk CBT and EMDR together in a post-hoc contrast, which we'll call `TrtmtType`.
+- Then we'll make a **post-hoc interaction contrast** to test whether `Hospital` interacts with `TrtmtType`.
 
 
 ## Fit the model
@@ -272,13 +272,13 @@ plot(m1_emm) +
 
 # Defining post-hoc contrasts
 
-## Define post-hoc contrast for `TherapyType`
+## Define post-hoc contrast for `TrtmtType`
 
 :::: {.columns}
 ::: {.column width="35%"}
 :::{.hcenter}
 
-| `Treatment`  | `TherapyType` |
+| `Treatment`  | `TrtmtType` |
 | :----------- | ------------: |
 | `CBT`        |          1/2  |
 | `EMDR`       |          1/2  |
@@ -374,14 +374,14 @@ Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
 
 ## Visualising the interaction we'll test
 
-We want to know: Is there a difference between hospitals in how different therapy types (talk therapy vs. pharmaceutical therapy) are associated with SWB?
+We want to know: Is there a difference between hospitals in how different treatment types (talk therapy vs. pharmaceutical therapy) are associated with SWB?
 
 ```{r echo=F, fig.dim = c(14, 8), fig.align = "center"}
 hosp |>
   mutate(
-    TherapyType = ifelse(Treatment == 'Meds', 'PharmaTherapy', 'TalkTherapy')
+    TrtmtType = ifelse(Treatment == 'Meds', 'PharmaTherapy', 'TalkTherapy')
   ) |>
-  ggplot(aes(x = TherapyType, y = SWB)) +
+  ggplot(aes(x = TrtmtType, y = SWB)) +
   geom_violin() +
   geom_jitter(aes(colour = Treatment), alpha = 0.5, size = 5) +
   facet_wrap(~ Hospital) +
@@ -399,7 +399,7 @@ hosp |>
 ::: {.column width="50%"}
 ::::{.hcenter}
 
-| `Treatment`  | `TherapyType` |
+| `Treatment`  | `TrtmtType` |
 | :----------- | ------------: |
 | `CBT`        |          1/2  |
 | `EMDR`       |          1/2  |
@@ -425,7 +425,7 @@ hosp |>
 <br>
 
 ```{r}
-TherapyType_contr <- c(
+TrtmtType_contr <- c(
   'CBT'  = 1/2,
   'EMDR' = 1/2,
   'Meds' =  -1
@@ -447,7 +447,7 @@ In other words: To get the interaction's contrast, we multiply together the two 
 
 <br>
 
-| Treatment | Hospital | TherapyType | Hosp | TherapyType:Hosp |
+| Treatment | Hospital | TrtmtType | Hosp | TrtmtType:Hosp |
 | --------- | -------- | ----------: | ---: | ---------------: |
 | CBT       | Hosp1    | 0.5         | 1    | 0.5              |
 | EMDR      | Hosp1    | 0.5         | 1    | 0.5              |
@@ -466,10 +466,10 @@ In other words: To get the interaction's contrast, we multiply together the two 
 
 
 ```{r}
-(interaction_contr <- outer(TherapyType_contr, Hosp_contr) |> as.vector())
+(interaction_contr <- outer(TrtmtType_contr, Hosp_contr) |> as.vector())
 ```
 
-- **IMPORTANT: Inside `outer()`, put TherapyType first, then Hosp second,** because that's the order that `emmeans` uses for their original variables (we wrote `Treatment` first, `Hospital` second).
+- **IMPORTANT: Inside `outer()`, put TrtmtType first, then Hosp second,** because that's the order that `emmeans` uses for their original variables (we wrote `Treatment` first, `Hospital` second).
 
 Then format the contrast the way that `emmeans` expects:
 
@@ -557,7 +557,7 @@ The reason manual interactions are useful is essentially just the significance t
 
 
 
-<!-- | Treatment | Hospital | Group mean SWB  |  TherapyType:Hosp | Product | -->
+<!-- | Treatment | Hospital | Group mean SWB  |  TrtmtType:Hosp | Product | -->
 <!-- | --------- | -------- | --------------: |  ---------------: | ------: | -->
 <!-- | CBT       | Hosp1    | 10.10           |  0.5              |    5.05 | -->
 <!-- | EMDR      | Hosp1    | 9.43            |  0.5              |    4.72 | -->
@@ -605,11 +605,11 @@ What's this "P value adjustment: tukey method" thing at the bottom?
 We'll get there soon, but first...
 
 
-## Elizabeth has opinions about testing all pairwise comparisons
+## Elizabeth has opinions
 
 <br>
 
-I don't think this is a very good thing to do in practice. 
+I don't think testing all pairwise comparisons is a very good thing to do in practice. 
 I don't recommend you use this in your research.
 
 Why?
@@ -618,7 +618,7 @@ Why?
 <br>
 
 - Most of the differences on the last slide are significant.
-- After seeing these results, it's very easy to make up a story about why each specific one might be different, even though we didn't have any hypotheses about them before.
+- After seeing these results, it's very tempting to make up a story about why each specific one might be different, even though we didn't have any hypotheses about them before.
 - Making up a story _after_ seeing the results is poor research practice. In the Open Science community, it's known as HARKing: **Hypothesising After Results are Known**. 
 - HARKing is one reason that many published results are not replicable: they aren't real effects, just something that was significant in one study, and the researchers spun a story around it after finding the result. 
 
@@ -902,10 +902,10 @@ pairs(m1_emm, adjust = "tukey")
 
 **When to choose Tukey:**
 
-- When you want to compare the means of levels of a categoerical predictor.
+- When you want to compare the means of levels of a categorical predictor.
 - When you're interested in all/most pairwise comparisons between groups.
 
-Check [flashcards](https://uoepsy.github.io/dapr2/2425/labs/1_b4_reading.html#multiple-comparisons) for more details.
+Check [flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html) for more details.
 
 
 # TODO Testing simple effects
