@@ -139,13 +139,15 @@ ruraldata <- read_csv("https://uoepsy.github.io/data/wellbeing_location_rural.cs
 
 Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
 
+When specifying your model, set 'not rural' as the reference group for location.
+
 :::{.callout-tip appearance="simple" collapse="true"}
 
 ### Hint 
 
 - Give the reader some background on the context of the study
 - State what type of analysis you will conduct in order to address the research question
-- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variable)
+- Specify the model to be fitted to address the research question (note that you will need to specify the reference level of your categorical variable - in this case, 'not rural')
 - Specify your chosen significance ($\alpha$) level
 - State your hypotheses
 
@@ -250,12 +252,7 @@ Review the many ways to numerically and visually explore your data by reading ov
 
 For examples, see flashcards on [descriptives statistics tables - categorical and numeric values examples](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#descriptives) and [numeric x categorical example - visualise data](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-x-categorical-example), paying particular attention to the type of data that you're working with.
 
-More specifically:    
-1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.  
-  
-2. If you use the `select()` function and get an error along the lines of `Error in select...unused arguments...`, you will need to specify `dplyr::select()` (this just tells `R` which package to use the select function from).  
-  
-3. The `pairs.panels()` function from the **psych** package can plot all variables in a dataset against one another. This will save you the time you would have spent creating individual plots, but is only useful for *continuous* variables.    
+For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here.  
 
 :::
 
@@ -266,6 +263,7 @@ More specifically:
 ::: {.panel-tabset}
 
 ## Numeric
+
 We can present our summary statistics for wellbeing and social interactions grouped by location in a well formatted table using `kable()`: 
 
 ```{r}
@@ -277,7 +275,7 @@ ruraldata |>
               Wellbeing_SD = sd(wellbeing),
               SocialInt_M = mean(social_int),
               SocialInt_SD = sd(social_int)) |>
-    kable(caption = "Wellbeing, Social Interactions, and Location Descriptive Statistics", align = "c", digits = 2, booktabs = TRUE) |>
+    kable(caption = "Wellbeing, Social Interactions, and Location Descriptive Statistics",digits = 2) |>
     kable_styling(full_width = FALSE)
 ```
 
@@ -294,43 +292,7 @@ describeBy(ruraldata, ruraldata$isRural)
 
 ## Visual 
 
-::: {.panel-tabset}
-
-### Wellbeing & Social Interactions
-
-Let's first plot the continuous variables included within our model (note that we could use this for the whole dataset, but we don't want to include irrelevant / non-continuous variables):
-
-```{r}
-ruraldata |> 
-  select(wellbeing, social_int) |>
-  pairs.panels()
-```
-
-::: {.callout-important icon=false appearance="minimal"}
-
-Wellbeing and social interactions appear to follow unimodal distributions. There was a weak, positive association between wellbeing and social interactions $(r = .24)$. 
-
-::: 
-
-### Wellbeing & Location
-
-Now lets look at wellbeing scores by location:
-
-```{r}
-ggplot(data = ruraldata, aes(x = isRural, y = wellbeing)) +
-  geom_boxplot() + 
-  labs(x = "Location", y = "Wellbeing (WEMWBS Scores)")
-```
-
-::: {.callout-important icon=false appearance="minimal"}
-
-Those in rural locations appear to have lower wellbeing scores in comparison to those in non-rural locations.
-
-::: 
-
-### Wellbeing, Social Interactions & Location
-
-Next, lets produce our plots with a facet for rural vs non-rural residents: 
+Let's produce our plots with a facet for rural vs non-rural residents: 
 
 ```{r message=FALSE, warning = FALSE}
 ggplot(data = ruraldata, aes(x = social_int, y = wellbeing)) +
@@ -370,7 +332,6 @@ However, the only way we can determine whether there is actually an interaction 
 
 :::
 
-:::
 
 `r solend()`
 
@@ -496,7 +457,7 @@ $\beta_3$ = `social_int:isRuralrural` = `r round(coef(rural_mod)[4],2)`
 
 + On plot: How the slope of the line differs when you move from the red to the blue line.    
 + Interpretation: The interaction between social interactions (number per week) and location (rural/not rural). This is the estimated difference in simple slopes of social interactions for rural vs non-rural residents.   
-    - Compared to living in non-rural locations, living in a rural location was associated with a `r round(abs(coef(rural_mod)[4]),2)` lesser increase in wellbeing scores for every every 1 additional social interaction per week.
+    - Compared to living in non-rural locations, living in a rural location was associated with a `r round(abs(coef(rural_mod)[4]),2)` lesser increase in wellbeing scores for every every 1 additional social interaction per week. Specifically, (1) for those in non-rural locations the association between wellbeing and social interactions had a slope of 0.65 (as we can see in $\beta_1$; the `social_int` coefficient), and (2) for those in rural locations, the association between wellbeing and social interactions has a slope of 0.13 (calculated as 0.65 + (–0.52); or $\beta_1$ the `social_int` coefficient + $\beta_3$ the `social_int:isRuralrural`coefficient)
 
 :::
 
@@ -694,6 +655,34 @@ Let's look at our plot:
 plt_rural_mod$interactplot
 ```
 
+::: {.callout-caution collapse="true"}
+
+#### Optional: More Informative Plot
+
+To make the plot a little more informative, we could add the data points by first creating a new dataset where we name `mc_social_int` as `pred` and `isRural` as `modx_group` (we need to do this so that the data is formatted/named in the way `interactplot` expects):
+
+```{r}
+wellbeing_probedat <- ruraldata |>
+  mutate(
+    pred = mc_social_int,
+    modx_group = isRural
+  )
+```
+
+and then add `geom_point()` with our new dataset to our original interaction plot (to avoid overwriting our original plot, this one is being saved in a new object named `plt_rural_mod2`) to superimpose the data points:
+
+```{r}
+#| label: fig-int2
+#| fig-cap: "Predicted Wellbeing Scores across Social Interactions by Location with Data Points"
+plt_rural_mod2 <- plt_rural_mod$interactplot +
+    geom_point(data = wellbeing_probedat)
+
+plt_rural_mod2
+```
+
+:::
+
+
 ::: {.callout-important icon=false appearance="minimal"}
 
 This suggested that for individuals living in rural locations, wellbeing scores increased at a slower rate across the number of weekly social interactions in comparison to those in non-rural locations. In other words, for each additional social interaction per week, wellbeing scores of those living in non-rural locations increased at a greater rate than those in rural. 
@@ -763,7 +752,7 @@ Full regression results including 95% Confidence Intervals are shown in @tbl-rur
 
 There was a significant conditional association between wellbeing (WEMWBS Scores) and the number of weekly social interactions $(\beta = 0.65,~ SE = 0.12,~ t(196) = 5.59,~ p < .001)$, which suggested that for those living in non-rural locations, wellbeing scores increased by 0.65 for every additional social interaction per week. A significant conditional association was also evident between wellbeing and location $(\beta = -4.86,~ SE = 0.65,~ t(196) = -7.50,~ p < .001)$, which suggested that for those who have the average number of social interactions per week $(M = 12.06)$, wellbeing scores were 4.86 points lower for those in rural areas in comparison to those in non-rural.
 
-The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), and this was significant $(\beta = -0.52,~ SE = 0.16,~ t(196) = -3.21, ~p = .002)$. The expected increase in wellbeing (WEMWBS Scores) for every additional social interaction per week was 0.52 points less for those living in rural locations in comparison to those in non-rural. This interaction is visually presented in @fig-int. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
+The association between wellbeing (WEMWBS Scores) and social interactions was found to be dependent upon location (rural/non-rural), and this was significant $(\beta = -0.52,~ SE = 0.16,~ t(196) = -3.21, ~p = .002)$. The expected increase in wellbeing (WEMWBS Scores) for every additional social interaction per week was 0.52 points less for those living in rural locations in comparison to those in non-rural. This interaction is visually presented in @fig-int2. Therefore, we have evidence to reject the null hypothesis (that the association between wellbeing and social interactions is not moderated by whether or not a person lives in a rural area).
 
 :::
 
