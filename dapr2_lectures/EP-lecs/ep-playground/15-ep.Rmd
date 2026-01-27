@@ -1,116 +1,463 @@
 ---
-title: "15 original code"
+title: "15 – Lecture sample code"
+author: Elizabeth Pankratz
+date: 9–10 February, 2026
 output: 
   html_notebook:
     toc: true
 ---
 
-```{r}
+## RQ
+
+- RQ1: Do differences in test scores between study conditions differ by the note-taking medium used?
+- RQ2: Are there differences in test scores between participants when comparing pairs of study and note-taking conditions? If so, what are these specific differences?
+
+
+## Analysis steps so far, in three phases
+
+**Not every analysis requires every step.**
+
+Think of these steps like a buffet for you to pick and choose from, depending on what your analysis needs.
+
+<br>
+
+**(1) Before model fitting:** 
+
+- Identify the relevant variables
+- Data tidying (e.g., missingness? factor levels?)
+- Get summary statistics for the relevant variables
+- Plot each relevant variable individually
+- Plot the relevant variables together
+- Set up categorical predictors (e.g., what a priori coding scheme?)
+- Set up continuous predictors (e.g., any transformations?)
+- Decide whether the RQ requires an interaction model
+- Think what the model coefficients might look like
+- Formally state null and alternative hypotheses
+
+
+**(2) Model fitting:** 
+
+- Fit the linear model to the data
+
+
+**(3) After model fitting:** 
+
+- Check model assumptions 
+- Bootstrap the linear model (lost to the strike)
+- Run diagnostics for multicollinearity
+- Run diagnostics for unusual data points (skipped today)
+- Run sensitivity analysis (skipped today)
+- Interpret the model estimates
+- Get estimated marginal means
+- Plot estimated marginal means
+- Create and test manual contrasts
+- Create and test interactions between manual contrasts
+- Test pairwise comparisons, including corrections for multiple comparisons
+- Write up your analysis (in this week's labs!)
+
+
+## Phase 1: Identify the relevant variables
+
+```{r message=F}
+library(tidyverse)
+library(interactions)
+library(emmeans)
+
 notes <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
 ```
 
 ```{r}
-######Step 1 is always to read in the data, then to explore, check, describe, and visualise it.
+names(notes)
+```
 
-#check coding of variables - are they coded as they should be?
-str(notes)
+RQ1: Do differences in test scores between study conditions differ by the note-taking medium used?
 
-head(notes)
+- test scores: `test_score`
+- study conditions: `study`
+- note-taking medium: `medium`
+
+Outcome: `test_score`
+
+Predictors: `study`, `medium`
+
+
+
+## Phase 1: Data tidying (e.g., missingness? factor levels?)
+
+```{r}
+summary(notes)
 ```
 
 ```{r}
-#check for NAs - none in dataset, so no missing values
-table(is.na(notes))
+is.na(notes) |> table()
 ```
 
-```{r}
-#make variables factors
-notes <- notes %>%
-    mutate(medium = as_factor(medium),
-           study = as_factor(study))
+^ No NAs anywhere!
 
-#create descriptives table
-descript <- notes %>% 
-    group_by(study, medium) %>%
-   summarise(
-       M_Score = round(mean(test_score), 2),
-       SD_Score = round(sd(test_score), 2),
-       SE_Score = round(sd(test_score)/sqrt(n()), 2),
-       Min_Score = round(min(test_score), 2),
-       Max_Score = round(max(test_score), 2)
-    )
-descript
-```
+
+<br>
+
+Convert to factors, and, assuming treatment coding, set reference levels:
 
 ```{r}
-#boxplot
-p1 <- ggplot(data = notes, aes(x = study, y = test_score, color = medium)) + 
-  geom_boxplot() + 
-    ylim(0,100) +
-    labs(x = "Study Condition", y = "Test Score")
-p1
-```
-
-```{r}
-#plot showing the mean score for each condition
-# p2 is useful to notice that lines do not run in parallel - suggests interaction
-p2 <- ggplot(descript, aes(x = study, y = M_Score, color = medium)) + 
-  geom_point(size = 3) +
-  geom_linerange(aes(ymin = M_Score - 2 * SE_Score, ymax = M_Score + 2 * SE_Score)) +
-  geom_path(aes(x = as.numeric(study)))
-p2
+notes <- notes |>
+  mutate(
+    medium = factor(medium, levels = c('Laptop', 'Longhand')),
+    study = factor(study, levels = c('No', 'Minimal', 'Moderate', 'Extensive'))
+  )
 ```
 
 
+## Phase 1: Get summary statistics for the relevant variables
+
 ```{r}
-######Step 2 is to run your model(s) of interest to answer your research question, and make sure that the data meet the assumptions of your chosen test
+psych::describe(notes$test_score)
+```
 
-#set reference levels
-notes$medium <- fct_relevel(notes$medium , "Longhand")
-notes$study <- fct_relevel(notes$study , "No")
-
-#build model
-notes_mdl <- lm(test_score ~ study*medium, data = notes)
-
-#check assumptions - note should check diagnostics here too!
-par(mfrow=c(2,2))
-plot(notes_mdl)
+```{r}
+table(notes$medium)
 ```
 
 
-```{r}
-par(mfrow=c(1,1))
 
-# look at model output - summary()
+```{r}
+table(notes$study)
+```
+
+## Phase 1: Plot each relevant variable individually
+
+Test scores:
+
+```{r}
+notes |>
+  ggplot(aes(x = test_score)) +
+  geom_histogram()
+```
+
+<br>
+
+Study:
+
+```{r}
+notes |>
+  ggplot(aes(x = study)) +
+  geom_bar()
+```
+
+^ boring.
+
+<br>
+
+Medium:
+
+```{r}
+notes |>
+  ggplot(aes(x = medium)) +
+  geom_bar()
+```
+
+^ boring.
+
+## Phase 1: Plot the relevant variables together
+
+Violin plot:
+
+```{r}
+notes |>
+  ggplot(aes(x = study, y = test_score, colour = study, fill = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  facet_wrap(~ medium) +
+  theme(legend.position = 'none')
+```
+
+
+<br>
+
+Boxplot:
+
+```{r}
+notes |>
+  ggplot(aes(x = study, y = test_score, fill = medium)) +
+  geom_boxplot()
+```
+
+
+## Phase 1: Set up categorical predictors (e.g., what a priori coding scheme?)
+
+We'll just use treatment coding.
+
+Check contrasts:
+
+```{r}
+contrasts(notes$medium)
+```
+^ Laptop is reference level.
+
+<br>
+
+```{r}
+contrasts(notes$study)
+```
+^ "No" is reference level.
+We have three dummy variables which compare "No" to each of the non-reference levels individually.
+
+
+## Phase 1: Set up continuous predictors (e.g., any transformations?)
+
+NA
+
+## Phase 1: Decide whether the RQ requires an interaction model
+
+RQ1: Do **differences** in test scores between study conditions **differ** by the note-taking medium used?
+
+Yes! Because we're asking about whether differences differ, we need an interaction model.
+
+
+## Phase 1: Think what the model coefficients might look like
+
+Formulate mathematical model expression:
+
+```
+$$
+\text{test_score} = \beta_0 + 
+(\beta_1 \cdot \text{medium}) +
+(\beta_2 \cdot \text{study}_{\text{Minimal}}) +
+(\beta_3 \cdot \text{study}_{\text{Moderate}}) +
+(\beta_4 \cdot \text{study}_{\text{Extensive}}) + \\
+(\beta_5 \cdot \text{medium} \cdot \text{study}_{\text{Minimal}}) +
+(\beta_6 \cdot \text{medium} \cdot \text{study}_{\text{Moderate}}) +
+(\beta_7 \cdot \text{medium} \cdot \text{study}_{\text{Extensive}}) +
+\epsilon
+$$
+```
+
+$$
+\text{test_score} = \beta_0 + 
+(\beta_1 \cdot \text{medium}) +
+(\beta_2 \cdot \text{study}_{\text{Minimal}}) +
+(\beta_3 \cdot \text{study}_{\text{Moderate}}) +
+(\beta_4 \cdot \text{study}_{\text{Extensive}}) + \\
+(\beta_5 \cdot \text{medium} \cdot \text{study}_{\text{Minimal}}) +
+(\beta_6 \cdot \text{medium} \cdot \text{study}_{\text{Moderate}}) +
+(\beta_7 \cdot \text{medium} \cdot \text{study}_{\text{Extensive}}) +
+\epsilon
+$$
+
+^ We should expect eight coefficients.
+
+<br>
+
+Check that this number of interaction terms is right:
+
+$$
+(r-1) \times (c-1) \\
+(2-1) \times (4-1) \\
+1 \times 3 \\
+3
+$$
+^ Yep!
+
+<br>
+
+Model coefficients' meanings and, based on the plots, probable values/signs (pos or neg):
+
+- **$\beta_0$, Intercept:**
+  - **meaning:** estimated mean test score when `medium = Laptop` and `study = No`
+  - **value:** probably just below 50
+  
+- **$\beta_1$, effect of medium:**
+  - **meaning:** specifically when `study = No`, how do test scores change between `medium = Laptop` and `medium = Longhand`?
+  - **value:** probably small and positive
+  
+- **$\beta_2$, effect of $\text{study}_{\text{Minimal}}$:**
+  - **meaning:** specifically when `medium = Laptop`, how do test scores change between `study = No` and `study = Minimal`?
+  - **value:** probably about twice the value of $\beta_1$, positive
+  
+- **$\beta_3$, effect of $\text{study}_{\text{Moderate}}$:**
+  - **meaning:** specifically when `medium = Laptop`, how do test scores change between `study = No` and `study = Moderate`?
+  - **value:** a bit bigger than $\beta_2$, positive
+  
+- **$\beta_4$, effect of $\text{study}_{\text{Extensive}}$:**
+  - **meaning:** specifically when `medium = Laptop`, how do test scores change between `study = No` and `study = Extensive`?
+  - **value:** a bit bigger than $\beta_3$, positive
+  
+- **$\beta_5$, interaction between medium and $\text{study}_{\text{Minimal}}$:**
+  - **meaning:** how does the difference between `study = No` and `study = Minimal` change, when we move from `medium = Laptop` to `medium = Longhand`?
+  - **value:** probably close to zero (the difference between `No` and `Minimal` looks basically the same for both `Laptop` and `Longhand`)
+  
+- **$\beta_6$, interaction between medium and $\text{study}_{\text{Moderate}}$:**
+  - **meaning:** how does the difference between `study = No` and `study = Moderate` change, when we move from `medium = Laptop` to `medium = Longhand`?
+  - **value:** probably fairly large and positive (the jump from `No` to `Moderate` is bigger for `Longhand` than for `Laptop`, so we need a big positive adjustment)
+  
+- **$\beta_7$, interaction between medium and $\text{study}_{\text{Extensive}}$:**
+  - **meaning:** how does the difference between `study = No` and `study = Extensive` change, when we move from `medium = Laptop` to `medium = Longhand`?
+  - **value:** probably even larger than $\beta_6$ and positive (the jump from `No` to `Extensive` is much bigger for `Longhand` than it is for `Laptop`, so we need a real big positive adjustment)
+
+## Phase 1: Formally state null and alternative hypotheses
+
+RQ1: Do **differences** in test scores between study conditions **differ** by the note-taking medium used?
+
+In words:
+
+- H0 would state that differences in test scores between study conditions **do not differ** by the note-taking medium used.
+- If H0 is true, all of the interaction terms are equal to zero.
+- If any of the interaction terms are significant, then we can reject H0.
+
+
+Formally:
+
+```
+$$
+H_{0} : \text{all } \beta_j = 0 \text{ for } j = 5, 6, 7 \\
+H_{1} : \text{any } \beta_j \neq 0 \text{ for } j = 5, 6, 7
+$$
+```
+
+$$
+H_{0} : \text{all } \beta_j = 0 \text{ for } j = 5, 6, 7 \\
+H_{1} : \text{any } \beta_j \neq 0 \text{ for } j = 5, 6, 7
+$$
+
+
+
+
+
+## Phase 2: Fit the linear model to the data
+
+```{r}
+notes_mdl <- lm(test_score ~ medium * study, data = notes)
+```
+
+or
+
+```{r}
+notes_mdl <- lm(test_score ~ medium + study + medium:study, data = notes)
+```
+
+<br>
+
+Quick check that it worked:
+
+```{r}
+notes_mdl
+```
+
+
+## Phase 3: Check model assumptions 
+
+**Linearity of association:** We can assume this is fulfilled because we have categorical predictors.
+
+**Independence of errors:** We can assume this is fulfilled because we have one observation per person (i.e., a between-participant design).
+
+**Normality of errors:** Check using Q-Q plot.
+
+```{r}
+plot(notes_mdl, which = 2)
+```
+
+^ Looks fine!
+Good match to the diagonal.
+
+<br>
+
+
+**Equal variance of errors:**
+Check using a plot of residuals vs. fitted values:
+
+```{r}
+plot(notes_mdl, which = 1)
+```
+
+^ Looks fine: good horizontal line, and similar spread of residuals for all fitted values.
+
+
+## Phase 3: Run diagnostics for multicollinearity
+
+- We use `type = 'predictor'` to tell `vif()` that there's an interaction.
+
+```{r}
+car::vif(notes_mdl, type = 'predictor')
+```
+
+All 1, so not a cause for worry.
+
+## Phase 3: Interpret the model estimates
+
+```{r}
 summary(notes_mdl)
 ```
 
+- `Intercept`:
+  - estimated mean test score when `medium = Laptop` and `study = No`
+  
+- `mediumLonghand`:
+  - specifically when `study = No`, test scores change by 2.9 points when we go from `medium = Laptop` to `medium = Longhand`
+  
+- `studyMinimal`:
+  - specifically when `medium = Laptop`, test scores change by 7.5 points when we go from `study = No` to `study = Minimal`
+
+- `studyModerate`:
+  - specifically when `medium = Laptop`, test scores change by 11.2 points when we go from `study = No` to `study = Moderate`
+
+- `studyExtensive`:
+  - specifically when `medium = Laptop`, test scores change by 13.0 points when we go from `study = No` to `study = Extensive`
+  
+- `mediumLonghand:studyMinimal`:
+  - when we move from `medium = Laptop` to `medium = Longhand`, the difference between `study = No` and `study = Minimal` changes by 2.4 points.
+
+- `mediumLonghand:studyModerate`:
+  - when we move from `medium = Laptop` to `medium = Longhand`, the difference between `study = No` and `study = Moderate` changes by 18.5 points.
+  
+- `mediumLonghand:studyExtensive`:
+  - when we move from `medium = Laptop` to `medium = Longhand`, the difference between `study = No` and `study = Extensive` changes by 26.5 points.
+
+
+
+## Phase 3: Get estimated marginal means
 
 ```{r}
-#int model plot
-plt_notes_mdl <- cat_plot(model = notes_mdl, 
-                  pred = study, 
-                  modx = medium, 
-                  main.title = "Scores across Study and Medium",
-                  x.label = "Study",
-                  y.label = "Score",
-                  legend.main = "Medium")
-plt_notes_mdl
+notes_emm <- emmeans(notes_mdl, ~ medium * study)
+notes_emm
+```
+
+
+## Phase 3: Plot estimated marginal means
+
+```{r}
+plot(notes_emm)
+```
+
+## Phase 3: Compute simple slopes/simple effects
+
+```{r}
+pairs(
+  notes_emm,
+  simple = 'medium'
+)
 ```
 
 ```{r}
-#####Step 3 somewhat depends on the outcomes of step 2. Here, you may need to consider conducting further analyses before writing up / describing your results in relation to the research question. 
-
-#Perform a pairwise comparison of the mean accuracy (as measured by points accrued) across the 2×2 factorial design, making sure to adjust for multiple comparisons. 
-
-m1_emm <- emmeans(notes_mdl, ~study*medium)
-
-pairs_res <- pairs(m1_emm)
-pairs_res 
+pairs(
+  notes_emm,
+  simple = 'study'
+)
 ```
+
+## Phase 3: Create and test manual contrasts
+
+NA
+
+## Phase 3: Create and test interactions between manual contrasts
+
+NA
+
+## Phase 3: Test pairwise comparisons, including corrections for multiple comparisons
 
 ```{r}
-#plot
-plot(pairs_res)
+pairs(notes_emm)
 ```
 
+## Phase 3: Write up your analysis (in this week's labs!)
+
+NA
