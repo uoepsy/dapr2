@@ -171,7 +171,7 @@ Antidepressant medication <br> (`Meds`):
 
 :::: {.columns}
 ::: {.column width="70%"}
-```{r echo=F, fig.align = 'center', fig.dim = c(12, 8)}
+```{r echo=F, fig.align = 'center', fig.dim = c(12, 7)}
 hosp |>
   ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
   geom_violin(alpha = 0.5) +
@@ -196,10 +196,11 @@ hosp |>
 
 ::::
 
-What we want to know: **Are the associations between SWB and talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different at the two different hospitals?**
+What we want to know: **Is the difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different in each hospital?**
 
 - We'll manually chunk CBT and EMDR together in a post-hoc contrast, which we'll call `TrtmtType`.
-- Then we'll make a **post-hoc interaction contrast** to test whether `Hospital` interacts with `TrtmtType`.
+- We'll also specify a very simple manual post-hoc contrast for `Hospital`.
+- Then we'll make a **post-hoc interaction contrast** to test whether the `Hospital` contrast interacts with the `TrtmtType` contrast.
 
 
 ## Set up the model
@@ -257,6 +258,8 @@ plot(m1_emm) +
   coord_flip() +
   theme(text = element_text(size=28))
 ```
+
+
 
 
 # Defining post-hoc contrasts
@@ -430,6 +433,137 @@ hosp |>
 ```
 
 
+# H0/H1 for interactions between manual contrasts
+
+## Step 1: Define means of all combinations of factor levels
+
+When we test differences between groups, we're testing differences between group **means.**
+
+So, we will start by defining the group means for all combinations of factor levels in our data.
+
+
+![](figs/14-groupmeans.png){fig-align="center"}
+<!-- \begin{matrix} -->
+<!--                    &    &           \textbf{Hospital} & \\ -->
+<!--                    &    &           \text{Hosp1} & \text{Hosp2}  \\ -->
+<!--                    &  \text{ CBT}  & \mu_{\text{CBT,Hosp1} }&  \mu_{\text{CBT,Hosp2}}\\ -->
+<!-- \textbf{Treatment} &  \text{ EMDR} & \mu_{\text{EMDR,Hosp1}} & \mu_{\text{EMDR,Hosp2}} \\ -->
+<!--                    &  \text{ Meds} & \mu_{\text{Meds,Hosp1}} & \mu_{\text{Meds,Hosp2}} -->
+<!-- \end{matrix} -->
+
+Next, we'll combine these group means in the way that the manual contrasts specify.
+
+
+## Step 2: "Chunk" some of the means together
+
+Within each hospital, we chunk CBT and EMDR together, because they are both talk therapy.
+
+![](figs/14-groupmeans-chunks.png){fig-align="center"}
+
+<br>
+
+When we chunk two group means together, mathematically we are **taking the mean of those group means.**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+To represent the <span style="color:#3173C9;"> <b>mean of the blue chunk</b> </span> (top left):
+
+$$
+\frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2}
+$$
+:::
+::: {.column width="50%"}
+
+To represent the <span style="color:#51B375;"> <b>mean of the green chunk</b> </span> (top right):
+
+$$
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2}
+$$
+:::
+::::
+
+
+## Step 3: Set up H0 as differences between chunk means, based on RQ
+
+**RQ:** Is the difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different in each hospital?
+
+<br>
+
+**Null hypothesis in words:** The difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) is the same in each hospital.
+<br>
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%" .fragment}
+**In words arranged like the math:**
+
+- (the mean SWB of CBT and EMDR in Hosp1) 
+- minus
+- (the mean SWB of Meds in Hosp1) 
+- equals 
+- (the mean SWB of CBT and EMDR in Hosp2) 
+- minus
+- (the mean SWB of Meds in Hosp2) 
+
+
+:::
+::: {.column width="50%" .fragment}
+
+**In math arranged like the words:**
+
+- $\frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2}$
+- –
+- $\mu_{\text{Meds,Hosp1}}$
+- = 
+- $\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2}$
+- –
+- $\mu_{\text{Meds,Hosp2}}$
+
+:::
+::::
+
+
+## Formal H0 and H1 for interactions between manual contrasts
+
+**Version 1: Differences are the same (H0) or not the same (H1):**
+
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+
+
+<br>
+
+:::{.fragment}
+
+**Version 2, also fine: Difference between differences is zero (H0) or not zero (H1):**
+
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+
+\end{align}
+
+:::
+
+<br>
+<br>
+<br>
+
+(LaTeX code in appendix)
+
+
+# Post-hoc contrasts in R
 
 ## Post-hoc contrasts in R
 
@@ -963,7 +1097,6 @@ And if we accept that positive result and ignore all the negative results (green
   
 <br>
 
-:::{.fragment}
 
 How much more likely?
 
@@ -978,7 +1111,6 @@ P(\text{incorrectly reject H0 in} ~m~ \text{tests}) &= 1 - (1 - \alpha)^m \\
 \end{align}
 $$
 
-:::
 
 
 ## How likely are we to incorrectly reject H0?
@@ -1246,6 +1378,57 @@ hosp |>
   geom_jitter(aes(colour = Treatment), alpha = 0.5, size = 5) +
   facet_wrap(~ Hospital) +
   NULL
+```
+
+
+## H0 and H1 LaTeX code
+
+
+**Version 1: Differences are the same (H0) or not the same (H1):**
+
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+
+```
+$$
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+$$
+```
+
+<br>
+
+**Version 2, also fine: Difference between differences is zero (H0) or not zero (H1):**
+
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+\end{align}
+
+
+```
+$$
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+\end{align}
+$$
 ```
 
 
