@@ -1,5 +1,5 @@
 ---
-title: "Simple Effects, Pairwise Comparisons, & Corrections"
+title: "Manual Contrast Interactions, Simple Effects, & Corrections"
 link-citations: TRUE
 params: 
     SHOW_SOLS: FALSE
@@ -22,9 +22,9 @@ library(tidyverse)
 ### <i class="fa fa-graduation-cap"></i> Learning Objectives
 At the end of this lab, you will:
 
-1. Understand how to interpret simple effects for experimental designs
-2. Understand how to conduct pairwise comparisons
-3. Understand how to apply corrections available for multiple comparisons
+1. Understand how to interpret simple effects
+2. Understand how to test interactions between manual contrasts
+3. Understand how to apply corrections for multiple comparisons
 
 ### <i class="fa fa-check-square-o fa-2"></i> What You Need
 
@@ -62,11 +62,9 @@ Note, you have already worked with *some* of this data last week - see [Semester
 >
 > Are there differences in types of memory deficits for those experiencing different cognitive impairment(s)?
 
-In this week's exercises, we will further explore questions such as:
+And we'll use an interaction between manual contrasts to specifically ask:
 
-- Does level $i$ of the first factor have an effect on the response?
-- Does level $j$ of the second factor have an effect on the response?
-- Is there a combined effect of level $i$ of the first factor and level $j$ of the second factor on the response? In other words, is there interaction of the two factors so that the combined effect is not simply the additive effect of level $i$ of the first factor plus the effect of level $j$ of the second factor?
+> Is there a difference between the effects of implicit and explicit memory tasks for amnesic patients and for Huntington's patients?
 
 `r optbegin("Cognitive Exp 3x3 data codebook.", olabel=FALSE, toggle=params$TOGGLE)` 
   
@@ -171,15 +169,21 @@ cog <- read_csv('https://uoepsy.github.io/data/cognitive_experiment.csv')
 
 # Exercises 
 
-## Study & Analysis Plan Overview 
+## Study & Analysis Plan Overview (max 15 minutes)
 
 `r qbegin(1)`
 
+**(You should aim to spend max five minutes on this question.)**
+
 Firstly, examine the dataset, and perform any necessary and appropriate data management steps.
 
-Next, consider what would be the most appropriate coding constraint to apply in order to best address the research question - i.e., are we interested in whether group X (e.g., Amnesic) differed from group Y (e.g., Huntingtons), or whether group X (e.g., Amnesic) differed from the grand mean? 
+Next, we will use treatment coding for both predictors:
 
-Choose appropriate reference levels for the Diagnosis and Task variables based on your decision above. 
+- For `Diagnosis`, the reference level will be `control`.
+- For `Task`, the reference level will be `recognition`.
+
+In your code, set these levels as the reference levels.
+
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -193,19 +197,17 @@ Choose appropriate reference levels for the Diagnosis and Task variables based o
 - Check that the dataset is complete (i.e., are there any `NA` values?). We can check this using `is.na()`    
   
 Note that all of these steps can be done in combination - the `mutate()` and `factor()` functions will likely be useful here.   
+*A priori contrast coding schemes*  
   
-*Coding Constraints*  
-  
-- If you think you'd benefit from a refresher on coding constraints, it might be best to revisit the materials from Semester 1 Block 2 (especially the  [dummy vs effects coding flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-outcomes-categorical-predictors)).  
+- If you think you'd benefit from a refresher on contrast coding schemes, it might be best to revisit the materials from Semester 1 Block 2 (especially the  [dummy vs effects coding flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-outcomes-categorical-predictors)).  
 - If you would like an overview of coding constraints in the context of interaction models, review the [categorical x categorical example > coding constraints flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#categorical-x-categorical-example).    
 
 *Reference Levels*  
   
 - Review the [specifying reference levels flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-outcomes-categorical-predictors).  
-
   
 *See the [numeric outcomes & categorical predictors flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-outcomes-categorical-predictors).  
- 
+
 :::
 
 `r qend()`
@@ -225,7 +227,7 @@ table(is.na(cog))
 # there are none - all FALSE
 ```
 
-Next, lets convert `Diagnosis` and `Task` into factors, making the labels of each factor level more meaningful. According to the data description, the encoding of the factor `Diagnosis` is: 1 = amnesic patients, 2 = Huntingtons patients, and 3 = control patients. The encoding for the factor `Task` is: 1 = grammar task, 2 = classification task, and 3 = recognition task.
+Next, let's convert `Diagnosis` and `Task` into factors, making the labels of each factor level more meaningful. According to the data description, the encoding of the factor `Diagnosis` is: 1 = amnesic patients, 2 = Huntingtons patients, and 3 = control patients. The encoding for the factor `Task` is: 1 = grammar task, 2 = classification task, and 3 = recognition task.
 
 ```{r}
 cog <- cog |>
@@ -241,20 +243,23 @@ cog <- cog |>
     rename(Score = Y)
 ```
 
-Since we are interested in comparing groups, we should use dummy coding. By default, `R` uses dummy coding, so we do not need to make any changes to the coding constraint. 
-
-However, for our reference groups, we're likely to want it to be the Control group for Diagnosis, and recognition for Task: 
+To set the reference levels as specified, the following code will do the trick:
 
 ```{r}
 cog$Diagnosis <- fct_relevel(cog$Diagnosis, "control")
 cog$Task <- fct_relevel(cog$Task, "recognition")
 ```
 
+
 `r solend()`
 
 <br>  
 
+
+
 `r qbegin(2)`
+
+**(You should aim to spend max ten minutes on this question.)**
 
 Provide a brief overview of the study design and data, before detailing your analysis plan to address the research question.
 
@@ -358,13 +363,13 @@ There are significant differences in performance between explicit and implicit m
 
 <div class="divider div-transparent div-dot"></div>
 
-## Descriptive Statistics & Visualisations
+## Descriptive Statistics & Visualisations (approx 5 minutes)
 
 `r qbegin(3)`
 
-Provide a table of descriptive statistics and visualise your data.
+Provide a table of descriptive statistics.
 
-Interpret the descriptive statistics and visualisations in the context of the study (i.e., comment on any observed differences among groups). 
+Interpret the descriptive statistics in the context of the study (i.e., comment on any observed differences among groups). 
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -372,7 +377,7 @@ Interpret the descriptive statistics and visualisations in the context of the st
 
 Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#data-exploration).
   
-For examples, see flashcards on [descriptives statistics tables - categorical and numeric values examples](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-exploration) and [categorical x categorical example - visualise data](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#categorical-x-categorical-example).    
+For examples, see flashcards on [descriptives statistics tables - categorical and numeric values examples](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#numeric-exploration).    
   
 Make sure to comment on any observed differences among the sample means of the different conditions.  
 
@@ -381,10 +386,6 @@ Make sure to comment on any observed differences among the sample means of the d
 `r qend()`
 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-::: {.panel-tabset}
-
-## Numeric
 
 Descriptive statistics presented in a well formatted table:
 
@@ -405,19 +406,6 @@ cog_stats <- cog |>
 cog_stats
 ```
 
-## Visual 
-
-Since we have a continuous outcome and 2 categorical predictors - a boxplot would be most appropriate for visualisations:
-
-```{r}
-#| label: fig-cog-desc
-#| fig-cap: "Association between Task Condition, Diagnosis, and Score"
-cog_plt <- ggplot(data = cog, aes(x = Diagnosis, y = Score, color = Task)) +
-  geom_boxplot() +
-  labs(x = 'Diagnosis', y = 'Score')
-cog_plt
-```
-
 :::
 
 ::: {.callout-important icon=false appearance="minimal"}
@@ -430,15 +418,64 @@ cog_plt
 
 `r solend()`
 
-<div class="divider div-transparent div-dot"></div>
-
-## Model Fitting & Interpretation 
 
 `r qbegin(4)`
 
+Visualise the data.
+As a sense check, make sure the visualisation captures the same patterns you observed in the descriptive statistics you just computed.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#data-exploration).
+  
+For examples, see flashcards on [categorical x categorical example - visualise data](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#categorical-x-categorical-example).    
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Since we have a continuous outcome and 2 categorical predictors - a boxplot would be appropriate for visualisations:
+
+```{r}
+#| label: fig-cog-desc
+#| fig-cap: "Association between Task Condition, Diagnosis, and Score"
+cog_plt <- ggplot(data = cog, aes(x = Diagnosis, y = Score, color = Task)) +
+  geom_boxplot() +
+  labs(x = 'Diagnosis', y = 'Score')
+cog_plt
+```
+
+A violin plot with jittered points would also work:
+
+```{r}
+#| label: fig-cog-desc-violin
+#| fig-cap: "Association between Task Condition, Diagnosis, and Score"
+
+cog |>
+    ggplot(aes(x = Diagnosis, y = Score, colour = Diagnosis, fill = Diagnosis)) +
+    geom_violin(alpha = 0.5) +
+    geom_jitter(alpha = 0.5) +
+    facet_wrap(~Task) +
+    theme(legend.position = 'none')
+```
+
+
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Fitting (approx 2 min)
+
+`r qbegin(5)`
+
 Fit the specified model  using `lm()`, and assign it the name "mdl_int".
 
-Provide key model results in a formatted table and plot the interaction model before reporting in-text the overall model fit.
+<!-- Provide key model results in a formatted table and plot the interaction model before reporting in-text the overall model fit. -->
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -450,11 +487,11 @@ Provide key model results in a formatted table and plot the interaction model be
 - For an overview, see the [interaction models flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#interaction-models). 
 - For an example, review the [interaction models > categorical x categorical example > model building flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#categorical-x-categorical-example).  
 
-*Results Table*  
+*Results Table (not mandatory for today)*  
   
 - Use `tab_model()` from the __sjPlot__ package. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#tables).  
 
-*Plot Model*  
+*Plot Model (not mandatory for today)*  
   
 - Using the `cat_plot()` function from the **interactions** package, visualise the interaction effects from your model. 
 - For an overview and example, review the [interaction models > categorical x categorical example > model visualisation flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#categorical-x-categorical-example).   
@@ -477,7 +514,7 @@ mdl_int <- lm(Score ~ Diagnosis * Task, data = cog)
 summary(mdl_int)
 ```
 
-## Results Table
+## Results Table (not mandatory for this lab)
 
 ```{r}
 #| label: tbl-w4-modresults
@@ -495,7 +532,7 @@ tab_model(mdl_int,
           title = "Regression Table for Scores Model")
 ```
 
-## Interaction Plot
+## Interaction Plot (not mandatory for this lab)
 
 ```{r}
 #| label: fig-cog-4
@@ -522,25 +559,27 @@ Full regression results including 95% Confidence Intervals are shown in @tbl-w4-
 
 <div class="divider div-transparent div-dot"></div>
 
-## Contrast Analysis
+## Interactions between manual contrasts (approx 15–20 min)
 
-Let's move onto testing differences between specific group means.
+Let's move onto to the main focus of the lab: testing differences between manually-specified differences of group means.
 
-`r qbegin(5)`
+`r qbegin(6)`
 
-In terms of the diagnostic groups, we want to compare the individuals with amnesia to those with Huntingtons. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
+Your task in this question is to define the interaction term's contrast, based on the contrasts given for the diagnostic groups and tasks.
+
+In terms of the diagnostic groups, we want to compare the individuals with amnesia to those with Huntingtons, ignoring the control group. This corresponds to a contrast with coefficients of 0, 1, and −1, for control, amnesic, and Huntingtons, respectively. 
 
 Similarly, in terms of the tasks, we want to compare the average of the two implicit memory tasks with the explicit memory task. This corresponds to a contrast with coefficients of 0.5, 0.5, and −1 for the three tasks. 
 
-When we are in presence of a significant interaction, the coefficients for a contrast between the means are found by multiplying each row coefficient with all column coefficients as shown below:
+To figure out the coding values for an interaction's contrast, we need to multiply all combinations of the manual contrast's coding values together.
+This is shown schematically below:
 
 ```{r echo=FALSE, out.width = '100%'}
 knitr::include_graphics('images/contr_interaction.png')
 ```
 
-Specify the coefficients to be used in the contrast analysis, and present in a table.
+Specify the interaction term's contrast in R. Present it in a well-formatted table that contains the same information as the one above.
 
-Next, formally state the contrast that the researchers were interested in as testable hypotheses. 
 
 :::{.callout-tip appearance="simple" collapse="true"}
 
@@ -588,7 +627,19 @@ contr_coef |>
     kable_styling(full_width = FALSE) 
 ```
 
-The above coefficients correspond to the following hypotheses:
+
+`r solend()`
+
+<br>
+
+
+`r qbegin(7)`
+
+Formally state the contrast that the researchers are interested in as testable hypotheses. 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
 
 $$
 H_0: \quad \left(\frac{\mu_{2,1} + \mu_{2,2}}{2} - \mu_{2,3} \right) - \left( \frac{\mu_{3,1} + \mu_{3,2}}{2} - \mu_{3,3} \right) = 0
@@ -608,7 +659,7 @@ $$
 H_1: \quad \frac{\mu_{2,1} + \mu_{2,2}}{2} - \mu_{2,3} \quad \neq \quad  \frac{\mu_{3,1} + \mu_{3,2}}{2} - \mu_{3,3}
 $$
 
-both statements state that, in the population, the difference between the mean implicit memory and the explicit memory score is the same for individuals with amnesia and Huntingtons. 
+Both statements state that, in the population, the difference between the mean implicit memory and the explicit memory score is the same for individuals with amnesia and Huntingtons. 
 
 Note that the scores for the grammar and classification tasks have been averaged to obtain a single measure of 'implicit memory' score.
 
@@ -616,11 +667,14 @@ Note that the scores for the grammar and classification tasks have been averaged
 
 <br>
 
-`r qbegin(6)`
 
-Firstly, use `emmeans()` to obtain the estimated means and uncertainties for your factors. 
 
-Next, specify the coefficients of the comparison and run the contrast analysis, obtaining 95% confidence intervals. 
+`r qbegin(8)`
+
+Firstly, use `emmeans()` to obtain the estimated means and uncertainties for all combinations of factor levels.
+
+Next, specify the coefficients of the comparison—that is, format the contrast for the interaction term the way that emmeans expects.
+Run the contrast analysis, obtaining 95% confidence intervals for the interaction term.
 
 Report the results of the contrast analysis in full. 
 
@@ -687,9 +741,9 @@ We performed a test against $H_0: \quad \frac{\mu_{2,1} + \mu_{2,2}}{2} - \mu_{2
 
 <div class="divider div-transparent div-dot"></div>
 
-## Simple Effects
+## Simple Effects (approx 10 min)
 
-`r qbegin(7)`
+`r qbegin(9)`
 
 Examine the simple effects for Task at each level of Diagnosis; and then the simple effects for Diagnosis at each level of Task. 
 
@@ -732,9 +786,9 @@ mdl_int_simple2
 
 <br>
 
-`r qbegin(8)`
+`r qbegin(10)`
 
-Visualise the interaction, displaying two plots - one with Diagnosis on the x-axis, and the other with Task on the x-axis.
+Visualise the interaction, displaying two plots: one with Diagnosis on the x-axis, and the other with Task on the x-axis.
 
 Considering the simple effects that you noted above, identify the significant effects and match them to the corresponding points of your interaction plot.
 
@@ -796,101 +850,6 @@ For the simple effects of Diagnosis (see `plt_2`), we saw significant difference
 
 + in the classification task, between amnesic & huntingtons     
     + middle blue point to right-most blue point  
-
-:::
-
-`r solend()`
-
-<div class="divider div-transparent div-dot"></div>
-
-## Pairwise Comparisons & Multiple Corrections
-
-`r qbegin(9)`
-
-Conduct exploratory pairwise comparisons to compare all levels of Diagnosis with all levels of Task, applying no correction (note that Tukey will be automatically applied since we are comparing groups of means, so you will need to overwrite this).
-
-Without adjusting our $\alpha$ (or $p$-value), why might any inferences drawn from your output be problematic?
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-For an overview, review the [multiple comparisons flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#multiple-comparisons).
-
-:::
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-```{r}
-pairs_res <- pairs(diag_task_mean, adjust = "none")
-pairs_res
-
-#can also plot if you'd like:
-plot(pairs_res)
-```
-
-From the above, we can see comparisons for all different possible pairs of diagnosis-task combinations^[the differences between the group means for the comparison as labelled]. 
-
-In total, there are 9 different estimates, but comparing them all means that we have 36 comparisons being tested! By not adjusting our $p$-value, we are increasing the experiment-wise Type I error rate - we could wrongly reject the null hypothesis at a much higher rate than 5/100 (or 1/20 as is assumed when $\alpha = .05$). To overcome this, we might adjust and determine a result to be statistically significant if $p < .005$, as opposed to $p < .05$, depending on how many tests are in our family of tests.  
-
-`r solend()`
-
-<br>
-
-`r qbegin(10)`
-
-Select an appropriate method to adjust for multiple comparisons, and then obtain confidence intervals.
-
-Comment on how these $p$-values differ from your raw (i.e., unadjusted) $p$-values.
-
-:::{.callout-tip appearance="simple" collapse="true"}
-
-### Hint
-
-For an overview, review the [multiple comparisons flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#multiple-comparisons).
-
-:::
-
-`r qend()`
-
-`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
-
-Note what the functions in `R` do is adjust the $p$-value, rather than the $\alpha$. 
-
-Since we're interested in all pairwise comparisons of means, the Tukey adjustment might be a sensible approach. However, we'll also show the Bonferroni to show how it differs (note, in practice you would only apply one correction and justify this choice based on your design - we are only applying two to note how they differ!)
-
-::: {.panel-tabset}
-
-## Tukey
-
-```{r}
-contrast(diag_task_mean, method = "pairwise", adjust="Tukey")
-```
-
-Note that 8 of the comparisons are no longer significant when using Tukey's adjustment, suggesting that these might have been (when using no adjustment) Type I errors! 
-
-
-## Bonferroni
-
-```{r}
-contrast(diag_task_mean, method = "pairwise", adjust="bonferroni")
-```
-
-The first Bonferroni adjusted $p$-value is 0.0207. 
-
-The raw (unadjusted) $p$-value from the previous question was 0.0005759265. 
-
-The Bonferroni method simply multiplies the 'raw' $p$-value by the number of the tests, which we know is 36. 
-
-```{r}
-0.0005759265 * 36
-```
-
-In terms of differences in Bonferroni to raw $p$-values, they are thus 36 times the size.  
-
-One benefit of Bonferroni is that it can be applied to any set of $p$-values, whereas Tukey only applies when comparing the means of levels of a factor. The downside, however, is that it may be overly conservative (i.e. reduce our power to detect an effect that is truly there).  
 
 :::
 
