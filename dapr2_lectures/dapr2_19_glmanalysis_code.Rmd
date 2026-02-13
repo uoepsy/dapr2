@@ -1,0 +1,148 @@
+---
+title: "s2w9 Live R"
+output: bookdown::html_document2
+date: "2025-03-17"
+---
+
+```{r}
+######Step 1 ######
+## TASKS: read in the data, then check, clean, describe, and visualise it.
+
+library(tidyverse)
+library(patchwork)
+library(kableExtra)
+library(psych) 
+library(sjPlot)
+
+#read in data
+marshmallow <- read_csv("https://uoepsy.github.io/data/mallow2.csv")
+
+############## CHECK ###################
+
+#check coding of variables - are they coded as they should be?
+str(marshmallow)
+head(marshmallow)
+#time of day, visibility, and taken all currently coded as character variables when should be factors, need to fix this.
+# age also in months - likely more useful to have in years given age included up to 10 years old.
+
+
+### check range of values, NAs, etc. for each variable 
+
+# age - should range 36-120 months
+describe(marshmallow$agemonths)
+# ISSUE - we have values WAY above what should be included from the sample
+
+#visibility - should either be hidden or visible, with same number of ppts in each condition
+table(marshmallow$visibility)
+# All good
+
+#time of day - should either be am or pm
+table(marshmallow$timeofday)
+# ISSUE - we have one mis-coded as “5 pm”, which I’m guessing should just be “pm”. And we have one at “noon”. There’s no way of knowing whether that was morning or afternoon, so safest option is to just remove
+
+#taken - shold either be taken or waited
+table(marshmallow$taken)
+# All good
+
+############## CLEAN ###################
+# We can do all cleaning in one long command.
+# First create age (in years) variable
+# Second fix time of day - make factor and specify correct levels
+# Third make visibility a factor and specify levels
+# Fourth make taken a factor and specify levels
+# Lastly we want to remove anyone over 120 months (i.e., 10 years) and those with NA values for time of day (i.e., the value of noon)
+
+marshmallow <- marshmallow |>
+    mutate(
+      age = agemonths/12,
+      timeofday = factor(timeofday, 
+                         levels=c("am","pm","5 pm"), # possible levels
+                         labels = c("am","pm","pm")), # make the levels these
+      visibility = factor(visibility, 
+                          levels=c("visible","hidden")),
+      taken = factor(taken, 
+                     levels=c("waited","taken"))
+      ) |>
+    filter(agemonths <= 120, !is.na(timeofday))
+
+#check cleaning has worked:
+describe(marshmallow$agemonths) #min over 36, and max 120 - all good
+describe(marshmallow$age) #min over 3 yo, and max 10 yo - all good
+table(marshmallow$timeofday) #now only am or pm as should be 
+
+############## DESCRIBE ###################
+
+#create descriptives table
+descript <- marshmallow |> 
+    group_by(visibility, timeofday) |>
+   summarise(
+       M_Age = mean(age),
+       SD_Age = sd(age),
+       percent_pm = sum(timeofday=="pm")/n()*100,
+       percent_taken = sum(taken=="taken")/n()*100) |>
+  kable(caption = "Descriptive Statistics", digits = 2) |>
+  kable_styling()
+descript
+
+############## VISUALISE ###################
+
+#bar plot
+mallow_plt1 <- ggplot(data = marshmallow, aes(x = as_factor(taken), fill = as_factor(taken))) + 
+  geom_bar() + 
+    labs(x = "Taken Marshmallow (0 = No, 1 = Yes)", fill = "Marshmallow Taken \n(0 = No, 1 = Yes)", y = "Frequency")
+mallow_plt1 
+
+#density plot
+sen_plt2 <- ggplot(data = marshmallow, aes(x = age, fill = as_factor(taken))) + 
+  geom_density() + 
+    labs(x = "Age", fill = "Marshmallow Taken \n(0 = No, 1 = Yes)")
+sen_plt2
+
+
+######Step 2 ######
+## TASKS: run your model(s) of interest to answer your research question, and make sure that the data meet the assumptions of your chosen test
+
+############## BUILD MODEL & EXAMINE OUTPUT ###################
+
+mm1 <- glm(taken ~ timeofday + age + visibility, family = "binomial", data = marshmallow)
+summary(mm1)
+exp(coefficients(mm1))
+
+############## ASSUMPTIONS ###################
+
+#std deviance residuals - values > |2| or > |3| may be problematic
+plot(rstandard(mm1, type = "deviance"), ylab = "Standardised Deviance Residuals", ylim=c(-3,3))
+
+#cooks D  - values > 0.5 may be problematic
+plot(cooks.distance(mm1), ylab = "Cook's Distance", ylim=c(0,1))
+
+
+############## MODEL FIT ###################
+
+#compare to null - conduct model comparison
+#fit null
+mm0 <- glm(taken ~ 1, family = "binomial", data = marshmallow)
+
+#compare models - models are nested
+anova(mm0, mm1, test = "Chisq")
+AIC(mm0, mm1)
+BIC(mm0, mm1)
+
+############## PLOT / TABLE MODEL RESULTS ###################
+
+#results in formatted table
+tab_model(mm1,
+          dv.labels = "Marshmallow Taken",
+          pred.labels = c("Intercept", "Time of Day - PM", "Age (in years)", "Visibility - Hidden"),
+          title = "Regression Table for Marshmallow Model")
+
+```
+
+# Analysis Strategy
+
+# Results
+
+# Discussion
+
+# Appendix
+
