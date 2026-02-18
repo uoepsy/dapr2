@@ -1,0 +1,792 @@
+---
+title: "Logistic Regression II"
+link-citations: TRUE
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+source('assets/setup.R')
+
+set.seed(953)
+
+library(DT)
+library(pander)
+library(sjPlot)
+library(tidyverse)
+library(car)
+library(plotrix) 
+```
+
+:::lo
+
+### <i class="fa fa-graduation-cap"></i> Learning Objectives
+At the end of this lab, you will:
+
+1. Understand when to use a logistic model
+2. Understand how to fit and interpret a logistic model
+3. Understand how to evaluate model fit
+
+### <i class="fa fa-check-square-o fa-2"></i> What You Need
+
+1. Be up to date with lectures
+2. Have completed previous lab exercises from [Semester 2 Week 7](https://uoepsy.github.io/dapr2/2526/labs/2_07_glm1.html)
+
+### <i class="fab fa-r-project"></i> Required R Packages
+Remember to load all packages within a code chunk at the start of your RMarkdown file using `library()`. If you do not have a package and need to install, do so within the console using `install.packages(" ")`. For further guidance on installing/updating packages, see Section C [here](https://uoepsy.github.io/files/install-update-r#update-pkgs).  
+
+For this lab, you will need to load the following package(s):
+
+* **tidyverse** 
+* **patchwork**
+* **kableExtra**
+* **psych**
+* **sjPlot**
+
+### <i class="fa fa-pencil-square-o" aria-hidden="true"></i> Presenting Results
+All results should be presented following [APA guidelines](https://apastyle.apa.org/instructional-aids/numbers-statistics-guide.pdf).If you need a reminder on how to hide code, format tables/plots, etc., make sure to review the [rmd bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/).
+
+The example write-up sections included as part of the solutions are **not perfect** - they instead should give you a good example of what information you should include and how to structure this. Note that you must **not** copy any of the write-ups included below for future reports - if you do, you will be committing plagiarism, and this type of academic misconduct is taken very seriously by the University. You can find out more [here](https://www.ed.ac.uk/academic-services/students/conduct/academic-misconduct).  
+
+
+### <i class="fa fa-file"></i> Lab Data
+You can download the data required for this lab [here](https://uoepsy.github.io/data/QuitAttempts.csv) or read it in via this link https://uoepsy.github.io/data/QuitAttempts.csv 
+
+:::
+
+# Study Overview
+
+> **Research Question**
+>
+> Is attempting to quit tobacco products associated with an individuals intentions?
+
+`r optbegin("Smoking codebook", olabel=FALSE, toggle=params$TOGGLE)` 
+
+__Description__
+
+[Kalkhoran and colleagues (2015)](https://doi.org/10.5993/AJHB.39.2.14)[^1] investigated predictors of dual use of cigarettes and smokeless tobacco products. Although their original sample size was large $(n = 1324)$, they were interested in running separate logistic regression analyses within subgroups. Specifically, they were interested in one of the smaller subgroups that contained subjects who used both cigarettes and smokeless tobacco products $(n=61)$.
+
+__Data Dictionary__
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+smoke <- read_csv("https://uoepsy.github.io/data/QuitAttempts.csv")
+tibble(
+variable = names(smoke),
+description = c("Subject Number","Quit attempt - Whether the subject made an attempt to quit using tobacco products (0 = no attempt to quit; 1 = attempted to quit).", "Individuals intention to quit (1 = Never intend to quit; 2 = May intend to quit but not in the next 6 months; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days)")
+) %>% gt::gt()
+```
+
+__Preview__
+
+The first six rows of the data are:
+
+```{r echo=FALSE, message=FALSE}
+read_csv('https://uoepsy.github.io/data/QuitAttempts.csv') %>% head %>% gt::gt()
+```
+
+`r optend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Setup
+
+`r qbegin("Setup", qlabel = FALSE)`  
+
+1. Create a new RMarkdown file
+2. Load the required package(s)
+3. Read in the QuitAttempts dataset into R, assigning it to an object named `smoke` 
+ 
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r message=FALSE}
+#load packages
+library(tidyverse)
+library(psych)
+library(kableExtra)
+library(patchwork)
+library(sjPlot)
+
+#read in data
+smoke <- read_csv("https://uoepsy.github.io/data/QuitAttempts.csv")
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Exercises 
+
+## Study & Analysis Plan Overview 
+
+`r qbegin(1)`
+
+Examine the dataset, and perform any necessary and appropriate data management steps.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+- The `str()` function will return the overall structure of the dataset, this can be quite handy to look at  
+- Convert categorical variables to factors, and if needed, provide better variable names*
+- Label factors appropriately to aid with your model interpretations if required*    
+- Check that the dataset is complete (i.e., are there any `NA` values?). We can check this using `is.na()`  
+
+Note that all of these steps can be done in combination - the `mutate()` and `factor()` functions will likely be useful here.   
+
+*See the [numeric outcomes & categorical predictors flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#numeric-outcomes-categorical-predictors), including the [example flashcard > specifying reference levels](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#example-2).  
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#look at structure of data:
+str(smoke)
+
+#check for NAs - there are none - all FALSE:
+table(is.na(smoke))
+
+#re-name variables to improve clarity:
+smoke <- smoke |>
+    rename(PID = S,
+           Quit_Attempt = Q,
+           Intention = I)
+
+#re-assign categorical IVs as factors, and give more appropriate labels to each level:
+smoke$Intention <- factor(smoke$Intention,
+                              levels = c(1,2,3,4),
+                              labels = c("Never", "Maybe (not in next 6 months)", "Yes (within next 6 months)", "Yes (within next 30 days)"))
+
+```
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Descriptive Statistics & Visualisations
+
+`r qbegin(2)`
+
+Provide a table of descriptive statistics and visualise your data. 
+ 
+Remember to interpret these in the context of the study.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+Review the many ways to numerically and visually explore your data by reading over the [data exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#data-exploration).
+
+
+Specifics to consider:    
+  
+1. For your table of descriptive statistics, both the `group_by()` and `summarise()` functions will come in handy here  
+  
+2. For your visualisations, you will need to specify `as_factor()` when plotting the quit attempt variable since this is numeric, but we want it to be treated as a factor **only** for plotting purposes. You can either visualise as counts or as proportions (choose one approach)./    
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Numeric
+
+Let's first produce a descriptive statistics table:
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-cog-descript
+#| tbl-cap: Descriptive Statistics
+smoke |>
+    select(Intention, Quit_Attempt) |>
+    table() |>
+    kable(caption = "Descriptive Statistics", col.names = c("No attempt to quit","Attempted to quit")) |>
+    kable_styling()
+```
+
+Or alternatively we could view as proportions: 
+
+```{r message=FALSE, warning=FALSE}
+#| label: tbl-cog-prop
+#| tbl-cap: Proportions
+smoke_prop <- smoke |>
+  group_by(Intention, Quit_Attempt) |>
+  summarise(
+    n = n()) |>
+  mutate(
+    Proportion = round(n/sum(n),2)
+  ) |>
+    kable(caption = "Proportions") |>
+    kable_styling()
+
+smoke_prop 
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+Based on the proportions presented in @tbl-cog-prop, we can see for those who had some intention to quit (i.e., maybe - not in next 6 months, yes - within next 6 months, or yes - within 30 days), there was a larger proportion of individuals who attempted to quit using tobacco products. 
+
+:::
+
+## Visual
+
+We can visually explore the association between the two categorical variables either as counts or proportions:
+
+```{r}
+#| label: fig-smoke-desc1
+#| fig-cap: "Association between Intention and Quitting Attempt"
+smoke_plt1 <- ggplot(data = smoke, aes(x=as_factor(Quit_Attempt), fill=Intention)) +
+  geom_bar(position = "dodge") +
+    facet_wrap(~ Intention) + 
+  labs(fill = 'Intention to Quit', x = "Attempted Quitting (0 = No, 1 = Yes)", y = "Count") + 
+    theme(legend.position = "none")
+smoke_plt1
+```
+
+```{r}
+#| label: fig-smoke-desc2
+#| fig-cap: "Association between Intention and Quitting Attempt"
+smoke_plt2 <- ggplot(data = smoke, aes(x=as_factor(Quit_Attempt), fill=Intention)) +
+  geom_bar(position = "fill") +
+  labs(fill = 'Intention to Quit', x = "Attempted Quitting (0 = No, 1 = Yes)", y = "Proportion")
+smoke_plt2
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+From @fig-smoke-desc1 and @fig-smoke-desc2, we can see that for those who made an attempt to quit using tobacco products, the majority intended to quit - either in the immediate or distant future. For those who made no attempt to quit using tobacco products, the majority either had no intention of quitting or did not plan to quit in the near future. 
+
+:::
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Fitting & Interpretation 
+
+`r qbegin(3)`
+
+Fit your model using `glm()`, and assign it as an object with the name "smoke_mdl1".   
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an overview of how to fit a binary logistic regression model using the `glm()` function, see the [binary logistic regression flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models).   
+  
+For an example, review the [logistic models > example flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#example-3). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+smoke_mdl1 <- glm(Quit_Attempt ~ Intention, data = smoke, family = "binomial")
+summary(smoke_mdl1)
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(4)`
+
+Interpret your coefficients in the context of the study. When doing so, it may be useful to translate the log-odds back into odds.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an overview of how probability, odds, and log-odds are related, review the [probability, odds, and log-odds flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models).  
+
+If you need help interpreting coefficients, review the [interpretation of coefficients flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models).  
+  
+For an example, review the [logistic models > example flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#example-3). 
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+exp(coefficients(smoke_mdl1))
+```
+
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(exp(coef(smoke_mdl1))[1],2)`  
+
++ For a participant who reported that they “never intend to quit", the odds that they did attempt quitting was 0.14.
+
+## `Intention Maybe (not in next 6 months)`
+
+$\beta_1$ = `Intention Maybe (not in next 6 months)` = `r round(exp(coef(smoke_mdl1))[2],2)`  
+
++ Relative to those who "never intend to quit", the odds of attempting to quit were multiplied by `r round(exp(coef(smoke_mdl1))[2],2)` for those with an "intention to quit but not in the next 6 months".
+    
+## `Intention Yes (within next 6 months)`
+
+$\beta_2$ = `Intention Yes (within next 6 months)` = `r round(exp(coef(smoke_mdl1))[3],2)`  
+
++ Relative to those who "never intend to quit", reporting an "intention to quit in the next 6 months" changed the odds of attempting to quit by a ratio of `r round(exp(coef(smoke_mdl1))[3],2)` .
+
+## `Intention Yes (within next 30 days)`  
+
+$\beta_3$ = `Intention Yes (within next 30 days)` = `r round(exp(coef(smoke_mdl1))[4],2)`
+
++ Relative to those who "never intend to quit", reporting an "intention to quit in the next 30 days" was associated with an increase in the odds of attempting to quit by a factor of `r round(exp(coef(smoke_mdl1))[4],2)`.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(5)`
+
+Calculate the predicted probability of each group attempting to quit smoking. 
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an overview of how probability, odds, and log-odds are related, review the [probability, odds, and log-odds flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models).  
+  
+To calculate via `R`, as you will see from the flashcard, you can use the `predict`, or `plogis()` functions.   
+   
+For the former, you will need to specify `type = "response"` to obtain the predicted probabilities, and this requires the model coefficients to be in log-odds. When specifying `newdata = `, it might be useful to ask for each unique level of our "Intention" variable. This is very similar in procedure to how you've done this in the past. For a recap, see the [model predicted values and residuals flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#model-predicted-values-residuals). For the latter, we can calculate the probability corresponding to a given value of `logit(p)`.    
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Manually
+
+The predicted probability of quitting smoking for someone who...:  
+
++ never intends to quit is = $\frac{e^{(-1.946)}}{1 + e^{(-1.946)}}$ = 0.1250
+  
++ might intend to quit (but not in the next 6 months) is = $\frac{e^{(-1.946+2.582)}}{1 + e^{(-1.946+2.582)}}$ = 0.6538
+  
++ intends to quit (in the next 6 months) is = $\frac{e^{(-1.946+3.227)}}{1 + e^{(-1.946+3.227)}}$ = 0.7826  
+  
++ intends to quit (in the next 30 days) is = $\frac{e^{(-1.946+3.332)}}{1 + e^{(-1.946+3.332)}}$ = 0.8000
+  
+
+## R Function
+
+::: {.panel-tabset}
+
+### `predict()`
+
+We can ask `R` to use each *unique* level of our "Intention" variable (which we have 4 of: "Never", "Maybe (not in next 6 months)", "Yes (within next 6 months)", and "Yes (within next 30 days)", and return the predicted probability of quitting for each:   
+
+```{r}
+predict(smoke_mdl1, type="response", newdata=tibble(Intention=unique(smoke$Intention)))  
+```
+
+To check what groups the "1", "2", "3", and "4" refer to, we will need to look at the ordering within `unique(smoke$Intention)`:
+
+```{r}
+unique(smoke$Intention)
+```
+
+So we know 1 = "Never", 2 = "Yes (within next 6 months)", 3 = "Maybe (not in next 6 months)", and 4 = "Yes (within next 30 days)".  
+
+The predicted probability of quitting smoking for someone who...:  
+
++ never intends to quit is 0.1250
++ might intend to quit (but not in the next 6 months) is 0.6538
++ intends to quit (in the next 6 months) is 0.7826
++ intends to quit (in the next 30 days) is 0.8000
+
+
+### `plogis()`
+
+```{r}
+prob_never <- plogis(-1.946)
+prob_never
+
+prob_maybe_not6m <- plogis(-1.946 + 2.582)
+prob_maybe_not6m
+
+prob_yes_6m <- plogis(-1.946 + 3.227)
+prob_yes_6m
+
+prob_yes_30d <- plogis(-1.946 + 3.332)
+prob_yes_30d
+
+```
+
+We can see that these values are the same (with the exception of minor rounding differences) as the predicted probabilities obtained via `predict()`, where the probability of attempting to quit smoking for someone who...:  
+
++ never intends to quit is 0.1250
++ might intend to quit (but not in the next 6 months) is 0.6538
++ intends to quit (in the next 6 months) is 0.7826
++ intends to quit (in the next 30 days) is 0.8000
+
+:::
+
+:::
+
+We can see regardless of whether we calculate manually, or via an `R` function, we should end up with the same predicted probabilities!
+
+`r solend()`
+
+
+<div class="divider div-transparent div-dot"></div>
+
+## Model Fit
+
+`r qbegin(6)`
+
+Examine the below plot to determine if the deviance residuals raise concerns about outliers: 
+
+```{r}
+plot(rstandard(smoke_mdl1, type = 'deviance'), ylab = 'Standardised Deviance Residuals')
+```
+
+Based on this plot, are there any residuals of concern? Are there any additional plots you could check to determine if there are influential observations?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an overview of logistic model assumptions, review the [model assumptions > logistic models flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models-3).   
+
+::: 
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## Deviance Residuals
+
+```{r, echo= FALSE}
+plot(rstandard(smoke_mdl1, type = 'deviance'), ylab = 'Standardised Deviance Residuals', ylim=c(-3.5, 3.5))
+draw.circle(x = 40.1, y = 2.17, radius = 2, border="red",lty=1,lwd=3)
+```
+
+In the plot of standardised deviance residuals above, there appears to be 1 residual with a value >|2|, but none with a value >|3|. We will keep this in mind and check if they are also an influential point by plotting Cook's Distance.
+
+## Cook's Distance
+
+::: {.panel-tabset}
+
+We can plot Cook's Distance using a couple of different approaches:
+
+### Option 1
+
+```{r eval = FALSE, echo = TRUE}
+plot(cooks.distance(smoke_mdl1), ylab = "Cook's Distance")
+```
+
+```{r echo = FALSE, eval = TRUE}
+plot(cooks.distance(smoke_mdl1), ylab = "Cook's Distance", ylim = c(0,1))
+```
+
+### Option 2
+
+```{r}
+plot(smoke_mdl1, which = 4)
+```
+
+:::
+
+There doesn’t appear to be any influential observations based on our Cook's distance plot, since all values < .50.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(7)`
+
+Perform a Deviance goodness-of-fit test to compare your fitted model to the null (denoted as $M_1$ and $M_0$ respectively below). 
+
+$$
+\begin{aligned}
+\text{M}_0 &: \qquad \log \left( \frac{p}{1 - p}\right) ~=~ \beta_0 \\
+\text{M}_1 &: \qquad \log \left( \frac{p}{1 - p}\right) ~=~ \beta_0 + \beta_1 \cdot \text{Intention}_\text{2} + \beta_2 \cdot \text{Intention}_\text{3} + \beta_3 \cdot \text{Intention}_\text{4}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\text{where}~{p}~ &=~ \text{probability of attempting to quit using tobacco products}
+\end{aligned}
+$$
+
+Report the results of the model comparison in APA format, and state which model you think best fits the data.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Consider whether or not your models are nested. The [model comparisons > logistic models flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models-2) may also be helpful to revisit.
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+First, let's fit the null model:
+
+```{r}
+smoke_mdl0 <- glm(Quit_Attempt ~ 1, data = smoke, family = "binomial")
+summary(smoke_mdl0)
+```
+
+Since our models are nested, we can compare using the likelihood ratio test:
+
+```{r}
+anova(smoke_mdl0, smoke_mdl1, test = 'Chisq')
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+At the 5% significance level, the addition of information about the participants’ intention to quit resulted in a significant decrease in model deviance $\chi^2(3) = 11.99, p = .007$.
+
+Hence, we have strong evidence that the model the subjects’ intention to quit is a helpful predictor of whether or not they will attempt quitting in the future.
+
+:::
+
+`r solend()`
+
+<br>
+
+`r qbegin(8)`
+
+Check the AIC and BIC values for smoke_mdl0 and smoke_mdl1 - which model should we prefer based on these model fit indices?
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Review the [model comparisons > logistic models > AIC & BIC flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models-2)
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.panel-tabset}
+
+## AIC   
+
+```{r}
+AIC(smoke_mdl0, smoke_mdl1)
+```
+
+## BIC  
+
+```{r}
+BIC(smoke_mdl0, smoke_mdl1)
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We used AIC and BIC model selection to distinguish between two possible models describing the association between attempting to quit and intentions. Our model with with intentions included as a predictor $(\text{AIC} = 76.66)$ was better fitting than the null model $(\text{AIC} = 82.65)$. However, the BIC values suggested that the model including intentions $(\text{BIC}  = 85.17)$ was a poorer fit than the null $(\text{BIC}  = 84.77)$. Based on the weight of evidence from both the Deviance goodness-of-fit test alongside the AIC and BIC values, we would conclude that the model with intentions was better fitting than the null.
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+## Writing Up & Presenting Results
+
+`r qbegin(9)`
+
+Provide key model results in a formatted table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint 
+
+Use `tab_model()` from the __sjPlot__ package. For a quick guide, review the [tables flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#tables).
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+#| label: tbl-smoke-modresults
+#| tbl-cap: Regression table for Smoking Model
+#create table for results
+tab_model(smoke_mdl1,
+          dv.labels = "Attempt to quit using tobacco products",
+          pred.labels = c("Maybe (not in next 6 months)" = "Intend to quit but not in the next 6 months", 
+                          "Yes (within next 6 months)" = "Intend to quit in the next 6 months",
+                          "Yes (within next 30 days)" = "Intend to quit in the next 30 days"),
+          title = "Regression table for Smoking Model")
+```
+
+`r solend()`
+
+<br>
+
+`r qbegin(10)`
+
+Interpret your results in the context of the research question and report your model in full.
+
+Make reference to the regression table.
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Hint
+
+For an example of coefficient interpretation, review the [interpretation of coefficients flashcard](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#logistic-models). For a more in-depth overview and example, see the [logistic models > example flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b4_reading.html#example-3).     
+
+:::
+
+`r qend()`
+
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::: {.callout-important icon=false appearance="minimal"}
+
+
+```{r}
+#| include: false
+res <- exp(car::Confint(smoke_mdl1))
+res <- round(res,2)
+```
+
+
+Whether or not participants made an attempt to quit using tobacco products (binary 0 vs 1; 0 no attempt to quit, 1 attempted to quit) was modeled using logistic regression, with intention to quit ('never intend to quit', 'may intend to quit but not in the next 6 months', 'intend to quit in the next 6 months', 'intend to quit in the next 30 days', with 'never intend to quit' as the reference level) as the only predictor. See @tbl-smoke-modresults for full model results.
+
+The odds of attempting to quit for the group who reported having no intention to quit were significantly less than 1  ($Odds = `r res[1,1]`,\,\, 95\%\, CI\, [`r paste(res[1,2:3],collapse=", ")`]$).  
+  
+Relative to those who never intend to quit, reporting an intention to quit but not in the next 6 months was associated with  `r res[2,1]` increased odds ($95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`]$) of attempting to quit. 
+
+In comparison to those with no intention to quit, for those who intended to quit in the next six months, the odds of quitting increased were multiplied by `r res[3,1]` ($95\%\, CI\, [`r paste(res[3,2:3],collapse=", ")`]$).
+
+Finally, intending to quit in the next 30 days was associated with an increase in the odds of attempting to quit by a factor of `r res[4,1]` ($95\%\, CI\, [`r paste(res[4,2:3],collapse=", ")`]$) in comparison to those who never intended to quit.
+
+In summary, having any future intention to quit was associated with increased odds of attempting to quit using tobacco products in comparison to those with no intention to quit.
+
+:::
+
+`r solend()`
+
+<div class="divider div-transparent div-dot"></div>
+
+# Compile Report
+
+`r qbegin("Compile Report", qlabel = FALSE)`  
+
+Knit your report to PDF, and check over your work. To do so, you should make sure:
+
+- Only the output you want your reader to see is visible (e.g., do you want to hide your code?)
+- Check that the **tinytex** package is installed
+- Ensure that the ‘yaml’ (bit at the very top of your document) looks something like this:
+
+```{}
+---
+title: "this is my report title"
+author: "B1234506"
+date: "07/09/2025"
+output: bookdown::pdf_document2
+---
+```
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# What to do if you cannot knit to PDF
+If you are having issues knitting directly to PDF, try the following:  
+
+- Knit to HTML file  
+- Open your HTML in a web-browser (e.g. Chrome, Firefox)  
+- Print to PDF (Ctrl+P, then choose to save to PDF)  
+- Open file to check formatting
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+# Hiding Code and/or Output
+
+:::{.panel-tabset}
+## Hiding R Code
+
+To not show the code of an R code chunk, and only show the output, write:
+
+````
+```{{r, echo=FALSE}}
+# code goes here
+```
+````
+
+## Hiding R Output
+
+To show the code of an R code chunk, but hide the output, write:
+
+````
+```{{r, results='hide'}}
+# code goes here
+```
+````
+
+## Hiding R Code and Output
+
+To hide both code and output of an R code chunk, write:
+
+````
+```{{r, include=FALSE}}
+# code goes here
+```
+````
+:::
+
+:::
+
+:::{.callout-tip appearance="simple" collapse="true"}
+
+### Tinytex
+You must make sure you have **tinytex** installed in R so that you can “Knit” your Rmd document to a PDF file:
+
+```{r eval = FALSE}
+install.packages("tinytex")
+tinytex::install_tinytex()
+```
+
+:::
+
+`r qend()`
+
+`r solbegin(show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+You should end up with a PDF file. If you have followed the above instructions and still have issues with knitting, speak with a Tutor. 
+
+`r solend()`
+
+
+[^1]: Kalkhoran, S., Grana, R. A., Neilands, T. B., & Ling, P. M. (2015). Dual use of smokeless tobacco or e-cigarettes with cigarettes and cessation. *American Journal of Health Behavior, 39*(2), 277–284. https://doi.org/10.5993/AJHB.39.2.14 
+
