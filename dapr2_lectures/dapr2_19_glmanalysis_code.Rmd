@@ -48,7 +48,6 @@ table(marshmallow$taken)
 # First create age (in years) variable
 # Second fix time of day - make factor and specify correct levels
 # Third make visibility a factor and specify levels
-# Fourth make taken a factor and specify levels
 # Lastly we want to remove anyone over 120 months (i.e., 10 years) and those with NA values for time of day (i.e., the value of noon)
 
 marshmallow <- marshmallow |>
@@ -59,8 +58,7 @@ marshmallow <- marshmallow |>
                          labels = c("am","pm","pm")), # make the levels these
       visibility = factor(visibility, 
                           levels=c("visible","hidden")),
-      taken = factor(taken, 
-                     levels=c("waited","taken"))
+      taken = ifelse(taken == "taken", 1, 0)
       ) |>
     filter(agemonths <= 120, !is.na(timeofday))
 
@@ -85,17 +83,22 @@ descript
 
 ############## VISUALISE ###################
 
-#bar plot
-mallow_plt1 <- ggplot(data = marshmallow, aes(x = as_factor(taken), fill = as_factor(taken))) + 
-  geom_bar() + 
-    labs(x = "Taken Marshmallow (0 = No, 1 = Yes)", fill = "Marshmallow Taken \n(0 = No, 1 = Yes)", y = "Frequency")
-mallow_plt1 
+#density plot with facets
+mallow_plt1 <- ggplot(data = marshmallow, aes(x = age, fill = as_factor(taken))) + 
+    geom_density() + 
+    scale_fill_manual(values = c("0" = "darkgreen", "1" = "red"), labels = c("0" = "waited", "1" = "taken")) + 
+    facet_grid(visibility ~ timeofday) +
+    labs(x = "Age", fill = "Marshmallow Status")
+mallow_plt1
 
-#density plot
-sen_plt2 <- ggplot(data = marshmallow, aes(x = age, fill = as_factor(taken))) + 
-  geom_density() + 
-    labs(x = "Age", fill = "Marshmallow Taken \n(0 = No, 1 = Yes)")
-sen_plt2
+#facet plot - plot probability
+mallow_plt2 <- marshmallow |> 
+    ggplot(aes(x = age, y = taken, colour = visibility)) +
+    ylab("p(taken)") +
+    geom_jitter() +
+    facet_wrap(~timeofday) +
+    geom_smooth(method = "glm", method.args = list(family = binomial))
+mallow_plt2
 
 
 ######Step 2 ######
