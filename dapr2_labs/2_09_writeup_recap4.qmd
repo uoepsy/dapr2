@@ -213,7 +213,7 @@ descript <- marshmallow |>
    summarise(
        M_Age = mean(age),
        SD_Age = sd(age),
-       percent_taken = sum(taken=="taken")/n()*100) |>
+       percent_taken = sum(taken == "1")/n()*100) |>
   kable(caption = "Descriptive Statistics", digits = 2) |>
   kable_styling()
 descript
@@ -222,7 +222,7 @@ descript
 
 #density plot with facets
 mallow_plt1 <- ggplot(data = marshmallow, aes(x = age, fill = as_factor(taken))) + 
-    geom_density() + 
+    geom_density(alpha = 0.5) + 
     scale_fill_manual(values = c("0" = "darkgreen", "1" = "red"), labels = c("0" = "waited", "1" = "taken")) + 
     facet_grid(visibility ~ timeofday) +
     labs(x = "Age", fill = "Marshmallow Status")
@@ -337,7 +337,7 @@ $$
 $$
 
 
-To address the research question of whether the probability of taking the marshmallow changed as a function of time of day, age, and marshmallow visibility, this formally corresponded to:
+To address the research question of whether the probability of taking the marshmallow changed as a function of time of day, age, and marshmallow visibility, we formalised our hypotheses as:
 
 $$
 H_0: \text{All} ~~ \beta_j ~~ = ~~ 0 ~~ (for ~~ j ~~ = 1, 2, 3)
@@ -383,7 +383,7 @@ marshmallow |>
    summarise(
        M_Age = mean(age),
        SD_Age = sd(age),
-       percent_taken = sum(taken=="taken")/n()*100) |>
+       percent_taken = sum(taken=="1")/n()*100) |>
   kable(caption = "Descriptive Statistics", digits = 2) |>
   kable_styling()
 ```
@@ -420,7 +420,7 @@ res <- exp(car::Confint(mm1))
 res <- round(res,2)
 ```
 
-Age and visibility were significant predictors of delayed gratification (see @tbl-res). For every year increase in age, the odds of taking the marshmallow decreased by a factor of `r res[3,1]` ($95\%\, CI\, [`r paste(res[3,2:3],collapse=", ")`])$. When the marshmallow was hidden (as opposed to visible), the odds of taking the marshmallow decreased by a factor of `r res[4,1]` ($95\%\, CI\, [`r paste(res[4,2:3],collapse=", ")`])$. Thus, we rejected the null hypothesis. 
+The probability of taking the marshmallow when the marshmallow was visible in the morning session for those aged zero was 0.99. There was no association between time of day and taking the marshmallow `r res[2,1]` ($95\%\, CI\, [`r paste(res[2,2:3],collapse=", ")`])$ after accounting for age and visibility. Age and visibility were significant predictors of delayed gratification (see @tbl-res). For every year increase in age, the odds of taking the marshmallow decreased by a factor of `r res[3,1]` ($95\%\, CI\, [`r paste(res[3,2:3],collapse=", ")`])$ when the marshmallow was visible in the morning session. When the marshmallow was hidden (as opposed to visible), the odds of taking the marshmallow decreased by a factor of `r res[4,1]` ($95\%\, CI\, [`r paste(res[4,2:3],collapse=", ")`])$ for those aged zero in the morning session. Thus, we rejected the null hypothesis. 
 
 ```{r tableres, echo = FALSE, message = FALSE, caption = "Model Results"}
 #| label: tbl-res
@@ -455,6 +455,55 @@ The discussion should be relatively brief, and should not include any statistica
 `r solbegin(": Example Write-Up of Discussion Section", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
 
 The probability of children delaying gratification did change as a function of age and marshmallow visibility (but not time of day). In summary, older age and conditions where the marshmallow was hidden appeared to be associated with greater odds of successfully delaying gratification.
+
+`r solend()`
+
+#### Optional/Extra: Mean-Centre Age
+
+`r qbegin(4)`
+
+You might be thinking after writing up your results - why did we not mean-centre age? We don't have a children in the study aged zero, in fact the study only included children aged 3-10 years - so can't we make our interpretation more meaningful? And the answer to that question would be yes! 
+
+Mean center the continuous IV (i.e., age), and re-run your model using this. Interpret your new results int the context of the research question.
+
+`r qend()`
+
+`r solbegin(": Example Write-Up of Optional/Extra Analysis", show = params$SHOW_SOLS, toggle = params$TOGGLE)`
+
+```{r}
+#Create mean centered variable for age - store as mc_age
+marshmallow <-
+    marshmallow |>
+    mutate(
+        mc_age = age - mean(age)
+    )
+
+#Re-run model with mc_age
+mm2 <- glm(taken ~ timeofday + mc_age + visibility, data = marshmallow, family = binomial)
+summary(mm2)
+
+tab_model(mm2,
+          dv.labels = "Marshmallow Taken",
+          pred.labels = c("Intercept", "Time of Day - PM", "Age (in years; mean centered)", "Visibility - Hidden"),
+          title = "Regression Table for Marshmallow Model 2")
+```
+
+```{r}
+#| include: false
+res2 <- exp(car::Confint(mm2))
+res2 <- round(res2,2)
+```
+
+The probability of taking the marshmallow when the marshmallow was visible in the morning session for those of average age (i.e., 6.5 years old) was 0.64. There was no association between time of day and taking the marshmallow `r res2[2,1]` ($95\%\, CI\, [`r paste(res2[2,2:3],collapse=", ")`])$ after accounting for age and visibility. Age and visibility were significant predictors of delayed gratification (see @tbl-res2). For every year increase in age, the odds of taking the marshmallow decreased by a factor of `r res2[3,1]` ($95\%\, CI\, [`r paste(res2[3,2:3],collapse=", ")`])$ when the marshmallow was visible in the morning session. When the marshmallow was hidden (as opposed to visible), the odds of taking the marshmallow decreased by a factor of `r res2[4,1]` ($95\%\, CI\, [`r paste(res2[4,2:3],collapse=", ")`])$ for those of average age in the morning session. Thus, we rejected the null hypothesis. 
+
+```{r tableres2, echo = FALSE, message = FALSE}
+#| label: tbl-res2
+#| tbl-cap: "Regression Table for Marshmallow Model 2"
+tab_model(mm2,
+          dv.labels = "Marshmallow Taken",
+          pred.labels = c("Intercept", "Time of Day - PM", "Age (in years; mean centered)", "Visibility - Hidden"),
+          title = "Regression Table for Marshmallow Model 2")
+```
 
 `r solend()`
 
