@@ -1,0 +1,181 @@
+---
+title: "Multiple regression (>1 predictor)"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+library(psych)
+library(sjPlot)
+```
+
+## Description and model specification
+
+
+Multiple linear regression involves looking at one continuous outcome (i.e., DV), with two or more independent variables (i.e., IVs). 
+
+A multiple linear regression model takes the following form:
+
+$$
+y_i = \beta_0 + \beta_1 \cdot x_{1_i} + \beta_2 \cdot x_{2_i} + .... + \beta_j \cdot x_{j_i} + \epsilon_i
+$$
+
+$$
+\quad \text{where} \quad \epsilon_i \sim N(0, \sigma) \text{ independently}
+$$
+
+In R:
+
+Multiple and simple linear regression follow the same structure within the `lm()` function - the logic scales up to however many predictor variables we want to include in our model. You simply add (using the `+` sign) more independent variables. For example, if we wanted to build a multiple linear regression that included three independent variables, we could fit one of the following via the `lm()` function:
+
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV1 + IV2 + IV3, data = data_name)
+```
+
+
+## Interpretation of coefficients
+
+You'll hear a lot of different ways that people explain multiple regression coefficients.  
+
+For the model $y = \beta_0 + \beta_1 \cdot x_1 + \beta_2 \cdot x_2 + \epsilon$, the estimate $\hat \beta_1$ will often be reported as:  
+  
+"the increase in $y$ for a one unit increase in $x_1$ when..."
+
+- "holding the effect of $x_2$ constant."
+- "controlling for differences in $x_2$."
+- "partialling out the effects of $x_2$."
+- "holding $x_2$ equal."
+- "accounting for effects of $x_2$." 
+
+For models with 3+ predictors, just like building the model in `R`, the logic of the above simply extends. 
+
+For example “the increase in [outcome] for a one unit increase in [predictor] when...”
+
+- “holding [other predictors] constant.”  
+- “accounting for [other predictors].”  
+- “controlling for differences in [other predictors].”  
+- “partialling out the effects of [other predictors].”  
+- “holding [other predictors] equal.”  
+- “accounting for effects of [other predictors].”  
+
+
+## Example
+
+Imagine that you were tasked to investigate whether recall accuracy was associated with recall confidence and age. You have been provided with data from twenty participants who studied passages of text (c500 words long), and were tested a week later. The testing phase presented participants with 100 statements about the text. They had to answer whether each statement was true or false, as well as rate their confidence in each answer (on a sliding scale from 0 to 100). The dataset contains, for each participant, the percentage of items correctly answered, their age (in years), and their average confidence rating. 
+
+The data are available at [https://uoepsy.github.io/data/recalldata.csv](https://uoepsy.github.io/data/recalldata.csv)
+
+```{r}
+recalldata <- read_csv('https://uoepsy.github.io/data/recalldata.csv')
+```
+
+> **Research Question** 
+>
+> Is recall accuracy associated with recall confidence and age? 
+
+
+## Visualise data
+
+```{r}
+#| label: fig-pairsp2
+#| fig-cap: "Recall SPLOM"
+
+recalldata |>
+    select(recall_accuracy, recall_confidence, age) |>
+    pairs.panels(main = "Recall SPLOM")
+```
+
+
+## Model and hypothesis specification
+
+
+::: {.panel-tabset}
+
+## Model Specification 
+
+$$
+\text{Recall Accuracy}_i = \beta_0 + \beta_1 \cdot \text{Recall Confidence}_i + \beta_2 \cdot \text{Age}_i + \epsilon_i \\
+$$
+
+## Hypothesis Specification
+
+$H_0:$ All $\beta_j = 0$ (for $j = 1, 2$)
+
+There is no association between recall accuracy and recall confidence and/or age. 
+
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2$)
+
+There is an association between recall accuracy and recall confidence and/or age. 
+
+:::
+
+## Fitting model
+
+```{r}
+recall_multi <- lm(
+  recall_accuracy ~ recall_confidence + age,
+  data = recalldata
+)
+```
+
+
+## Interpreting results
+
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(recall_multi)[1],2)`  
+  
++ The intercept, or predicted recall accuracy when recall confidence was 0 and age was 0.  
+    - An individual aged 0 years with no recall confidence was expected to have a recall accuracy of $`r round(coef(recall_multi)[1],2)`$.  
+    
+*Note:* the intercept isn’t very useful here at all. It estimates the accuracy for a newborn (who wouldn’t be able to complete the task!).
+    
+## `recall_confidence`  
+
+$\beta_1$ = `recall_confidence` = `r round(coef(recall_multi)[2],2)`   
+  
++ The estimated difference in recall accuracy for each additional unit increase in confidence controlling for age.  
+    - Holding age constant, each 1 additional unit in recall confidence was associated with a significant $`r round(coef(recall_multi)[2],2)`$ percentage point increase in recall accuracy $(p < .001)$.  
+    
+## `age`   
+
+$\beta_2$ = `age` = `r round(coef(recall_multi)[3],2)`   
+  
++ The estimated difference in recall accuracy for each additional year in age controlling for recall confidence.  
+    - Holding recall confidence constant, every 1 additional year in age was associated with a significant $`r round(coef(recall_multi)[3],2)`$ percentage point decrease in recall accuracy $(p = .041)$.  
+    
+:::
+
+
+## Visualising the model
+
+
+When we have 2+ predictors, we can’t just plot our data an add `geom_smooth(method=lm)`, because that would give a visualisation of a linear model with just one predictor (whichever one is on the $x$-axis).  
+
+Instead, we can use the function `plot_model()` from **sjPlot**.
+
+```{r}
+#| label: fig-recalmod
+#| fig-cap: "Association between Recall Accuracy, Recall Confidence, and Age"
+
+plot_model(recall_multi,
+           type = "eff",
+           terms = "recall_confidence",
+           show.data = TRUE)
+
+plot_model(recall_multi,
+           type = "eff",
+           terms = "age",
+           show.data = TRUE)
+```
+
+
+
+
+

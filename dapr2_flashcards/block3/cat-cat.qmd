@@ -1,0 +1,217 @@
+---
+title: "Categorical/categorical example"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+library(psych)
+```
+
+
+> **Research Question** 
+>
+> Do differences in body mass between species differ by sex?
+
+
+## Overview
+
+```{r}
+library(palmerpenguins)
+```
+
+Here we are using the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218]. The dataset contains a variety of information for a total of 344 adult penguins, including body measurements (bill length (`bill_length_mm`; measured in mm)/depth (`bill_length_mm`; measured in mm), flipper length (`flipper_length_mm`; measured in mm), body mass (`body_mass_g`; measured in grams)) for male and female (`sex`) penguins from three species (`species`; categorised as Adelie, Chinstrap, or Gentoo) across three Antarctic islands (`island`; categorised as Biscoe, Dream, or Torgersen) from 2007-2009 (`year`).
+
+## Visualise data
+
+Since we have a continuous DV, and we have two categorical IVs, the most appropriate visualisations would be a boxplot or violin plot:
+
+```{r}
+penguins |>
+    drop_na() |> #we need this here as we have some missing data for this particular example!
+    ggplot(aes(x = species, y = body_mass_g, fill = sex)) +
+    geom_violin() +
+    theme(legend.position = 'none') + 
+  labs(x = "Species", y = "Body Mass (in g)")
+```
+
+## Model specification
+
+Before we specify our model, we must select (and provide justification for this choice) the reference group(s) for our categorical variable(s). In this specific example, there is no natural reference category, nor one that maps to our RQ, so we will go with `R`'s default coding and have Adelie as our reference group for species, and female for sex.
+
+$$
+\begin{aligned}
+\text{Body Mass} &= \beta_0 + \beta_1 \cdot \text{Species}_\text{Chinstrap} + \beta_2 \text{Species}_\text{Gentoo} + \beta_3 \cdot \text{Sex}_\text{Male}  \\
+      &+ \beta_4 \cdot (\text{Species}_\text{Chinstrap} \cdot \text{Sex}_\text{Male}) + \beta_5 \cdot (\text{Species}_\text{Gentoo} \cdot \text{Sex}_\text{Male}) + \epsilon
+\end{aligned}
+$$
+
+## Model building
+
+Recall that the default in `R` is to apply dummy coding, and thus `R` computes the dummy variables for us! Since we are using the default reference group, we can simply run our model.   
+  
+Each row in the `summary()` output of the model will correspond to one of the estimated $\beta$’s in the equation above.  
+
+```{r}
+mdl_cc <- lm(body_mass_g ~ species * sex, data = penguins)
+summary(mdl_cc)
+```
+
+
+## Interpreting results
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_cc)[1],2)`  
+
++ The intercept, or predicted body mass of a female Adelie (i.e., when both predictor variables are at their reference levels).  
+    - A female Adelie penguin was expected to have a body mass of $`r round(coef(mdl_cc)[1],2)`g$.  
+    
+## `speciesChinstrap`   
+
+$\beta_1$ = `speciesChinstrap` = `r round(coef(mdl_cc)[2],2)`  
+
++ The difference in body mass between female Adelie and Chinstrap penguins.  
+    - In comparison to female Adelie penguins, Chinstrap penguins of the same sex were significantly $(p < .05)$ heavier by $`r round(coef(mdl_cc)[2],2)`g$.
+
+## `speciesGentoo`   
+
+$\beta_2$ = `speciesGentoo` = `r round(coef(mdl_cc)[3],2)`  
+
++ The difference in body mass between female Adelie and Gentoo penguins.  
+    - In comparison to female Adelie penguins, Gentoo penguins of the same sex were significantly $(p < .001)$ heavier by $`r round(coef(mdl_cc)[3],2)`g$.
+
+## `sexmale`   
+
+$\beta_3$ = `sexmale` = `r round(coef(mdl_cc)[4],2)`  
+
++ The difference in body mass between female and male Adelie penguins.  
+    - In comparison to female Adelie penguins, male Adelie penguins were significantly heavier by $`r round(coef(mdl_cc)[4],2)`g$  $(p < .001)$.
+
+## `speciesChinstrap:sexmale`  
+
+$\beta_4$ = `speciesChinstrap:sexmale` = `r round(coef(mdl_cc)[5],2)`  
+
++ The difference in body mass for Adelie and Chinstrap penguins between females and males differed by $`r round(coef(mdl_cc)[5],2)`g$. 
+    - The difference in body mass between female and male penguins was $262.89g$ less for Chinstrap penguins in comparison to Adele penguins. This difference was statistically significant $p < .05$. 
+    - The difference in body mass between female and male penguins was significantly less for the Chinstrap species in comparison to Adelie (where there was an additional $262.89g$ lesser difference between the two sexes).  
+    
+    
+## `speciesGentoo:sexmale`  
+    
+$\beta_5$ = `speciesGentoo:sexmale` = `r round(coef(mdl_cc)[6],2)`  
+
++ The difference in body mass for Adelie and Gentoo penguins between females and males differed by $`r round(coef(mdl_cc)[6],2)`g$. 
+    - The difference in body mass between female and male penguins was $130.45g$ more for Gentoo penguins in comparison to Adele penguins. This difference was not statistically significant $p = .089$.   
+    - The difference in body mass between female and male penguins was more for the Gentoo species in comparison to Adelie (where there was an additional $130.45g$ greater difference between the two sexes), though this difference was not statistically significant.  
+    
+:::
+
+
+
+
+## Visualising model
+
+We can do this using the `cat_plot()` function from the **interactions** package.
+
+In terms of of specification, it might be useful to look up the helper function  (i.e., `?cat_plot`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The categorical predictor variable that will appear on the x-axis  
+- `modx = `: The categorical moderator variable  
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
+```{r}
+library(interactions)
+
+plt_mdl_cc <- cat_plot(model = mdl_cc,
+                                pred = species,
+                                modx = sex,
+                                main.title = "Body Mass across Species and Sex",
+                                x.label = "Species",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Sex")
+plt_mdl_cc
+```
+
+
+## Simple effects
+
+
+Simple effects involve examining the effect of one independent variable at a specific level of a second independent variable. This can allow us to better understand the nature of the interaction as we can examine group differences within one level of one of the independent variables. 
+
+Going back to our penguins example, we could ask:
+
++ Is there an effect of sex for chinstrap penguins? Or in other words, is there a difference in body mass between male and female chinstrap penguins?
+
+To test simple effects, we can use the **emmeans** package. 
+
+:::blue
+
+In **R**
+
+```{r}
+#load the emmeans package
+library(emmeans)
+
+#obtain estimates of simple comparisons of cell means
+mdl_cc_emm <- emmeans(mdl_cc, ~species*sex)
+
+#return cell means
+mdl_cc_emm
+
+#specify that we want to compare sex for each species
+mdl_cc_simple <- pairs(mdl_cc_emm, simple = "sex")
+
+#return comparison 
+mdl_cc_simple
+
+```
+
+:::
+
+
+We can also visualise the interaction using `emmip()`. Here we need to specify the model object, what we want on the x- and y-axis, and whether we want 95% CIs to be displayed.
+
+:::blue
+
+In **R**
+
+```{r}
+#| label: fig-penguin-simp
+#| fig-cap: "Predicted Penguin Weight by Species and Sex"
+
+
+## first argument is the model object we need to use to visualise the slopes
+## species is on the x axis
+## separate lines for each level of sex
+## return 95% CIs is set to true (default is false)
+
+emmip(mdl_cc, sex ~ species,
+      CIs = TRUE,
+      ylab = "Predicted Weight (g)",
+      xlab = "Species")
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+A simple effects analysis examined the whether there was a difference in body mass between male and female chinstrap penguins. Males $(M = 3939~g)$ were estimated to be heavier than females $(M = 3527~g)$ with an estimated difference of $412~g$, and this difference was statistically significant $p < .001$. This difference is visually presented in  @fig-penguin-simp. 
+
+:::
+
+
+
+

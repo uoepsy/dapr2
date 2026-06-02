@@ -1,0 +1,461 @@
+---
+title: "Categorical predictors"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+
+## Description & Model Specification
+
+In both simple and multiple linear regression models, we examine the association between one continuous dependent variable (DV) using 1 (in the case of simple) or 2+ (in the case of multiple) predictor variables, which could include categorical predictors. When incorporating categorical variables, we use techniques such as dummy/treatment or effects/sum-to-zero coding to convert and represent these categorical predictors in a numerical format which is suitable for regression analysis.  
+  
+The interpretation of the coefficients is very specific. Whereas we talked about coefficients being interpreted as “the change in $y$ associated with a 1-unit increase in $x$”, for categorical explanatory variables, coefficients can be considered to examine differences in group means. 
+
+:::blue
+
+In **R**:
+
+Multiple and simple linear regression models with categorical predictors follow the same structure within the `lm()` function. You simply add (using the `+` sign) more independent variables. For example, if we wanted to build a linear regression model that included one independent categorical variable which had three levels, we could fit one of the following via the `lm()` function:
+
+
+## Option A
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV1, data = data_name)
+```
+
+
+
+
+<br> 
+
+## Binary Predictors
+
+Binary variables have two categories (more commonly referred to as levels), and these levels (e.g., Yes/No, Dog/Cat, Right/Left, Smoker/Non-Smoker) are simply entered in the model as a series of 0s and 1s. Numeric variables that represent categorical data are typically referred to as __dummy variables__.  
+
+Our coefficients are just the same as before. The intercept is where our predictor equals zero, and the slope is the change in our outcome variable associated with a 1-unit change in our predictor.
+
+However, “zero” for this predictor variable now corresponds to a whole level. This is known as the “reference level”. Accordingly, the 1-unit change in our predictor (the move from “zero” to “one”) corresponds to the difference between the two levels. 
+
+When used as predictors in multiple regression models, binary variables behave much the same way. The coefficient will give us the estimated change in $y$ when moving from one level to the other, whilst holding other predictors constant (for more info, see the **Multiple Linear Regression Models - Interpretation of Coefficients** flashcard).  
+
+
+<br> 
+
+## Dummy vs Effects Coding
+
+
+Possible side-constraints on the parameters are:
+
+|       Name      |             Constraint            |             Meaning of $\beta_0$            |        In R         |
+|:---------------:|:---------------------------------:|:-------------------------------------------:|:-----------------:|
+| Sum to zero (Effects Coding) | $\beta_1 + \beta_2 + \beta_3 = 0$ | $\beta_0 = \mu$   |    `contr.sum`    |
+| Reference group (Dummy Coding) |           $\beta_1 = 0$           | $\beta_0 = \mu_1$ | `contr.treatment` |
+
+
+**Dummy Coding**
+
+By default `R` uses the reference group constraint - i.e., dummy coding  (sometimes called treatment contrast coding). If your factor has $g$ levels, your regression model will have $g-1$ dummy variables (`R` creates them for you, as we've seen in the examples above).  
+
+One level of the categorical variable is considered as the 'baseline', 'reference level', or 'reference group' - `R` automatically takes the first level alphabetically as the baseline (e.g., if you had a 'pet' variable with levels dog, hamster, and cat, then cat would be taken as the reference level). 
+
+When we use this approach, the intercept is the estimated $y$ when all predictors (i.e., $x$'s) are zero. Because the reference level is kind of like “0” in our contrast matrix, this is part of the intercept estimate. We get out a coefficient for each subsequent level, which are the estimated differences from each level to the reference group.
+
+
+**Effects Coding**
+
+Effects coding (sometimes called sum-to-zero coding) is the next most commonly used in psychological research. These are a way of comparing each level to the overall (or grand) mean. This involves a bit of trickery that uses -1s and 1s rather than 0s and 1s, in order to make “0” be mid-way between all the levels - the average of the levels.
+
+`R` automatically takes the last level alphabetically as level which is dropped (e.g., if you had a 'pet' variable with levels dog, hamster, and cat, then hamster would not be represented).
+
+When we use this approach, the intercept is the estimated average $y$ when averaged across all levels of the predictor variable. In other words, it is the estimated grand mean of $y$. The coefficients represent the estimated difference for that level from the overall grand mean.
+
+:::blue
+
+In **R**
+
+If we want to use effects coding, we can apply:
+
+```{r eval = FALSE}
+contrasts(iris$Species) <- "contr.sum"
+```
+
+We can switch back to the default reference group constraint by applying either of these:
+
+```{r eval = FALSE}
+# Option 1
+contrasts(iris$Species) <- NULL
+
+# Option 2
+contrasts(iris$Species) <- "contr.treatment"
+```
+
+:::
+
+
+<br>
+
+## Coding Variables as Factors
+
+When we have categorical predictors, it is important that we tell `R` specifically to code them appropriately as *factors*.  
+
+:::blue
+
+In **R**
+
+We can use various functions to convert between different types of data, such as:
+
++ `factor()` / `as_factor()` - to turn a variable into a factor  
++ `as.numeric()` - to turn a variable into numbers
+
+:::
+
+
+As a first step, it is a good idea to look at the structure of the dataset you are working with. For the purpose of this example, our dataset is called "tips" (you might recall this from DAPR1):
+
+```{r}
+tips <- read_csv("https://uoepsy.github.io/data/RestaurantTips.csv")
+str(tips)
+```
+
+From the output, we can see that `Credit` (whether guests paid with a credit card; n/y responses) was coded as a `<chr>` or character variable. If we wanted to set this as a factor so that `R` recognises it as a categorical variable, we can use on of the following:
+
+::: {.panel-tabset}
+
+### `as_factor()`
+
+```{r}
+tips <- tips |> 
+  mutate(Credit = as_factor(Credit))
+```
+
+### `factor()`
+
+We could also use the `factor()` function, and at the same time label factors appropriately to aid reader interpretation (it may not be immediately clear to some that *n* represents 'No' and *y* represents 'Yes'). To do so, we list the all levels of `Credit`, and provide a new label corresponding to each level:
+
+```{r, eval = FALSE}
+tips$Credit <- factor(tips$Credit, 
+                      levels = c("n", "y"),
+                      labels = c("No", "Yes"))
+```
+
+:::
+
+Using either of the above approaches, if we now run `str(tips)` again, you should see that `Credit` is now coded as a factor with 2 levels:
+
+```{r}
+str(tips)
+```
+
+
+<br>
+
+## Specifying Reference Levels
+
+When you have a categorical variable coded as a factor, `R` will default to using alphabetical ordering. We could override this by making it a factor with an ordering to it’s levels (see the use of `factor()` and `levels()`). Functions like `fct_relevel()` might be handy too. 
+
+
+# Example
+
+> **Research Question** 
+>
+> Does sepal length differ by species?  
+
+## Overview
+
+Imagine that you were tasked to investigate whether sepal length differs by species. You have been provided with the in-built dataset, `iris`, which contains information concerning the sepal length (in cm), sepal width (in cm), petal length (in cm), and petal width (in cm) from three different species of iris (setosa, versicolor, and virginica). There are measurements for 50 flowers from each of the iris species (i.e., total $n$ = 150). 
+
+
+<br>
+
+## Visualise Data
+
+```{r}
+ggplot(data = iris, aes(x = Species, y = Sepal.Length, fill = Species)) +
+    geom_boxplot() +
+    labs(x = "Species", y = "Sepal Length (in cm)")
+```
+
+
+
+
+<br>
+
+## Model & Hypothesis Specification
+
+::: {.panel-tabset}
+
+### Dummy Coding
+
+::: {.panel-tabset}
+
+#### Model Specification 
+
+We first need to define the dummy variables for Species:
+
+$$
+\text{Species}_\text{Versicolor} = \begin{cases}  
+1 & \text{if Species is Versicolor} \\  
+0 & \text{otherwise}  
+\end{cases}  
+\quad    
+$$
+
+$$
+\text{Species}_\text{Virginica} = \begin{cases}  
+1 & \text{if Species is Virginica} \\  
+0 & \text{otherwise}  
+\\  
+\end{cases}  
+\quad  
+$$
+
+
+$$
+(\text{Species}_\text{Setosa } \text{ is the reference level})  
+$$
+
+Based on the above dummy coding, we are going to fit the following regression model:
+
+$$
+\begin{align}
+\text{Sepal Length} = \beta_0 + \beta_1 \cdot \text{Species}_\text{Versicolor} + \beta_2 \cdot \text{Species}_\text{Virginica} + \epsilon
+\end{align}
+$$
+
+#### Hypothesis Specification 
+
+
+$H_0:$ All $\beta_j = 0$ (for $j = 1, 2$)
+
+There are no differences in sepal length based on iris species.
+  
+
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2$)
+
+There are differences in sepal length based on iris species.
+
+
+:::
+
+
+### Effects Coding
+
+::: {.panel-tabset}
+
+#### Model Specification 
+
+We first need to define the effects coding for Species:
+
+$$
+\begin{matrix}
+\textbf{Level}           & \textbf{Species Level 1} & \textbf{Species Level 2} \\
+\hline
+\text{Setosa}              & 1   & 0    \\
+\text{Versicolor}               & 0   & 1    \\
+\text{Virginica}         & -1  & -1 \\
+\end{matrix}
+$$
+
+
+Based on the above effects coding, we are going to fit the following regression model:
+
+$$
+\begin{align}
+\text{Sepal Length} = \beta_0 + \beta_1 \cdot \text{Species Level 1} + \beta_2 \cdot \text{Species Level 2} + \epsilon
+\end{align}
+$$
+
+#### Hypothesis Specification 
+
+
+$H_0:$ All $\beta_j = 0$ (for $j = 1, 2$)
+
+There are no differences in average sepal length based on iris species (i.e., the average sepal length across species is equal to the grand mean).
+  
+
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2$)
+
+There are differences in average sepal length based on iris species (i.e., the average sepal length across species is not equal to the grand mean).
+
+
+:::
+
+
+:::
+
+
+
+<br>
+
+## Model Building
+
+::: {.panel-tabset}
+
+### Dummy Coding
+
+First we need to check the levels of the `Species` variable: 
+
+```{r}
+#check what levels we have
+levels(iris$Species)
+```
+
+From the above, we can see that Species has 3 levels - "setosa", "versicolor", and "virginica".  
+  
+If we put these into a model, assuming `R`'s default ordering, we know that `R` will automatically apply dummy (or treatment coding, i.e., `contrasts(iris$Species) <- "contr.treatment"`), and "setosa" will be taken as our reference group:
+
+```{r}
+#fit model
+spec_model <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model)
+```
+
+### Effects Coding
+
+First we need to tell `R` to apply effects (or sum-to-zero) coding and check the ordering of the levels:
+
+```{r}
+contrasts(iris$Species) <- "contr.sum"
+contrasts(iris$Species) 
+```
+
+Then we can run our model:
+
+```{r}
+#fit model
+spec_model2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model2)
+```
+
+:::
+
+
+<br>
+
+## Results Interpretation
+
+::: {.panel-tabset}
+
+### Dummy Coding
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  5.0060 | $\beta_0 = \hat \mu_1$
+| Speciesversicolor      | 0.9300  | $\beta_0 + \beta_1 = \hat \mu_2$ |
+| Speciesvirginica         | 1.5820  | $\beta_0 + \beta_2 = \hat \mu_3$ |
+
++ The estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu_1 = 5.01$. The estimated average sepal length for the species setosa was approximately $5.01~cm$.
+
++ The second estimate corresponds to `Speciesversicolor` and was $\hat \beta_1 = 0.93$. The difference in mean sepal length between `setosa` and `versicolor` species was estimated to be $0.93~cm$. Thus, $\hat \mu_2 = 5.01 + 0.93 = 5.94$. We could say - the species iris versicolor had a sepal length of approximately $5.94~cm$, and this was approximately $0.93~cm$ longer than the iris setosa. This difference was statistically significant $(p < .001)$.
+
++ The third estimate corresponds to `Speciesvirginica` and was $\hat \beta_2 = 1.58$. The difference in mean sepal length between `setosa` and `virginica` species was estimated to be $1.58~cm$. Thus, $\hat \mu_2 = 5.01 + 1.58 = 6.59$. We could say - the species iris virginica had a sepal length of approximately $6.59~cm$, and this was approximately $1.58~cm$ longer than the iris setosa. This difference was statistically significant $(p < .001)$.
+
+
+### Effects Coding
+
+| Coefficient | Estimate | Corresponds to |
+|:-:|:-:|:-:|
+| (Intercept)   |  5.84333  | $\beta_0 = \frac{\mu_1 + \mu_2 + \mu_3}{3} = \mu$
+| Species1      | -0.83733  | $\beta_1 = \mu_1 - \mu$|
+| Species2      | 0.09267   | $\beta_2 = \mu_2 - \mu$ |
+
++ The first estimate corresponding to (Intercept) contains $\hat \beta_0 = \hat \mu = 5.84$. The estimated average sepal length across iris species was approximately $5.84~cm$.
+
++ The second estimate corresponds to `Species1` and was $\hat \beta_1 = -0.84$. The difference in mean sepal length between `setosa` $(\hat \mu_1)$ and the grand mean $(\hat \mu_0)$  was estimated to be $0.84~cm$. In other words, the iris species of setosa had a sepal length $0.84~cm$ shorter than average, where its length was estimated to be $5.84333 + (-0.83733) = 5~cm$. This difference in length was statistically significant $(p < .001)$.
+
++ The third estimate corresponds to `Species2` and was $\hat \beta_2 = 0.09$. The difference in mean sepal length between `versicolor` $(\hat \mu_2)$ and the grand mean $(\hat \mu_0)$  was estimated to be $0.09~cm$. In other words, the iris species of versicolor had a sepal length $0.09~cm$ longer than average, where its length was estimated to be $5.84333 + 0.09267 = 5.94~cm$. This difference in length was not statistically significant $(p = .121)$.
+
++ The estimate for `Species3`, representing the difference of “virginica” to the grand mean is *not shown* by `summary()`. Because of the side-constraint, we know that $\mu_3 = \beta_0 - (\beta_1 + \beta_2)$. The difference in sepal length between `virginica` and the grand mean was estimated to be $-(-0.83733 + 0.09267) = 0.74466$. In other words, the virginica iris species had a sepal length $0.74~cm$ longer than average, where its length was estimated to be $5.84333 - (-0.83733  + 0.09267) = 6.59~cm$.  
+
+:::
+
+
+<br>
+
+## Model Visualisation
+
+There are a couple of ways that we can visualise our model, eithe rusing the **sjPlot** or **effects** packages:
+
+::: {.panel-tabset}
+
+### sjPlot
+
+```{r}
+library(sjPlot)
+
+plot_model(spec_model,
+           type = "eff",
+           terms = "Species") +
+    labs(title = "Sepal Length by Species",
+       x = "Species", 
+       y = "Sepal Length")
+```
+
+### effects
+
+```{r}
+library(effects)
+
+effect(term = c("Species"), mod = spec_model) |>
+  as.data.frame() |>
+  ggplot(aes(x = Species, y = fit, col = Species)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper))
+```
+
+:::
+
+<br>
+
+## Specifying Reference Levels
+
+Let's say we wanted to change the reference level in our "spec_model" above, there are a few different ways that we can do this.
+
+First we should check the current ordering of the levels:
+
+```{r}
+levels(iris$Species)
+```
+
+We can then change the reference level to be "versicolor" (using one of the below methods):
+
+::: {.panel-tabset}
+
+### `fct_relevel()`
+
+```{r}
+iris <- iris |> 
+  mutate(
+    Species = fct_relevel(Species, "versicolor")
+  )
+```
+
+
+### `relevel()`
+
+```{r eval = FALSE}
+iris$Species <- relevel(iris$Species, "versicolor")
+```
+
+
+### `factor()`
+
+```{r eval = FALSE}
+iris$Species <- iris$Species |> 
+  factor(., levels = c("versicolor", "setosa", "virginica"))
+```
+
+:::
+
+And then re-run our model:
+
+```{r}
+#fit model
+spec_model2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(spec_model2)
+```

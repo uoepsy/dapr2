@@ -1,0 +1,74 @@
+---
+title: "Sensitivity analysis"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+library(sjPlot)
+```
+
+```{r}
+mwdata <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
+```
+
+
+This allows us to assess the **sensitivity** of our results (i.e., parameter estimates, p-values, confidence intervals) to changes in our modelling approach (i.e., the removal of observations).
+
+We can re-fit our model after excluding our identified outliers and potentially influential observations, and compare these results to the original model.
+
+::: {.callout-important icon=false collapse=true}
+
+# Process of Removing Observations
+
+The current example involves removing all identified outliers and potentially influential observations at the same time. Ideally, and to ensure a more thorough sensitivity analysis, you would remove each of these observations one at a time, assess the effects on the model by comparing to your original, reassessing the remaining pre-identified observations, and repeating the process if necessary. 
+
+:::
+
+::: {.panel-tabset}
+
+### Original Model
+
+```{r}
+## wellbeing model
+wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata) 
+summary(wb_mdl1)
+```
+
+
+### Model with Observations Removed
+
+```{r}
+## wellbeing model
+wb_mdl2 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ])
+summary(wb_mdl2)
+```
+
+
+### Compare `summary()` output
+
+```{r}
+tab_model(wb_mdl1, wb_mdl2,
+          dv.labels = c("Wellbeing (WEMWBS Scores)", "Wellbeing (WEMWBS Scores)"),
+          pred.labels = c("outdoor_time" = "Outdoor Time (hours per week)",
+                          "social_int" = "Social Interactions (number per week)"),
+          title = "Regression Table for Wellbeing Models wb1 and wb2")
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+We conducted a sensitivity analysis to assess how robust our conclusions were regarding outdoor time and the weekly number of social interactions in the presence of previously identified outliers and potentially influential observations. We re-fit the model, excluding these 28 observations (14% of our original sample), and compared these model results (`wb_mdl2`) to those of our original model (`wb_mdl1`). 
+
+There was little difference in the estimates from `wb_mdl1` and `wb_mdl2`, and so we can conclude that after conducting a sensitivity analysis, there were no meaningful differences in our results, and hence our conclusions from our original model hold. Specifically:
+
++ The direction of all model estimates are the same in `wb_mdl1` and `wb_mdl2` (i.e., all positive)
++ There is no difference in statistical significance, and the p-values were of a similar magnitude (i.e., all < .001)
++ The estimate and confidence intervals for `outdoor_time` are very similar
++ There are some quantitative differences in the estimate and confidence intervals for `social_int`. The estimate differs slightly in magnitude by 0.07), but given that this remains positive and significant, we do not need to be too concerned about this. 
+
+:::
+

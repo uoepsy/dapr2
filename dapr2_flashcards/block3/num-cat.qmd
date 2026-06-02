@@ -1,0 +1,167 @@
+---
+title: "Numeric/categorical example"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+
+> **Research Question** 
+>
+> Does the association between body mass and flipper length differ between species of penguin?  
+
+## Overview
+
+```{r}
+library(palmerpenguins)
+```
+
+Here we are using the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218]. The dataset contains a variety of information for a total of 344 adult penguins, including body measurements (bill length (`bill_length_mm`; measured in mm)/depth (`bill_length_mm`; measured in mm), flipper length (`flipper_length_mm`; measured in mm), body mass (`body_mass_g`; measured in grams)) for male and female (`sex`) penguins from three species (`species`; categorised as Adelie, Chinstrap, or Gentoo) across three Antarctic islands (`island`; categorised as Biscoe, Dream, or Torgersen) from 2007-2009 (`year`).
+
+## Visualise data
+
+
+Since we have a continuous DV, one continuous IV and one categorical (with 3 levels) IV, one of the most appropriate visualisations would be a scatterplot where we have a separate line of best fit mapped for each level of species:
+
+```{r}
+penguins |>
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, colour = species)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
+```
+
+Alternatively, we could create the same above scatterplot, and then divide into different facets by species:
+
+```{r, warning=FALSE}
+penguins |>
+  ggplot(aes(x = flipper_length_mm, y = body_mass_g, colour = species)) +
+  geom_point() +
+  facet_wrap(~species) + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(x = "Flipper Length (in mm)", y = "Body Mass (in g)")
+```
+
+## Model specification
+
+
+Before we specify our model, we must select (and provide justification for this choice) the reference group(s) for our categorical variable(s). In this specific example, there is no natural reference category, nor one that maps to our RQ, so we will go with `R`'s default coding and have Adelie as our reference group for species. 
+
+$$
+\begin{align}
+\text{Body Mass} ~=~ & \beta_0 + \beta_1 \cdot \text{Flipper Length} + \beta_2 \cdot \text{Species}_\text{Chinstrap} + \beta_3 \cdot \text{Species}_\text{Gentoo} \\
+& + \beta_4 \cdot (\text{Flipper Length} \cdot \text{Species}_\text{Chinstrap}) \\
+& + \beta_5 \cdot (\text{Flipper Length} \cdot \text{Species}_\text{Gentoo}) + \epsilon \\
+\end{align}
+\quad 
+$$
+
+## Model building
+
+
+No penguins in our dataset had a flipper length of zero mm. We might want to mean centre this predictor variable so that we can consider the difference in body mass between penguin species with average flipper lengths. Before we build our model, we should mean centre this IV:
+
+```{r}
+penguins <- penguins |>
+    mutate(
+   mc_flipper_length_mm = scale(flipper_length_mm, scale = FALSE)
+   )
+```
+
+Recall that the default in `R` is to apply dummy coding, and thus `R` computes the dummy variables for us! Since we are using the default reference group, we can simply run our model (with our newly created mean centered flipper length variable): 
+ 
+```{r}
+mdl_nc <- lm(body_mass_g ~ mc_flipper_length_mm * species, data = penguins)
+```
+
+Each row in the `summary()` output of the model will correspond to one of the estimated $\beta$’s in the equation above.  
+
+```{r}
+summary(mdl_nc)
+```
+
+
+## Interpreting results
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_nc)[1],2)`  
+
++ The intercept, or predicted body mass when flipper length was average and species was Adelie.  
+    - An Adelie penguin with an average flipper length was expected to have a body mass of $`r round(coef(mdl_nc)[1],2)`g$.  
+    
+## `mc_flipper_length_mm`   
+
+$\beta_1$ = `mc_flipper_length_mm` = `r round(coef(mdl_nc)[2],2)`  
+
++ The simple slope of flipper length (in mm) for species reference group (Adelie).   
+    - For an Adelie penguin, every 1 additional mm in flipper length was associated with a significant $`r round(coef(mdl_nc)[2],2)`g$ increase in their body mass $(p < .001)$.
+    
+## `speciesChinstrap`   
+
+$\beta_2$ = `speciesChinstrap` = `r round(coef(mdl_nc)[3],2)`  
+
++ The simple effect of species (or the difference in body mass between Adelie and Chinstrap penguins) when flipper length was average.
+    - A Chinstrap penguin with an average flipper length had a body mass $151.42g$ lighter than an Adelie penguin with the same flipper length. Note that this difference was not statistically different from zero $(p = .062)$.
+
+## `speciesGentoo`   
+
+$\beta_3$ = `speciesGentoo` = `r round(coef(mdl_nc)[4],2)`  
+
++ The simple effect of species (or the difference in body mass between Adelie and Gentoo penguins) when flipper length was average. 
+    - A Gentoo penguin with an average flipper length had a body mass $`r round(coef(mdl_nc)[4],2)`g$ heavier than an Adelie penguin with the same flipper length. Note that this difference was not statistically different from zero $(p = .242)$.  
+
+## `mc_flipper_length_mm:speciesChinstrap`   
+
+$\beta_4$ = `mc_flipper_length_mm:speciesChinstrap` = `r round(coef(mdl_nc)[5],2)`  
+
++  The interaction between flipper length (in mm; mean centered) and species (levels: Adelie/Chinstrap). This is the estimated difference in simple slopes of flipper length for Adelie vs. Chinstrap penguins.  
+    - In comparison to Adelie penguins, for a Chinstrap penguin every 1 additional mm in flipper length was associated with a $`r round(coef(mdl_nc)[5],2)`g$ point greater change in their body mass. Note that this adjustment was not statistically different from zero $(p = .825)$.  
+
+## `mc_flipper_length_mm:speciesGentoo`   
+
+$\beta_5$ = `mc_flipper_length_mm:speciesGentoo` = `r round(coef(mdl_nc)[6],2)`  
+
++  The interaction between flipper length (in mm; mean centered) and species (levels: Adelie/Gentoo). This is the estimated difference in simple slopes of flipper length for Adelie vs. Gentoo penguins.  
+    - In comparison to Adelie penguins, for a Gentoo penguin every 1 additional mm in flipper length was associated with a $`r round(coef(mdl_nc)[6],2)`g$ greater increase in their body mass. Note that this adjustment was statistically significant $(p = .002)$.  
+
+:::
+
+
+## Visualising model
+
+
+We can do this using the `probe_interaction()` function from the **interactions** package.  
+
+In terms of of specification, it might be useful to look up the helper function (i.e., `?probe_interaction`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The continuous predictor variable that will appear on the x-axis  
+- `modx = `: The categorical moderator variable  
+- `interval = `: If we say `TRUE`, then confidence/prediction intervals will be plotted around the line   
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
+```{r}
+library(interactions)
+
+plt_mdl_nc <- probe_interaction(model = mdl_nc,
+                                pred = mc_flipper_length_mm,
+                                modx = species,
+                                interval = T,
+                                main.title = "Predicted Body Mass across Flipper Length by Species",
+                                x.label = "Flipper Length (in mm; Mean Centered)",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Penguin Species")
+plt_mdl_nc$interactplot
+```

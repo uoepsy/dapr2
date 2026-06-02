@@ -1,0 +1,188 @@
+---
+title: "Correcting for multiple comparisons"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+```
+
+TODO change from all pairwise comparisons to the simple effects thingy where you get multiple tests within one "family" ie one level.
+
+also probably mention the problem I saw in all the dissertations this year: one bazillion tests on the same data, no corrections
+
+
+
+## Overview
+
+```{r}
+library(palmerpenguins)
+```
+
+Here we are using the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218]. The dataset contains a variety of information for a total of 344 adult penguins, including body measurements (bill length (`bill_length_mm`; measured in mm)/depth (`bill_length_mm`; measured in mm), flipper length (`flipper_length_mm`; measured in mm), body mass (`body_mass_g`; measured in grams)) for male and female (`sex`) penguins from three species (`species`; categorised as Adelie, Chinstrap, or Gentoo) across three Antarctic islands (`island`; categorised as Biscoe, Dream, or Torgersen) from 2007-2009 (`year`).
+
+
+```{r}
+mdl_cc <- lm(body_mass_g ~ species * sex, data = penguins)
+summary(mdl_cc)
+```
+
+```{r}
+#load the emmeans package
+library(emmeans)
+
+#obtain estimates of simple comparisons of cell means
+mdl_cc_emm <- emmeans(mdl_cc, ~species*sex)
+
+#return cell means
+mdl_cc_emm
+```
+
+
+## Why does the Number of Tests Matter? 
+
+So, why does the number of tests matter? First, think back to ["Type 1 errors" from DAPR1](https://uoepsy.github.io/dapr1/2324/lectures/dapr1_2_05_errorspower.pdf) - when we conduct an hypothesis test, and we set $\alpha = .05$, we will reject the null hypothesis $H_0$ when we find a $p < .05$. Now remember what a $p$-value represents - it is the chance of observing a statistic at least as extreme as the one we do have, assuming the null hypothesis to be true. This means that *if* $H_0$ **is** true, then we will still observe a $p < .05$ 5\% of the time. So our chance of making this error = the threshold ($\alpha$) at which below a $p$-value results in us rejecting $H_0$. 
+
+But this error-rate applies to each statistical hypothesis we test. So if we conduct an experiment in which we plan on conducting lots of tests of different comparisons, the chance of an error being made increases substantially. Across the family of tests performed that chance will be much higher than 5\%.^[what defines a 'family' of tests is debatable.]
+
+Each test conducted at $\alpha = .05$ has a .05 (or 5%) probability of Type I error (wrongly rejecting the null hypothesis). If we do 9 tests, that experiment-wise error rate is $\alpha_{ew} \leq 9 \times .05$, where 9 is the number of comparisons made as part of the experiment.
+
+Thus, if nine **independent** comparisons were made at the $\alpha = .05$ level, the experiment-wise Type I error rate $\alpha_{ew}$ would be at most $9 \times .05 = 0.45$. That is, we could wrongly reject the null hypothesis on average 45 times out of 100.  
+  
+To make this more confusing, many of the tests in a family are not **independent** (see the lecture slides for the calculation of error rate for dependent tests).  
+
+
+<br>  
+
+## When to use Which Correction
+
+**Bonferroni**  
+
+:::frame 
+
+Calculated as:
+
+\hspace*{1cm}$\alpha_{Bonferroni} = \frac{\alpha}{m} \qquad \qquad p_{Bonferroni} = p \cdot m$  
+
+where $\alpha$ = alpha level, and $m$ = number of tests
+
+:::
+
+- Use Bonferroni’s method when you are interested in a small number of planned contrasts (or pairwise comparisons).
+- Bonferroni's method is to divide alpha by the number of tests/confidence intervals.
+- Assumes that all comparisons are independent of one another.  
+- It sacrifices slightly more power than Tukey’s method (discussed below under *Others*), but it can be applied to any set of contrasts or linear combinations (i.e., it is useful in more situations than Tukey).
+- It is usually better than Tukey if we want to do a small number of planned comparisons.  
+
+::: {.callout-caution collapse="true"}
+
+#### Optional (non-assessed): More Options!
+
+**Šídák** 
+
+:::frame 
+
+Calculated as:
+  
+\hspace*{1cm}$\alpha_{Sidák} = 1 - (1- \alpha)^{\frac{1}{m}}$  
+
+where $\alpha$ = alpha level, and $m$ = number of tests
+
+:::
+
+- (A bit) more powerful than the Bonferroni method.
+- Assumes that all comparisons are independent of one another. 
+- Less common than Bonferroni method, largely because it is more difficult to calculate (not a problem now we have computers).  
+
+
+**Scheffe**
+
+:::frame
+
+Calculated as:
+  
+\hspace*{1cm}$\sqrt{rF(\alpha; r; d)}$
+
+where $\alpha$ = alpha level, $r$ = number of restrictions (i.e., contrasts; calculated as number of means being compared - 1), $F$ = $F$ critical value, and $d$ = $df_{error}$ from linear model
+
+:::
+
+- It is the most conservative (least powerful) of all tests.
+- It controls the family alpha level for testing all possible contrasts.
+- It should be used if you have not planned contrasts in advance.
+- For testing pairs of treatment means it is too conservative (you should use Bonferroni or Šídák).
+
+
+**Others**  
+  
+- Tukey is a very commonly used correction (how the formula is derived is quite complex and **way** beyond the content of DAPR2). It is helpful to know that it (1) specifies an exact family significance level for comparing all pairs of treatment means, and (2) it is most commonly used when you are interested in all (or most) pairwise comparisons of means.  
+- In the wider literature, Holm's step-down and Hochberg's step-up mentioned. Do feel free to read about these in your spare time - there are lots of resources online.  
+
+:::
+
+:::blue
+
+In **R**
+
+You can easily change which correction you are using via the `adjust = ` argument. For example, using our categorical x categorical interaction model (`mdl_cc`) using the penguins dataset: 
+
+::: {.panel-tabset}
+
+### No Adjustment
+
+```{r}
+none_pair_comp <- pairs(mdl_cc_emm, adjust = "none")
+
+none_pair_comp
+
+plot(none_pair_comp)
+```
+
+
+### Bonferroni
+
+```{r}
+bonf_pair_comp <- pairs(mdl_cc_emm, adjust = "bonferroni")
+
+bonf_pair_comp
+
+plot(bonf_pair_comp)
+```
+
+### Scheffe
+
+```{r}
+scheffe_pair_comp <- pairs(mdl_cc_emm, adjust = "scheffe")
+
+scheffe_pair_comp
+
+plot(scheffe_pair_comp)
+```
+
+
+### Šídák
+
+```{r}
+sidak_pair_comp <- pairs(mdl_cc_emm, adjust = "sidak")
+
+sidak_pair_comp
+
+plot(sidak_pair_comp)
+```
+
+
+### Tukey
+
+```{r}
+tukey_pair_comp <- pairs(mdl_cc_emm, adjust = "tukey")
+
+tukey_pair_comp
+
+plot(tukey_pair_comp)
+```
+
+
+::: 
+
+:::

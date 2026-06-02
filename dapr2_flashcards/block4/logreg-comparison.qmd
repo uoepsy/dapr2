@@ -1,0 +1,137 @@
+---
+title: "Comparing logistic regression models"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+
+When moving from linear regression to more advanced and flexible models, testing of goodness of fit is more often done by comparing a model of interest to a simpler one. This is called a likelihood ratio test.  
+
+## Drop-in-deviance test to compare nested models
+
+In the generalized linear model world, we don't have straightforward residuals, and we compare models on a different metric, known as __deviance__. With a big enough sample size, reductions in deviance are $\chi^2$ distributed, meaning that we can compare them to an appropriate $\chi^2$ distribution to compute a p-value.
+
+The only caveat is that the two models **must be nested**, i.e. one model needs to be a simplification of the other, and all predictors of one model needs to be within the other.
+
+We want to compare the model we previously fitted against a model where all slopes are 0, i.e. a baseline model: 
+
+$$
+\begin{aligned}
+M_1 : \qquad\log \left( \frac{p}{1 - p} \right) &= \beta_0 \\
+M_2 : \qquad \log \left( \frac{p}{1 - p} \right) &= \beta_0 + \beta_1 x
+\end{aligned}
+$$ 
+
+:::blue 
+
+**In R**
+
+```{r, eval = FALSE}
+mdl_reduced <- glm(DV ~ 1, family = "binomial", data = dataset)
+mdl_main <- glm(DV ~ IV1 + IV2 ... + IV4, family = "binomial", data = dataset)
+
+anova(mdl_red, mdl_main, test = 'Chisq')
+```
+
+In the output you can see the residual deviance of each model. Remember the deviance is the equivalent of residual sum of squares in linear regression.
+
+:::
+
+**Example** 
+
+Here we'll continue with our senility and wais score example. 
+
+```{r}
+sendata <- read_csv("https://uoepsy.github.io/data/SenilityWAIS.csv")
+```
+
+
+```{r}
+#create null model
+sen_mdl0 <- glm(senility ~ 1, family = "binomial", data = sendata)
+
+#build actual model
+sen_mdl1 <- glm(senility ~ wais, family = "binomial", data = sendata)
+
+#compare models 
+anova(sen_mdl0, sen_mdl1, test = "Chisq")
+```
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+We performed a deviance goodness-of-fit test to compare our fitted model to the null. At the 5% significance level, the addition of information about the participants’ WAIS resulted in a significant decrease in model deviance $\chi^2(1) = 10.78, p = .001$. Hence, we have strong evidence that the subjects’ WAIS was a helpful predictor of whether or not participants will experience symptoms of senility.
+
+:::
+
+`r optend()`
+
+<br>
+
+`r optbegin("AIC & BIC",olabel=FALSE,toggle=params$TOGGLE)`
+
+Deviance measures lack of fit, and it can be reduced to zero by making the model more and more complex, effectively estimating the value at each single data point. However, this involves adding more and more predictors, which makes the model more complex (and less interpretable).
+
+Typically, the simpler model should be preferred when it can still explain the data almost as well. This is why information criteria were devised, exactly to account for both the model misfit but also its complexity.
+
+$$
+\text{Information Criterion} = \text{Deviance} + \text{Penalty for model complexity}
+$$
+
+Depending on the chosen penalty, you get different criteria. Two common ones are the Akaike and Bayesian Information Criteria, AIC and BIC respectively: 
+
+$$
+\begin{aligned}
+\text{AIC} &= \text{Deviance} + 2 p \\
+\text{BIC} &= \text{Deviance} + p \log(n)
+\end{aligned}
+$$
+
+where $n$ is the sample size and $p$ is the number of regression coefficients in the model. 
+
+AIC and BIC differ in their degrees of penalization for number of regression coefficients, with BIC usually favouring models with fewer terms. 
+   
+
+So how do we determine whether there is a statistical difference between two models? Generally speaking, models that produce smaller values of these fit criteria should be preferred. To evaluate our model comparisons in more depth, we need to look at the difference ($\Delta$) between the two values:   
+  
++ **AIC**: There are no specific thresholds to suggest how big a difference in two models is needed to conclude that one is substantively better than the other  
+    
+    
++ **BIC**: Using the following $\Delta BIC$ cutoffs (Raftery, 1995):
+
+  
+| Value             | Interpretation of Difference between Models  |
+|-------------------|----------------------------------------------|
+| $\Delta < 2$      | No evidence                                  |
+| $2 > \Delta < 6$  | Positive evidence                            |
+| $6 > \Delta < 10$ | Strong evidence                              |
+| $\Delta > 10$     | Very strong evidence                         |
+
+
+:::blue
+**In R**
+
+We can calculate AIC and BIC by using the `AIC()` and `BIC()` functions respectively:
+
+```{r}
+#AIC
+AIC(sen_mdl0, sen_mdl1)
+
+#BIC
+BIC(sen_mdl0, sen_mdl1)
+```
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+**Example Interpretation**
+
+Based on both AIC and BIC, the model including the subjects’ WAIS as a predictor of symptoms of senility was better fitting ($AIC = 55.02;~ BIC = 59.00$) than the model with age alone ($AIC = 63.81;~ BIC = 66.00$). However, since the difference in $BIC$ values was $<~10$, we would conclude that the difference in models was not practically significant. 
+
+:::

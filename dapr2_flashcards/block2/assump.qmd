@@ -1,10 +1,19 @@
 ---
-title: "Assumptions for LMMs"
+title: "LM assumptions"
 ---
 
 ```{r setup, include=FALSE}
 source('../assets/setup.R')
+library(tidyverse)
 ```
+
+
+```{r}
+recalldata <- read_csv('https://uoepsy.github.io/data/recalldata.csv')
+```
+
+<!-- Linear models rely on numerous underlying assumptions about the data. These assumptions ensure that the association between variables is appropriately captured, and that inferences drawn from the model are accurate and valid. Model diagnostics can help further assess whether these assumptions hold. When these assumptions are violated, there are numerous techniques that can be employed, such as through data transformations or using robust alternatives, to ensure reliable model interpretations. -->
+
 
 ## Why do models make assumptions?
 
@@ -31,11 +40,99 @@ An acronym for the four assumptions a linear model makes is **"LINE".**
 - To be satisfied with a linear model of that data, **we have to assume that the best possible straight line is a good representation of the data.**
   
   
+
+### Simple Linear Regression
+In simple linear regression with only one explanatory variable, we could assess linearity through a simple scatterplot of the outcome variable against the explanatory. This would allow us to check if the errors have a mean of zero. If this assumption was met, the residuals would appear to be randomly scattered around zero.  
+  
+The rationale for this is that, once you remove from the data the linear trend, what's left over in the residuals should not have any trend, i.e. have a mean of zero.
+
+### Multiple Regression
+In multiple regression, however, it becomes more necessary to rely on diagnostic plots of the model residuals. This is because we need to know whether the relations are linear between the outcome and each predictor _after accounting for the other predictors in the model._   
+
+In order to assess this, we use **partial-residual plots** (also known as 'component-residual plots'). This is a plot with each explanatory variable $x_j$ on the x-axis, and **partial residuals** on the y-axis***.
+
+Partial residuals for a predictor $x_j$ are calculated as:
+$$
+\hat \epsilon + \hat \beta_j x_j
+$$
+
+:::blue
+
+In **R**
+
+::: {.panel-tabset}
+
+### Simple Linear Regression
+
+```{r}
+#specify model
+recall_simp <- lm(recall_accuracy ~ age, data = recalldata)
+
+#create plot
+ggplot(recalldata, aes(x = age, y = recall_accuracy)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", se = FALSE, colour = "blue") + #fit straight line to data
+    geom_smooth(method = "loess", se = FALSE, colour = "red") + #fit loess line to data
+    labs(x = "Age", y = "Recall Accuracy")
+
+```
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+The loess line should closely follow the data.
+
+:::
+
+### Multiple Linear Regression
+
+We can create these plots for all predictors in the model by using the `crPlots()` function from the **car** package:
+
+```{r}
+#specify model
+recall_mdl <- lm(recall_accuracy ~ recall_confidence + age, data = recalldata)
+
+#create plots
+car::crPlots(recall_mdl)
+```
+
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+You are looking for the pink line to follow a linear trend line (i.e., follow the blue line). In other words, the loess line should closely follow the linear line. 
+
+:::
+
+:::
+
+
+:::
+
+:::frame
+
+[**Important to Note for Interaction Models**]{style="color:darkred;"}
+
+***When there is an interaction in the model, assessing linearity becomes difficult. In fact, `crPlots()` will not work. To assess, you can create a residuals-vs-fitted plot.
+
+:::
+  
 ## I = Independence of errors
 
 - A linear model can **only** model errors as residuals that are independent from one another. Within the basic linear model machinery, this cannot be changed.
 - To be satisfied with a simple linear model of our data, **we have to assume that independent residuals are a good representation of the data.**
 - One common source of non-independence are data points that come from the same source (e.g., in repeated-measures data, the same person will contribute multiple observations). In DAPR3, you'll learn how to deal with this scenario.
+
+
+The 'independence of errors' assumption is the condition that the errors do not have some underlying relationship which is causing them to influence one another. 
+<br>
+  
+There are many sources of possible dependence, and often these are issues of study design. For example, we may have groups of observations in our data which we would expect to be related (e.g., multiple trials from the same participant). Our modelling strategy would need to take this into account.
+<br>
+  
+Testing for the independence of errors can be pretty difficult, unless you know the potential source of correlation between cases (more on this in DAPR3!). 
 
   
 ## N = Normality of errors
@@ -43,11 +140,250 @@ An acronym for the four assumptions a linear model makes is **"LINE".**
   - A linear model can **only** model errors as residuals that are normally distributed. Within the basic linear model machinery, this cannot be changed.
   - To be satisfied with a linear model of our data, **we have to assume that normally-distributed residuals are a good representation of the data.**
   
+  
+
+The normality assumption is the condition that the errors $\epsilon$ are normally distributed in the population.  
+
+We can visually assess this condition through histograms, density plots, and quantile-quantile plots (QQplots) of our residuals $\hat \epsilon$.  
+
+::: {.panel-tabset}
+
+### Histogram
+
+```{r}
+hist(recall_mdl$residuals)
+```
+
+
+### QQPlot
+
+```{r}
+plot(recall_mdl, which = 2)
+```
+
+:::
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+Remember that departures from a linear trend in QQ plots indicate a lack of normality.
+
+:::
+
+
+
+
+::: {.callout-caution collapse="true"}
+#### If violated: transform data
+
+A data transformation involves the replacement of a variable (e.g., $y$) by a function of that variable in order to change the shape of a distribution or association (e.g., to help reduce skew). We can transform the outcome variable prior to fitting the model, using something such as `log(y)` or `sqrt(y)`. This will sometimes allow us to estimate a model for which our assumptions are satisfied.
+
+Some of the most common (not an exhaustive list) transformations are:
+
++ **Log (`log(y)`)**: Often used for reducing right skewness. Note, this transformation cannot be applied to zero or negative values (make sure to check your data!)
++ **Square root (`sqrt(y)`)**: Also often used for reducing right skewness. This transformation can be applied to zero values (but not negative), and is commonly applied to count data
+
+```{r}
+#| echo: false
+#| label: fig-trouble1
+#| fig-cap: "A model of a transformed outcome variable can sometimes avoid violations of assumptions that arise when modeling the outcome variable directly. Data from https://uoepsy.github.io/data/trouble1.csv"
+
+# set.seed(4)
+# df <- tibble(
+#   x = runif(100,1,100),
+#   ly = x*.01 + rnorm(100),
+#   y = exp(ly)
+# )
+# write_csv(df |> select(x,y), file="../../uoepsy/data/trouble1.csv")
+df <- read_csv("https://uoepsy.github.io/data/trouble1.csv") |> mutate(ly=log(y))
+par(mfrow=c(2,2))
+hist(df$y, breaks=30, main="marginal distribution of y",xlab="y")
+with(df,plot(y~x, main="lm(y ~ x)\nassumptions violated",xlab="x",ylab="y"))
+abline(lm(y~x,df),col="red")
+hist(df$ly,  breaks=30, main="marginal distribution of log(y)",xlab="log(y)")
+with(df,plot(ly~x, main="lm(log(y) ~ x)\nassumptions satisfied",xlab="x",ylab="log(y)"))
+abline(lm(ly~x,df),col="red")
+```
+
+The major downside of this is that we are no longer modelling $y$, but some transformation $f(y)$ ($y$ with some function $f$ applied to it). Interpretation of the coefficients changes accordingly, such that we are no longer talking in terms of changes in y, but changes in $f(y)$. When the transformation function used is non-linear (see the Right-Hand of @fig-logtr) a change in $f(y)$ is **not the same** for every $y$. 
+
+```{r}
+#| label: fig-logtr
+#| fig-cap: "The log transformation is non-linear"
+#| fig-height: 3.5
+#| echo: false
+par(mfrow=c(1,2))
+with(df,plot(y,2*y,main="y and 2*(y)",xlab="y",ylab="2(y)"))
+with(df,plot(y,ly,main="y and log(y)",xlab="y",ylab="log(y)"))
+```
+
+:::
+
+  
 ## E = Equal variance of errors
 
 - A linear model can **only** model errors as residuals that have equal variance. Within the basic linear model machinery, this cannot be changed.
 - To be satisfied with a linear model of our data, **we have to assume that residuals with equal variance are a good representation of the data.**
 
+
+
+The equal variances assumption is that the error variance $\sigma^2$ is constant across values of the predictor(s) $x_1, \dots,  x_k$, and across values of the fitted values $\hat y$. This sometimes gets termed "Constant" vs "Non-constant" variance. This is presented visually in @fig-ncv-violate and @fig-ncv-noviolate. 
+
+```{r ncv1, echo=FALSE}
+library(patchwork)
+n=1000
+x <- runif(n, min = 0, max = 100)
+y.increasing <- 3 + 0.2 * x + (1 + x / 25) * rnorm(n, sd = 3)
+y.good <- 3 + 0.1 * x + rnorm(n, sd = 3)
+
+
+lm.good <- lm(y.good ~ x)
+lm.bad <-lm(y.increasing~x)
+
+p1<-ggplot(NULL, aes(x=fitted(lm.bad), y=resid(lm.bad)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p2<-ggplot(NULL, aes(x=fitted(lm.good), y=resid(lm.good)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p3<-ggplot(NULL, aes(x=fitted(lm.bad)<mean(fitted(lm.bad)), y=resid(lm.bad)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+
+p4<-ggplot(NULL, aes(x=fitted(lm.good)<mean(fitted(lm.good)), y=resid(lm.good)))+
+  geom_point(shape=1)+
+  labs(x="fitted",y="residuals")+
+  theme(axis.text = element_blank())
+```
+
+```{r echo = FALSE, fig.width = 8, out.width = '90%'}
+#| label: fig-ncv-violate
+#| fig-cap: "Non-constant variance for numeric and categorical X"
+(p1 | p3) + plot_annotation(title = "Non-constant variance")
+```
+
+
+```{r echo = FALSE, fig.width = 8, out.width = '90%'}
+#| label: fig-ncv-noviolate
+#| fig-cap: "Constant variance for numeric and categorical X"
+(p2 | p4) + plot_annotation(title = "Constant variance")
+```
+
+:::blue
+
+In **R**
+
+We can create plots of the _Pearson residuals_ against the predicted values $\hat y$ and against the predictors $x_1$, ... $x_k$ by using the `residualPlots()` function from the **car** package. This function also provides the results of a lack-of-fit test for each of these relationships (note when it is the fitted values $\hat y$ it gets called "Tukey's test"). 
+
+```{r}
+library(car)
+residualPlots(recall_mdl)
+```
+
+Alternatively, we can use:
+
+```{r}
+plot(recall_mdl, which = 1)
+```
+
+:::
+
+:::frame
+
+[**Interpretation Guidance**]{style="color:red;"}
+
+If the assumption is met, you should see a random scatter of $(x,y)$ points with constant mean and variance functions i.e., the vertical spread of the residuals should roughly be the same everywhere.
+
+:::
+
+
+::: {.callout-caution collapse="true"}
+#### If violated: WLS regression
+
+The method of ordinary least squares regression (OLS: i.e., the type of regression model you have been fitting on the course) assumes that there is constant variance in the errors (*homoscedasticity*). The method of weighted least squares (WLS) can be used when the ordinary least squares assumption of constant variance in the errors is violated (i.e., you have evidence of *heteroscedasticity*).
+
+If we have some specific belief that your non-constant variance is due to differences in the variances of the outcome between various groups, then it might be better to use Weighted Least Squares.   
+
+As an example, imagine we are looking at weight of different dog breeds (@fig-dogweight). The weights of chihuahuas are all quite close together (between 2 to 5kg), but the weight of, for example, spaniels is anywhere from 8 to 25kg - a much bigger variance. 
+
+```{r}
+#| echo: false
+#| label: fig-dogweight
+#| fig-cap: "The weights of 49 dogs, of 7 breeds"
+set.seed(4)
+df <- tibble(
+  breed = c("chihuahua","boxer","pug","spaniel","golden retriever","beagle","lurcher"),
+  m = c(8,70,18,24,70,30,45),
+  sd = c(2,10,6,24,15,8,5)
+  ) |>
+  mutate(
+    weight = map2(m,sd, ~rnorm(7,.x,.y)*0.454)
+  ) |> select(breed,weight) |> unnest(cols = c(weight))
+df$breed = factor(df$breed, levels=c("beagle","pug","spaniel","chihuahua","boxer","golden retriever","lurcher"))
+dogdf<-df
+#save(dogdf, file="../../uoepsy/data/dogweight.RData")
+
+
+df_ms = df |> group_by(breed) |> summarise(m = round(mean(weight),1))
+ggplot(df, aes(x=breed,y=weight))+
+  geom_boxplot(fatten = NULL) + 
+  stat_summary(geom="segment", 
+               mapping=aes(xend=..x..-.375,yend=..y..,col=breed)) +
+  stat_summary(geom="segment", 
+               mapping=aes(xend=..x..+.375,yend=..y..,col=breed)) + 
+  geom_label(data=df_ms,aes(label=m,y=m,col=breed))+
+  guides(col="none") +
+  labs(x="Dog Breed",y="Weight (kg)")
+
+```
+
+Recall that the default way that `lm()` deals with categorical predictors such as `dog breed`, is to compare each one to a reference level. In this case, that reference level is "beagle" (first in the alphabet). Looking at @fig-dogweight above, which comparison do you feel more confident in? 
+
+- **A:** Beagles (14kg) vs Pugs (9.1kg). A difference of 4.9kg.  
+- **B:** Beagles (14kg) vs Spaniels (19kg). A difference of 5kg.  
+
+Hopefully, your intuition is that **A** looks like a clearer difference than **B** because there's less overlap between Beagles and Pugs than between Beagles and Spaniels. Our standard linear model, however, assumes the standard errors are identical for each comparison:  
+```{r}
+#| echo: false
+dogmodel <- lm(weight~breed, dogdf)
+.pp(summary(dogmodel),l = list(3,9:18))
+```
+
+Furthermore, we can see that we have heteroscedasticity in our residuals - the variance is not constant across the model:  
+```{r}
+#| fig-height: 3
+plot(dogmodel, which=3)
+```
+
+Weighted least squares is a method that allows us to apply weights to each observation, where the size of the weight indicates the precision of the information contained in that observation.  
+
+We can, in our dog-breeds example, allocate different weights to each breed. Accordingly, the Chihuahuas are given higher weights (and so Chihuahua comparisons result in a smaller SE), and Spaniels and Retrievers are given lower weights. 
+
+```{r}
+#| eval: false
+library(nlme)
+load(url("https://uoepsy.github.io/data/dogweight.RData"))
+dogmod_wls = gls(weight ~ breed, data = dogdf, 
+                 weights = varIdent(form = ~ 1 | breed))
+summary(dogmod_wls)
+```
+
+```{r}
+#| echo: false
+library(nlme)
+dogmod_wls = gls(weight ~ breed, data = dogdf, weights = varIdent(form = ~ 1 | breed))
+.pp(summary(dogmod_wls),l = list(16:25))
+```
+
+We _can_ also apply weights that change according to continuous predictors (e.g. observations with a smaller value of $x$ are given more weight than observations with larger values). 
+
+:::
 
 ## Linked flash cards
 

@@ -1,0 +1,84 @@
+---
+title: "Influential observations"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+We have seen that some specific individual cases in our data can influence our model more than others. We can identify these as:
+
++ **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
+    + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
+    + **Studentised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `rstudent()` function will give you these.
++ **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
+    + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
++ **High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
+    + **Cook's Distance:** combines *leverage* (hatvalues) with *outlying-ness* to capture influence: $D_i = \text{Outlyingness} \times \text{Leverage}$. Cook's distance refers to the average distance the $\hat{y}$ values will move if a given case is removed. In `R`, the `cooks.distance()` function will provide these values. 
+Alongside Cook's Distance, we can examine the extent to which model estimates and predictions are affected when an entire case is dropped from the dataset and the model is refitted.  
++ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
++ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it’s included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients. A commonly used cut-off or threshold to compare $|DFBETA|$ values (absolute values) against is $\frac{2}{\sqrt{n}}$ (see Belsley et al., (1980) p. 28 for more info)^[Belsley, D. A., Kuh, E., & Welsch, R. E. (2005). Regression diagnostics: Identifying influential data and sources of collinearity. John Wiley & Sons. DOI: 10.1002/0471725153]. 
++ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
++ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors. Values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence. 
+
+:::blue
+
+In **R**, we can get lots of these measures with the `influence.measures()` function:
+
+
++ `influence.measures(my_model)` will give you out a dataframe of the various measures.
++ `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
+
+:::
+
+## If you find an influential value
+
+### Investigate observations
+
+The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a persons height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)! 
+
+If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect. 
+
+We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results). 
+
+If there is an extreme, but legitimate value that you have determined is adversely influencing your model (i.e., by examining the assumptions and diagnostics as outlined above), you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value).
+
+If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach, for example, a sensitivity analysis.
+
+
+### removing observations
+
+```{r}
+mwdata  <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
+```
+
+
+Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is, and reduce statistical power by reducing the size of your sample. 
+
+If you do decide to remove observations, you will need to document what specific data points you excluded, and provide an explanation as to why these were excluded. 
+
+To set specific values to `NA` in our dataset (and save this updated dataset in a new object named `mwdata2`), we could use the following code. For the purpose of this demonstration, lets say that we wanted to set any `age` values of <20 as `NA`. In the original dataset `mwdata`, we had 3 individuals aged 18, and 6 aged 19, so we should end up with 9 `NA` values in `mwdata2` column `age`:
+
+```{r}
+#specify age column in original dataset, where age is < 20, for values to be set to NA and save to new object named mwdata2 to avoid overwriting original data
+mwdata2 <-  mwdata |> 
+    mutate(age = replace(age, age < 20, NA))
+
+#check how many NA values we have - there should be 9 (so 9 TRUEs):
+table(is.na(mwdata2$age))
+```
+
+If we wanted to remove a full row from the datset, we could use the following code. For the purpose of this demonstration, lets say that we wanted to remove all rows that were highlighted in the above assumption and diagnostic checks as potentially having an adverse influence on our model estimates:
+
+```{r}
+# create new dataset 'mwdata3' without (by specifying -) identified outliers and potentially influential observations
+mwdata3 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ]
+
+# check dimensions - should now have 32 rows less than original dataset 200 - 32 = 168
+dim(mwdata3)
+```
+
+

@@ -1,0 +1,356 @@
+---
+title: "Exploring data numerically"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+```
+
+Numeric exploration of data involves examining and describing key statistics like mean, median, and standard deviation via descriptives tables; and assessing the associations among variables through correlation coefficients. Exploring our data numerically helps us to identify patterns and associations in the data. When doing so, it is important to contextualise the descriptive statistics within the scope of the research question and associated scales. 
+
+## Descriptives 
+
+### Descriptives Tables
+
+There are numerous packages available that allow us to pull out descriptive statistics from our dataset such as **tidyverse** and **psych**.
+
+When we pull out descriptive statistics, it is useful to present these in a well formatted table for your reader. There are lots of different ways of doing this, but one of the most common (and straightforward!) is to use the `kable()` function from the package **kableExtra**. 
+
+This allows us to give our table a clear caption (via `caption = "insert caption here"`, align values within columns e.g., center aligned via `align = "??"`), and we can also round to however many decimal places we desire (standard for APA is 2 dp; via `digits = ??`). 
+
+We can also add in the function `kable_styling()`. This is really helpful for customsing your table e.g., the font size, position, and whether or not you want the table full width (as well as lots of other things - check out the helper function!). 
+
+For an overview of how to make tables in RMarkdown, see [Lesson 4 of the RMD bootcamp](https://uoepsy.github.io/scs/rmd-bootcamp/04-prettytab.html).
+
+<br>
+
+### Descriptives Tables - Examples
+
+::: {.panel-tabset}
+
+##### The **tidyverse** way
+
+We can use the `summarise()` function to numerically summarise/describe our data. Some key values we may want to consider extracting are (though not limited to): the mean (via `mean()`, standard deviation (via `sd()`), minimum value (via `min()`), maximum value (via `max()`), standard error (via `se()`), and skewness (via `skew()`). 
+
+::: {.panel-tabset}
+
+## Numeric values only example:
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# taking the mean and standard deviation of sepal length via the summarize function
+# returning a table with a caption, where numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+iris |>
+    summarize(
+        M_Length = mean(Sepal.Length),
+        SD_Length = sd(Sepal.Length)
+    ) |>
+    kable(caption = "Sepal Length Descriptives (in cm)", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+## Categorical and numeric values example:
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# grouping by Species. NOTE: we can group by 2 variables - we would just separate by a comma within group_by( , )
+# taking the mean and standard deviation of sepal length via the summarize function
+# returning a table of sepal length grouped by species with a caption, where numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+
+iris |>
+    group_by(Species) |>
+    summarize(
+        M_Length = mean(Sepal.Length),
+        SD_Length = sd(Sepal.Length)
+    ) |>
+    kable(caption = "Sepal Length (in cm) Grouped by Species Descriptives Table", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+:::
+
+##### The **psych** way
+
+The `describe()` function will produce a table of descriptive statistics. If you would like only a subset of this output (e.g., mean, sd), you can use `select()` after calling `describe()` e.g., `describe() |> select(mean, sd)`.
+
+::: {.panel-tabset}
+
+## Numeric values only example:
+
+```{r}
+library(psych)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# we want to get descriptive statistics of the iris dataset, specifically the sepal length column
+# we specifically want to select the mean and standard deviation from the descriptive statistics available (try this without including this argument to see what values you all get out)
+# returning a table with a caption, where numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+describe(iris$Sepal.Length) |>
+    select(mean, sd) |>
+    kable(caption = "Sepal Length Descriptives (in cm)", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+## Categorical and numeric values example:
+
+*Note that this is quite an overly complex way to return these summary statistics - using the `tidyverse()` way is much more intuitive and straightforward!*
+
+```{r}
+library(psych)
+library(kableExtra)
+
+# using the pre-loaded iris dataset
+# we want to get descriptive statistics of the iris dataset, specifically the sepal length column by Species
+# we want to return a matrix (hence mat = TRUE), then convert this to a dataframe
+# we specifically want to select the mean and standard deviation from the descriptive statistics available (try this without including this argument to see what values you all get out)
+# returning a table with a new column names of Group, Mean, SD; adding a caption; numbers are rounded to 2 dp
+# asking for a table that is not the full width of the window display
+
+
+describeBy(Sepal.Length ~ Species, data = iris, mat = TRUE, digits = 2) |>
+  as.data.frame() |>
+  rownames_to_column() |> 
+  select(group1, mean, sd) |>
+    kable(col.names = c("Group", "Mean", "SD"), caption = "Sepal Length Descriptives (in cm)", digits = 2) |>
+    kable_styling(full_width = FALSE)
+```
+
+
+:::
+
+:::
+
+
+#### Correlation
+
+##### Correlation Coefficient
+
+The correlation coefficient - $r_{(x,y)}=\frac{\mathrm{cov}(x,y)}{s_xs_y}$ - is a standardised number which quantifies the strength and direction of the linear association between two variables. In a population it is denoted by $\rho$, and in a sample it is denoted by $r$. 
+
+Values of $r$ fall between $-1$ and $1$. How to interpret:
+
+###### Size
+
+More extreme values (i.e., the The closer $r$ is to $+/- 1$) the stronger the linear association, and the closer to $0$ a weak/no association. Commonly used cut-offs are:   
+  
++ Weak = $.1 < |r| < .3$  
++ Moderate = $.3 < |r| < .5$  
++ Strong = $|r| > .5$  
+
+```{r, echo = F, message = F, fig.height=4, fig.width = 7}
+library(faux)
+set.seed(504)
+dat <- rnorm_multi(100, mu = c(90, 13), sd = c(30,  7), varnames = c('x', 'y'), r = 0.2)
+
+strCor <- rnorm_multi(n=200, mu = c(mean(dat$x), mean(dat$y)), sd = c(sd(dat$x),  sd(dat$y)), varnames = c('x', 'y'), r = 0.8)
+strCor$y[strCor$y<=0] <- 5
+strCor$x[strCor$x<=0] <- 2
+strCor$corrStrength <- 'Strong'
+
+set.seed(1022)
+modCor <- rnorm_multi(n=200, mu = c(mean(dat$x), mean(dat$y)), sd = c(sd(dat$x),  sd(dat$y)), varnames = c('x', 'y'), r = 0.45)
+modCor$corrStrength <- 'Moderate'
+modCor$y[modCor$y<=0] <- 5
+
+set.seed(86)
+lowCor <- rnorm_multi(n=200, mu = c(mean(dat$x), mean(dat$y)), sd = c(sd(dat$x),  sd(dat$y)), varnames = c('x', 'y'), r = 0.15)
+lowCor$corrStrength <- 'Weak'
+
+set.seed(86)
+noCor <- rnorm_multi(n=200, mu = c(mean(dat$x), mean(dat$y)), sd = c(sd(dat$x),  sd(dat$y)), varnames = c('x', 'y'), r = 0)
+noCor$corrStrength <- 'None'
+
+corDat <- rbind(strCor, modCor, lowCor, noCor)
+
+corDat$corrStrength <- factor(corDat$corrStrength, levels = c('None', 'Weak', 'Moderate', 'Strong'))
+
+corPlot <- ggplot(corDat, aes(x, y)) + 
+  geom_point(alpha = 0.7, size = 1) + 
+  geom_smooth(method = 'lm', se = F, colour = "#BF1932") +
+  labs(x = 'X', y = 'Y')
+
+ann_text <- data.frame(x = rep(75, 4),y = rep(0, 4),
+                       lab = c(paste('r =', round(cor.test(noCor$x, noCor$y)$estimate, 2)),
+                               paste('r =', round(cor.test(lowCor$x, lowCor$y)$estimate, 2)),
+                               paste('r =', round(cor.test(modCor$x, modCor$y)$estimate, 2)),
+                               paste('r =', round(cor.test(strCor$x, strCor$y)$estimate, 2))),
+                       corrStrength = c('None', 'Weak', 'Moderate', 'Strong'))
+
+ann_text$corrStrength <- factor(ann_text$corrStrength, levels = c('None', 'Weak', 'Moderate', 'Strong'))
+
+corPlot + facet_grid(.~corrStrength) +
+  theme(strip.text = element_text(size = 10, face = 'bold')) +
+  geom_text(data = ann_text, label = ann_text$lab, size = 4)
+```
+
+###### Direction
+
+The sign of $r$ says nothing about the strength of the association, but its nature and direction:  
+  
++ Positive association means that values of one variable tend to be higher when values of the other variable are higher 
+
+```{r, echo = F, message = F, fig.height=3, fig.width = 6}
+set.seed(504)
+
+ggplot(modCor, aes(x, y)) + geom_point() + geom_smooth(method = 'lm', se = F, colour = "#BF1932") + 
+  labs(x='X', y = 'Y') +
+  scale_y_continuous(breaks = seq(0, 30, 10), limits = c(0, 35)) +
+  theme(axis.text = element_text(size = 10), axis.title = element_text(size = 12, face = 'bold')) + 
+  annotate('text', label = paste('r =', round(cor.test(modCor$x, modCor$y)$estimate, 2)), 
+           x = 45, y = 30, size = 4)
+```
+
++ Negative association means that values of one variable tend to be lower when values of the other variable are higher  
+    
+```{r, echo = F, message = F, fig.height=3, fig.width = 6}
+set.seed(504)
+
+negCor <- rnorm_multi(n=200, mu = c(mean(dat$x), mean(dat$y)), sd = c(sd(dat$x),  sd(dat$y)), varnames = c('x', 'y'), r = -0.29)
+negCor$y[negCor$y<=0] <- 5
+
+ggplot(negCor, aes(x, y)) + geom_point() + geom_smooth(method = 'lm', se = F, colour = "#BF1932") + 
+  labs(x='X', y='Y') +
+  scale_y_continuous(breaks = seq(0, 30, 10), limits = c(0, 35)) +
+  theme(axis.text = element_text(size = 10), axis.title = element_text(size = 12, face = 'bold')) + 
+  annotate('text', label = paste('r =', round(cor.test(negCor$x, negCor$y)$estimate, 2)),
+           x=150, y = 30, size = 4)
+```
+
+
+<br>
+
+##### Correlation Matrix
+
+A correlation matrix is a table showing the correlation coefficients between variables. Each cell in the table shows the association between two variables. The diagonals show the correlation of a variable with itself (and are therefore always equal to 1).  
+
+:::blue
+**In R**
+
+We can create a correlation matrix by giving the `cor()` function a dataframe. It is important to remember that all variables **must** be numeric. One way to check this is by using the `str()` argument. 
+
+:::
+
+Let's check the structure of the iris dataset to ensure that all variables are numeric:
+
+```{r}
+str(iris)
+```
+
+We can see that the variable *Species* in column 5 is a factor - this means that we cannot include this in our correlation matrix. Therefore, we need to *subset*, or, in other words, select specific columns. We can do this either giving the column numbers inside `[]`, or using `select()`. In our case, we want the variables in columns 1 - 4, just not 5.
+
+If you had `NA` values within your dataset, you could choose to remove these `NA`s using `na.rm = TRUE` inside the `cor()` function.  
+
+:::blue
+**In R**
+
+::: {.panel-tabset}
+
+## Index dataframe (`[]`)
+
+```{r}
+round(cor(iris[,c(1:4)]), digits = 2)
+```
+
+## Variable selection (`select()`)
+
+```{r}
+# select only the columns we want by variable name, and pass this to cor()
+iris |> 
+  select(Sepal.Length, Sepal.Width, Petal.Length, Petal.Width) |>
+  cor() |>
+  round(digits = 2)
+```
+
+:::
+
+:::
+
+
+<br>
+
+##### Correlation - Hypothesis Testing
+
+The hypotheses of the correlation test are, as always, statements about the _population_ parameter (in this case the correlation between the two variables in the population - i.e., $\rho$).  
+
+If we are conducting a two tailed test, then... 
+
+- $H_0: \rho = 0$. There is _no_ linear association between $x$ and $y$ in the population  
+- $H_1: \rho \neq 0$ There is a linear association between $x$ and $y$  
+  
+If we instead conduct a one-tailed test, then we are testing either...
+
+- $H_0: \rho \leq 0$ There is a negative or no linear association between $x$ and $y$   
+- $H_1: \rho > 0$ There is a positive linear association between $x$ and $y$
+
+**OR**
+
+- $H_0: \rho \geq 0$ There is a positive or no linear association between $x$ and $y$   
+- $H_1: \rho < 0$ There is a negative linear association between $x$ and $y$  
+
+__Test Statistic__  
+
+The  test statistic for this test is the $t$ statistic, the formula for which depends on both the observed correlation ($r$) and the sample size ($n$):
+
+$$t = r \sqrt{\frac{n-2}{1-r^2}}$$
+
+
+__p-value__  
+
+We calculate the $p$-value for our $t$-statistic as the long-run probability of a $t$-statistic with $n-2$ degrees of freedom being less than, greater than, or more extreme in either direction (depending on the direction of our alternative hypothesis) than our observed $t$-statistic.  
+
+__Assumptions__  
+
+For a test of Pearson's correlation coefficient $r$, we need to make sure a few conditions are met:  
+  
++ Both variables are quantitative (i.e., continuous)  
++ Both variables are drawn from normally distributed populations  
++ The association between the two variables is linear    
++ No extreme outliers in dataset    
++ Homoscedasticity (homogeneity of variance)  
+
+
+<br> 
+
+##### Correlation - Hypothesis Testing in R
+
+:::blue
+**In R**
+
+We can test the significance of the correlation coefficient really easily with the function `cor.test()`:
+
+```{r}
+cor.test(iris$Sepal.Length, iris$Petal.Length)
+```
+
+Note, by default, `cor.test()` will include only observations that have no missing data on either variable. 
+
+We can specify whether we want to conduct a one- or two-tailed test by adding the argument `alternative = ` and specifying `alternative = "less"`, `alternative = "greater"`, or `alternative = "two.sided"` (the latter being the default).  
+
+:::
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+There was a strong positive association between sepal length and petal length $(r = .87, t(148) = 21.65, p < .001)$. These results suggested that a greater sepal length was positively associated with a greater petal length. 
+
+:::
+
+:::{.callout-note}
+
+For a detailed recap of all things correlation (including further details and examples), revisit the [Correlation lecture from DAPR1](https://uoepsy.github.io/dapr1/2425/lectures/dapR1_lec20_correlation.pdf).
+
+:::
+
+

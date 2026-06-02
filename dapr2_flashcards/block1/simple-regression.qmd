@@ -1,0 +1,235 @@
+---
+title: "Simple regression (one predictor)"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+## Description and specification
+
+The association between two variables (e.g., recall accuracy and age) will show deviations from the 'average pattern'. Hence, we need to create a model that allows for deviations from the linear relationship - we need a _statistical model_.
+
+A statistical model includes *both* a deterministic function and a random error term. We typically refer to the outcome (‘dependent’) variable with the letter $y$ and to our predictor (‘explanatory’/‘independent’) variables with the letter $x$. A simple (i.e., one x variable only) linear regression model thus takes the following form (where the terms $\beta_0$ and $\beta_1$ are numbers specifying where the line going through the data meets the y-axis (i.e., the intercept - where $x$ = 0; $\beta_0$) and its slope (direction and gradient of line; $\beta_1$):
+
+**Model Specification**
+
+$$
+y_i = \beta_0 + \beta_1 \cdot x_i + \epsilon_i    
+$$
+
+**Model Specification: Annotated**
+
+$$
+y_i = \underbrace{\beta_0 + \beta_1 \cdot x_i}_{\text{function of }x} + \underbrace{\epsilon_i}_{\text{random error}}  
+\\
+$$
+
+$$
+\quad \text{where} \quad \epsilon_i \sim N(0, \sigma) \text{ independently}
+$$
+
+
+**Model Specification: Explained**
+
+Let's break down what $y_i = \beta_0 + \beta_1 \cdot x_i + \epsilon_i \quad \text{where} \quad \epsilon_i \sim N(0, \sigma) \text{ independently}$ actually means by considering the statement in smaller parts:
+
++ *$y_i = \beta_0 + \beta_1 \cdot x_i$*  
+  
+    + $y_i$ is our measured outcome variable (our DV)  
+    + $x_i$ is our measured predictor variable (our IV)  
+    + $\beta_0$ is the model intercept  
+    + $\beta_1$ is the model slope  
+
++ *$\epsilon \sim N(0, \sigma) \text{ independently}$*   
+  
+    + $\epsilon$ is the residual error   
+    + $\sim$ means 'distributed according to'    
+    + $N(0, \sigma) \text{ independently}$ means 'normal distribution with a mean of 0 and a variance of $\sigma$'   
+    + Together, we can say that the errors around the line have a mean of zero and constant spread as x varies    
+
+
+:::blue
+**In R**
+
+There are basically two pieces of information that we need to pass to the `lm()` function:
+
+1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV) and $x$ the independent variable (IV).
+2. The data: Specify which dataframe contains the variables specified in the formula.
+
+In `R`, the syntax of the `lm()` function can be specified as follows (where DV = dependent variable, IV = independent variable, and data_name = the name of your dataset):
+
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ IV, data = data_name) 
+```
+
+
+you can also specify as: 
+
+```{r eval=FALSE}
+model_name <- lm(DV ~ 1 + IV, data = data_name) 
+```
+
+::: {.callout-important icon=false collapse=true}
+## Why is there a 1?
+
+When we specify the linear model in `R`, we include after the tilde sign ($\sim$), the variables that appear to the right of the $\hat \beta$s. The intercept, or $\beta_0$, is a constant. That is, we could write it as multiplied by 1.
+
+Including the 1 explicitly is not necessary because it is included by default (you can check this by comparing the outputs of A & B above with and without the 1 included - the estimates are the same!). After a while, you will find you just want to drop the 1 when calling `lm()` because you know that it’s going to be there, but in these early weeks we tried to keep it explicit to make it clear that you want the intercept to be estimated. 
+:::
+
+:::
+
+## Example
+
+Imagine that you were tasked to investigate whether there was an association between recall accuracy and age. You have been provided with data from twenty participants who studied passages of text (c500 words long), and were tested a week later. The testing phase presented participants with 100 statements about the text. They had to answer whether each statement was true or false, as well as rate their confidence in each answer (on a sliding scale from 0 to 100). The dataset contains, for each participant, the percentage of items correctly answered, their age (in years), and their average confidence rating. 
+
+The data are available at [https://uoepsy.github.io/data/recalldata.csv](https://uoepsy.github.io/data/recalldata.csv)
+
+```{r}
+recalldata <- read_csv('https://uoepsy.github.io/data/recalldata.csv')
+```
+
+
+> **Research Question** 
+>
+> Is there an association between recall accuracy and age?  
+
+
+## Visualisation
+
+
+There are lots of different ways in which we can visualise our data (as per the [Visual Exploration flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b1_reading.html#visual-exploration)). 
+
+For the marginal distributions we will use density and boxplots, and for the bivariate associations a scatterplot.
+
+```{r}
+#save plots to individual objects in order to arrange 
+
+plt1 <- ggplot(data = recalldata, aes(x = recall_accuracy)) + 
+    geom_density() +
+    xlim(0, 100) + #specify x-axis to range from 0-100
+    geom_boxplot(width = 1/100) + 
+    labs(x = "Recall Accuracy (%)", title = "Distribtion of \nRecall Accuracy")
+
+plt2 <- ggplot(data = recalldata, aes(x = age)) + 
+    geom_density() +
+    xlim(0, 100) + #specify x-axis to range from 0-100
+    geom_boxplot(width = 1/100) + 
+    labs(x = "Age (in years)", title = "Distribtion of \nAge")
+
+plt3 <- ggplot(data = recalldata, aes(x = age, y = recall_accuracy)) + 
+    geom_point() + 
+    labs(x = "Age (in years)", y = "Recall Accuracy (%)", title = "Association between Recall Accuracy and Age")
+
+
+#load patchwork package to arrange plots
+library(patchwork)
+
+#arrange plots where there are two plots in to panel (plt1 + plt2), one on bottom (plt3)
+(plt1 + plt2) / plt3
+```
+
++ The marginal distribution of recall accuracy was unimodal with a negative skew with a mean of approximately `r round(mean(recalldata$recall_accuracy),2)`. There was high variation in recall accuracy (SD = `r round(sd(recalldata$recall_accuracy),2)`)   
++ The marginal distribution of age was unimodal with a mean of approximately `r round(mean(recalldata$age),2)`, where age ranged from `r round(min(recalldata$age),2)` to `r round(max(recalldata$age),2)`  
++ There appeared to be a weak negative association between recall accuracy and age, where older age was associated with lower recall accuracy  
+
+
+## Model and hypothesis specification
+
+
+::: {.panel-tabset}
+
+## Model Specification 
+
+$$
+\text{Recall Accuracy}_i = \beta_0 + \beta_1 \cdot \text{Age}_i + \epsilon_i    
+$$
+
+## Hypothesis Specification
+
+$H_0: \beta_1 = 0$  
+   
+There is no association between recall accuracy and age. 
+
+$H_1: \beta_1 \neq 0$  
+  
+There is an association between recall accuracy and age.
+
+:::
+
+## Model building
+
+
+To fit the model in `R` we use the `lm()` function. The simple linear model is assigned/stored in an object called `recall_simp`:
+
+```{r}
+recall_simp <- lm(recall_accuracy ~ age, data = recalldata)
+```
+
+```{r}
+recall_simp
+```
+
+When we call the name of the fitted model, `recall_simp`, you can see the estimated regression coefficients $\hat \beta_0$ and $\hat \beta_1$. The line of best-fit is thus given by:^[Yes, the error term is gone. This is because the line of best-fit gives you the prediction of the average recall accuracy for a given age, and not the individual recall accuracy of an individual person, which will almost surely be different from the prediction of the line.]
+
+$$
+\widehat{\text{Recall Accuracy}} = 84.02 - 0.31 \cdot \text{Age}
+$$
+
+<br>
+
+Alternatively to get these same estimates, we could have used the `summary()` function:
+
+```{r}
+summary(recall_simp)
+```
+
+
+## Interpreting results
+
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(recall_simp)[1],2)`  
+  
++ The intercept, or predicted recall accuracy when age was 0.  
+    - An individual aged 0 years was expected to have a recall accuracy of $`r round(coef(recall_simp)[1],2)`$.  
+    
+
+*Note:* the intercept isn’t very useful here at all. It estimates the accuracy for a newborn (who wouldn’t be able to complete the task!).
+    
+## `age`   
+
+$\beta_1$ = `age` = `r round(coef(recall_simp)[2],2)`   
+  
++ The estimated difference in recall accuracy for each additional year in age.  
+    - Every 1 additional year in age was associated with a non-significant $`r round(coef(recall_simp)[2],2)`$ percentage point decrease in recall accuracy $(p = .196)$. This suggested that age was not significantly associated with recall accuracy.
+    
+:::
+
+
+## Visualising model
+
+
+```{r}
+#| label: fig-recallage-fitted-model
+#| fig-cap: "Association between Recall Accuracy and Age"
+
+ggplot(recalldata, aes(x = age, y = recall_accuracy)) + 
+    geom_point(size = 3, alpha = 0.5) +
+    geom_smooth(method = lm, se = FALSE) + 
+    ylim(0,100) +
+    labs(x = "Age (in years)", y = "Recall Accuracy (%)", title = "Association between Recall Accuracy and Age")
+```
+
+The line that best fits the association between recall accuracy and age (see @fig-recallage-fitted-model) is only able to predict the **average** accuracy for a given value of age.
+
+This is because there will be a distribution of recall accuracy at each value of age. The line will fit the trend/pattern in the values, but there will be individual-to-individual variability that we must accept around that average pattern.
+

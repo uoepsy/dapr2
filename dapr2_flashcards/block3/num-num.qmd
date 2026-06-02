@@ -1,0 +1,189 @@
+---
+title: "Numeric/numeric example"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+library(psych)
+```
+
+
+> **Research Question** 
+>
+> Does the influence of bill length on body mass vary depending on flipper length?
+
+## Overview
+
+```{r}
+library(palmerpenguins)
+```
+
+Here we are using the *palmer penguins* dataset^[Horst, A. M., Hill, A. P., & Gorman, K. B. (2020). palmerpenguins: Palmer Archipelago (Antarctica) penguin data. R package version 0.1.0. https://allisonhorst.github.io/palmerpenguins/ doi: 10.5281/zenodo.3960218]. The dataset contains a variety of information for a total of 344 adult penguins, including body measurements (bill length (`bill_length_mm`; measured in mm)/depth (`bill_length_mm`; measured in mm), flipper length (`flipper_length_mm`; measured in mm), body mass (`body_mass_g`; measured in grams)) for male and female (`sex`) penguins from three species (`species`; categorised as Adelie, Chinstrap, or Gentoo) across three Antarctic islands (`island`; categorised as Biscoe, Dream, or Torgersen) from 2007-2009 (`year`).
+
+## Visualise data
+
+Using `pairs.panels()` is likely the most useful way to visualise the associations among numeric variables. It returns a scatterplot of matrices (SPLOM) returning you (1) the marginal distribution of each variable via a histogram, (2) the correlation between variables, and (3) bivariate scatterplots. 
+
+```{r}
+penguins |>
+    select(body_mass_g, flipper_length_mm, bill_length_mm) |>
+    pairs.panels()
+```
+
+
+## Model specification
+
+$$
+\begin{align}
+\text{Body Mass} ~=~ & \beta_0 + \beta_1 \cdot \text{Flipper Length} + \beta_2 \cdot \text{Bill Length} \\  
+& + \beta_3 \cdot (\text{Flipper Length} \cdot \text{Bill Length}) + \epsilon
+\end{align}
+$$ 
+
+## Model building
+
+No penguins in our dataset had zero mm flipper or bill lengths. We might want to mean centre both of these predictor variables so that we can consider the difference in body mass between penguins with average flipper lengths and average bill lengths. Before we build our model, we should mean centre our two IVs:
+
+```{r}
+penguins <- penguins |>
+    mutate(
+   mc_flipper_length_mm = scale(flipper_length_mm, scale = FALSE),
+   mc_bill_length_mm = scale(bill_length_mm, scale = FALSE)
+   )
+```
+
+We can then specify our model using these two mean centred IVs: 
+
+```{r}
+mdl_nn <- lm(body_mass_g ~ mc_flipper_length_mm * mc_bill_length_mm, data = penguins)
+summary(mdl_nn)
+```
+
+
+## Interpreting results
+
+::: {.panel-tabset}
+
+## `(Intercept)`   
+
+$\beta_0$ = `(Intercept)` = `r round(coef(mdl_nn)[1],2)`  
+
++ The intercept, or predicted body mass of penguins for average flipper and bill length.  
+    - A penguin with average flipper and bill length was expected to have a body mass of $`r round(coef(mdl_nn)[1],2)`g$.  
+    
+## `mc_flipper_length_mm`   
+
+$\beta_1$ = `mc_flipper_length_mm` = `r round(coef(mdl_nn)[2],2)`  
+
++ The simple slope of flipper length (in mm) when bill length was average.     
+    - For a penguin with an average bill length, every 1mm increase in flipper length was associated with a significant $(p < .001)$ increase of $`r round(coef(mdl_nn)[2],2)`g$ in their body mass.
+    
+## `mc_bill_length_mm`   
+
+$\beta_2$ = `mc_bill_length_mm` = `r round(coef(mdl_nn)[3],2)`  
+
++ The simple slope of bill length (in mm) when flipper length was average.     
+    - For a penguin with an average flipper length, every 1mm increase in bill length was associated with a significant $(p < .05)$ increase in their body mass by $`r round(coef(mdl_nn)[3],2)`g$. 
+
+## `mc_flipper_length_mm:mc_bill_length_mm`   
+
+$\beta_3$ = `mc_flipper_length_mm:mc_bill_length_mm` = `r round(coef(mdl_nn)[4],2)`  
+
++ The interaction between flipper and bill length on body mass - the change in the slope of flipper length as a function of bill length.    
+    - For every 1mm increase in bill length, when flipper length increased by 1mm, the slope with body mass was adjusted by 1.20 $(\beta = `r round(coef(mdl_nn)[4],2)`,~p < .001)$. 
+    
+    
+:::
+
+
+## Visualising model
+
+We can do this using the `probe_interaction()` function from the **interactions** package.  
+
+In terms of of specification, it might be useful to look up the helper function (i.e., `?probe_interaction`). As a quick guide:
+
+- `model = `: The name model to be used  
+- `pred = `: The continuous predictor variable that will appear on the x-axis  
+- `modx = `: The continuous moderator variable  
+- `interval = `: If we say `TRUE`, then confidence/prediction intervals will be plotted around the line   
+- `jnplot = `: Since we are looking at a numeric x numeric interaction, we want to specify that this is `TRUE`
+
+Remember to give your plot informative titles/labels. You, for example, likely want to give your plot:
+
+- a clear and concise title (specify `main.title = `)  
+- axis labels with units or scale included (specify `x.label = ` and `y.label = `)  
+- a legend title (specify `legend.main = `)  
+
+```{r}
+library(interactions)
+
+plt_mdl_nn <- probe_interaction(model = mdl_nn,
+                                pred = mc_flipper_length_mm,
+                                modx = mc_bill_length_mm,
+                                cond.int = T,
+                                interval = T,
+                                jnplot = T,
+                                main.title = "Bill Length Moderating the Effect of Flipper Length on Body Mass",
+                                x.label = "Flipper Length (in mm; Mean Centered)",
+                                y.label = "Body Mass (in g)",
+                                legend.main = "Bill Length (in mm; Mean Centered)")
+```
+
+From the above, we can choose to extract different information/visualisations of simple slopes (this will likely be dependent upon the question(s) you are trying to answer) - the interaction plot, simple slopes analysis only, johnson-neyman plot only, or both simple slopes and johnson-neyman plot: 
+
+::: {.panel-tabset}
+
+# Interaction Plot
+
+The default simple slopes analysis selects $z$-values for us at which to test the slope. The defaults are: the mean of $Z$, and $+1~SD$ and $-1~SD$ from the mean:
+
+```{r}
+plt_mdl_nn$interactplot
+```
+
+# Simple Slopes Only
+
+Here we can look a the significance of each slope:
+
+```{r}
+plt_mdl_nn$simslopes$slopes
+```
+
+# Johnson-Neyman Plot Only
+
+The Johnson-Neyman plot allows us to visualise the regions of significance - i.e., it identifies the range of the moderator variable $(Z)$ where the effect of the independent variable $(X)$ on the dependent variable $(Y)$ is statistically significant (e.g., $p < .05$). Outwith these regions, the effect of the independent variable is not significant.
+
+Pointers to help with interpretation of the plot:
+
++ x-axis = Values of moderator variable $(Z)$  
++ y-axis = The conditional effect (slope) of the independent variable $(X)$ on the dependent variable $(Y)$  
++ Bold black line (range of observed data) = The actual range of the moderator variable $(Z)$ values within the dataset. This helps with interpretation of results, and more importantly, avoid extrapolation - i.e., should help to ensure that the interpretations of the plot are data-driven and based on the actually observed data  
++ Zero line = The horizontal line at $y = 0$ indicates the point where the effect of the IV $(X)$ on the DV $(Y)$ is neither positive or negative  
++ Shaded areas = Regions where the effect is significant (e.g., *outside* the bounds of 95% confidence intervals that include zero) are highlighted in blue. Regions where the effect is non-significant (e.g., crosses the zero line, *inside* the bounds of the 95% confidence intervals that include zero) are highlighted in red  
+
+```{r}
+plt_mdl_nn$simslopes$jnplot
+```
+
+# Both Simple Slopes & Johnson-Neyman Plot
+
+When we return both the simple slopes analysis and Johnson-Neyman plot, we can see that some text is also provided to aid our interpretation of the plot:
+
+```{r}
+plt_mdl_nn$simslopes
+```
+
+In our example, we could say:
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+The association between body mass (in g) and flipper length (in mm; mean centered) was significant when bill length (in mm; mean centered) was more than 83.07mm below the mean or greater than -23.71mm above the mean.
+
+:::
+
+:::
