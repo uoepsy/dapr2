@@ -1,0 +1,303 @@
+---
+title: "Logistic regression example"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+library(sjPlot)
+```
+
+> **Research Question** 
+>
+> Does the probability of elderly adults having symptoms of senility change as a function of their score on the Wechsler Adult Intelligence Scale?
+
+
+## Overview
+
+A small sample ($n$ = 54) of elderly people were given a psychiatric examination to determine if symptoms of senility were present (`senility`: 0 = not present; 1 = present).
+Other measurements taken at the same time included the score on a subset of the Wechsler Adult Intelligence Scale (`wais`).
+
+```{r}
+sendata <- read_csv("https://uoepsy.github.io/data/SenilityWAIS.csv")
+head(sendata)
+```
+
+
+<br>
+
+## Visualise Data
+
+Just the observed data:
+
+```{r}
+sendata |>
+  ggplot(aes(x = wais, y = senility)) +
+  
+  # wiggle the points around a little bit so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1)) +
+  
+  # rename the axes for clarity
+  labs(
+    y = 'Presence of senility symptoms',
+    x = 'WAIS score'
+  )
+```
+
+And we can also add a line of best fit using `+ geom_smooth()`.
+But this shouldn't be a straight line, as we know.
+To add a logistic curve, we specify `method = 'glm'` and specify the binomial family using `method.args = list(family = binomial)`.
+And to get rid of the ribbon showing the standard error, we include `se = FALSE`.
+
+```{r}
+sendata |>
+  ggplot(aes(x = wais, y = senility)) +
+  
+  # wiggle the points around a little bit so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1)) +
+  
+  # rename the axes for clarity
+  labs(
+    y = 'Presence of senility symptoms',
+    x = 'WAIS score'
+  ) +
+  
+  # add logistic curve
+  geom_smooth(
+    method = "glm",  # not a straight line
+    method.args = list(family = binomial),   # specify logistic curve
+    se = FALSE  # remove standard error ribbon around line
+  )
+```
+
+Looks like the probability of senility symptoms decreases as WAIS score increases.
+
+To see if this decrease is statistically significant, let's model it.
+
+
+## Mathematical model formulation
+
+<!-- We're modelling the log-odds of senility symptoms as a function of WAIS. -->
+
+$$
+\begin{aligned}
+\log \left( \frac{p}{1 - p}\right) = \beta_0 + (\beta_1 \cdot \text{WAIS})
+\end{aligned}
+$$
+
+where $p$ is the probability of having senility symptoms.
+
+
+## State hypotheses
+
+Same as always!
+
+$$
+\begin{align}
+H_0 &: \beta_1 = 0 \\
+H_1 &: \beta_1 \neq 0\\
+\end{align}
+$$
+
+## Fit model
+
+```{r}
+sen_mdl1 <- glm(
+  senility ~ wais, 
+  family = "binomial",   # this tells glm() to use logistic regression
+  data = sendata
+)
+```
+
+
+```{r}
+summary(sen_mdl1)  # check out model summary
+confint(sen_mdl1)  # get confidence intervals for the coefficient
+```
+
+
+## Interpreting the coefficients
+
+<!-- Our outcome variable is the log-odds of having symptoms of senility, so all of these model coefficients are on the scale of log-odds. -->
+
+### `(Intercept)` = $\beta_0$
+
+For people with a WAIS score of 0, the estimated log-odds of having symptoms of senility is 2.4.
+
+This estimate is significantly different from 0 (95% CI: [0.21, 4.98], p = 0.04).
+
+**For intercepts only (not for slopes), we can back-transform the coefficient estimate to probability space:**
+
+```{r}
+plogis(2.4)
+```
+
+So in other words, for people with a WAIS score of 0, the estimated probability of having symptoms of senility is 91.7%.
+
+
+
+#### Why are we interpreting the significance of the intercept now?
+
+When the outcome scale is log-odds, it's actually interesting if the intercept is significantly different from zero!
+
+A log-odds of zero equals a probability of 0.5, which is the same as 50/50 chance, like flipping a coin.
+
+**So if our intercept is significantly different from zero, then we know that the log-odds of a successful outcome (whatever that is for the given model) is significantly different from chance.**
+
+For the senility model, the significant intercept tells us that people with a WAIS score of 0 have a probability of showing senility symptoms that's significantly higher than chance.
+
+
+### `wais` = $\beta_1$
+
+Increasing WAIS score by one point is associated with the log-odds of senility symptoms decreasing by 0.32.
+
+This decrease is significantly different from zero (95% CI [–0.58, –0.12], p = 0.005).
+
+We cannot back-transform the slopes to probabilities the way we can with the intercept.
+
+
+### Why can we back-transform the intercept but not the slopes to probabilities?
+
+We can only back-transform the intercept into probabilities because the intercept represents the log-odds of something happening.
+In contrast, the slope represents a *change* in log-odds, or differences between two log-odds values.
+And because the logit link function is not linear, the differences between two log-odds values mean different things, depending on what the values are that we're comparing.
+
+::: {.callout-caution collapse="true"}
+#### More detail on why we can't back-transform slopes
+
+For example, imagine a slope coefficient of 1, that is, a difference in log-odds of one unit.
+
+If that difference is between a log-odds of 0 and a log-odds of 1, then it maps to a difference in probabilities of 23%:
+
+```{r}
+plogis(1) - plogis(0)
+```
+
+But if that difference is between a log-odds of 3 and a log-odds of 4, then it maps to a difference in probabilities of just 3%:
+
+```{r}
+plogis(4) - plogis(3)
+```
+
+
+To give a visual intuition:
+
+```{r}
+#| code-fold: true
+
+tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  scale_x_continuous(expand = c(0, 0), breaks = -4:4) +
+  labs(x = 'Log-odds', y = 'Probability') +
+  theme(panel.grid = element_blank()) +
+  # horiz green
+  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654') +
+  geom_text(
+    x = -4.8,
+    y = 0.62,
+    colour = '#2B8654',
+    label = paste0('diff: ', 100*round(plogis(1)-plogis(0), 2), '%'),
+    hjust = 0,
+    size = 5
+  ) +
+  # vert green
+  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654') +
+  geom_text(
+    x = 0.5,
+    y = 0.15,
+    colour = '#2B8654',
+    label = paste0('diff:\n 1 log-\nodd'),
+    size = 5
+  ) +
+  
+  # horiz pink
+  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A') +
+  geom_text(
+    x = -4.8,
+    y = 0.91,
+    colour = '#FF6D9A',
+    label = paste0('^ diff: ', 100*round(plogis(4)-plogis(3), 2), '%'),
+    hjust = 0,
+    size = 5
+  ) +
+  # vert pink
+  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A') +
+  geom_text(
+    x = 3.5,
+    y = 0.15,
+    colour = '#FF6D9A',
+    label = paste0('diff:\n 1 log-\nodd'),
+    size = 5
+  ) +
+
+  geom_point() +
+  NULL
+```
+
+
+Because the slope coefficient is 1, presented in isolation from the actual values that it's the difference between, we can't back-transform it without knowing what those other values are, because the difference in probability space could be 3% or 23% or anywhere in between.
+
+:::
+
+
+## Plotting model-fitted values
+
+To display the predicted probability of senility symptoms across all WAIS values, we can use the `effect()` function from the **effects** package. 
+
+        
+```{r}
+library(effects)
+
+effect(term = "wais", mod = sen_mdl1, xlevels = 20) |>
+  as.data.frame() |>
+  ggplot(aes(x = wais, y = fit, ymin = lower, ymax = upper))+
+  geom_line()+
+  geom_ribbon(alpha = .3) +
+  labs(
+    y = 'Probability of senility symptoms',
+    x = 'WAIS score'
+  )
+```
+
+Here's what's going on in the code above:
+
+Within `effect()`:   
+
+- `term`: the predictor we want on the x axis.
+- `mod`: the name of the fitted model  
+- `xlevels`: return X number of evenly spaced fitted values across the predictor (in the below example, we are asking for 20)        
+    
+Within `ggplot()`:
+
+-  `x`: predictor on x-axis        
+-  `y`: predicted outcome on y-axis       
+-  `ymin`: lower CI bound      
+-  `ymax`: upper CI bound
+-  `geom_line()`: predicted effect line (i.e., how the DV varies as a function of the continuous IV)
+-  `geom_pointrange()`: predicted probability for each group (i.e., how the DV differs across categorical IV)
+-  `geom_ribbon() `: shaded band representing the confidence interval                        
+    
+
+<!-- ## Get model-fitted values -->
+
+<!-- We can also use `R` to extract predicted probabilities from our models. -->
+
+<!-- -   Calculate the predicted log-odds (probabilities on the logit scale): `predict(model, type="link")` -->
+<!-- -   Calculate the predicted probabilities: `predict(model, type="response")` -->
+
