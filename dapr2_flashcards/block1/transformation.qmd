@@ -9,20 +9,16 @@ source('../assets/setup.R')
 ```
 
 
-There are many transformations we can do to a continuous variable, but the most common ones are centering and scaling. These transformations can help to aid interpretability of our statistical models.  
+There are many transformations we can do to a continuous variable, but the most common ones are mean-centering, scaling, and z-scoring (z-scoring is also called standardising).
+These transformations can help to aid interpretability of our statistical models.  
+
+
 
 ## Mean-centering
 
-Centering simply means moving the entire distribution to be centered on some new value. We achieve this by subtracting our desired center from each value of a variable. 
-A common option is to mean center (i.e. to subtract the mean from each value). This makes our new values all relative to the mean. We can center a variable on other things, such as the minimum or maximum value of the scale we are using, or some judiciously chosen value of interest.
-
-:::blue
-
-In **R**
-
-::: {.panel-tabset}
-
-## Manually mean center variable
+Centering simply means moving the entire distribution to be centered on some new value.
+We achieve this by subtracting our desired center from each value of a variable. 
+A common option is to mean-centre, by subtracting the variable's mean from each observation.
 
 ```{r eval = FALSE}
 data_name <- data_name |>
@@ -31,85 +27,70 @@ data_name <- data_name |>
     )
 ```
 
-:::frame
+The resulting transformed variable will have a mean of 0.
+Values that are negative are below the average, and values that are positive are above the average.
 
-[**Important to Note for Interaction Models**]{style="color:darkred;"}
+<!-- :::frame -->
 
-If we have the interaction `y ~ x1 + x2 + x1:x2`, then mean centering `x1` will make the coefficient for `x2` now represent “the association between `x2` and `y` for someone at the average of `x1`”. When working with models that contain interaction terms, it is generally a good idea to center your continuous predictor variables. This is because:
+<!-- [**Important to Note for Interaction Models**]{style="color:darkred;"} -->
 
-- centering helps to address issues of multicollinearity  
-- centering makes the model coefficients easier to interpret  
+<!-- If we have the interaction `y ~ x1 + x2 + x1:x2`, then mean centering `x1` will make the coefficient for `x2` now represent “the association between `x2` and `y` for someone at the average of `x1`”. When working with models that contain interaction terms, it is generally a good idea to center your continuous predictor variables. This is because: -->
 
-Remember that the underlying model **does not** change, it is just extracting different information as we have changed what “zero” represents. 
+<!-- - centering helps to address issues of multicollinearity   -->
+<!-- - centering makes the model coefficients easier to interpret   -->
 
-:::
+<!-- Remember that the underlying model **does not** change, it is just extracting different information as we have changed what “zero” represents.  -->
+
+<!-- ::: -->
 
 
-<br>
 
 ## Scaling
 
 Scaling changes the units of the variable, and we do this by dividing the observations by some value. E.g., moving from “36 months” to “3 years” involves multiplying (scaling) the value by 1/12.
 
-The most common transformation that involves scaling is called **standardisation**. 
+The most common transformation that involves scaling is z-scoring (aka standardising).
 
 
-<br>
 
-## Standardisation (aka z-scoring)
+## z-scoring
 
-This involves subtracting the mean from each individual observation (i.e., calculating individual deviations) and then dividing by the standard deviation. So standardisation centers on the sample mean and scales by the sample standard deviation. 
+Transforming values into z-scores involves subtracting the mean from each individual observation (i.e., calculating individual deviations) and then dividing by the standard deviation.
+So, z-scoring centres the variable on the sample mean and scales it by the sample standard deviation. 
+The result is a standardised variable with a mean of 0 and a standard deviation of 1.
 
-Recall that a standardized variable has mean of 0 and standard deviation of 1. If **both** $x$ and $y$ are standardised, our model coefficients ($\beta$'s) are standardised too.
-
-**$z$-score Formula for $x$:**
+**z-score formula for $x$:**
 
 $$
 z_{x_i} = \frac{x_i - \bar{x}}{s_x}
 $$
 
-**$z$-score Formula for $y$:**
+**In words:** The z-scored version of the observation $x_i$ equals the observed value $x_i$, minus the mean of all the $x$ values $\bar{x}$, with that difference divided by the standard deviation of the $x$ values $s_x$.
 
-$$
-z_{y_i} = \frac{y_i - \bar{y}}{s_y}
-$$
-
-:::blue
-
-In **R**
-
-
-## Manually create z-scored variables and then use these in model
+**In R:**
 
 ```{r eval = FALSE}
 data_name <- data_name |>
   mutate(
-   z_variable = (variable - mean(variable)) / sd(variable)
-    )
-
+    z_variable = (variable - mean(variable)) / sd(variable)
+  )
 ```
 
 
-## Add scaled variable to data set via `scale()` function
+## Standardising variables for linear modelling
 
-```{r eval = FALSE}
-data_name <- data_name |> 
-    mutate(
-   z_variable = scale(variable)
-   )
-```
+If **both** $x$ and $y$ are standardised, our model coefficients ($\beta$'s) are standardised too.
 
+When we standardise variables in a regression model, it means we can talk about all our coefficients in terms of “standard deviation units”. To the extent that it is possible to do so, this puts our coefficients on scales of the similar magnitude.
+This means we can qualitatively compare effect sizes more clearly than if the predictors are on different scales.
 
-
-When we standardise variables in a regression model, it means we can talk about all our coefficients in terms of “standard deviation units”. To the extent that it is possible to do so, this puts our coefficients on scales of the similar magnitude, making qualitative comparisons between the sizes of effects a little more easy.
-
-We tend to refer to coefficients using standardised variables as (unsurprisingly), “standardised coefficients”
+We tend to refer to coefficients using standardised variables as “standardised coefficients”.
 
 There are two main ways that people construct standardised coefficients. One of which standardises just the predictor, and the other of which standardises both predictor and outcome:
 
 
-| predictor    | outcome      | in lm                     | coefficient                       | interpretation                                   |
+| predictor    | outcome      | pseudocode                    | coefficient                       | interpretation                                   |
 | ------------ | ------------ | ------------------------- | --------------------------------- | ------------------------------------------------ |
-| standardised | raw          | `y ~ scale(x)`            | $\beta = b \cdot s_x$             | "difference in Y for a 1 SD increase in X"       |
-| standardised | standardised | `scale(y) ~ scale(x)`     | $\beta = b \cdot \frac{s_x}{s_y}$ | "difference in SD of Y for a 1 SD increase in X" |
+| standardised | raw          | `y ~ zscored(x)`            | $\beta = b \cdot s_x$             | "difference in Y for a 1 SD increase in X"       |
+| standardised | standardised | `zscored(y) ~ zscored(x)`     | $\beta = b \cdot \frac{s_x}{s_y}$ | "difference in SD of Y for a 1 SD increase in X" |
 

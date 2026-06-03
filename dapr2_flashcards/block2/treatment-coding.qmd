@@ -1,0 +1,392 @@
+---
+title: "Treatment coding"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+By default, the contrast coding scheme that R uses is treatment coding.
+
+It's easiest to see how it works using examples.
+
+> **Research Question** 
+>
+> Does sepal length differ significantly between iris species?
+
+
+## Example: Binary predictor
+
+You have been provided with the in-built dataset, `iris`, which contains information concerning the sepal length (in cm), sepal width (in cm), petal length (in cm), and petal width (in cm) from three different species of iris (setosa, versicolor, and virginica).
+There are measurements for 50 flowers from each of the iris species (i.e., total $n$ = 150). 
+**For this example, we'll just look at two species, setosa and versicolor.**
+
+```{r}
+iris_binary <- iris |>
+  # filter out virginica
+  filter(Species != 'virginica') |>
+  # the only factor levels we want are the two species we're keeping
+  mutate(Species = factor(Species, levels = c('setosa', 'versicolor')))
+
+head(iris_binary)
+```
+
+The binary predictor is `Species`, with two levels, setosa and versicolor, and the outcome is `Sepal.Length`.
+
+```{r}
+iris_binary |>
+  ggplot(aes(x = Species, y = Sepal.Length, fill = Species, colour = Species)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+We can see how R uses treatment coding to represent this variable using `contrasts()`:
+
+```{r}
+contrasts(iris_binary$Species)
+```
+
+(If this code doesn't run for your variable, then you'll probably need to convert your variable to a factor using `factor()`).
+
+**This contrast matrix shows us that `setosa` is represented as 0, and `versicolor` is represented as 1.
+This means that `setosa` is the reference level, and `versicolor` is the non-reference level.**
+
+
+When we fit a linear model to this data, the model's intercept will represent the estimated mean sepal length for the reference level `setosa`. 
+And the model's slope over `Species` will represented the estimated difference between the mean sepal length for `versicolor` and the mean sepal length for setosa. 
+Or, in other words, how sepal length *changes* when we move from `setosa` (reference level) to `versicolor` (non-reference level).
+
+### Model fit and interpretation
+
+
+```{r}
+m1 <- lm(Sepal.Length ~ Species, data = iris_binary)
+summary(m1)
+```
+
+
+The intercept is 5.01 cm, which corresponds to the mean sepal length of `setosa`:
+
+```{r}
+iris_binary |>
+  group_by(Species) |>
+  summarise(
+    m = mean(Sepal.Length)
+  )
+```
+
+And the slope is 0.93, which corresponds to the difference between the `versicolor` mean of 5.94 cm and the `setosa` mean of 5.01 cm.
+
+```{r}
+5.94 - 5.01
+```
+
+
+## Example: Three-level predictor
+
+Let's bring back all three species of iris to see what happens when we have two non-reference levels.
+
+```{r}
+iris |>
+  ggplot(aes(x = Species, y = Sepal.Length, fill = Species, colour = Species)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+```{r}
+contrasts(iris$Species)
+```
+
+Read this contrast matrix as a table with three rows and two columns.
+
+The reference level is `setosa`.
+We can tell because its row contains only 0s.
+
+There are two columns, which represent two "dummy variables".
+Each dummy variable will estimate the difference between the reference level and the level that's named in the column header and represented in that column as 1.
+
+So the column `versicolor` contains a dummy variable that will compare `versicolor` to `setosa`, and the column `virginica` contains another dummy variable that will copmare `virginica` to `setosa`.
+
+When we use `Species` as a predictor in a model, each dummy variable will receive its own coefficient in the model summary.
+That coefficient represents the comparisons described for each dummy variable.
+
+### Model fit and interpretation
+
+
+```{r}
+m2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(m2)
+```
+
+<br>
+
+The intercept is the mean estimated sepal length for the reference level `setosa`.
+
+```{r}
+iris |>
+  group_by(Species) |>
+  summarise(
+    m = mean(Sepal.Length)
+  )
+```
+
+The slope coefficient `Speciesversicolor` is 0.93, which is the difference between the mean estimated sepal length for `versicolor` (the non-reference level for this dummy variable) and that of `setosa` (the reference level).
+
+```{r}
+5.94 - 5.01
+```
+
+And the slope coefficient `Speciesvirginica` is 1.58, which is the difference between the mean estimated sepal length for `virginica` (the non-reference level for *this* dummy variable) and that of `setosa` (the reference level).
+
+```{r}
+6.59 - 5.01
+```
+
+
+
+## Plotting model-fitted values
+
+There are a couple of ways that we can visualise a model of categorical predictors, either using the **sjPlot** or **effects** packages:
+
+```{r}
+library(sjPlot)
+
+plot_model(m2,
+           type = "eff",
+           terms = "Species") +
+    labs(title = "Sepal Length by Species",
+       x = "Species", 
+       y = "Sepal Length")
+```
+
+
+```{r}
+library(effects)
+
+effect(term = c("Species"), mod = m2) |>
+  as.data.frame() |>
+  ggplot(aes(x = Species, y = fit, col = Species)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper))
+```
+
+
+## Reporting treatment coding (three-level example)
+
+### Dummy variables
+
+```
+$$
+\text{Species}_\text{Versicolor} = \begin{cases}  
+1 & \text{if Species is Versicolor} \\  
+0 & \text{otherwise}  
+\end{cases}  
+$$
+```
+
+$$
+\text{Species}_\text{Versicolor} = \begin{cases}  
+1 & \text{if Species is Versicolor} \\  
+0 & \text{otherwise}  
+\end{cases}
+$$
+
+<br>
+
+```
+$$
+\text{Species}_\text{Virginica} = \begin{cases}  
+1 & \text{if Species is Virginica} \\  
+0 & \text{otherwise}  
+\\  
+\end{cases}  
+$$
+```
+
+$$
+\text{Species}_\text{Virginica} = \begin{cases}  
+1 & \text{if Species is Virginica} \\  
+0 & \text{otherwise}  
+\\  
+\end{cases}  
+$$
+
+<br>
+
+
+```
+$$
+(\text{Species}_\text{Setosa } \text{ is the reference level})  
+$$
+```
+
+$$
+(\text{Species}_\text{Setosa } \text{ is the reference level})  
+$$
+
+<br>
+
+### Mathematical model formulation
+
+```
+$$
+\text{Sepal Length} = \beta_0 + 
+  (\beta_1 \cdot \text{Species}_\text{Versicolor}) + 
+  (\beta_2 \cdot \text{Species}_\text{Virginica}) + 
+  \epsilon
+$$
+```
+
+$$
+\text{Sepal Length} = \beta_0 + 
+  (\beta_1 \cdot \text{Species}_\text{Versicolor}) + 
+  (\beta_2 \cdot \text{Species}_\text{Virginica}) + 
+  \epsilon
+$$
+
+
+## What hypotheses are tested by treatment coding?
+
+**For all coefficients, linear models always test the null hypothesis that the coefficient is equal to zero.**
+
+More specifically, for the mathematical model specified above:
+
+**For the intercept:** the null hypothesis H0 is that the estimated mean outcome value for the reference level is equal to zero.
+The alternative hypothesis H1 is that the estimated mean outcome is different from zero. 
+(This isn't usually interesting to test, because the intercept will nearly always be different from zero.)
+
+```
+$$
+\begin{align}
+H_0 &: \beta_0 = 0 \\
+H_1 &: \beta_0 \neq 0
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \beta_0 = 0 \\
+H_1 &: \beta_0 \neq 0
+\end{align}
+$$
+
+<br>
+
+
+**For a single slope coefficient (let's say $\beta_1$):** the null hypothesis is that the difference between the $\beta_1$'s non-reference level and the reference level is equal to zero.
+And the alternative hypothesis is that the difference between $\beta_1$'s non-reference level and the reference level is different from zero.
+
+```
+$$
+\begin{align}
+H_0 &: \beta_1 = 0 \\
+H_1 &: \beta_1 \neq 0
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \beta_1 = 0 \\
+H_1 &: \beta_1 \neq 0
+\end{align}
+$$
+
+<br>
+
+**For all slope coefficients:** the null hypothesis is that the differences between *all* non-reference levels and the reference level are equal to zero.
+And the alternative hypothesis is that any difference between any non-reference level and the reference level is different from zero. 
+
+```
+$$
+\begin{align}
+H_0 &: \text{All}~ \beta_j = 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+H_1 &: \text{Any}~ \beta_j \neq 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \text{All}~ \beta_j = 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+H_1 &: \text{Any}~ \beta_j \neq 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+\end{align}
+$$
+
+
+## When to use treatment coding?
+
+Choose your contrast coding scheme based on the hypotheses you want to test.
+
+For example: If your RQ asks whether two groups are significantly different, this question can be tested by looking at a slope coefficient of a treatment-coded categorical predictor.
+
+
+## Changing reference level
+
+By default, R will always use the alphabetically first level as the reference level.
+
+Imagine we wanted our reference level to be `versicolor` instead of `setosa`.
+R has a few equivalent options, so you can choose your favourite.
+
+`factor()` (put the desired reference level first within `c()`, and the order of the others doesn't matter; this is Elizabeth's go-to because it's the clearest and most generalisable):
+
+```{r eval = FALSE}
+iris <- iris |>
+  mutate(
+    Species = factor(Species, levels = c("versicolor", "setosa", "virginica"))
+  )
+```
+
+
+`fct_relevel()`:
+
+```{r eval = FALSE}
+iris <- iris |> 
+  mutate(
+    Species = fct_relevel(Species, "versicolor")
+  )
+```
+
+`relevel()`:
+
+```{r eval = FALSE}
+iris$Species <- relevel(iris$Species, "versicolor")
+```
+
+
+## Telling R to treatment-code a predictor
+
+Imagine you'd changed the contrast coding scheme of a predictor to something else, but you want to revert it back to treatment coding.
+Use the function `contr.treatment()` and specify the number of levels that the categorical variable has.
+
+```{r}
+contrasts(iris$Species) <- contr.treatment(3)
+contrasts(iris$Species)
+```
+
+You'll notice the informative column names here disappear, replaced by numbers 2 and 3.
+
+To get around that, you can give `contr.treatment()` a vector of containing the levels of `Species`, instead of just a number, and it'll use those labels:
+
+```{r}
+contrasts(iris$Species) <- contr.treatment(levels(iris$Species))
+contrasts(iris$Species)
+```
+
+
+
+## Other names for treatment coding
+
+- "dummy coding"
+- "one-hot coding" (especially by machine learning people)
+

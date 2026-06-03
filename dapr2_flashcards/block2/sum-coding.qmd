@@ -1,0 +1,358 @@
+---
+title: "Sum coding"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+A common alternative to treatment coding is called sum coding.
+
+It's easiest to see how it works using examples.
+
+> **Research Question** 
+>
+> Does the sepal length of particular iris species differ significantly from the average sepal length?
+
+
+## Example: Binary predictor
+
+You have been provided with the in-built dataset, `iris`, which contains information concerning the sepal length (in cm), sepal width (in cm), petal length (in cm), and petal width (in cm) from three different species of iris (setosa, versicolor, and virginica).
+There are measurements for 50 flowers from each of the iris species (i.e., total $n$ = 150). 
+**For this example, we'll just look at two species, setosa and versicolor.**
+
+```{r}
+iris_binary <- iris |>
+  # filter out virginica
+  filter(Species != 'virginica') |>
+  # the only factor levels we want are the two species we're keeping
+  mutate(Species = factor(Species, levels = c('setosa', 'versicolor')))
+
+head(iris_binary)
+```
+
+The binary predictor is `Species`, with two levels, setosa and versicolor, and the outcome is `Sepal.Length`.
+
+```{r}
+iris_binary |>
+  ggplot(aes(x = Species, y = Sepal.Length, fill = Species, colour = Species)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+### Define sum coding
+
+Use the function `contr.sum()` and specify the number of levels that the categorical variable has.
+
+```{r}
+contrasts(iris_binary$Species) <- contr.sum(2)
+contrasts(iris_binary$Species)
+```
+
+(If this code doesn't run for your variable, then you'll probably need to convert your variable to a factor using `factor()`).
+
+This contrast matrix shows us that setosa is represented as 1, and versicolor is represented as –1.
+These two values are centered around 0, so 0 will represent the mean, the average, between these two species.
+
+
+When we fit a linear model to this data, the model's intercept will represent the grand mean sepal length: that is, the mean of both species' mean sepal lengths.
+And the model's slope over `Species` will represent the estimated difference between the mean sepal length for `setosa` (the level coded as 1) and the grand mean.
+Or, in other words, how sepal length *changes* when we move from the grand mean to the mean of `setosa`.
+
+### Model fit and interpretation
+
+```{r}
+m1 <- lm(Sepal.Length ~ Species, data = iris_binary)
+summary(m1)
+```
+
+
+The intercept is 5.47, which corresponds to the grand mean sepal length (i.e., the mean of the two group means):
+
+```{r}
+iris_binary |>
+  group_by(Species) |>
+  summarise(
+    m = mean(Sepal.Length)
+  )
+
+mean(c(5.01, 5.94))
+```
+
+And the slope is –0.47, which corresponds (with some rounding error) to the difference between the `setosa` mean of 5.01 and the grand mean of 5.47.
+
+```{r}
+5.01 - 5.47
+```
+
+
+## Example: Three-level predictor
+
+Sum coding is a lot more useful/intuitive for binary predictors than for three-level predictors, in Elizabeth's opinion.
+But for completeness: let's bring back all three species of iris to see what happens when we have three levels.
+
+```{r}
+iris |>
+  ggplot(aes(x = Species, y = Sepal.Length, fill = Species, colour = Species)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+### Define sum coding
+
+```{r}
+contrasts(iris$Species) <- contr.sum(3)
+contrasts(iris$Species)
+```
+
+Read this contrast matrix as a table with three rows and two columns.
+
+The first column shows the first variable, which will estimate the difference between the mean sepal length of `setosa` (coded as 1 in that column) and the grand mean sepal length of all three species.
+The second column shows the second variable, which will estimate the difference between the mean sepal length of `versicolor` (coded as 1 in that column) and the grand mean sepal length of all three species.
+
+When we use `Species` as a predictor in a model, each of these variables will receive its own coefficient in the model summary.
+That coefficient represents the comparisons described for each variable.
+
+### Model fit and interpretation
+
+```{r}
+m2 <- lm(Sepal.Length ~ Species, data = iris)
+summary(m2)
+```
+
+<br>
+
+
+The intercept is 5.84, which corresponds (with some rounding error) to the grand mean sepal length (i.e., the mean of the three group means):
+
+```{r}
+iris |>
+  group_by(Species) |>
+  summarise(
+    m = mean(Sepal.Length)
+  )
+
+mean(c(5.01, 5.94, 6.59))
+```
+
+<br>
+
+The slope coefficient `Species1` is –0.84, which corresponds to the difference between the `setosa` mean of 5.01 and the grand mean of 5.85.
+
+```{r}
+5.01 - 5.85
+```
+
+<br>
+
+And the slope coefficient `Species2` is 0.09, which corresponds to the difference between the `versicolor` mean of 5.94 and the grand mean of 5.85.
+
+```{r}
+5.94 - 5.85
+```
+
+
+
+## Plotting model-fitted values
+
+There are a couple of ways that we can visualise a model of categorical predictors, either using the **sjPlot** or **effects** packages:
+
+```{r}
+library(sjPlot)
+
+plot_model(m2,
+           type = "eff",
+           terms = "Species") +
+    labs(title = "Sepal Length by Species",
+       x = "Species", 
+       y = "Sepal Length")
+```
+
+
+```{r}
+library(effects)
+
+effect(term = c("Species"), mod = m2) |>
+  as.data.frame() |>
+  ggplot(aes(x = Species, y = fit, col = Species)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper))
+```
+
+
+## Reporting sum coding (three-level example)
+
+### Variables
+
+```
+$$
+\text{Species1} = \begin{cases}  
+1 & \text{if Species is Setosa} \\  
+0 & \text{if Species is Versicolor} \\
+-1 & \text{if Species is Virginica}
+\end{cases}  
+$$
+```
+
+$$
+\text{Species1} = \begin{cases}  
+1 & \text{if Species is Setosa} \\  
+0 & \text{if Species is Versicolor} \\
+-1 & \text{if Species is Virginica}
+\end{cases}
+$$
+
+<br>
+
+```
+$$
+\text{Species2} = \begin{cases}  
+0 & \text{if Species is Setosa} \\  
+1 & \text{if Species is Versicolor} \\
+-1 & \text{if Species is Virginica}
+\end{cases}    
+$$
+```
+
+$$
+\text{Species2} = \begin{cases}  
+0 & \text{if Species is Setosa} \\  
+1 & \text{if Species is Versicolor} \\
+-1 & \text{if Species is Virginica}
+\end{cases}
+$$
+
+
+### Mathematical model formulation
+
+```
+$$
+\text{Sepal Length} = \beta_0 + 
+  (\beta_1 \cdot \text{Species}1) + 
+  (\beta_2 \cdot \text{Species}2) + 
+  \epsilon
+$$
+```
+
+$$
+\text{Sepal Length} = \beta_0 + 
+  (\beta_1 \cdot \text{Species}1) + 
+  (\beta_2 \cdot \text{Species}2) + 
+  \epsilon
+$$
+
+
+## What hypotheses are tested by treatment coding?
+
+**For all coefficients, linear models always test the null hypothesis that the coefficient is equal to zero.**
+
+More specifically, for the mathematical model specified above:
+
+**For the intercept:** the null hypothesis H0 is that the grand mean outcome is equal to zero.
+The alternative hypothesis H1 is that the grand mean outcome is different from zero. 
+(This isn't usually interesting to test, because the intercept will nearly always be different from zero.)
+
+```
+$$
+\begin{align}
+H_0 &: \beta_0 = 0 \\
+H_1 &: \beta_0 \neq 0
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \beta_0 = 0 \\
+H_1 &: \beta_0 \neq 0
+\end{align}
+$$
+
+<br>
+
+
+**For a single slope coefficient (let's say $\beta_1$):** the null hypothesis is that the difference between the $\beta_1$'s level coded as 1 and the grand mean is equal to zero.
+And the alternative hypothesis is thatthe difference between the $\beta_1$'s level coded as 1 and the grand mean is different from zero.
+
+```
+$$
+\begin{align}
+H_0 &: \beta_1 = 0 \\
+H_1 &: \beta_1 \neq 0
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \beta_1 = 0 \\
+H_1 &: \beta_1 \neq 0
+\end{align}
+$$
+
+<br>
+
+**For all slope coefficients:** the null hypothesis is that the differences between *all* levels coded as 1 and the grand mean are equal to zero.
+And the alternative hypothesis is that any difference between any level coded as 1 and the grand mean is different from zero. 
+
+```
+$$
+\begin{align}
+H_0 &: \text{All}~ \beta_j = 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+H_1 &: \text{Any}~ \beta_j \neq 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+\end{align}
+$$
+```
+
+$$
+\begin{align}
+H_0 &: \text{All}~ \beta_j = 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+H_1 &: \text{Any}~ \beta_j \neq 0 ~\text{(for}~ j = 1, 2 \text{)} \\
+\end{align}
+$$
+
+
+## When to use sum coding?
+
+Choose your contrast coding scheme based on the hypotheses you want to test.
+
+For example: If your RQ asks whether particular groups differ from the grand mean, this question can be tested by looking at a slope coefficient of a sum-coded categorical predictor where the particular group you're interested in is coded as 1.
+
+
+## Changing which levels are coded as 1
+
+Imagine if we wanted the `Species1` coefficient to compare the grand mean to `virginica` instead of `setosa`.
+
+To do this, reorder the factor levels using `factor()`.
+The level which appears *last* will *not* be compared to the grand mean by any of the regression coefficients.
+
+```{r}
+iris <- iris |>
+  mutate(
+    Species = factor(Species, levels = c("versicolor", "virginica", "setosa"))
+                         # previously: c("versicolor", "setosa", "virginica")
+  )
+
+contrasts(iris$Species) <- contr.sum(3)
+contrasts(iris$Species)
+```
+
+
+## Other names for sum coding
+
+- "sum-to-zero coding"
+- "effects coding"
+- "deviation coding"
+
+Beware that some people will also use these labels to refer to a similar contrast coding scheme which uses –0.5 and 0.5 instead of –1 and 1.
+For that reason, it's best to explicitly report what numbers you're using for which levels.
+That way, the reader knows exactly what you're doing.

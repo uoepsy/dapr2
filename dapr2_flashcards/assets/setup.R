@@ -2,6 +2,8 @@
 # Lab settings
 # ---
 
+dapr2red <- '#BF1932'
+
 # Knitr settings
 knitr::opts_chunk$set(
     echo = TRUE,
