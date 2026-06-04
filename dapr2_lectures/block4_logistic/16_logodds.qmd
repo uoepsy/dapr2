@@ -1,5 +1,5 @@
 ---
-title: "Probabilities, log-odds, and link functions"
+title: "Probabilities and log-odds"
 author: "Dr. Elizabeth Pankratz (elizabeth.pankratz@ed.ac.uk)"
 editor_options: 
   chunk_output_type: inline
@@ -64,7 +64,7 @@ block3_lecs = c("Mean-centering and numeric/categorical interactions",
                 "Correcting for multiple comparisons",
                 "Interactions: Practice analysis <br> (led by Patrick)")
 block4_name = "Logistic regression <br>(with Dr. Elizabeth Pankratz)"
-block4_lecs = c("Probabilities, log-odds, and link functions",
+block4_lecs = c("Probabilities and log-odds",
                 "TODO",
                 "TODO",
                 "Logistic regression: Practice analysis <br> (led by Patrick)",
@@ -91,6 +91,12 @@ x
 :::
 
 :::::
+
+- Why does standard linear regression fail when we try to model binary outcomes?
+- What are log-odds?
+- How do we convert probabilities into log-odds, and log-odds into probabilities?
+- Why are *differences* between log-odds not the same as differences between probabilities?
+- How do we plot binary outcome data?
 
 
 # What are binary outcomes?
@@ -553,11 +559,141 @@ ggsave('figs/p_logistic.svg', p_logistic, width = 8, height = 4)
 ::::
 
 
-# Differences in log-odds are not differences in probabilities
+# What can and cannot be transformed from log-odds to probabilities
 
-## Differences in log-odds are not differences in probabilities
+## What can and cannot be transformed <br> from log-odds to probabilities
+
+<br>
+
+✅
+&nbsp;
+**Can be transformed:** Standalone log-odds values.
+
+<br>
+
+:::hcenter
+1 log-odd &nbsp; **IS EQUAL TO** &nbsp; `plogis(1)` = 73.1% probability
+:::
+
+<br>
+<br>
+
+❌
+&nbsp;
+**Cannot be transformed:** *Differences* between two log-odds values.
+
+<br>
+
+:::hcenter
+a difference of 1 log-odd &nbsp; **IS NOT EQUAL TO** &nbsp; a difference of 73.1% probability
+:::
+
+<br>
+<br>
 
 
+**This is important because it impacts how we'll interpret logistic regression coefficients next week.**
+
+<!-- <br> -->
+
+<!-- Why are differences in log-odds not the same differences in probabilities? -->
+
+
+## Why are differences in log-odds not the same as differences in probabilities?
+
+<br>
+
+<!-- TODO woo this? -->
+
+**Thought experiment:**
+
+- Imagine we've got two events A and B, and we know A is more probable than B.
+- Specifically, we know the log-odds of A happening is 1 log-odd greater than the log-odds of B happening.
+- In other words, **the difference between the two scenarios is 1 log-odd.**
+
+<br>
+
+**Scenario 1:**
+
+- Imagine the log-odds of A happening are 1: `plogis(1)` = 73%.
+- Then the log-odds of B happening are 0: `plogis(0)` = 50%.
+- **The difference in probabilities that corresponds to a 1-log-odd difference is 23%.**
+
+<br>
+
+**Scenario 2:**
+
+- Now imagine that the log-odds of A happening are 4: `plogis(4)` = 98%.
+- Then the log-odds of B happening are 3: `plogis(3)` = 95%.
+- **Now the difference in probabilities that corresponds to a 1-log-odd difference is just 3%.**
+
+
+
+## Visualising the thought experiment
+
+```{r fig.asp = 0.7}
+#| code-fold: true
+tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0), breaks = -4:4) +
+  labs(x = 'Log-odds', y = 'Probability') +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(linewidth = 1)
+    ) +
+  
+  # horiz green
+  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654') +
+  geom_text(
+    x = -4.8,
+    y = 0.62,
+    colour = '#2B8654',
+    label = paste0('diff: ', 100*round(plogis(1)-plogis(0), 2), '%'),
+    hjust = 0,
+    size = 6
+  ) +
+  # vert green
+  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654') +
+  geom_text(
+    x = 0.5,
+    y = 0.15,
+    colour = '#2B8654',
+    label = paste0('diff:\n 1 log-\nodd'),
+    size = 6
+  ) +
+  
+  # horiz pink
+  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A') +
+  geom_text(
+    x = -4.8,
+    y = 0.91,
+    colour = '#FF6D9A',
+    label = paste0('^ diff: ', 100*round(plogis(4)-plogis(3), 2), '%'),
+    hjust = 0,
+    size = 6
+  ) +
+  # vert pink
+  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A') +
+  geom_text(
+    x = 3.5,
+    y = 0.15,
+    colour = '#FF6D9A',
+    label = paste0('diff:\n 1 log-\nodd'),
+    size = 6
+  ) +
+
+  geom_line() +
+  NULL
+```
 
 
 
@@ -566,19 +702,300 @@ ggsave('figs/p_logistic.svg', p_logistic, width = 8, height = 4)
 
 ## Example data: The marshmallow experiment
 
+In the marshmallow experiment, a child is shown a marshmallow.
+The child is told that they can take the marshmallow now, but if they wait, they can have two marshmallows later.
+
+**We have data on 100 children's ages and whether they took the marshmallow immediately (0 = no, 1 = yes).**
+
+<br>
+
+::::{.columns}
+:::{.column width="30%"}
+![](figs/mallow.jpg){fig-align="left" width="100%"}
+
+:::{style="font-size:70%;"}
+image from pixabay
+:::
+:::
+:::{.column width="10%"}
+:::
+:::{.column width="60%"}
+```{r include=F}
+mallow <- read_csv("https://uoepsy.github.io/data/mallow.csv")
+mallow <- mallow |>
+  mutate(
+    agegroup = factor(
+      ifelse(age < 6, 'below 6', '6 or older'),
+      levels = c('below 6', '6 or older')
+    ), .before = taken
+  )
+```
+
+```{r}
+mallow |> head(16)
+```
+:::
+::::
+
+
+## Binary outcome ~ continuous variable (1)
+
+::::{.columns}
+:::{.column width="52%"}
+
+```{r eval=F}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_point()
+```
+
+:::
+:::{.column width="48%"}
+
+```{r echo=F, fig.width = 7, fig.height = 7}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_point()
+```
+
+:::
+::::
+
+## Binary outcome ~ continuous variable (2)
+
+::::{.columns}
+:::{.column width="52%"}
+
+```{r eval=F}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01)
+```
+
+:::
+:::{.column width="48%"}
+
+```{r echo=F, fig.width = 7, fig.height = 7}
+set.seed(1)
+
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_jitter(height = 0.01) +
+  
+  NULL
+```
+
+:::
+::::
+
+
+## Binary outcome ~ continuous variable (3)
+
+::::{.columns}
+:::{.column width="52%"}
+
+```{r eval=F}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1))
+```
+
+:::
+:::{.column width="48%"}
+
+```{r echo=F, fig.width = 7, fig.height = 7}
+set.seed(1)
+
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  NULL
+```
+
+:::
+::::
+
+
+## Binary outcome ~ continuous variable (4)
+
+::::{.columns}
+:::{.column width="52%"}
+
+```{r eval=F}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1))
+
+  # add curve of best fit
+  geom_smooth(
+    # glm = "generalised linear model"
+    method = "glm",
+    # binomial = outcomes are 0s and 1s
+    method.args = list(family = binomial),
+    # remove standard error ribbon 
+    se = FALSE
+  ) 
+```
+
+:::
+:::{.column width="48%"}
+
+```{r echo=F, fig.width = 7, fig.height = 7}
+set.seed(1)
+
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = F) +
+  NULL
+```
+
+:::
+::::
+
+
+## Binary outcome ~ continuous variable (5)
+
+::::{.columns}
+:::{.column width="52%"}
+
+```{r eval=F}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1))
+
+  # add curve of best fit
+  geom_smooth(
+    # glm = "generalised linear model"
+    method = "glm",
+    # binomial = outcomes are 0s and 1s
+    method.args = list(family = binomial),
+    # remove standard error ribbon 
+    se = FALSE
+  ) +
+    
+  # add axis labels for reader-friendliness
+  labs(
+    y = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
+    x = 'Age (years)'
+  )
+```
+
+:::
+:::{.column width="48%"}
+
+```{r echo=F, fig.width = 7, fig.height = 7}
+set.seed(1)
+
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = F) +
+  labs(
+    y = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
+    x = 'Age (years)'
+  ) +
+  NULL
+```
+
+:::
+::::
+
+
+## Binary outcome ~ categorical variable (1)
+
+Plot the proportion of each outcome (`taken` = 0 or 1) in each level of the categorical variable `agegroup`.
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+mallow |>
+  ggplot(aes(
+    x = factor(taken), 
+    fill = agegroup)
+  ) +
+  geom_bar(position = 'fill')
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+mallow |>
+  ggplot(aes(x = factor(taken), fill = agegroup)) +
+  geom_bar(position = 'fill') +
+  # labs(
+  #   y = 'Proportion of children',
+  #   x = 'Took marshmallow immediately (0 = No, 1 = Yes)',
+  #   fill = 'Age group'
+  # )
+  NULL
+```
+:::
+::::
 
 
 
-## With a continuous predictor
 
 
 
-## With a categorical predictor
+## Binary outcome ~ categorical variable (2)
 
+Plot the proportion of each outcome (`taken` = 0 or 1) in each level of the categorical variable `agegroup`.
 
-
-
-
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+mallow |>
+  ggplot(aes(
+    x = factor(taken), 
+    fill = agegroup)
+  ) +
+  geom_bar(position = 'fill') +
+  
+  # update labels ("count" is wrong!)
+  labs(
+    y = 'Proportion of children',
+    x = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
+    fill = 'Age group'
+  )
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+mallow |>
+  ggplot(aes(x = factor(taken), fill = agegroup)) +
+  geom_bar(position = 'fill') +
+  labs(
+    y = 'Proportion of children',
+    x = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
+    fill = 'Age group'
+  )
+```
+:::
+::::
 
 
 
