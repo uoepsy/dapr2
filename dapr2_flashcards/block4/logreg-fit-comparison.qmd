@@ -1,0 +1,144 @@
+---
+title: "Model fit and comparison"
+params: 
+    TOGGLE: TRUE
+---
+
+```{r setup, include=FALSE}
+source('../assets/setup.R')
+library(tidyverse)
+```
+
+## Measuring model fit using deviance
+
+For logistic regression models, we measure model fit using something called **deviance.**
+
+Deviance is a measure of how different the model is from the data.
+It reflects the misfit, or badness of fit, of the model to the data.
+Think of deviance as the logistic regression equivalent of a standard linear model's residual sums of squares.
+
+The logistic regression model summary shows us two kinds of deviance: **null deviance and residual deviance.**
+
+Let's look at this using our senility symptoms example:
+
+```{r}
+sendata <- read_csv("https://uoepsy.github.io/data/SenilityWAIS.csv")
+sen_mdl1 <- glm(senility ~ wais, family = "binomial", data = sendata)
+summary(sen_mdl1)
+```
+
+- **Null deviance** is the deviance of an intercept-only version of this model (i.e., a version with no predictors).
+- **Residual deviance** is the deviance of the model we actually fit, the version with all the predictors.
+- Because deviance represents badness of fit, **small deviance represents better fit.**
+
+The residual deviance should basically always be smaller than the null deviance, meaning that the full model will basically always do a better job of fitting the data than the null model.
+This is not a statistical result yet, though.
+To know whether the full model has a *significantly* better fit than the null model, we must compute the **difference in deviance** and see whether it's significantly different from zero.
+
+
+
+## Comparing nested models using difference in deviance
+
+The difference in deviance represents how much the full model improves model fit, compared to the null model.
+We compute difference in deviance as the **null deviance minus residual deviance**.
+For our senility example:
+
+$$
+61.806 - 51.017 = 10.79
+$$
+
+With a big enough sample size, differences in deviance are $\chi^2$-distributed, meaning that we can compare them to an appropriate $\chi^2$ distribution to compute a p-value.
+("Appropriate $\chi^2$ distribution" means a $\chi^2$ distribution with degrees of freedom equal to the difference in df between the models being compared—R will compute this for you automatically.)
+
+
+We use the `anova()` function with `test = 'Chisq'` to compare the deviance of two logistic regression models.
+
+```{r}
+# Create the model we'll compare our full model to 
+# (doesn't have to be a null model – can be anything, as long as it's nested 
+# within the full model)
+sen_mdl0 <- glm(senility ~ 1, family = "binomial", data = sendata)
+
+# See whether difference in deviance is significantly different from zero
+# by comparing to a Chi squared distribution
+anova(sen_mdl0, sen_mdl1, test = "Chisq")
+```
+
+
+
+
+::: {.callout-important icon=false appearance="minimal"}
+
+**Example Interpretation**
+
+We performed a deviance goodness-of-fit test to compare our fitted model to the null. At the 5% significance level, the addition of information about the participants’ WAIS score resulted in a significant decrease in model deviance ($\chi^2(1) = 10.79, p = .001$).
+Hence, we have strong evidence that the subjects’ WAIS score was a helpful predictor of whether or not participants will experience symptoms of senility.
+
+:::
+
+
+**Important: it's possible to compare the full model to a different, non-null version of the same model, but the models being compared _must be nested_.** 
+In other words, one model must be a simplification of the other; all predictors of that simpler model need to be contained within the more complex one.
+
+
+<!-- ### AIC & BIC -->
+
+<!-- Deviance measures lack of fit, and it can be reduced to zero by making the model more and more complex, effectively estimating the value at each single data point. However, this involves adding more and more predictors, which makes the model more complex (and less interpretable). -->
+
+<!-- Typically, the simpler model should be preferred when it can still explain the data almost as well. This is why information criteria were devised, exactly to account for both the model misfit but also its complexity. -->
+
+<!-- $$ -->
+<!-- \text{Information Criterion} = \text{Deviance} + \text{Penalty for model complexity} -->
+<!-- $$ -->
+
+<!-- Depending on the chosen penalty, you get different criteria. Two common ones are the Akaike and Bayesian Information Criteria, AIC and BIC respectively:  -->
+
+<!-- $$ -->
+<!-- \begin{aligned} -->
+<!-- \text{AIC} &= \text{Deviance} + 2 p \\ -->
+<!-- \text{BIC} &= \text{Deviance} + p \log(n) -->
+<!-- \end{aligned} -->
+<!-- $$ -->
+
+<!-- where $n$ is the sample size and $p$ is the number of regression coefficients in the model.  -->
+
+<!-- AIC and BIC differ in their degrees of penalization for number of regression coefficients, with BIC usually favouring models with fewer terms.  -->
+
+
+<!-- So how do we determine whether there is a statistical difference between two models? Generally speaking, models that produce smaller values of these fit criteria should be preferred. To evaluate our model comparisons in more depth, we need to look at the difference ($\Delta$) between the two values:    -->
+
+<!-- + **AIC**: There are no specific thresholds to suggest how big a difference in two models is needed to conclude that one is substantively better than the other   -->
+
+
+<!-- + **BIC**: Using the following $\Delta BIC$ cutoffs (Raftery, 1995): -->
+
+
+<!-- | Value             | Interpretation of Difference between Models  | -->
+<!-- |-------------------|----------------------------------------------| -->
+<!-- | $\Delta < 2$      | No evidence                                  | -->
+<!-- | $2 > \Delta < 6$  | Positive evidence                            | -->
+<!-- | $6 > \Delta < 10$ | Strong evidence                              | -->
+<!-- | $\Delta > 10$     | Very strong evidence                         | -->
+
+
+<!-- :::blue -->
+<!-- **In R** -->
+
+<!-- We can calculate AIC and BIC by using the `AIC()` and `BIC()` functions respectively: -->
+
+<!-- ```{r} -->
+<!-- #AIC -->
+<!-- AIC(sen_mdl0, sen_mdl1) -->
+
+<!-- #BIC -->
+<!-- BIC(sen_mdl0, sen_mdl1) -->
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.callout-important icon=false appearance="minimal"} -->
+<!-- **Example Interpretation** -->
+
+<!-- Based on both AIC and BIC, the model including the subjects’ WAIS as a predictor of symptoms of senility was better fitting ($AIC = 55.02;~ BIC = 59.00$) than the model with age alone ($AIC = 63.81;~ BIC = 66.00$). However, since the difference in $BIC$ values was $<~10$, we would conclude that the difference in models was not practically significant.  -->
+
+<!-- ::: -->

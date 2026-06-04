@@ -1,5 +1,5 @@
 ---
-title: "Assumptions of logistic regression models"
+title: "Checking assumptions"
 params: 
     TOGGLE: TRUE
 ---
@@ -9,86 +9,45 @@ source('../assets/setup.R')
 library(tidyverse)
 ```
 
+Logistic regression models do not make the same assumptions as standard linear models.
+There's only one assumption we need to check: **no outlying standardised deviance residuals.**
+
+- An observation's standardised deviance residual is small if the model would predict with high probability the same outcome that we actually observed (e.g., if the model thinks a success is very likely, and the observation is indeed a success).
+- And an observation's standardised deviance residual is large if the model would predict with high probability the *opposite* outcome (e.g., if the model thinks a success is very likely, but the observation is actually a failure).
+
+::: {.callout-caution collapse="true"}
+### What exactly are deviance residuals?
+
+If you're curious about how deviance residuals are computed and why we use them, check out [this really fantastic explainer from the University of Virginia](https://library.virginia.edu/data/articles/understanding-deviance-residuals){target="_blank"}.
+
+:::
+
+If the model fits well, then standardised deviance residuals roughly follow a standard normal distribution (i.e., a normal distribution with mean 0 and SD 1).
+Therefore we'd expect the following:
+
+- About 5% of standardised deviance residuals may be smaller than –2 or larger than 2.
+- About 0.3% of standardised deviance residuals may be smaller than –3 or larger than 3.
+
+**If our model contains any standardised deviance residuals smaller than –3 or larger than 3, then we should be a bit suspicious that the data we're modelling may not be suitable for the model.**
+
+Let's check this using our senility symptoms example:
 
 ```{r}
 sendata <- read_csv("https://uoepsy.github.io/data/SenilityWAIS.csv")
-```
-
-```{r}
 sen_mdl1 <- glm(senility ~ wais, family = "binomial", data = sendata)
 ```
 
 
-Because logistic regression models don’t have the same expected error distribution (we don’t expect residuals to be normally distributed around the mean, with constant variance), checking the assumptions of logistic regression is a little different.
-
-## Deviance Residuals
-
-Typically, we look at the "deviance residuals". But we __don't__ examine plots for patterns, we simply examine them for potentially outlying observations. If we use a standardised residual, it makes it easier to explore extreme values as we expect most residuals to be within -2, 2 or -3, 3 (depending on how strict we feel). 
-
-__Deviance Residuals__  
-
-There are three ways we can get out deviance residuals, each scaled differently: 
-
-- $i$th residual = measure of deviance contributed from the $i$th observation
-- $i$th standardized residual = residual / SD(residual)
-- $i$th studentized residual = residual / SD(residual from model fitted without observation $i$)
-
-:::blue
-
-**In R**
+We obtain standardised deviance residuals using `rstandard()` with `type = 'deviance'`.
 
 ```{r}
-#| eval: false
-# deviance residuals
-residuals(sen_mdl1, type = 'deviance')
-
-# studentised residuals
-rstudent(sen_mdl1, type = 'deviance')
-
-# standardised residuals
 rstandard(sen_mdl1, type = 'deviance')
 ```
 
-:::
-
-We can visually assess whether any residuals are larger than 2 or 3 in absolute value:
-
+Let's plot these to visually check whether we've got any values larger than 3 in absolute value (i.e., smaller than –3 or larger than 3):
 
 ```{r}
-plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised Deviance Residuals")
+plot(rstandard(sen_mdl1, type = "deviance"), ylab = "Standardised deviance residuals")
 ```
 
-
-:::frame
-
-[**Interpretation Guidance**]{style="color:red;"}
-
-Most residuals should be within -2, 2 or -3, 3. 
-
-You must specify your criteria (e.g., "we expected residuals to fall within the range of -2 to 2") before you conduct your analysis.
-
-:::
-
-<br> 
-
-`r optbegin("High Influence Cases", olabel=FALSE,toggle=params$TOGGLE)`
-
-Just like in linear regression, to check for influential observations, we can use `cooks.distance()`, and plot this using `plot()`. Alternatively, you can specify `which = 4` when plotting your fitted model (i.e., `plot(model, which = ?)`.
-
-:::blue
-
-**In R**
-
-```{r}
-plot(sen_mdl1, which = 4)
-```
-
-:::
-
-:::frame
-
-[**Interpretation Guidance**]{style="color:red;"}
-
-In logistic regression, we can use the arbitrary cut-offs of $> 0.5$ (moderately influential) or $>1$ (highly influential) to describe influential points.
-
-:::
+No standardised deviance residuals with values more extreme than –3 or 3, so it looks like we can be satisfied that the logistic regression model's assumptions have been met.
