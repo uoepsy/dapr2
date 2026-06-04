@@ -7,3 +7,194 @@ output: html_notebook
 library(tidyverse)
 ```
 
+
+# mallow data
+
+```{r}
+mallow <- read_csv("https://uoepsy.github.io/data/mallow.csv")
+```
+
+## mallow with categ age-group var
+
+```{r}
+mallow_agegroup <- mallow |>
+  mutate(
+    agegroup = factor(
+      ifelse(age < 6, 'below 6', '6 or older'),
+      levels = c('below 6', '6 or older')
+    )
+  )
+```
+
+
+
+# week 2: mallow continuous
+
+## intercept-only model
+
+```{r}
+mallow_m0 <- glm(taken ~ 1, data = mallow, family = binomial)
+summary(mallow_m0)
+```
+
+```{r}
+confint(mallow_m0)
+```
+
+
+
+## plot taken ~ age
+
+```{r}
+mallow |>
+  ggplot(aes(x = age, y = taken)) +
+
+  # wiggle the points around a little bit so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1)) +
+  
+  # add curve
+  geom_smooth(
+    method = "glm",  # not a straight line
+    method.args = list(family = binomial),   # specify type of model
+    se = FALSE  # remove standard error ribbon around line
+  ) +
+  
+  labs(
+    y = 'Took marshmallow immediately (0 = No, 1 = Yes)',
+    x = 'Age (years)'
+  )
+```
+
+## model taken ~ age
+
+```{r}
+mallow_m1 <- glm(taken ~ age, data = mallow, family = binomial)
+summary(mallow_m1)
+```
+
+```{r}
+confint(mallow_m1)
+```
+
+## plot model-fitted values
+
+```{r}
+library(effects)
+
+effect(term = "age", mod = mallow_m1, xlevels = 20) |>
+  as.data.frame() |>
+  ggplot(aes(x = age, y = fit, ymin = lower, ymax = upper))+
+  geom_line()+
+  geom_ribbon(alpha = .3) +
+  labs(
+    y = 'Probability of taking the marshmallow immediately',
+    x = 'Age (years)'
+  ) +
+  ylim(0, 1)
+```
+
+# week 2: mallow categorical
+
+## plot taken ~ agegroup
+
+```{r}
+mallow_agegroup |>
+  ggplot(aes(x = factor(taken), fill = agegroup)) +
+  geom_bar(position = 'fill') +
+  labs(
+    y = 'Proportion of children',
+    x = 'Took marshmallow immediately (0 = No, 1 = Yes)',
+    fill = 'Age group'
+  )
+```
+
+
+## model taken ~ agegroup
+
+```{r}
+mallow_m2 <- glm(taken ~ agegroup, data = mallow_agegroup, family = binomial)
+summary(mallow_m2)
+```
+
+```{r}
+confint(mallow_m2)
+```
+
+## plot model-fitted values
+
+```{r}
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame() |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  labs(
+    y = 'Probability of taking the marshmallow immediately',
+    x = 'Age group'
+  ) +
+  ylim(0, 1)
+```
+
+
+
+# week 3: mallow continuous
+
+## Model comparison – Difference in deviance
+
+```{r}
+anova(mallow_m0, mallow_m1, test = 'Chisq')
+```
+
+Model with predictor significantly better than null model.
+Big whoop.
+
+
+## Assump: check std dev resids
+
+```{r}
+rstandard(mallow_m1, type = 'deviance') |> plot()
+```
+
+all good, all within |3|
+
+## Diag: check Cook's Distance
+
+```{r}
+cooks.distance(mallow_m1) |> plot()
+```
+
+all good, all below 0.5
+
+
+# week 3: mallow  categ
+
+## Model comparison – Difference in deviance
+
+```{r}
+anova(mallow_m0, mallow_m2, test = 'Chisq')
+```
+
+Model with predictor significantly better than null model.
+Big whoop.
+
+
+## Assump: check std dev resids
+
+```{r}
+rstandard(mallow_m2, type = 'deviance') |> plot()
+```
+
+all good, all within |3|
+
+## Diag: check Cook's Distance
+
+```{r}
+cooks.distance(mallow_m2) |> plot()
+```
+
+all good, all well below 0.5
+
+
