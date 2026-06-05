@@ -120,8 +120,8 @@ mallow <- read_csv("https://uoepsy.github.io/data/mallow.csv")
 mallow <- mallow |>
   mutate(
     agegroup = factor(
-      ifelse(age < 6, 'below 6', '6 or older'),
-      levels = c('below 6', '6 or older')
+      ifelse(age < 6, 'below 6', '6+'),
+      levels = c('below 6', '6+')
     ), .before = taken
   )
 ```
@@ -153,8 +153,423 @@ mallow |>
 ```
 
 
+## Specify the model: <br> Mathematical model formulation
 
-# Example 2: <br> Categorical predictor
+Recall the model formulation for a standard (not logistic) linear model:
+
+
+$$
+y = \beta_0 + (\beta_1 \cdot x) + \epsilon
+$$
+
+<br>
+
+In logistic regression, the main new bit appears on the left: we're now modelling the **log-odds of children taking the marshmallow immediately** as a function of age.
+
+
+$$
+\text{logodds(taken)} = \beta_0 + (\beta_1 \cdot \text{age})
+$$
+
+
+The right-hand side has the same structure as always (without the $\epsilon$ error term, for technical reasons to do with how logistic regression models are estimated—you don't need to worry about that).
+
+<br>
+
+**Bonus, if you feel inspired:** You can also define the "logodds" function more explicitly:
+
+$$
+\log \Big( \frac{p(\text{taken})}{1 - p(\text{taken})} \Big)
+ = \beta_0 + (\beta_1 \cdot \text{age})
+$$
+
+
+## Specify the model: In R
+
+<br>
+
+```{r}
+mallow_m1 <- glm(                        # new: use glm() instead of lm()
+      
+  taken ~ age,                           # define model formula as usual
+      
+  data = mallow,                         # define data as usual
+      
+  family = binomial(link = 'logit')      # new: define the type of outcome 
+                                         # (0s and 1s = "binomial")
+                                         # and the link function we want to use
+)
+```
+
+
+## Logistic regression model summary
+
+```{r}
+summary(mallow_m1)
+```
+
+<br>
+
+```{r}
+confint(mallow_m1)
+```
+
+<!-- <br> -->
+
+<!-- - **Interpreting model coefficients &nbsp; ← today** -->
+<!-- - Interpreting the "null deviance"/"residual deviance" bits &nbsp; ← next week -->
+<!-- - The rest: don't worry about it! -->
+
+
+## Interpreting logistic regression coefficients (1)
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r fig.width = 7, fig.height = 7}
+#| code-fold: true
+
+effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) +
+  scale_x_continuous(breaks = seq(0, 10, 2))
+```
+
+:::{style="font-size:80%;"}
+```{r echo = F}
+cat(paste0(capture.output(
+  summary(mallow_m1)
+), '\n')[6:9])
+```
+
+**All of these estimates ^ are in log-odds units.**
+:::
+
+
+:::
+:::{.column width="5%"}
+
+:::
+:::{.column width="45%"}
+
+**`(Intercept)`:**
+
+- **For a child aged 0 years, the estimated log-odds of taking the marshmallow immediately are 3.76.**
+  - To ease interpretation, we can back-transform the intercept to probability space:
+    - For a child aged 0 years, the probability of taking the marshmallow immediately is `plogis(3.76)` = 97.7%.
+- **This estimate is significantly different from zero (95% CI [2.18, 5.55], $p$ < 0.001).**
+  - Why are we interpreting the significance of the intercept now, when we never did before?
+  - Because on the log-odds scale, being different from zero is actually interesting! 
+  - `plogis(0)` = 50% probability = <br> random chance.
+  - So being different from zero means **being different from chance.**
+  
+
+:::
+::::
+
+
+## Interpreting logistic regression coefficients (2)
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r fig.width = 7, fig.height = 7}
+#| code-fold: true
+
+effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) +
+  scale_x_continuous(breaks = seq(0, 10, 2))
+```
+
+:::{style="font-size:80%;"}
+```{r echo = F}
+cat(paste0(capture.output(
+  summary(mallow_m1)
+), '\n')[6:9])
+```
+
+**All of these estimates ^ are in log-odds units.**
+:::
+
+
+:::
+:::{.column width="5%"}
+
+:::
+:::{.column width="45%"}
+
+**`age`:**
+
+- **Increasing age by 1 year is associated with a decrease of 0.62 in the log-odds of taking the marshmallow immediately.**
+  - We *cannot* back-transform the slope to probability space.
+  - Slopes are differences in log-odds, and recall from last week that a given difference in log-odds space can map to lots of various differences in probability space:
+  
+```{r echo = F, fig.width = 7, fig.height = 3.5, fig.align="right"}
+tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  scale_x_continuous(expand = c(0, 0), breaks = -4:4) +
+  labs(x = 'Log-odds', y = 'Probability') +
+  
+  theme(
+    panel.grid = element_blank(),
+    panel.border = element_rect(linewidth = 1)
+    ) +
+  
+  # horiz green
+  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654') +
+
+  # vert green
+  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654') +
+  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654') +
+  
+  # horiz pink
+  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A') +
+
+  # vert pink
+  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A') +
+  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A') +
+
+  geom_line() +
+  NULL
+```
+  
+- **This estimate is significantly different from zero (95% CI [–0.91, –0.37], $p$ < 0.001).**
+
+:::
+::::
+
+
+## Plotting model-fitted values: Log-odds (1)
+
+The `effect()` function from the `effects` library will help us here!
+
+```{r}
+library(effects)
+
+effect(
+  term = 'age',     # the predictor we ultimately want on the x axis
+  mod = mallow_m1,  # the name of the fitted model
+  xlevels = 20      # return fitted values for 20 evenly-spaced `age` values
+) |>
+  as.data.frame(type = 'link') |> # return values transformed by link function 
+                                  # (i.e., in log-odds)
+  head(10)
+```
+
+
+
+## Plotting model-fitted values: Log-odds (2)
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  
+  # a line for the model-fitted estimates
+  geom_line()
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  # geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  # labs(
+  #   y = 'Log-odds of taking\nthe marshmallow immediately',
+  #   x = 'Age (years)'
+  # ) +
+  NULL
+```
+:::
+::::
+
+
+
+
+## Plotting model-fitted values: Log-odds (3)
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  
+  # a line for the model-fitted estimates
+  geom_line() +
+
+  # a ribbon for the 95% CIs
+  geom_ribbon(
+    aes(
+      ymin = lower, 
+      ymax = upper
+    ), 
+    alpha = .3
+  )
+
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  # labs(
+  #   y = 'Log-odds of taking\nthe marshmallow immediately',
+  #   x = 'Age (years)'
+  # ) +
+  NULL
+```
+
+:::
+::::
+
+
+## Plotting model-fitted values: Log-odds (4)
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  
+  # a line for the model-fitted estimates
+  geom_line() +
+
+  # a ribbon for the 95% CIs
+  geom_ribbon(
+    aes(
+      ymin = lower, 
+      ymax = upper
+    ), 
+    alpha = .3
+  ) +
+
+  # axis labels for clarity
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) 
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) +
+  NULL
+```
+
+:::
+::::
+
+
+<br>
+
+Plots in log-odds space show us what our model has estimated.
+
+But for reporting our results to other humans, we should make plots in probability space instead.
+
+
+## Plotting model-fitted values: <br> In probability space (1)
+
+The process is exactly the same, except instead of `as.data.frame(type = 'link')`, we just write `as.data.frame()`.
+
+```{r}
+effect(
+  term = 'age',       # the predictor we ultimately want on the x axis
+  mod = mallow_m1,    # the name of the fitted model
+  xlevels = 20        # return fitted values for 20 evenly-spaced `age` values
+) |>
+  as.data.frame() |>  # return values in outcome space, 
+                      # not transformed by link function 
+  head(10)
+```
+
+
+## Plotting model-fitted values: <br> In probability space (2)
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame() |>
+  ggplot(aes(x = age, y = fit)) +
+  
+  # a line for the model-fitted estimates
+  geom_line() +
+
+  # a ribbon for the 95% CIs
+  geom_ribbon(
+    aes(
+      ymin = lower, 
+      ymax = upper
+    ), 
+    alpha = .3
+  ) +
+
+  # axis labels for clarity
+  labs(
+    y = 'Probability of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) 
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame() |>
+  ggplot(aes(x = age, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+  labs(
+    y = 'Probability of taking\nthe marshmallow immediately',
+    x = 'Age (years)'
+  ) +
+  NULL
+```
+
+:::
+::::
+
+
+Because most people find probabilities more intuitive than log-odds, this is the version of the plot that you'd want to include in a Results section.
+
+
+
+# Example 2: <br> Categorical predictor <br> (you'll help me out this time)
 
 ## Example 2: Categorical predictor
 
@@ -170,6 +585,313 @@ mallow |>
     fill = 'Age group'
   )
 ```
+
+
+## Specify the model: <br> Mathematical model formulation
+
+Our categorical predictor `agegroup` will be treatment-coded:
+
+```{r}
+contrasts(mallow$agegroup)
+```
+
+<br>
+
+Therefore we can write the `agegroup` predictor as:
+
+$$
+\text{logodds(taken)} = \beta_0 + (\beta_1 \cdot \text{agegroup}_{6+})
+$$
+
+<br>
+
+**Prediction activity: What will the two model coefficients mean?**
+
+woo!
+
+
+
+## Specify the model: In R
+
+<br>
+
+```{r}
+mallow_m2 <- glm(                        # use glm() instead of lm()
+      
+  taken ~ agegroup,                      # define model formula as usual
+      
+  data = mallow,                         # define data as usual
+      
+  family = binomial(link = 'logit')      # define the type of outcome 
+                                         # (0s and 1s = "binomial")
+                                         # and the link function we want to use
+)
+```
+
+
+## Logistic regression model summary
+
+```{r}
+summary(mallow_m2)
+```
+
+<br>
+
+```{r}
+confint(mallow_m2)
+```
+
+
+
+## Interpret coefficients
+
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r fig.width = 7, fig.height = 7}
+#| code-fold: true
+
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age group'
+  ) 
+```
+
+:::{style="font-size:80%;"}
+```{r echo = F}
+cat(paste0(capture.output(
+  summary(mallow_m2)
+), '\n')[6:9])
+```
+
+**All of these estimates ^ are in log-odds units.**
+:::
+
+:::
+:::{.column width="5%"}
+
+:::
+:::{.column width="45%"}
+
+**`(Intercept)`:**
+
+- For children below the age of 6 (the reference level), the estimated log-odds of taking the marshmallow immediately are 0.94. Equivalently, the estimated probability of taking the marshmallow immediately is `plogis(0.94)` = 71.9%.
+- This estimate is significantly different from zero (95% CI [0.35, 1.60], $p$ = 0.003).
+
+<br>
+
+**`agegroup`:**
+
+- Moving from children younger than 6 to children aged 6 and above, the log-odds of taking the marshmallow immediately are estimated to decrease by 1.99.
+- This estimate is significantly different from zero (95% CI [-2.91, –1.13], $p$ < 0.001).
+
+
+:::
+::::
+
+
+
+## Plot model-fitted values: Log-odds (1)
+
+Again, we'll use `effects::effect()`, with `as.data.frame(type = 'link')` so that it gives us values on the log-odds scale (the model scale), rather than the probability scale (the outcome scale).
+
+<br>
+
+```{r}
+effect(
+  term = 'agegroup',  # the predictor we ultimately want on the x axis
+  mod = mallow_m2     # the name of the fitted model
+) |>
+  as.data.frame(type = 'link')
+```
+
+
+## Plot model-fitted values: Log-odds (2)
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r eval=F}
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  
+  # points for the group mean estimates
+  geom_point()
+```
+
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(
+  term = 'agegroup',  # the predictor we ultimately want on the x axis
+  mod = mallow_m2     # the name of the fitted model
+) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  # geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  # labs(
+  #   y = 'Log-odds of taking\nthe marshmallow immediately',
+  #   x = 'Age group'
+  # ) +
+  NULL
+```
+:::
+::::
+
+
+## Plot model-fitted values: Log-odds (3)
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r eval=F}
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  
+  # points for the group mean estimates
+  geom_point() +
+
+  # error bars for the 95% CIs
+  geom_errorbar(
+    aes(
+      ymin = lower, 
+      ymax = upper), 
+    width = 0
+  )
+```
+
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(
+  term = 'agegroup',  # the predictor we ultimately want on the x axis
+  mod = mallow_m2     # the name of the fitted model
+) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  # labs(
+  #   y = 'Log-odds of taking\nthe marshmallow immediately',
+  #   x = 'Age group'
+  # ) +
+  NULL
+```
+:::
+::::
+
+
+## Plot model-fitted values: Log-odds (4)
+
+::::{.columns}
+:::{.column width="50%"}
+
+```{r eval=F}
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  
+  # points for the group mean estimates
+  geom_point()
+
+  # error bars for the 95% CIs
+  geom_errorbar(
+    aes(
+      ymin = lower, 
+      ymax = upper), 
+    width = 0
+  ) +
+    
+  # axis labels for clarity
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age group'
+  ) 
+```
+
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(
+  term = 'agegroup',  # the predictor we ultimately want on the x axis
+  mod = mallow_m2     # the name of the fitted model
+) |>
+  as.data.frame(type = 'link') |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  labs(
+    y = 'Log-odds of taking\nthe marshmallow immediately',
+    x = 'Age group'
+  ) +
+  NULL
+```
+:::
+::::
+
+
+## Plot model-fitted values: Probabilities
+
+Exact same process except without `type = 'link'` in the second line!
+
+<br>
+
+::::{.columns}
+:::{.column width="50%"}
+```{r eval=F}
+effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
+  as.data.frame() |>
+  ggplot(aes(x = age, y = fit)) +
+  
+  # points for the group mean estimates
+  geom_point()
+
+  # error bars for the 95% CIs
+  geom_errorbar(
+    aes(
+      ymin = lower, 
+      ymax = upper), 
+    width = 0
+  ) +
+
+  # axis labels for clarity
+  labs(
+    y = 'Probability of taking\nthe marshmallow immediately',
+    x = 'Age group'
+  ) +
+  
+  # expand y axis to range between 
+  # 0 and 1
+  ylim(0, 1)
+```
+:::
+:::{.column width="50%"}
+```{r echo=F, fig.width = 7, fig.height = 7}
+effect(term = 'agegroup', mod = mallow_m2) |>
+  as.data.frame() |>
+  ggplot(aes(x = agegroup, y = fit)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  labs(
+    y = 'Probability of taking\nthe marshmallow immediately',
+    x = 'Age group'
+  ) +
+  ylim(0, 1)
+```
+
+:::
+::::
+
+
 
 
 
