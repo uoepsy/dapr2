@@ -160,19 +160,33 @@ effect(term = 'agegroup', mod = mallow_m2) |>
 
 
 
-# week 3: mallow continuous
+# week 3: assumptions
 
-## Model comparison – Difference in deviance
+## mallow continuous – Assump: check std dev resids
 
 ```{r}
-anova(mallow_m0, mallow_m1, test = 'Chisq')
+which.max(rstandard(mallow_m1, type = 'deviance'))
+which.min(rstandard(mallow_m1, type = 'deviance'))
 ```
 
-Model with predictor significantly better than null model.
-Big whoop.
+```{r}
+predict.glm(mallow_m1)[[49]]
+mallow[49,]
+```
 
 
-## Assump: check std dev resids
+```{r}
+predict.glm(mallow_m1)[[78]]
+mallow[78,]
+```
+
+
+
+
+```{r}
+
+```
+
 
 ```{r}
 rstandard(mallow_m1, type = 'deviance') |> plot()
@@ -180,7 +194,20 @@ rstandard(mallow_m1, type = 'deviance') |> plot()
 
 all good, all within |3|
 
-## Diag: check Cook's Distance
+
+
+## mallow categ: check std dev resids
+
+```{r}
+rstandard(mallow_m2, type = 'deviance') |> plot()
+```
+
+all good, all within |3|
+
+
+# week 3: influential observations
+
+## mallow cont: check Cook's Distance
 
 ```{r}
 cooks.distance(mallow_m1) |> plot()
@@ -189,9 +216,28 @@ cooks.distance(mallow_m1) |> plot()
 all good, all below 0.5
 
 
-# week 3: mallow  categ
+## Diag: check Cook's Distance
 
-## Model comparison – Difference in deviance
+```{r}
+cooks.distance(mallow_m2) |> plot()
+```
+
+all good, all well below 0.5
+
+
+
+# week 3: GLM model comparison
+
+## mallow cont – Difference in deviance
+
+```{r}
+anova(mallow_m0, mallow_m1, test = 'Chisq')
+```
+
+Model with predictor significantly better than null model.
+Big whoop.
+
+## mallow categ – Difference in deviance
 
 ```{r}
 anova(mallow_m0, mallow_m2, test = 'Chisq')
@@ -201,20 +247,27 @@ Model with predictor significantly better than null model.
 Big whoop.
 
 
-## Assump: check std dev resids
+# week 3: big-picture modelling strat: when is comparing models a useful thing to do?
 
-```{r}
-rstandard(mallow_m2, type = 'deviance') |> plot()
-```
+from Jo:
 
-all good, all within |3|
+> i would phrase it as a "joint test" - if the models differ by 1 df, then the model comparison is equivalent to the test of the slope (for linear, it's numerically identical, for non-linear models it's conceptually equivalent), and stress that it's therefore only useful if you want to test multiple parameters at once. 
 
-## Diag: check Cook's Distance
+> B. if you're actually interested in the influence of a set of predictors that are fairly highly correlated. 
+e.g., i want to know if personality predicts salaries: 
+lm(salary ~ o+c+e+a+n) may well come out with a whole bunch of non-sig coefficients, but a signif F? 
+ 
+> and then have a whole emphasis on DO NOT USE MODEL COMPARISONS TO DECIDE WHAT GOES IN YOUR MODEL
 
-```{r}
-cooks.distance(mallow_m2) |> plot()
-```
 
-all good, all well below 0.5
+MSMR comment:
+
+> maybe think of model comparisons as being only really useful in reverse, where we start with our ideal model and compare it to a reduced model if that is a useful reference point.
+>
+> so the process would be:
+>
+> 1. specify the model we want (the one that answers our research q and represents what we believe to be the process that generates the data). this would include the fixed effects required for the question (time*gtype), and the potential confounders (age+prevexp), and the fully maximal random effect structure apportioning variability to different sources.
+> 2. simplify the model random effects to obtain convergence.
+> 3 (optional). do a model comparison with a reduced model to assess if the part of the model your interested in (the interaction) is explaining stuff. so here we could compare our model to the same model but without the interaction. and if the thing we're interested in is just a single coefficient, then this isn't really necessary as we can just look at that coefficient! 
 
 
