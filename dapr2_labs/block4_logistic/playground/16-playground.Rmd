@@ -1,0 +1,243 @@
+---
+title: "16 prep"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+# bad lm
+
+
+Why is it weird to fit a linear model to binary outcome data?
+
+```{r}
+mallow <- read_csv("https://uoepsy.github.io/data/mallow.csv")
+```
+
+```{r}
+mallow_lm <- lm(taken ~ age, data = mallow)
+```
+
+## check assumptions of bad lm
+
+```{r}
+car::crPlots(mallow_lm)
+```
+
+non-linear
+
+
+
+```{r}
+tibble(residuals=mallow_lm$residuals) |> 
+  ggplot(aes(x = residuals)) +
+  geom_histogram()
+```
+
+```{r}
+plot(mallow_lm, which = 2)
+```
+
+not normal!
+pattern consistent with bounded outcome data.
+
+
+```{r}
+plot(mallow_lm, which = 1)
+```
+
+again, consistent with only two possible outcome values.
+
+
+## try ot interpret coefs?
+
+```{r}
+summary(mallow_lm)
+```
+
+if you either took a marshmallow = 1 or didn't = 0, then what does it mean for the model to estimate that at age zero, the estimated outcome is 1.29? you SUPER took the marshmallow? weird.
+
+
+## look at model predictions
+
+
+```{r}
+effects::effect(term = 'age', mod = mallow_lm, xlevels = list(age = 0:10)) |>
+    as.data.frame() |>
+    ggplot(aes(x = age, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.3)
+```
+
+imposs values.
+(do this or coefs. i think this is better bc impossibility is clearer.)
+
+# plot logistic curve
+
+copy code
+
+```{r}
+p_logistic <- tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  geom_line() +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  labs(
+    y = 'Probability',
+    x = 'Log-odds'
+  ) +
+  ggtitle('The logistic function')
+
+p_logistic
+```
+
+
+
+# transforming probs to log-odds
+
+Based on the plot of the logistic curve, guess the approximate log-odds value that corresponds to each of these probabilities.
+Write down your guess.
+
+```{r}
+probs <- c(0.33, 0.05, 0.99, 0.2, 0, 1)
+```
+
+
+Now compute the actual log-odds value for each probability and compare your guesses.
+
+```{r}
+qlogis(probs)
+```
+
+Try running the following lines of code. why does each one fail?
+
+```{r}
+qlogis(-5)
+
+qlogis(1.5)
+
+qlogis(100)
+```
+
+
+# transforming log-odds to probs
+
+
+guess
+
+```{r}
+logodds <- c(-10, -2, 0.2, 5, 10)
+```
+
+```{r}
+plogis(logodds)
+```
+
+Can you find any values that make `plogis()` fail?
+
+If you find some values, what values are they, and why does `plogis()` fail?
+
+If there are no values, why does `plogis()` not fail?
+
+```{r}
+plogis(-Inf)
+```
+
+```{r}
+plogis(Inf)
+```
+
+
+# why back-transforming indiv model coefs into prob space does not work
+
+Imagine a line in log-odds space.
+That line has an intercept of 1 and a slope of 0.5.
+
+Here's some data that corresponds to that line:
+
+```{r}
+logodds_line_df <- tibble(
+    predictor = 0:5,
+    logodds_success = 1 + 0.5 * predictor
+)
+
+logodds_line_df
+```
+
+To plot the line:
+
+```{r}
+logodds_line_df |>
+    ggplot(aes(x = predictor, y = logodds_success)) +
+    geom_line()
+```
+
+back-transform intercept to prob space.
+
+```{r}
+plogis(1)
+```
+
+
+do the wrong thing and back-transform slope to prob space using `plogis()` as well, we get 
+
+```{r}
+plogis(0.5)
+```
+
+
+what value would this line predict for predictor = 1? predictor = 2?
+
+```{r}
+0.73 + 0.62 * 1
+0.73 + 0.62 * 2
+```
+
+
+
+so if that was a line in probability space, it would look like
+
+```{r}
+tibble(
+    predictor = 0:5,
+    bad_prob_success = plogis(1) + plogis(0.5) * predictor
+) |>
+    ggplot(aes(x = predictor, y = bad_prob_success)) +
+    geom_line()
+```
+
+
+how to back-transform this line to probabilities *correctly*:
+
+we can only back-transform actual log-odds values, NOT differences between log-odds values.
+
+```{r}
+logodds_line_df |>
+    mutate(
+        prob_success = plogis(logodds_success)
+    )
+```
+
+
+and if you plot it, notice that it's not a straight line, so it doesn't make sense to have a constant slope in probability space!
+
+```{r}
+logodds_line_df |>
+    mutate(
+        prob_success = plogis(logodds_success)
+    ) |>
+    ggplot(aes(x = predictor, y = prob_success)) +
+    geom_line()
+```
+
+
+```{r}
+plogis(1 + 0.5*0)
+plogis(1 + 0.5*1)
+plogis(1 + 0.5*2)
+```

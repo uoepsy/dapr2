@@ -1,0 +1,497 @@
+---
+title: "16: Probabilities and log-odds"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(patchwork)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+
+In this lab, you'll practice transforming probabilities into log-odds as well as log-odds into probabilities.
+
+You'll also work through an example that aims to show you why transforming the slope of a line from log-odds into probabilities leads to mathematically impossible predictions.
+
+<!-- The goal of this lab is to reinforce that you shouldn't directly back-transform the slopes of a line from log-odds into probabilities. -->
+
+
+:::{.callout-note}
+### Get set up
+
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab16.Rmd`).
+1. In the first code chunk, load the packages you'll need this week:
+    - `tidyverse`
+:::
+
+---
+
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+Copy and run the following code to generate for yourself a plot of the logistic function.
+
+You'll use this plot in the next few questions.
+
+```{r eval=F}
+p_logistic <- tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  geom_line() +
+  labs(
+    y = 'Probability',
+    x = 'Log-odds'
+  ) +
+  ggtitle('The logistic function')
+
+p_logistic
+```
+
+(Optional: To find out what a given line of code does, you can comment it out and try running the code chunk again.)
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The plot should look something like this:
+
+```{r echo=F}
+p_logistic <- tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  geom_line() +
+  labs(
+    y = 'Probability',
+    x = 'Log-odds'
+  ) +
+  ggtitle('The logistic function')
+
+p_logistic
+```
+
+
+`r solend()`
+
+
+# Converting probabilities to log-odds
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+Based on the logistic curve you plotted in Q1, guess the approximate log-odds value that corresponds to each of the following probabilities.
+Write down your guesses.
+
+Probabilities:
+
+- 33%
+- 99%
+- 20%
+- 0%
+- 100%
+
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Eyeballing a path from the probabilities on the y axis via the logistic function to the log-odds values on the x axis, I'd say:
+
+- 33% probability $\approx$ –0.5 log-odds
+- 99% probability $\approx$ 4.5 log-odds
+- 20% probability $\approx$ –1.5 log-odds
+- 0% probability is never met, only approached, as the logistic function goes down to $-\infty$
+- 100% probability is never met, only approached, as the logistic function goes up to $\infty$
+
+Your guesses might be different from mine, and that's OK!
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+Now compute the actual log-odds value for each probability given in Q2.
+
+If any of your guesses were really different from the actual log-odds, why do you think that is?
+
+:::red
+🗂️
+See [TODO probs and log-odds](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+qlogis(0.33)
+```
+
+<br>
+
+```{r}
+qlogis(0.99)
+```
+
+<br>
+
+```{r}
+qlogis(0.2)
+```
+
+<br>
+
+```{r}
+qlogis(0)
+```
+
+`-Inf`(inity) is R's way of telling us that the logistic function never really reaches 0% probability, but as it gets closer, it gets bigger and more negative.
+
+<br>
+
+```{r}
+qlogis(1)
+```
+
+Likewise for 100% probability: this value is never reached by the logistic function, but it gets ever closer as log-odds get larger and more positive.
+
+<!-- (The mathematical term for a value always approached but never attained is an "asymptote". -->
+<!-- Probabilities of 0% and 100% are asymptotes for the logistic function.) -->
+
+`r solend()`
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+Try running the following three lines of code.
+They will fail to return sensible log-odds values.
+
+Explain why each line fails.
+
+```{r eval=F}
+qlogis(-0.5)
+qlogis(1.5)
+qlogis(100)
+```
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+None of the given values are possible probabilities, so there is no way to map them to log-odds.
+
+- –0.5: Probabilities cannot be negative.
+- 1.5 and 100: Probabilities cannot be greater than 1.
+
+`r solend()`
+
+
+# Converting log-odds to probabilities
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+Based on the logistic curve you plotted in Q1, guess the approximate probability value that corresponds to each of the following log-odds.
+Write down your guesses.
+
+Log-odds:
+
+- 0.5
+- –0.5
+- 10
+- –10
+- 4
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Eyeballing a path from the log-odds on the x axis via the logistic function to the probabilities on the y-axis, I'd say:
+
+- 0.5 log-odds $\approx$ 60% probability
+- –0.5 log-odds $\approx$ 40% probability
+- 10 log-odds $\approx$ 99.9% probability, something really big
+- –10 log-odds $\approx$ 0.1% probability, something really small
+- 4 log-odds $\approx$ 98% probability
+
+Your guesses might be different from mine, and that's OK!
+
+`r solend()`
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+Now compute the actual probabilities for each log-odds value given in Q2.
+
+If any of your guesses were really different from the actual probability, why do you think that is?
+
+:::red
+🗂️
+See [TODO probs and log-odds](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+plogis(0.5)
+```
+
+<br>
+
+```{r}
+plogis(-0.5)
+```
+
+<br>
+
+```{r}
+plogis(10)
+```
+
+<br>
+
+```{r}
+plogis(-10)
+```
+
+<br>
+
+```{r}
+plogis(4)
+```
+
+`r solend()`
+
+<!-- # q7 -->
+
+`r qbegin(qcounter())`
+
+Can you find any input values that cause `plogis()` to fail?
+
+If you do find some values, which are they, and why do they make `plogis()` fail?
+
+If you cannot find any such values, why are there no values that make `plogis()` fail?
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+There are no values that make `plogis()` fail.
+It will take any number (even `-Inf` and `Inf`) and map it via the logistic function to a probability between 0 and 1.
+
+This is because the input to `plogis()` are values on the log-odds scale.
+And log-odds can be any number between $-\infty$ and $\infty$.
+(This property is exactly what makes log-odds a suitable scale for linear modelling!)
+
+`r solend()`
+
+# Why we can't back-transform slopes from log-odds space to probability space
+
+<!-- # q8 -->
+
+`r qbegin(qcounter())`
+Imagine a line in log-odds space which has an intercept of 1 and a slope of 0.5.
+Here's a plot of that line:
+
+```{r}
+#| code-fold: true
+
+tibble(
+  x = 0:5,
+  logodds_success = 1 + 0.5 * x
+) |>
+  ggplot(aes(x = x, y = logodds_success)) +
+  geom_line()
+```
+
+Now, **imagine doing the wrong thing and back-transforming *both* model coefficients from log-odds space to probability space.**
+This is a "proof by contradiction": we'll intentionally do the wrong thing and see how it leads us to nonsense results.
+
+- For the intercept, `plogis(1)` = 0.73.
+- For the slope, `plogis(0.5)` = 0.62.
+
+The linear expression for this model is $y = 0.73 + 0.62 \cdot x$.
+
+What outcome value (i.e., $y$ value) does this model predict for $x = 0$? for $x = 1$? for $x=2$?
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+For $x = 0$:
+
+$$
+\begin{align}
+y &= 0.73 + 0.62 \cdot 0 \\
+y &= 0.73 \\
+\end{align}
+$$
+
+<br>
+
+
+For $x = 1$:
+
+$$
+\begin{align}
+y &= 0.73 + 0.62 \cdot 1 \\
+y &= 1.35 \\
+\end{align}
+$$
+<br>
+
+
+For $x = 2$:
+
+$$
+\begin{align}
+y &= 0.73 + 0.62 \cdot 2 \\
+y &= 0.73 + 1.24 \\
+y &= 1.97 \\
+\end{align}
+$$
+
+`r solend()`
+
+<!-- # q9 -->
+
+`r qbegin(qcounter())`
+
+Our goal is for the outcome values of this model to be probabilities: the probability of success.
+
+Are the outcome values you computed in Q8 possible probabilities?
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Probabilities can range between 0 and 1. Therefore:
+
+- 0.73 is a possible probability (this is the y-intercept in probability space).
+- 1.35 is not a possible probability, because it's greater than 1.
+- 1.97 is also not a possible probability, because it's greater than 1.
+
+Because our model generates nonsense predictions (i.e., impossible probability values), the assumptions behind the model must be incorrect.
+Specifically, our assumption that a linear relationship in log-odds translates exactly to a linear relationship in probability space is not right.
+
+
+`r solend()`
+
+
+<!-- # q10 -->
+
+
+`r qbegin(qcounter())`
+
+Below are two plots.
+
+Plot A (left) shows the intentionally wrong way we tried to convert the log-odds line into probability space: by transforming each parameter individually to end up with $y = 0.73 + 0.62 \cdot x$.
+
+Plot B (right) shows the correct way of converting the log-odds line into probability space.
+
+```{r fig.width = 10, fig.height = 5}
+#| code-fold: true
+
+p_prob_bad <- tibble(
+  x = 0:5,
+  prob_success = 0.73 + 0.62 * x
+) |>
+  ggplot(aes(x = x, y = prob_success)) +
+  geom_line() +
+  ggtitle('Bad transformation to prob. space')
+
+
+p_prob_good <- tibble(
+  x = 0:5,
+  logodds_success = 1 + 0.5 * x,
+  prob_success = plogis(logodds_success)
+) |>
+  ggplot(aes(x = x, y = prob_success)) +
+  geom_line() +
+  ggtitle('Good transformation to prob. space')
+
+p_prob_bad + p_prob_good + plot_annotation(tag_levels = 'A')
+```
+
+
+Notice that we get the same value in both plots when $x = 0$: the probability is indeed 0.73 = `plogis(1)`.
+So transforming the intercept alone is okay!
+
+Based on these two plots, try to explain in your own words why transforming the slope directly is not a mathematically appropriate way to convert a line in log-odds space into probability space.
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+You might observe that the bad transformation gives us impossible probabilities (> 1), while the good transformation only gives us reasonable probabilities (between 0 and 1).
+
+That's absolutely true, and that observation is the goal of this lab.
+
+If you want to go a bit deeper, you might also look at Plot B and observe that the good line isn't a straight line at all: in fact, the slope is constantly changing as $x$ increases.
+This is because the logistic function has to squish the straight line down so that it fits in between 0 and 1.
+
+Because the line in probability space is not straight, there's no single slope value that applies to the whole line.
+Consequently, it doesn't make sense to transform the slope from log-odds space to probability space and expect the resulting straight line to accurately describe the probability of success.
+
+`r solend()`
+
+<!-- `r qbegin(qcounter())` -->
+
+<!-- **Optional bonus challenge:** If we can't back-transform slopes to probability space, how *can* we describe the effect that a predictor has on the probability of success? -->
+
+<!-- Here's the trick:  -->
+
+<!-- 1. Use the model to predict outcome values in log-odds space for whatever values of the predictor we are interested in. -->
+<!--     - Typically for a continuous predictor, these values are the predictor's mean and one SD above the predictor's mean. -->
+<!-- 1. Transform each of those log-odds values into probability space. -->
+<!-- 1. Subtract the estimated probability of success at the predictor's mean from the estimated probability of success at mean + 1 SD. -->
+
+
+<!-- - Find the mean of `mallow$age` and store it in a variable called `age_mean`. -->
+<!-- - Find the SD of `mallow$age` and store it in a variable called `age_sd`. -->
+<!-- - Add the mean and SD together and store the result in a variable called `age_mean_plus_1`. -->
+<!-- - -->
+
+
+<!-- `r qend()` -->
+<!-- `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)` -->
+
+<!-- ```{r} -->
+<!-- age_mean <- mean(mallow$age) -->
+<!-- age_sd   <- sd(mallow$age) -->
+<!-- age_mean_plus_1 <- age_mean + age_sd -->
+
+
+<!-- ``` -->
+
+
+<!-- `r solend()` -->
