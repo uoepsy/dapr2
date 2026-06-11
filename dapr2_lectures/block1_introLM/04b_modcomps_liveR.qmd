@@ -1,0 +1,243 @@
+---
+title: "F-Ratio & Model Comparisons"
+author: "Emma Waterston"
+format: html
+---
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(simglm)
+library(kableExtra)
+
+set.seed(7284) 
+
+sim_arguments <- list(
+  formula = y ~ 1 + hours + motivation,
+  fixed = list(hours = list(var_type = 'ordinal', levels = 0:15),
+               motivation = list(var_type = 'continuous', mean = 0, sd = 1)),
+  error = list(variance = 20),
+  sample_size = 150,
+  reg_weights = c(0.6, 1.4, 1.5)
+)
+
+df <- simulate_fixed(data = NULL, sim_arguments) %>%
+  simulate_error(sim_arguments) %>%
+  generate_response(sim_arguments)
+
+test_study2 <- df %>%
+  dplyr::select(y, hours, motivation) %>%
+  mutate(
+    ID = paste("ID", 101:250, sep = ""),
+    score = round(y+abs(min(y))),
+    motivation = round(motivation, 2)
+  ) %>%
+  dplyr::select(ID, score, hours, motivation)
+
+```
+
+In this document we are going to work through the hand calculations for:
+  
+- $F$-statistic 
+- Incremental $F$-test
+
+## Packages
+
+For this example we will only need the `tidyverse`package.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+## Data
+
+```{r}
+test_study2 <- read_csv("https://uoepsy.github.io/data/test_study2.csv")
+```
+
+
+We will make our calculations for the model we have been using in class this week:
+
+```{r}
+performance <- lm(score ~ hours + motivation, data = test_study2)
+summary(performance)
+```
+ 
+## $F$-Statistic
+
+$$
+F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} = \frac{MS_{Model}}{MS_{Residual}}
+$$
+
+### Sums of Squares Residual
+
+$$
+SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2
+$$
+
+
+```{r}
+ss_tab <- test_study2 |>
+  mutate(
+    y_pred = performance$fitted.values, # extract the predicted values from the model
+    pred_dev = round((score - y_pred),2), # subtract these from the observed values of score
+    pred_dev2 = round(pred_dev^2,2) # square these values, and round to 2dp
+  )
+```
+
+As we did previously, we can then sum this final column to give the sums of squares residual:
+
+```{r}
+ss_resid <- sum(ss_tab$pred_dev2)
+ss_resid
+```
+
+### Sums of Squares Model
+
+$$
+SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2
+$$
+
+```{r}
+ss_tab <- ss_tab |>
+  mutate(
+    mean_pred_dev = performance$fitted.values - mean(score), # extract the predicted values from the model and subtract mean
+    mean_pred_dev2 = round(mean_pred_dev^2,2) # square these values, and round to 2dp
+  )
+```
+
+
+```{r}
+ss_mod = sum(ss_tab$mean_pred_dev2)
+ss_mod
+```
+
+### DF Model
+
+$$
+df_\text{model} = k = 2
+$$
+
+### DF Residual
+
+$$
+df_\text{residual} = n - k - 1= 150 - 2 - 1 = 147
+$$
+
+### Back to $F$-Statistic
+
+$$
+\begin{align}
+F = \frac{\frac{SS_{model}}{df_{model}}}{\frac{SS_{residual}}{df_{residual}}} = \frac{MS_{Model}}{MS_{Residual}} \\
+\\
+F = \frac{\frac{5728.79}{2}}{\frac{2826.83}{147}} = \frac{2864.40}{19.23} \\
+\\
+F = 148.95 = 148.95 \\
+\\
+F = 148.95
+\end{align}
+$$
+
+We can compare this to the value at the bottom of our model `summary()`:
+
+```{r}
+summary(performance)
+```
+
+If we wanted to save this specific value from the summary output, we can do the following:
+
+```{r}
+sum_performance <- summary(performance)
+sum_performance$fstatistic
+```
+
+
+## Model Comparisons
+
+**Research Question: Does motivation significantly predict score over and above the effects of study hours?**
+
+### Step 1: Fit & Run Models
+
+```{r}
+#model with just study hours
+m1 <- lm(score ~ hours, data = test_study2)
+summary(m1)
+
+#model with study hours and motivation
+m2 <- lm(score ~ hours + motivation, data = test_study2)
+summary(m2)
+```
+
+### Step 2: Statistically Compare Models
+
+#### Using `anova()`
+
+```{r}
+anova(m1, m2)
+```
+
+#### By Hand (ADVANCED/OPTIONAL)
+
+We can extract the information we need from the `summary()` output given the relationship between the residual sum of squares and residual standard error:
+
+$$
+\text{SS}_\text{Residual} = \text{Residual Standard Error}^2 \cdot df_\text{Residual}
+$$
+
+Therefore we can calculate our $SS_\text{Residual}$ as follows:
+
+*Restricted Model*
+
+```{r}
+sum_m1 <- summary(m1)
+sum_m1$sigma #4.4547
+sum_m1$df #148
+```
+
+$$
+\begin{align} 
+SSR_R = (4.4547^2) \cdot 148 \\  
+\\  
+SSR_R = 2936.964 \\
+\end{align}
+$$
+
+*Full Model*
+
+```{r}
+sum_m2 <- summary(m2)
+sum_m2$sigma #4.3856
+sum_m2$df #147
+```
+
+$$
+\begin{align}
+SSR_F = (4.3856^2) \cdot 147 \\  
+\\  
+SSR_F = 2827.323 \\
+\end{align}
+$$
+
+<br> 
+
+Once we have obtained these values, we can substitute into the formula:
+
+$$
+\begin{align}
+F_{(df_R-df_F),df_F} = \frac{(SSR_R-SSR_F)/(df_R-df_F)}{SSR_F / df_F} \\
+\\
+F_{(148-147),147} = \frac{(2936.964-2827.323)/(148-147)}{2827.323 / 147} \\
+\\
+F_{1,147} = \frac{109.641/1}{ 19.2335} \\
+\\
+F_{1,147} = \frac{109.641}{19.2335} \\
+\\
+F_{1,147} = 5.70
+\end{align}
+$$
+
+
+### Step 3: Write Up
+
+Motivation was found to explain a significant amount of variance in scores over and above the effects of study hours alone $F(1, 147) . = 5.70, p < .05)$.
+

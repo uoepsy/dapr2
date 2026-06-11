@@ -1,0 +1,152 @@
+---
+title: "Week 2: MLR & Standardisation"
+author: "Emma Waterston"
+format: html
+---
+
+In this document we are going to work through an example of a multiple linear regression model with standardised variables. 
+
+## Packages
+
+For this example we will need a few different packages:.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(psych)
+library(patchwork)
+library(ppcor)
+```
+
+
+## Data
+
+Working with a subset of data used in the lecture, and reading this data into `R` using a link and assigning it to a dataset named dat:
+
+```{r, message=FALSE, warning=FALSE}
+dat <- read_csv("https://uoepsy.github.io/data/testscores.csv")
+```
+
+Look at the structure of our data using `str()`:
+
+```{r}
+str(dat)
+```
+
+We can see `ID` is being recognised as a character vector, whilst `score`, `hours`, and `motivation` as numeric.
+
+## Visualisations
+
+Marginal distributions:
+
+```{r}
+score_plt <- ggplot(data = dat, aes(x = score)) + 
+                      geom_density() + 
+                      labs(x = "Score", y = "Density")
+
+hours_plt <- ggplot(data = dat, aes(x = hours)) + 
+                      geom_density() + 
+                      labs(x = "Hours Studied", y = "Density")
+
+motivation_plt <- ggplot(data = dat, aes(x = motivation)) + 
+                      geom_density() + 
+                      labs(x = "Motivation (z-scored)", y = "Density")
+
+score_plt / hours_plt / motivation_plt
+```
+
+
+Bivariate Associations:
+
+(Note, the `dplyr::`) section of this code is making sure `R` knows which package to use the `select()` function from)
+
+```{r}
+dat |>
+    dplyr::select(score, hours, motivation) |>
+    pairs.panels(main = "Test Scores SPLOM")
+```
+
+## Building Multiple Linear Regression Models
+
+### Only motivation standardised
+
+```{r}
+m1 <- lm(score ~ hours + motivation, data = dat)
+summary(m1)
+```
+
+#### Interpretation 
+
+We can interpret our coefficients as follows:
+
++ $\beta_0$ = A student who did not study who had average school motivation was expected to score 6.38 points on the test
++ $\beta_1$ = Controlling for motivation, for every 1 additional hour studied, there was a 1.39 point increase in test score
++ $\beta_2$ = Controlling for hours of study, for every 1 SD increase in motivation, there was a 0.98 point increase in test score
+
+
+### Hours and motivation standardised
+
+```{r}
+m2 <- lm(score ~ scale(hours) + motivation, data = dat)
+summary(m2)
+```
+
+#### Interpretation 
+
+We can interpret our coefficients as follows:
+
++ $\beta_0$ = A student studied for an average number of hours who had average school motivation was expected to score 16.10 points on the test
++ $\beta_1$ = Controlling for motivation, for every 1 SD increase in hours studied, there was a 6.41 point increase in test score
++ $\beta_2$ = Controlling for hours of study, for every 1 SD increase in motivation, there was a 0.98 point increase in test score
+
+
+### All variables (DV + 2 IVs) standardised
+
+```{r}
+m3 <- lm(scale(score) ~ scale(hours) + motivation, data = dat)
+summary(m3)
+```
+
+#### Interpretation 
+
+The intercept often becomes less practically informative because it mainly reflects the standardisation of the data rather than meaningful zero points of the predictors. Here we are often more interested in interpreting the estimated coefficients of the predictors themselves.
+
+We can interpret our coefficients as follows:
+
++ $\beta_1$ = Controlling for motivation, for every 1 SD increase in hours studied, there was a 0.81 SD increase in test score
++ $\beta_2$ = Controlling for hours of study, for every 1 SD increase in motivation, there was a 0.12 SD increase in test score
+
+## Semi Partial (Part) Correlation Coefficients
+
+This is a way of understanding the unique contribution of one independent variable to the dependent variable, after removing the overlap with other variables. 
+
+```{r}
+#look at the coefficients of the model
+#round to 2 decimal places
+round(m3$coefficients, 2)
+```
+
+### Semi-partial (part) correlation between score & hours:
+
+```{r}
+#look at the semi-partial correlation between score and hours, saving in an object named 'score_hours_spcor'
+score_hours_spcor <- spcor.test(dat$score, dat$hours, dat$motivation,  method="pearson")
+
+#round correlation coefficient estimate to 2 decimal places
+round(score_hours_spcor$estimate, 2)
+```
+
+### Semi-partial (part) correlation between score & motivation:
+
+```{r}
+#look at the semi-partial correlation between score and motivation, saving in an object named 'score_motiv_spcor'
+score_motiv_spcor <- spcor.test(dat$score, dat$motivation, dat$hours,  method="pearson")
+
+#round correlation coefficient estimate to 2 decimal places
+round(score_motiv_spcor$estimate, 2)
+```
+
+When all variables in the model are standardised, each of the standardised slope estimates (i.e., $\beta_1$ and $\beta_2$) actually equals the semi-partial correlation between the DV and each one of the IVs.
+
+
+
+
