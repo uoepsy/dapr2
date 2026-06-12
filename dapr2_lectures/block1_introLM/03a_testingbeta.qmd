@@ -1,11 +1,8 @@
 ---
-title: "Testing and Evaluating LM"
+title: "Testing Predictors and Evaluating Linear Models"
 author: "Dr. Patrick Sturt (Patrick.Sturt@ed.ac.uk)"
 editor_options: 
   chunk_output_type: inline
-format:
-  revealjs:
-    smaller: true
 ---
 
 
@@ -17,7 +14,15 @@ library(tidyverse)
 library(patchwork)
 library(kableExtra)
 library(simglm)
-source('../_theme/theme_quarto.R')
+
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_minimal(
+    base_size = 28
+  )
+)
+
 ```
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -33,63 +38,7 @@ res <- lm(score ~ hours, data = test)
 
 # Course Overview {.smaller}
 
-:::: {.columns}
-
-::: {.column width="50%"}
-
-```{r}
-#| echo: false
-#| warning: false
-#| results: asis
-
-block1_name = "Introduction to Linear Models"
-block1_lecs = c("Intro to Linear Regression",
-                "Interpreting Linear Models",
-                "Testing Individual Predictors",
-                "Model Testing & Comparison",
-                "Linear Model Analysis")
-block2_name = "Analysing Experimental Studies"
-block2_lecs = c("Categorical Predictors & Dummy Coding",
-                "	Effects Coding & Coding Specific Contrasts",
-                "Assumptions & Diagnostics",
-                "Bootstrapping",
-                "	Categorical Predictor Analysis")
-
-source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
-
-course_table(block1_name,block2_name,block1_lecs,block2_lecs,week=3)
-```
-
-:::
-
-::: {.column width="50%"}
-
-```{r}
-#| echo: false
-#| warning: false
-#| results: asis
-
-block3_name = "Interactions"
-block3_lecs = c("Interactions I",
-                "Interactions II",
-                "Interactions III",
-                "Analysing Experiments",
-                "Interaction Analysis")
-block4_name = "Advanced Topics"
-block4_lecs = c("Power Analysis",
-                "Binary Logistic Regression I",
-                "Binary Logistic Regression II",
-                "Logistic Regression Analysis",
-                "	Exam Prep and Course Q&A")
-
-source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
-
-course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
-```
-
-:::
-
-::::
+TODO
 
 ## This Week's Learning Objectives
 
@@ -106,13 +55,13 @@ course_table(block3_name,block4_name,block3_lecs,block4_lecs,week=0)
 + Last week we expanded the general linear model equation to include multiple predictors:
 
 $$
-y_i = \beta_0 + \beta_1 \cdot x_{1i} + \beta_2 \cdot x_{2i} + \beta_j \cdot x_{ji} + \epsilon_i
+y_i = \beta_0 + (\beta_1 \cdot x_{1i}) + (\beta_2 \cdot x_{2i}) + (\beta_j \cdot x_{ji}) + \epsilon_i
 $$
 
 + And we ran an example concerning test scores:
 
 $$
-\text{Score}_i = \beta_0 + \beta_1 \cdot \text{Hours}_{i} + \beta_2 \cdot \text{Motivation}_{i} + \epsilon_i
+\text{Score}_i = \beta_0 + (\beta_1 \cdot \text{Hours}_{i}) + (\beta_2 \cdot \text{Motivation}_{i}) + \epsilon_i
 $$
 
 + And we looked at how to run this model in `R`:
@@ -161,7 +110,7 @@ So far we have estimated values for the key parameters of our model ( $\beta$s )
 
 . . .
 
-+ The above is a research question
++ This is kind of vague, what does it mean to be a "useful predictor"?
 
 + We need to turn this into a testable statistical hypothesis
 
@@ -199,15 +148,16 @@ Steps in hypothesis testing:
 
 **Research questions** are statements of what we intend to study    
     
-+ A good question defines:
-
-. . .
+<br>
+    
+A good question defines:
 
   + constructs under study
   + the association being tested
   + a direction of association
   + target populations etc.
 
+For example:
 
 > **Does increased study time improve test scores in school-age children?**
 
@@ -215,19 +165,21 @@ Steps in hypothesis testing:
 
 **Statistical hypotheses** are testable mathematical statements  
     
-+ In typical testing in Psychology, we define a **null ( $H_0$ )** and an **alternative ( $H_1$ )** hypothesis
++ In typical testing in Psychology, we define a **null hypothesis ($H_0$)** and an **alternative hypothesis ($H_1$)**.
   
-  + $H_0$ is precise, and states a specific value for the effect of interest
-  + $H_1$ is not specific, and simply says "something else other than the null is more likely"
+  + $H_0$ is precise: it specifically states that the effect of interest is equal to zero.
+  + $H_1$ is not specific: it simply says that the effect of interest is *not* equal to zero (but it makes no claims about what the effect of interest might really be equal to).
 
 
-## Statistical Significance: Overview
+## Statistical Significance: Review from DAPR1
 
 + Remember, we can only ever test the null hypothesis
 
 + We select a significance level, $\alpha$ (typically .05)
 
 + Then we calculate the $p$-value associated with our test statistic
+
+  + A $p$-value is the probability of observing our test statistic or a value even more extreme than our test statistic, assuming that $H_0$ is true (that is, assuming that the true effect really is zero)
 
 + If the associated $p$ is smaller than $\alpha$, then we **reject** the null
 
@@ -242,18 +194,20 @@ Steps in hypothesis testing:
 
 ::: {.column width="50%"}
 
-+ Conceptually:
+In this example data, there's no pattern in how values of $x$ are associated with values of $y$.
 
-	+ If $x$ yields no information on $y$, then $\beta_1 = 0$
-	
-+ **Why would this be the case?**
+We can't make any guesses about $y$ based on the value of $x$.
+
+In this scenario, the slope $\beta_1$ of the line associating $x$ and $y$ is 0.
+
+**Why is the slope 0?**
   
 + $\beta$ gives the predicted change in $y$ for a unit change in $x$
-	+ If $x$ and $y$ are unrelated, then a change in $x$ will not result in any change to the predicted value of $y$
-	+ So for a unit change in $x$, there is no (=0) change in $y$
++ If $x$ and $y$ are unrelated, then a change in $x$ will not result in any change to the predicted value of $y$
++ So for a unit change in $x$, there is no change (zero change) in $y$
 	
-+ We can state this formally as a null and alternative:
-
+**Our null hypothesis is that there is no association between $x$ and $y$. Formally:**
+	
 $$H_0: \beta_1 = 0$$
 $$H_1: \beta_1 \neq 0$$
 
@@ -261,39 +215,35 @@ $$H_1: \beta_1 \neq 0$$
 
 ::: {.column width="50%"}
 
-```{r, echo = F, message = F, fig.height=5}
+```{r, echo = F, message = F, fig.height=7, fig.width=7}
 set.seed(2010)
 dat <- data.frame(x=1:25, y=rnorm(25))
-ggplot(dat, aes(x, y)) + geom_point() +
+ggplot(dat, aes(x, y)) + 
+  geom_point(size=3) +
   geom_smooth(method = 'lm', se=F, colour = '#BF1932') + 
-  theme(axis.title=element_text(size = 14, face = 'bold'))
+  # theme(axis.title=element_text(size = 14, face = 'bold'))
+  NULL
 ```
 
 :::
 
 ::::
 
-## Point Estimate and Test Statistic
+## Significance tests for $\beta$ coefficients
 
-+ We have already seen how we calculate $\hat \beta_1$
++ The test statistic associated with $\beta$ coefficients is a $t$-statistic:
 
-+ The associated test statistic for $\beta$ coefficients is a $t$-statistic
-
-$$t = \frac{\hat \beta}{SE(\hat \beta)}$$
-
-+ where
-
-  + $\hat \beta$ = any $\beta$ coefficient we have calculated
-  + $SE(\hat \beta)$ = standard error of $\beta$ 
-
-. . .
-
-+ Recall that the standard error describes the spread of the sampling distribution
-  + The standard error $(SE)$ provides a measure of sampling variability
-  + A smaller SE suggests a more precise estimate (=good)
+$$t = \frac{\hat \beta}{SE(\hat \beta)} = \frac{\text{estimated coefficient}}{\text{standard error estimated for that coefficient}}$$
 
 
-## Lets look at the output from `lm()` again
++ Recall from DAPR1 that the standard error describes the spread of the sampling distribution
+  + The standard error $(SE)$ measures how variable the sample is
+  + A smaller SE suggests a more precise estimate (= good)
+  + If you like maths, check the appendix of these slides for details about how to compute SE by hand
+
+## Let's work out a $t$-value
+
+:::{style="font-size:65%;"}
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 set.seed(7284) 
@@ -320,146 +270,74 @@ test_study2 <- df %>%
   ) %>%
   dplyr::select(ID, score, hours, motivation)
 
-performance <- lm(score ~ hours + motivation, data = test_study2)
-
+m1 <- lm(score ~ hours + motivation, data = test_study2)
+res <- lm(score ~ hours, data = test)
 ```
-
 
 ```{r}
-summary(performance)
+summary(m1)
 ```
 
-## And work out the $t$-values
 
-+ Let's check the value for `motivation` together:
+<br>
 
-$$
-t = \frac{\hat \beta_2}{SE(\hat \beta_2)} = \frac{0.9163}{0.3838} = 2.388~(3dp)
-$$
-
-
-##  SE( $\hat \beta_j$ )  {.smaller}
-
-+ The formula for the standard error of the slope is:
+For `motivation`, which we'll represent as $\beta_2$:
 
 $$
-SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}
+t = \frac{\hat \beta_2}{SE(\hat \beta_2)} = \frac{0.9163}{0.3838} = 2.388
 $$
-
-+ Where:
-	+ $SS_{Residual}$ is the residual sum of squares
-	+ $n$ is the sample size
-	+ $k$ is the number of predictors
-	+ $x_{ij}$ is the observed value of a predictor ( $j$ ) for an individual ( $i$ )
-	+ $\bar{x_{j}}$ is the mean of a predictor
-	+ $R_{xj}^2$ derives from the multiple correlation coefficient of the predictors
-
-+ $R_{xj}^2$ captures to degree to which all of our predictors are related to each other
-  + For simple linear models, $R_{xj}^2$ = 0 as there is only 1 predictor
-
-## SE( $\hat \beta_j$ )
-
-$$
-SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}
-$$  
-
-+ We want our $SE$ to be smaller - this means our estimate is precise
-
-. . .
-
-+ Examining the above formula we can see that:
-	+ $SE$ is smaller when residual variance ( $SS_{residual}$ ) is smaller
-	+ $SE$ is smaller when sample size ( $n$ ) is larger
-	+ $SE$ is larger when the number of predictors ( $k$ ) is larger
-	+ $SE$ is larger when a predictor is strongly correlated with other predictors ( $R_{xj}^2$ )
-
-
-## Sampling Distribution for the Null {.smaller}
-
-:::: {.columns}
-
-::: {.column width="50%"}
-
-
-+ So what about $p$?
-
-+ $p$ refers to the likelihood of having results as extreme as ours, given $H_0$ is true
-
-+ To compute that likelihood, we need a sampling distribution for the null 
-
-+ For $\beta$, this is a **$t$-distribution**
-
-+ Remember, the shape of the $t$-distribution changes depending on the degrees of freedom
 
 :::
 
-::: {.column width="50%"}
+## Compare $t$ to a Null Distribution {.smaller}
+
+- We have an observed $t$-statistic, 2.388. 
+Now we want to find out how likely it is to observe a $t$-value this extreme or more extreme, assuming that $H_0$ is true.
+
+- **We know the distribution that $t$-values follow when $H_0$ is true: a $t$-distribution.**
+
+- $t$-distributions can vary, depending on their degrees of freedom (df):
 
 ```{r, echo = F, warning = F, message = F, fig.height = 3.5}
 ggplot() + 
   xlim(-4, 4) +
   stat_function(fun=dt,
                 geom = "line",
-                args = list(df=5), 
+                args = list(df=2), 
                 colour = '#BF1932',
                 linewidth = 1) +
   stat_function(fun=dt,
                 geom = "line",
-                args = list(df=10),
+                args = list(df=5),
                 colour = '#0F4C81',
                 linewidth = 1) +
   stat_function(fun=dt,
                 geom = "line",
-                args = list(df=50),
+                args = list(df=500),
                 colour = '#88B04B',
                 linewidth = 1) +
   labs(x='t', y = '') +
-  annotate(geom = 'text', label = 'df = 5', colour = '#BF1932', x = 2, y = .3, size = 5) +
-  annotate(geom = 'text', label = 'df = 10', colour = '#0F4C81', x = 2, y = .33, size = 5) +
-  annotate(geom = 'text', label = 'df = 50', colour = '#88B04B', x = 2, y = .36, size = 5) +
-  theme(axis.title = element_text(size = 12, face = 'bold'))
+  annotate(hjust = 0, geom = 'text', label = 'df = 2', colour = '#BF1932', x = 2.2, y = .15, size = 8) +
+  annotate(hjust = 0, geom = 'text', label = 'df = 5', colour = '#0F4C81', x = 2.2, y = .25, size = 8) +
+  annotate(hjust = 0, geom = 'text', label = 'df = 500', colour = '#88B04B', x = 2.2, y = .35, size = 8) +
+  # theme(axis.title = element_text(size = 12, face = 'bold'))
+  NULL
 ```
 
-:::
-
-::::
-
-. . . 
-
-+ For $\beta$, we use a $t$-distribution with **$n-k-1$ degrees of freedom**
++ For $\beta$, the null distribution is a $t$-distribution with **$n-k-1$ degrees of freedom**
 	+ $n$ = sample size
-	+ $k$ = number of predictors
-	+ The additional - 1 represents the intercept
-
-
-## A decision about the Null 
-+ We have a $t$-value associated with our $\beta$ coefficient in the R model summary
+  + $k$ = number of predictors (that is, the number of $\beta$ coefficients that are not the intercept $beta_0$)
+	+ The additional –1 represents the intercept
 	
-	+ $t$ = 2.388
 
-+ We evaluate it against a $t$-distribution with $n-k-1$ degrees of freedom
+## $n-k-1$ degrees of freedom
 
-. . . 
-
-  + $df$ = 150-2-1 = 147 
-
-+ As with all tests we need to set our $\alpha$
+- $n$ = sample size **= 150**
+- $k$ = number of predictors **= 2 (`hours` and `motivation`)**
 	
-	+ Let's set $\alpha$ = 0.05 (two tailed)
+So: $150 - 2 - 1 = 147$ degrees of freedom.
 
-. . . 
-
-+ Now we need a critical value to compare our observed $t$-value to
-
-
-## Visualise the Null
-
-:::: {.columns}
-
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5}
-
+```{r, echo = F}
 (p <- ggplot() + 
   xlim(-5, 5) +
   stat_function(fun=dt,
@@ -468,54 +346,29 @@ ggplot() +
                 linewidth = 1) +
   labs(x='\n t', y = '') + 
   ggtitle("t-distribution (df=147)") +
-  theme(axis.title=element_text(size = 14, face = 'bold'),
-        plot.title=element_text(size = 14, face = 'bold')))
+  # theme(axis.title=element_text(size = 14, face = 'bold'),
+        # plot.title=element_text(size = 14, face = 'bold'))
+   NULL
+ )
 
 ```
 
-:::
-
-::: {.column width="60%"}
-
-+ $t$-distribution with 147 df (our null distribution)
-
-:::
-
-::::
 
 
-## Visualise the Null {visibility="uncounted"}
+## Use null distribution to find critical values
 
-:::: {.columns}
++ As with all tests we need to set our $\alpha$: our probability of incorrectly rejecting the null hypothesis, even when it's true
+	
+	+ Let's set $\alpha$ = 0.05 (two tailed)
+	+ This is a 5% risk of incorrectly rejecting the null
 
-::: {.column width="40%"}
++ We'll use this $\alpha$ value, together with the null distribution from the last slide, to find the critical values that we'll compare our observed $t$-value to
 
-```{r, echo = F, fig.height=5, message = F}
-p
-```
 
-:::
+## Critical values {.smaller}
 
-::: {.column width="60%"}
 
-+ $t$-distribution with 147 df (our null distribution)
-
-+ Critical values $(t^*)$ establish a boundary for significance
-  
-  + The probability that a $t$-value will fall within these extreme regions of the distribution given $H_0$ is true is equal to $\alpha$
-    + Because we are performing a two-tailed test, $\alpha$ is split between each tail:
-
-:::
-
-::::
-
-## Visualise the Null {visibility="uncounted"}
-
-:::: {.columns}
-
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5, message = F}
+```{r, echo = F, fig.align = 'center', message = F, fig.height = 5, fig.width = 10}
 
 (p <- p + stat_function(fun = dt, 
                 geom = "area",
@@ -529,44 +382,29 @@ p
                 alpha=.25,
                 fill = "blue",
                 args = list(df=147)) +
-  geom_vline(xintercept = qt(0.025, 147), linewidth = .2, linetype='dashed') +
-  geom_vline(xintercept = qt(0.975, 147), linewidth = .2, linetype='dashed'))
+  geom_vline(xintercept = qt(0.025, 147), linewidth = 1, linetype='dashed') +
+  geom_vline(xintercept = qt(0.975, 147), linewidth = 1, linetype='dashed'))
 
 ```
-
-:::
-
-::: {.column width="60%"}
-
-+ $t$-distribution with 147 df (our null distribution)
 
 + Critical values $(t^*)$ establish a boundary for significance
-  
-  + The probability that a $t$-value will fall within these extreme regions of the distribution given $H_0$ is true is equal to $\alpha$
-    + Because we are performing a two-tailed test, $\alpha$ is split between each tail:
++ The probability that a $t$-value will fall within these extreme regions of the distribution given $H_0$ is true is equal to $\alpha$
++ Because we are performing a two-tailed test, $\alpha$ is split between each tail, and the critical values are the edges of that shaded region (the dashed lines).
 
 ```{r}
-(LowerCrit = round(qt(0.025, 147), 3))
+c(
+  lower = round(qt(0.025, 147), 3),
+  upper = round(qt(0.975, 147), 3)
+)
 ```
 
-```{r}
-(UpperCrit = round(qt(0.975, 147), 3))
-```
+## How our $t$-value of 2.388 compares
 
-:::
+```{r, echo = F, fig.align = 'center', message = F, fig.height = 5, fig.width = 10}
 
-:::::
-
-
-## Visualise the Null {visibility="uncounted"}
-
-:::: {.columns}
-
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5, message = F}
-
-p + geom_vline(xintercept = 2.388, colour = '#BF1932') +
+p + 
+  geom_vline(xintercept = 2.388, colour = '#BF1932') +
+  annotate(geom = 'text', x = 2.5, y = 0.3, label = 't = 2.388', hjust = 0, colour = dapr2red) +
   stat_function(fun = dt, 
                 geom = "area",
                 xlim = c(2.388, 4),
@@ -576,279 +414,212 @@ p + geom_vline(xintercept = 2.388, colour = '#BF1932') +
 
 ```
 
-:::
 
-::: {.column width="60%"}
-
-+ $t$-distribution with 147 df (our null distribution)
-
-+ Critical values $(t^*)$ establish a boundary for significance
-  
-  + The probability that a $t$-value will fall within these extreme regions of the distribution given $H_0$ is true is equal to $\alpha$
-    + Because we are performing a two-tailed test, $\alpha$ is split between each tail:
-
-```{r}
-(LowerCrit = round(qt(0.025, 147), 3))
+```{r include=F}
+pt(2.388, 147, lower.tail=FALSE) * 2
 ```
 
-```{r}
-(UpperCrit = round(qt(0.975, 147), 3))
-```
+<br>
 
-+ $t$ = 2.388, $p$ = .018
+The shaded red area, times 2 because it's a two-tailed test, gives us a $p$-value of .018.
 
-:::
-
-::::
-
-# Part 3: Alternative Approach: Using Confidence Intervals
-
-## Refresher: What is a Confidence Interval?
-
-+ When we perform these analyses, we obtain a parameter estimate from our sample (e.g. $\beta_2 = 0.92$)
-
-+ It's unlikely that the true value is exactly equal to our parameter estimate
+$p = .018$ is less than $\alpha = 0.05$, so we can reject the null hypothesis that the association between `motivation` and `score` is equal to zero.
 
 
-+ We can be much more certain we've captured the true value if we report **confidence intervals**
-  
-  + Range of plausible values for the parameter
-  
-  + The wider the range, the more confident we can be that our interval captures the true value
+<!-- # Part 3: Alternative Approach: Using Confidence Intervals -->
+
+<!-- ## Refresher: What is a Confidence Interval? -->
+
+<!-- + When we perform these analyses, we obtain a parameter estimate from our sample (e.g. $\beta_2 = 0.92$) -->
+
+<!-- + It's unlikely that the true value is exactly equal to our parameter estimate -->
 
 
-## Refresher: What is a Confidence Level?
+<!-- + We can be much more certain we've captured the true value if we report **confidence intervals** -->
 
-+ To create a confidence interval we must decide on a **confidence level**
-  
-  + A number between 0 and 1 specified by us
-  
-  + How confident do you want to be that the confidence interval will contain the true parameter value?
+<!--   + Range of plausible values for the parameter -->
 
-+ Typical confidence levels are 90%, 95%, or 99%
-
-. . . 
-
-> **Test your understanding:** If we select a 90% confidence level, will the range of values included in our CI be smaller or larger than if we selected a 99% confidence level?
+<!--   + The wider the range (that is, the higher the percentage of the confidence interval), the more confident we can be that our interval captures the true value  -->
 
 
-##  Confidence Intervals for $\beta$
+<!-- ## Refresher: What is a Confidence Level? -->
 
-+ We can also compute confidence intervals for $\hat \beta$
+<!-- + To create a confidence interval we must decide on a **confidence level** -->
 
-+ The $100 (1 - \alpha)$, e.g., 95%, confidence interval for the slope is:
+<!--   + A number between 0 and 1 specified by us -->
+
+<!--   + How confident do you want to be that the confidence interval will contain the true parameter value? -->
+
+<!-- + Typical confidence levels are 90%, 95%, or 99% -->
+
+<!-- . . .  -->
+
+<!-- > **Test your understanding:** If we select a 90% confidence level, will the range of values included in our CI be smaller or larger than if we selected a 99% confidence level? -->
+
+
+<!-- ##  Confidence Intervals for $\beta$ -->
+
+<!-- + We can also compute confidence intervals for $\hat \beta$ -->
+
+<!-- + The $100 (1 - \alpha)$, e.g., 95%, confidence interval for the slope is: -->
+
+<!-- $$ -->
+<!-- \hat \beta_1 \pm t^* \times SE(\hat \beta_1) -->
+<!-- $$ -->
+
+<!-- . . . -->
+
+<!-- + So, the 95% confidence interval for the effect of `motivation` would be: -->
+
+<!-- ```{r} -->
+<!-- LowerCI <- round(0.91634 - (qt(0.975, 147) * 0.38376), 3) -->
+<!-- LowerCI -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- UpperCI <-  round(0.91634 + (qt(0.975, 147)* 0.38376), 3) -->
+<!-- UpperCI  -->
+<!-- ``` -->
+
+<!-- . . .  -->
+
+<!-- + We can be 95% confident that the range 0.158 and 1.675 contains the true value of our $\beta_2$ -->
+
+
+
+<!-- ## `confint` Function -->
+
+<!-- + We can get confidence intervals using the `confint()` function: -->
+
+<!-- ```{r} -->
+<!-- confint(m1) -->
+<!-- ``` -->
+
+
+<!-- + The confidence intervals for both `motivation` and `hours` do not include the null value (in this case, 0)  -->
+
+<!-- + This provides support (beyond $p<.05$) that **motivation and hours are statistically significant predictors of test scores** -->
+
+
+# Part 3: Measure Model Quality using the Coefficient of Determination ( $R^2$ )
+
+<!-- ## Revisit Model Output -->
+
+<!-- ```{r} -->
+<!-- m1 <- lm(score ~ hours + motivation, data = test_study2) -->
+<!-- summary(m1) -->
+<!-- ``` -->
+
+
+## Quality of the Overall Model
+
+- When we measure an outcome variable $y$, there will be variability in that outcome.
+
+  - Some variability arises (we hope) because an independent variable $x$ impacts $y$.
+    - This is variability our model can explain.
+  - Other variability arises because there is just random variability in the world that we can't possibly account for.
+    - This is variability our model *cannot* explain.
+
+- We quantify how good our model is based on **what proportion of the variability in our data it can explain.**
+
+
+## What proportion of variability the model can explain {.smaller}
+
+To work out this proportion, we need to quantify three different kinds of variability:
+
+<br>
+
+
+| Type of variability in $y$         | How we quantify it                                                |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| Variability explained by model     | $SS_{Model}$ <br> "Model sum of squares"                              |
+| Variability not explained by model | $SS_{Residual}$ <br> "Residual sum of squares"                        |
+| Total variability                  | $SS_{Model} + SS_{Residual} = SS_{Total}$ <br> "Total sum of squares" |
+
+<br>
+
+The proportion of variability that the model explains is then computed as
+
+$$\frac{SS_{Model}}{SS_{Total}} \quad \text{or} \quad 1 - \frac{SS_{Residual}}{SS_{Total}}$$
+
+We call this proportion the **coefficient of determination** and represent it as $R^2$.
+
+
+## Interpreting the Coefficient of Determination 
 
 $$
-\hat \beta_1 \pm t^* \times SE(\hat \beta_1)
+\begin{align}
+R^2 &= \frac{SS_{Model}}{SS_{Total}}\\[1em]
+  &=  1 - \frac{SS_{Residual}}{SS_{Total}} \\
+\end{align}
 $$
 
-. . .
++ Quantifies the amount of variability in the outcome accounted for by the predictors
++ The more variance accounted for, the better the model fit
++ Represents the extent to which the prediction of $y$ is improved when predictions are based on the linear relation between $x$ and $y$, compared to not considering $x$
 
-+ So, the 95% confidence interval for the effect of `motivation` would be:
-
-```{r}
-LowerCI <- round(0.91634 - (qt(0.975, 147) * 0.38376), 3)
-LowerCI
-```
-
-```{r}
-UpperCI <-  round(0.91634 + (qt(0.975, 147)* 0.38376), 3)
-UpperCI 
-```
-
-. . . 
-
-+ We can be 95% confident that the range 0.158 and 1.675 contains the true value of our $\beta_2$
+Let's see how to calculate each of these three sums of squares.
 
 
 
-## `confint` Function
-
-+ We can get confidence intervals using the `confint()` function:
-
-```{r}
-confint(performance)
-```
-  
-  
-+ The confidence intervals for both `motivation` and `hours` do not include the null value (in this case, 0) 
-
-+ This provides support (beyond $p<.05$) that **motivation and hours are statistically significant predictors of test scores**
-
-
-# Part 4: Cofficient of Determination ( $R^2$ )
-
-
-## Revisit Model Output
-
-```{r}
-performance <- lm(score ~ hours + motivation, data = test_study2)
-summary(performance)
-```
-
-
-## Quality of the Overall Model {.smaller}
-
-+ When we measure an outcome ( $y$ ) in some data, the scores will vary (we hope).
-
-  + Variation in $y$ = total variation of interest
-
-. . . 
-
-+ The aim of our linear model is to build a model which describes our outcome variable as a function of our predictor variable(s)
-
-	+ We are trying to explain variation in $y$ using variation in $x$
-  	+ When $y$ co-varies with $x$...
-  	+ we can predict changes in $y$ based on changes in $x$...
-  	+ so we say the variance in $y$ is explained or accounted for
-
-. . .
-
-+ But the model will not explain all the variance in $y$
-
-  + What is left unexplained is called the residual variance
-
-. . . 
-
-+ We can break down variation in our data (i.e. variation in $y$) based on sums of squares as:
-
-$$SS_{Total} = SS_{Model} + SS_{Residual}$$
-
-
-##  Coefficient of Determination 
-
-+ One way to consider how good our model is, would be to consider the proportion of total variance our model accounts for 
-
-$$R^2 = \frac{SS_{Model}}{SS_{Total}} = 1 - \frac{SS_{Residual}}{SS_{Total}}$$
-
-
-. . . 
-
-+ $R^2$ = coefficient of determination
-
-  + Quantifies the amount of variability in the outcome accounted for by the predictors
-  + The more variance accounted for, the better the model fit
-  + Represents the extent to which the prediction of $y$ is improved when predictions are based on the linear relation between $x$ and $y$, compared to not considering $x$
-
-. . .
-
-+ To illustrate, we can calculate the different sums of squares
-
-
-## Total Sum of Squares
-
-:::: {.columns}
-                                  
-::: {.column width="50%"}
-
-+ Each Sums of Squares measure quantifies different sources of variation
+## Total Sum of Squares: Distance from mean
 
 $$SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2$$
 
-+ Squared distance of each data point from the mean of $y$
+In words: For every observation, find the difference between the observed value and the mean of all observed $y$ values, square that difference, and add up all the squares.
 
-+ Mean is our baseline
-
-:::
-
-::: {.column width="50%"}
-
-```{r, echo=FALSE, fig.height = 6}
-test %>%
-  ggplot(., aes(hours, score)) +
-  geom_point(color='#BF1932', size = 2) +
+```{r, echo=FALSE, fig.height = 6, fig.width = 10, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  geom_point(color='#BF1932', size = 3) +
   labs(x="Hours of Study", y = "Test Score") +
   ggtitle(latex2exp::TeX(r'($SS_{Total}$)')) + 
-  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0), size = 12, face = 'bold'),
-        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0), size = 12, face = 'bold'),
-        plot.title = element_text(size = 16)) +
-  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=1) + 
+  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=2) + 
   geom_segment(aes(x = hours, y = score, xend = hours, yend = c(rep(mean(score),10))), color = '#BF1932', lty = 2)
 ```
 
-:::
 
-::::
-
-## Residual Sum of Squares
-
-:::: {.columns}
-                                  
-::: {.column width="50%"}
-
-+ Each Sums of Squares measure quantifies different sources of variation
+## Residual Sum of Squares: Distance from model
 
 $$SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
 
-+ This may look familiar
-
-+ Squared distance of each point from the predicted value
-
-:::
+In words: For every observation, find the difference between that observation and the value predicted by the model, square that difference, and add up all the squares.
 
 
-::: {.column width="50%"}
-
-
-```{r, echo=FALSE, fig.height=6}
-test %>%
-  ggplot(., aes(hours, score)) +
-  geom_point(color='#BF1932', size = 2) +
+```{r, echo=FALSE, fig.height = 6, fig.width = 10, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  geom_point(color='#BF1932', size = 3) +
   labs(x="Hours of Study", y = "Test Score") +
   ggtitle(latex2exp::TeX(r'($SS_{Residual}$)')) + 
-  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0), size = 12, face = 'bold'),
-        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0), size = 12, face = 'bold'),
-        plot.title = element_text(size = 16)) +
-  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=1) + 
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=2) + 
   geom_segment(aes(x = hours, y = score, xend = hours, yend = c(res$fitted.values)), color = '#BF1932', lty =2)
-
 ```
 
-:::
-
-::::
 
 
-## Model Sums of Squares
-
-:::: {.columns}
-                                  
-::: {.column width="50%"}
-
-+ Each Sums of Squares measure quantifies different sources of variation
+## Model Sum of Squares: Distance between model and mean
 
 $$SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2$$
 
-+ The deviance of the predicted scores from the mean of $y$
+In words: For every observation, find the difference between the predicted value for that observation and the mean of all observed $y$ values, square that difference, and add them all up.
 
-+ Easy to calculate if we know total sum of squares and residual sum of squares
-
-$$SS_{Model} = SS_{Total} - SS_{Residual}$$
-
-:::
-
-::: {.column width="50%"}
-
-```{r, echo=FALSE, fig.height=6}
-test %>%
-  ggplot(., aes(hours, score)) +
-  geom_point(color='#BF1932', size = 2) +  
+```{r, echo=FALSE, fig.height = 6, fig.width = 10, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  # geom_point(color='#BF1932', size = 3) +  
+  geom_blank() +
   labs(x="Hours of Study", y = "Test Score") +
   ggtitle(latex2exp::TeX(r'($SS_{Model}$)')) + 
-  theme(axis.title.y = element_text(margin = margin(t = 0, r = 10, b = 0, l = 0), size = 12, face = 'bold'),
-        axis.title.x = element_text(margin = margin(t = 10, r = 0, b = 10, l = 0), size = 12, face = 'bold'),
-        plot.title = element_text(size = 16)) +
-  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=1) + 
-  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=1) + 
-  geom_segment(aes(x = hours, c(res$fitted.values), xend = hours, yend = c(rep(mean(score),10))), color = '#BF1932', lty =2)
+  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=2) +
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=2) + 
+  geom_segment(aes(x = hours, y = res$fitted.values, xend = hours, yend = c(rep(mean(score),10))), color = '#BF1932', lty =2) +
+  NULL
 ```
 
-:::
-
-::::
 
 
-## Values in our Sample
+## Our model's $R^2$
 
 + In the current example, these values are:
 
@@ -857,15 +628,6 @@ test %>%
   + $SS_\text{model}$ = 5729.23
 
 
-##  Coefficient of Determination 
-
-+ Let's come back to $R^2$
-
-$$
-R^2 = 1 - \frac{SS_{Residual}}{SS_{Total}}
-$$
-
-+ Or, alternatively
 
 $$
 R^2 = \frac{SS_{Model}}{SS_{Total}}
@@ -873,33 +635,38 @@ $$
 
 . . . 
 
-##  Coefficient of Determination: In our Example
-
 $$
-R^2 = \frac{SS_{Model}}{SS_{Total}} = \frac{5729.23}{8556.06} = 0.6695
+\begin{align}
+R^2 &= \frac{5729.23}{8556.06} \\[.5em]
+  &= 0.6695 \\
+\end{align}
 $$
 
-. . . 
+. . .
 
 **$R^2$ = 0.6695 means that 66.95% of the variation in test scores is accounted for by hours of revision and student motivation**
 
 
-##  Compare to Model Output 
+## This $R^2$ = `lm()`'s Multiple R-squared! <br> (with some rounding error)
+
+:::{style="font-size:80%;"}
 
 ```{r}
-summary(performance)
+summary(m1)
 ```
 
+:::
 
-##  Adjusted $R^2$ 
+
+## What's Adjusted $R^2$?
 
 + When there are two or more predictors, $R^2$ tends to be an inflated estimate of the corresponding population value
 
   + Due to random sampling fluctuation, even when $R^2 = 0$ in the population, it's value in the sample may $\neq 0$ 
 
-  + In **smaller samples** , the fluctuations from zero will be larger on average
+  + In **smaller samples,** the fluctuations from zero will be larger on average
 
-  + With **more predictors** , there are more opportunities to add to the positive fluctuation
+  + With **more predictors,** there are more opportunities to add to the positive fluctuation
 
 
 + We therefore compute an adjusted $R^2$
@@ -908,36 +675,25 @@ $$
 \hat R^2 = 1 - (1 - R^2)\frac{n-1}{n-k-1}
 $$
 
-+ Adjusted $R^2$ adjusts for both sample size ( $n$ ) and number of predictors ( $k$ )
++ Adjusted $R^2$ adjusts for both sample size $n$ and number of predictors $k$
 
 
-##  In our Example 
+## Our Multiple R-squared vs. Adjusted R-squared
 
-:::: {.columns}
+<br>
 
-::: {.column width="50%"}
-
-```{r, eval = F}
-summary(performance)
+```{r echo=F}
+cat('', paste0(capture.output(
+  summary(m1)
+), '\n')[17:20])
 ```
 
-```{r, echo=FALSE, out.height='50%'}
-sum_performance <- summary(performance)
-knitr::include_graphics('figs/perfResults.png')
-```
++ **Based on adjusted R-squared, hours studying and student motivation explain `r round(summary(m1)$adj.r.squared,3)*100`% of the variance in test scores**
 
-:::
++ As the sample size is large and the number of predictors small, unadjusted (`r round(summary(m1)$r.squared,3)`) and adjusted R-squared (`r round(summary(m1)$adj.r.squared,3)`) are similar
 
-::: {.column width="50%"}
++ If there were even more predictors, then adjusted R-squared would be a much more accurate representation of proportion variance explained
 
-+ **Based on adjusted R-squared, hours studying and student motivation explain `r round(sum_performance$adj.r.squared,3)*100`% of the variance in test scores**
-
-+ As the sample size is large and the number of predictors small, unadjusted (`r round(sum_performance$r.squared,3)`) and adjusted R-squared (`r round(sum_performance$adj.r.squared,3)`) are similar
-
-
-:::
-
-::::
 
 ## Summary
 
@@ -954,7 +710,7 @@ knitr::include_graphics('figs/perfResults.png')
 
 # Back matter
 
-## This week 
+## This week {.smaller}
 
 <br>
 
@@ -993,3 +749,43 @@ We really like seeing you in office hours!
 
 :::
 ::::
+
+
+# Appendix {.appendix}
+
+## Standard error: The maths {.smaller}
+
++ The formula for the standard error of the slope is:
+
+$$
+SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}
+$$
+
++ Where:
+	+ $SS_{Residual}$ is the residual sum of squares
+	+ $n$ is the sample size
+	+ $k$ is the number of predictors
+	+ $x_{ij}$ is the observed value of a predictor ( $j$ ) for an individual ( $i$ )
+	+ $\bar{x_{j}}$ is the mean of a predictor
+	+ $R_{xj}^2$ derives from the multiple correlation coefficient of the predictors
+
++ $R_{xj}^2$ captures to degree to which all of our predictors are related to each other
+  + For simple linear models, $R_{xj}^2$ = 0 as there is only 1 predictor
+  
+
+## SE( $\hat \beta_j$ )
+
+$$
+SE(\hat \beta_j) = \sqrt{\frac{ SS_{Residual}/(n-k-1)}{\sum(x_{ij} - \bar{x_{j}})^2(1-R_{xj}^2)}}
+$$  
+
++ We want our $SE$ to be smaller - this means our estimate is precise
+
+
++ Examining the above formula we can see that:
+	+ $SE$ is smaller when residual variance ( $SS_{residual}$ ) is smaller
+	+ $SE$ is smaller when sample size ( $n$ ) is larger
+	+ $SE$ is larger when the number of predictors ( $k$ ) is larger
+	+ $SE$ is larger when a predictor is strongly correlated with other predictors ( $R_{xj}^2$ )
+
+
