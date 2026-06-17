@@ -28,7 +28,7 @@ theme_set(
 
 ```
 
-# Course Overview {.smaller}
+# Course overview {background-color="white" style="font-size:60%;"}
 
 TODO
 
@@ -37,7 +37,7 @@ TODO
 
 1. Understand the use of $F$ and incremental $F$ tests 
 
-2. Be able to run and interpret $F$-tests in `R`
+2. Be able to run and interpret $F$-tests in R
 
 3. Understand how to use model comparisons to test different types of questions
 
@@ -61,7 +61,6 @@ TODO
 
 + Does our combination of $x$'s significantly improve prediction of $y$, compared to not having any predictors?
 
-. . .
 
 + Some indications that the model might be significant:
   + Slopes for individual predictors associated with significant $p$-values
@@ -69,11 +68,9 @@ TODO
   
 + But these do not directly show model significance
 
-. . .
 
 + To test the significance of the model as a whole, we conduct an $F$-test
 
-. . .
 
 + When generally evaluating your model overall, ideally you want to look at all of these components together (i.e., significance of $\beta$s, $R^2$ / $\hat R^2$, and $F$-test)
 
@@ -86,13 +83,11 @@ TODO
 
 + How does it work? Compares two models - the one you have specified to an intercept-only model (i.e., a model with no independent variables where the the model’s predictions equal the mean of the outcome)
 
-. . .
 
   + In other words, our predictors tell us nothing about our outcome
   
   + They explain no variance
 
-. . .
 
 + The more variance our predictors explain, the bigger our $F$-ratio
 
@@ -146,7 +141,6 @@ $$
   
   + In other words, the ratio of the how much of the variation is explained by the model (per parameter) versus how much of the variation is unexplained (per remaining degrees of freedom) 
 
-. . .
 
 + **What are mean squares (MS)?**
 
@@ -158,50 +152,86 @@ $$
 
 ##  Recap: Sums of Squares
 
+```{r include=F}
+test <- tibble(
+  student = paste(rep("ID",10),1:10, sep=""),
+  hours = seq(0.5,5,.5),
+  score = c(1,3,1,2,2,6,3,3,4,8)
+)
+
+res <- lm(score ~ hours, data = test)
+```
+
+
 :::: {.columns}
 
 ::: {.column width="30%"}
 
+
+```{r, echo=FALSE, fig.height = 6, fig.width = 5, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  geom_point(color='#BF1932', size = 3) +
+  labs(x="Hours of Study", y = "Test Score") +
+  ggtitle(latex2exp::TeX(r'($SS_{Total}$)')) + 
+  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=2) + 
+  geom_segment(aes(x = hours, y = score, xend = hours, yend = c(rep(mean(score),10))), color = '#BF1932', lty = 2)
+```
+
 $$
-\small SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2
+SS_{Total} = \sum_{i=1}^{n}(y_i - \bar{y})^2
 $$
 
 :::
-
 ::: {.column width="5%"}
-
-
 :::
-
-
 ::: {.column width="30%"}
 
+
+```{r, echo=FALSE, fig.height = 6, fig.width = 5, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  geom_point(color='#BF1932', size = 3) +
+  labs(x="Hours of Study", y = "Test Score") +
+  ggtitle(latex2exp::TeX(r'($SS_{Residual}$)')) + 
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=2) + 
+  geom_segment(aes(x = hours, y = score, xend = hours, yend = c(res$fitted.values)), color = '#BF1932', lty =2)
+```
+
+
+
 $$
-\small SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2 
+SS_{Residual} = \sum_{i=1}^{n}(y_i - \hat{y}_i)^2 
 $$
 
 :::
-
-
 ::: {.column width="5%"}
-
-
 :::
-
-
 ::: {.column width="30%"}
 
+```{r, echo=FALSE, fig.height = 6, fig.width = 5, fig.align="center"}
+test |>
+  ggplot(aes(hours, score)) +
+  # geom_point(color='#BF1932', size = 3) +  
+  geom_blank() +
+  labs(x="Hours of Study", y = "Test Score") +
+  ggtitle(latex2exp::TeX(r'($SS_{Model}$)')) + 
+  geom_hline(aes(yintercept = mean(score)),color='#0F4C81', linewidth=2) +
+  geom_abline(aes(intercept=res$coefficients[1], slope=res$coefficients[2]), color="lightblue", linewidth=2) + 
+  geom_segment(aes(x = hours, y = res$fitted.values, xend = hours, yend = c(rep(mean(score),10))), color = '#BF1932', lty =2) +
+  NULL
+```
+
+
 $$
-\small SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2 
+ SS_{Model} = \sum_{i=1}^{n}(\hat{y}_i - \bar{y})^2 
 $$
 
 :::
 
 ::::
 
-```{r, echo = F}
-knitr::include_graphics('figs/ss_recap.png')
-```
+
 
 ## Degrees of Freedom 
 
@@ -209,7 +239,6 @@ knitr::include_graphics('figs/ss_recap.png')
 
   + Conceptually, how many values in the calculation can vary, if we keep the outcome of the calculation fixed
 
-. . . 
 
 + $df$ are typically linked to:
   + the amount of data you have (sample size, $n$)
@@ -224,20 +253,18 @@ knitr::include_graphics('figs/ss_recap.png')
   + From $k + 1$, we subtract $1$ as not all the estimates can vary while holding the outcome constant
   + This gives us $k$ for Model $df$
   
-. . . 
 
 + **Residual degrees of freedom = $n-k-1$ **
   + $SS_{residual}$ calculation is based on our individual data points and our model (in which we estimate $k + 1$ $\beta$ terms, i.e. the slopes and an intercept)
   + For each coefficient estimated, we lose a degree of freedom, as we're fitting the model to the data and reducing the flexibility in how much the residuals (errors) can vary
 
-. . . 
 
 + **Total degrees of freedom = $n-1$ **
   + $SS_{total}$ calculation is based on the observed $y_i$ and $\bar{y}$ . 
   + In order to estimate $\bar{y}$ , all apart from one value of $y$ is free to vary, hence $n-1$
 
 
-## Our Example (note the $df$ at the bottom)
+## Our Example (note the `DF` at the bottom)
 
 ```{r}
 summary(performance)
@@ -250,13 +277,11 @@ summary(performance)
 
   + It means the variance explained by the model is big compared to the residual variance
 
-. . .
 
 + $H_0$ for the model says that the best guess of any individual's $y$ value is $\bar{y}$ (plus error)
 	+ Or, that the $x$ variables collectively carry no information about $y$
 	+ All slopes = 0
 
-. . .
 
  $$F = \frac{MS_{Model}}{MS_{Residual}}$$
 
@@ -329,13 +354,11 @@ ggplot() +
   
   + $\alpha = .05$
   
-. . .
 
 + We have an $F$-statistic (from our model output summary):
   
   + $F = 148.9$
 
-. . .
 
 + We consider $df_{model}$ and $df_{residual}$ to get our null distribution:
   
@@ -343,50 +366,48 @@ ggplot() +
   
   + $df_{residual}=n-k-1=150-2-1=147$
 
-. . .
 
 + Now we can compute our critical value for $F$
+
 
 
 ## Visualise the Test
 
 :::: {.columns}
+::: {.column width="55%"}
 
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5}
-
-(p <- ggplot() + 
-  xlim(-2, 200) +
+```{r, echo = F, fig.height=6, fig.width = 7}
+p <- ggplot() + 
+  xlim(-2, 150) +
   stat_function(fun=df,
                 geom = "line",
                 args = list(df1=2, df2 = 147),
-                linewidth = .5) +
-  labs(x='\n F', y = '', title = 'F-distribution (2, 147)') +
-  theme(axis.title=element_text(size = 14, face = 'bold'),
-        plot.title=element_text(size = 14, face = 'bold')))
+                linewidth = .5
+                ) +
+  labs(x='F', y = '', title = 'F-distribution (2, 147)') +
+  theme(
+        plot.title=element_text(size = 22)
+  )
 
+p
 ```
 
 :::
-
-::: {.column width="60%"}
+::: {.column width="45%"}
 
 + $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
 
-:::
 
+:::
 ::::
 
 
 ## Visualise the Test {visibility="uncounted"}
 
 :::: {.columns}
+::: {.column width="55%"}
 
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5, message = F}
-
+```{r, echo = F, fig.height=6, fig.width = 7}
 (p <- p + stat_function(fun = df, 
                 geom = "area",
                 xlim = c(qf(0.95, 2, 147), 200),
@@ -394,103 +415,96 @@ ggplot() +
                 fill = "blue",
                 args = list(df1=2, df2=147)) +
   geom_vline(xintercept = qf(0.95, 2, 147), linewidth = .5, linetype='dashed'))
-
 ```
 
 :::
-
-::: {.column width="60%"}
+::: {.column width="45%"}
 
 + $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
 
-+ Our critical value (using the `qf()` function):
+<br>
+
++ Our critical value (using the `qf()` function)
+
 ```{r}
-(Crit = round(qf(0.95, 2, 147), 3))
+round(qf(0.95, 2, 147), 3)
 ```
 
 :::
-
 ::::
-
 
 ## Visualise the Test {visibility="uncounted"}
 
 :::: {.columns}
+::: {.column width="55%"}
 
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5, message = F}
-
+```{r, echo = F, fig.height=6, fig.width = 7}
 (p <-  p + geom_vline(xintercept = 148.90, colour = '#BF1932'))
-
 ```
 
 :::
-
-::: {.column width="60%"}
+::: {.column width="45%"}
 
 + $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
+
+<br>
 
 + Our critical value (using the `qf()` function)
 
 ```{r}
-(Crit = round(qf(0.95, 2, 147), 3))
+round(qf(0.95, 2, 147), 3)
 ```
 
-+ We can calculate the probability of an $F$-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
+<br>
+
++ We can calculate the p-value, that is, the probability of an $F$-statistic at least as extreme as ours (148.9), given $H_0$ is true
 
 ```{r}
-(pVal = 1-pf(148.9, 2, 147))
+1 - pf(148.9, 2, 147)
 ```
 
+
 :::
-
 ::::
-
 
 ## Visualise the Test {visibility="uncounted"}
 
 :::: {.columns}
+::: {.column width="55%"}
 
-::: {.column width="40%"}
-
-```{r, echo = F, fig.height=5, message = F}
-
+```{r, echo = F, fig.height=6, fig.width = 7}
 p
-
 ```
 
 :::
-
-::: {.column width="60%"}
+::: {.column width="45%"}
 
 + $F$-distribution with 2 $df_{model}$ and 147 $df_{residual}$ (our null distribution)
 
+<br>
+
 + Our critical value (using the `qf()` function)
-```{r}
-Crit <- round(qf(0.95, 2, 147), 3)
-Crit
-```
-
-+ We can calculate the probability of an $F$-statistic at least as extreme as ours, given $H_0$ is true (our $p$-value):
 
 ```{r}
-pVal <- 1-pf(148.9, 2, 147)
+round(qf(0.95, 2, 147), 3)
 ```
 
-```{r echo = FALSE}
-pVal <- format(round(pVal, digits = 2), nsmall = 5)
-```
+
+<br>
+
++ We can calculate the p-value, that is, the probability of an $F$-statistic at least as extreme as ours (148.9), given $H_0$ is true
 
 ```{r}
-pVal
+1 - pf(148.9, 2, 147)
 ```
 
-+ Our model significantly predicted the variance in test score, $F(2,147)= 148.90, p < .001$
+<br>
+
++ **Our model significantly predicted the variance in test score ($F(2, 147) = 148.90$, $p < .001$).**
 
 :::
-
 ::::
+
 
 # Part 2: Model Comparison & Incremental $F$-tests 
 
@@ -503,7 +517,6 @@ pVal
 
 + Our questions have been _is our overall model better than nothing?_ ( $F$-test ) or _which variables, specifically, are good predictors of the outcome variable?_ ( $t$-tests of $\beta$ estimates )
 
-. . .
 
 + But what if instead we wanted to ask:
 
@@ -511,17 +524,34 @@ pVal
 
 + This question is the core of model comparison
 
-. . .
 
 + We can adapt this to our models in a more specific way: 
 
   + E.g. is a model with $x_1$ and $x_2$ and $x_3$ as predictors better than the model with just $x_1$?
 
-. . .
 
 + Can ask questions such as _does our model improve when we add predictors?_ 
 
   + To answer, we can look at the combined performance of a _subset_ of predictors
+
+
+## When is model comparison useful?
+
+We **shouldn't** use model comparison to...
+
+- **... compare two models that only differ in one parameter &nbsp; ❌**
+  - The significance test for that parameter tells you the same information.
+- **... choose what predictors to include in a model &nbsp; ❌**
+  - Include the predictors that are theoretically motivated by your RQ and required to control for confounds.
+  - Do not remove predictors just because they're non-significant or don't significantly improve the fit of the model.
+
+<br>
+
+**So when _is_ model comparison useful?**
+
+- When you want to test the combined impact of multiple predictors.
+We'll see an example of this soon.
+
 
 
 ## $F$-test as an Incremental Test
@@ -537,11 +567,9 @@ pVal
 
   + And remember, this was the null hypothesis of the $F$-test
 
-. . .
 
 + So in this way, the $F$-test can be seen as **comparing two models**
 
-. . .
 
 + We can extend this idea, and use the $F$-test to compare two models that contain fewer or more predictors
   + This is the **incremental $F$-test**
@@ -643,7 +671,7 @@ summary(m2)
 
 + Second step: Compare the two models based on an incremental $F$-test
 
-+ In order to apply the $F$-test for model comparison in `R`, we use the `anova()` function
++ In order to apply the $F$-test for model comparison in `R`, we use the `anova()` function (but we are NOT conducting an ANOVA! just using a function that unfortunately has the same name)
 
 + `anova()` takes as its arguments the models that we wish to compare
 
@@ -662,7 +690,6 @@ anova(m1, m2)
 
 <br>
  
-. . . 
 
 **Personality was found to explain a significant amount of variance in self-rated health over and above the effects of age and sex $F(5, 1753) = 59.21, p < .001)$** 
 .
@@ -681,7 +708,6 @@ anova(m1, m2)
   + The `lm()` function excludes the whole row of data if any of $y$ or $x$'s specified in the model have missing values on that row
   + If the additional variables you add to the full model have `NA`'s, the data sets used by the models could end up different!
 
-. . .
 
 
 > **You can only do an $F$-test if the models are nested: the variables are nested and the data are identical**
@@ -871,17 +897,14 @@ BIC(nn1, nn2)
 
 + AIC and BIC can be used for both nested and non-nested models
 
-. . .
 
 + The AIC and BIC for a single model are not meaningful
   + They only make sense for model comparisons
   + We evaluate these comparisons by looking at the difference, $\Delta$, between two values
 
-. . .
 
 + There are no specific thresholds for $\Delta AIC$ to suggest how big a difference in two models is needed to conclude that one is substantively better than the other
 
-. . .
 
 + The following $\Delta BIC$ cutoffs have been suggested (Raftery, 1995):
   
