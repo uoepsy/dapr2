@@ -1,8 +1,8 @@
 ---
-title: "01: Lorem ipsum"
+title: "01: Simple linear regression"
 params: 
     SHOW_SOLS: TRUE
-    TOGGLE: TRUE
+    TOGGLE: FALSE  # TODO replace w TRUE
 editor_options: 
   chunk_output_type: console
 ---
@@ -18,7 +18,7 @@ editor_options:
 source('../assets/setup.R')
 
 library(tidyverse)
-# library(patchwork)
+library(broom)
 
 qcounter <- function(){
   if(!exists("qcounter_i")){
@@ -30,29 +30,167 @@ qcounter <- function(){
 }
 ```
 
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
+This week, you'll fit your first linear model and get to know a few ways to extract information from it in R.
 
 :::{.callout-note}
 ### Get set up
 
+1. Open RStudio.
 1. Create a new .Rmd file for this week's exercises.
 1. Save it somewhere you can find it again.
 1. Give it a clear name (for example, `dapr2_lab01.Rmd`).
-1. In the first code chunk, load the packages you'll need this week:
+1. In the first code chunk, use the `library()` function to load the packages you'll need this week:
     - `tidyverse`
-    
+    - `broom`
+   
+If you don't have these packages installed, then **in the RStudio console (bottom left),** run the following code:
+
+```{r eval=F}
+install.packages(c('tidyverse', 'broom'))
+```
 :::
 
 ---
 
+:::frame
+
+Research question (RQ): **Does the number of weekly social interactions influence people's wellbeing?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and wellbeing. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) |> gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and wellbeing. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+
+:::
+
+:::
+
+# Read in and explore data
 
 # q1
 
 `r qbegin(qcounter())`
 
-TODO
+Use the tidyverse function `read_csv()` to read in the data from  <https://uoepsy.github.io/data/wellbeing_rural.csv>.
+
+Store the data in a variable named `mwdata` ("mw" stands for "mental wellbeing").
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Here's the basic usage of `read_csv()` and how you can assign its output to a variable named `mwdata`.
+
+Replace the `...` with the actual location of the data.
+
+```{r eval=F}
+mwdata <- read_csv("...")
+```
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+```
+
+`r solend()`
+
+
+# q2
+
+`r qbegin(qcounter())`
+
+Our research question (RQ) is about how the number of social interactions per week might be associated with people's wellbeing.
+
+The relevant variables for this question are `social_int` and `wellbeing`.
+
+**Use ggplot to make a scatterplot that displays these two variables in relation to one another.**
+Show `social_int` on the x axis (because it's the independent variable) and `wellbeing` on the y axis (because it's the dependent variable).
+
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace the `...` with the appropriate variable or column names.
+
+```{r eval=F}
+mwdata |>
+  ggplot(aes(x = ..., y = ...)) +
+  geom_point()
+```
+:::
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mwdata |>
+  ggplot(aes(x = social_int, y = wellbeing)) +
+  geom_point()
+```
+
+`r solend()`
+
+
+# Set up and fit linear model
+
+# q3
+
+`r qbegin(qcounter())`
+
+Write the mathematical model formulation for a simple linear model with `wellbeing` as the outcome variable (i.e., dependent variable) and `social_int` as the one predictor variable (i.e., independent variable).
+
+Here's how to write the key symbols in Markdown so that they are rendered nicely as mathematical symbols:
+
+- $\beta_1$: write `$\beta_1$`
+- $\epsilon$: write `$\epsilon$`
+- $\cdot$ (multiplication symbol): write `$\cdot$`
+- To write variable names as regular text inside the `$$` math mode notation, make sure to use the command `$\text{...}$`. 
+    - For example, no text mode produces weird-looking and badly spaced italics ($wellbeing$ written as `$wellbeing$`)
+    - But text mode is better: $\text{wellbeing}$ written as `$\text{wellbeing}$`
+- To stop the underscore in `social_int` from causing problems, write `social\_int` instead (placing a backslash in front of the underscore).
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{social\_int}) + \epsilon$$
+
+Write:
+
+```
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{social\_int}) + \epsilon
+$$
+```
+
+`r solend()`
+
+
+# q4
+
+`r qbegin(qcounter())`
+
+Use the function `lm()` to fit a linear model which predicts `wellbeing` as a function of `social_int`.
+Name the result `mdl`.
 
 :::red
 🗂️
@@ -63,6 +201,250 @@ See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){targ
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-TODO
+```{r}
+mdl <- lm(wellbeing ~ social_int, data = mwdata)
+```
 
 `r solend()`
+
+
+# q5
+
+`r qbegin(qcounter())`
+
+R offers many different ways to obtain the coefficient estimates from a fitted model.
+Run each of the following lines of code and see what each one does.
+Which one gives you the most information?
+
+```{r eval=F}
+mdl
+mdl$coefficients
+coef(mdl)
+coefficients(mdl)
+summary(mdl)
+```
+
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mdl
+```
+
+<br>
+
+```{r}
+mdl$coefficients
+```
+
+<br>
+
+```{r}
+coef(mdl)
+```
+
+<br>
+
+```{r}
+coefficients(mdl)
+```
+
+<br>
+
+```{r}
+summary(mdl)
+```
+
+`summary()` gives the most information, so that's what we'll usually use to consider model outputs.
+
+`r solend()`
+
+
+# q6
+
+`r qbegin(qcounter())`
+
+Take the intercept and slope coefficients estimated in `mdl`, round them both to two decimal points, and substitute them appropriately into the mathematical model expression you wrote in Q3.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+coef(mdl) |> round(2)
+```
+
+Rounded to two decimal points, the intercept is 32.41, and the slope over `social_int` is 0.32.
+
+The intercept corresponds to $\beta_0$ and the slope corresponds to $\beta_1$.
+So we will replace $\beta_0$ with 32.41 and $\beta_1$ with 0.32:
+
+$$
+\text{wellbeing} = 32.41 + (0.32 \cdot \text{social\_int}) + \epsilon
+$$
+
+Write:
+
+```
+$$
+\text{wellbeing} = 32.41 + (0.32 \cdot \text{social\_int}) + \epsilon
+$$
+```
+
+`r solend()`
+
+
+# q7
+
+`r qbegin(qcounter())`
+
+In the context of this data and RQ, write one sentence interpreting what the intercept means and one sentence interpreting what the slope over `social_int` means.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- **Intercept:** The estimated wellbeing score of somebody with zero social interactions per week is 32.41 points.
+- **Slope over `social_int`:** Increasing one social interaction per week is associated with an increase in wellbeing score of 0.32 points.
+
+(Remember to name the units after you've given the number! That is, write "32.41 points" and not just "32.41".)
+
+`r solend()`
+
+
+
+# Use linear model to make predictions
+
+
+# q8
+
+`r qbegin(qcounter())`
+
+The third row of `mwdata` represents somebody with 11 social interactions per week:
+
+```{r}
+mwdata[3,]
+```
+
+Calculate the wellbeing score that the model would estimate for this person with `social_int` = 11.
+
+To do this:
+
+- Take the mathematical model expression you wrote for Q6,
+- remove the $+ \epsilon$ bit (why? because model predictions correspond to the exact line the model has estimated, so we don't want to include the error/residual term),
+- substitute the value 11 for the variable $\text{social\_int}$,
+- and conduct the multiplication and addition as defined by the mathematical expression. (Remember that you can use the console in RStudio as a calculator.)
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\begin{align}
+\text{wellbeing}_{\text{social\_int} = 11} &= 32.41 + (0.32 \cdot \text{social\_int}) \\
+  &= 32.41 + (0.32 \cdot 11) \\
+  &= 32.41 + 3.52 \\
+  &= 35.93 \\
+\end{align}
+$$
+
+Write:
+
+```
+$$
+\begin{align}
+\text{wellbeing}_{\text{social\_int} = 11} &= 32.41 + (0.32 \cdot \text{social\_int}) \\
+  &= 32.41 + (0.32 \cdot 11) \\
+  &= 32.41 + 3.52 \\
+  &= 35.93 \\
+\end{align}
+$$
+```
+
+`r solend()`
+
+
+# q9
+
+`r qbegin(qcounter())`
+
+Now you'll try out a new function called `augment()`.
+It comes from the package `broom`, and it is very useful for computing predictions from linear models.
+
+Run the following code:
+
+```{r eval=F}
+augment(mdl)
+```
+
+You should see a data frame with a bunch of columns.
+For now, we are only interested in the first four:
+
+- `wellbeing`: the observed `wellbeing` values we gave to the model
+- `social_int`: the observed `social_int` values we gave to the model
+- `.fitted`: the predicted outcome values from the model ("fitted" or model-fitted" is another way to say "predicted")
+- `.resid`: the residuals, that is, the difference between each predicted value and each actual observed values
+
+Look at the third row of this data frame.
+Does the value in the `.fitted` column match the value you calculated above in Q8?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+augment(mdl)[3,]
+```
+
+<br>
+
+The model-fitted value in the third row in the `.fitted` column is 36.0.
+This matches our calculation: it's the predicted value we calculated, 35.93, just rounded to one decimal place.
+
+`r solend()`
+
+
+
+# The Piazza forum
+
+# q10
+
+`r qbegin(qcounter())`
+
+Finally: we want you to get familiar with the course's Piazza page. [TODO ADD LINK]
+
+Piazza is a discussion forum where you can anonymously post questions that your coursemates, tutors, and instructors can see and respond to.
+Throughout this course, please use Piazza to ask us your stats questions.
+Asking on Piazza is better than asking by email because on Piazza, everybody can benefit from your questions (and if you have a question, you certainly won't be the only one!).
+
+Your final task this week is to get to know Piazza by anonymously commenting on [this thread](TODO ADD LINK) and telling us how you're feeling about the start of DAPR2.
+
+`r qend()`
+
+
