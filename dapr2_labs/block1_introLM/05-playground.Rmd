@@ -1,0 +1,446 @@
+---
+title: "05 playground"
+output: 
+    html_notebook:
+        toc: true
+---
+
+# RQ1
+
+RQ: How is people's sense of Fear of Missing Out (FOMO) associated with their age and how many Instagram followers they have?
+
+Predictions:
+
+- As age increases, FOMO will decrease.
+- As the number of Instagram followers increases, FOMO will increase.
+
+
+## 1a: Set up your code and data
+
+Load required packages.
+
+```{r}
+library(tidyverse)   # for wrangling
+library(psych)       # for summarising
+library(sjPlot)      # for nice tables/plots
+library(kableExtra)  # for nicely-formatted tables
+library(patchwork)   # for combining plots into one graphic
+```
+
+Read in data.
+
+```{r}
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
+```
+
+Check for missingness or impossible values. (Ranges all look reasonable here, and no NAs, so we're good to move on.)
+
+```{r}
+summary(fomo)
+```
+
+## 1b: Set up the variables you'll model
+
+> RQ: How is people's sense of Fear of Missing Out (FOMO) associated with their age and how many Instagram followers they have?
+
+RQ is about associations between variables, so we'll test it using significance test for coef estimates.
+
+<br>
+
+Outcome: `FOMO`
+Predictors: `Age`, `TotalFollowers`
+
+<br>
+
+Transformations?
+One option might be to z-score Age and TotalFollowers.
+This would be an important step if Age = 0 and TotalFollowers = 0 were totally meaningless quantities (imagine Height = 0 or ShoeSize = 0 – impossible and nonexistent).
+But Age = 0 means an infant, and TotalFollowers = 0 means someone with no followers.
+So they are reasonable quantities to generate predictions for.
+
+<br>
+
+Plot outcome and predictors together.
+
+```{r}
+p_age <- fomo |>
+    ggplot(aes(x = Age, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE)
+# p_age
+```
+
+```{r}
+p_followers <- fomo |>
+    ggplot(aes(x = TotalFollowers, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE)
+# p_followers
+```
+
+```{r}
+p_age + p_followers
+```
+
+
+<br>
+
+Nice table of descriptives:
+
+- the describe() function is from the psych package, and kable() from kableExtra which is used to make a nice table where the values are rounded to 2 decimal places using digits = 2. 
+- We are first renaming our variables to give more appropriate / informative names.
+- Next we are selecting just the cols we care about and renaming them 
+
+```{r}
+fomo |> 
+    select(FOMO, Age, TotalFollowers) |>
+    rename(
+        "Fear of Missing Out" = FOMO, 
+        "Age (in years)" = Age, 
+        "Number of Instagram Followers" = TotalFollowers
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(caption = "Descriptive statistics for FOMO and socio-demographic factors", digits = 2) |>
+    kable_styling()
+```
+
+
+
+## 2: Model
+
+```{r}
+m1 <- lm(
+    FOMO ~ Age + TotalFollowers,
+    data = fomo
+)
+```
+
+## 3a: Plot and interpret model estimates
+
+Interpret coef estims:
+
+```{r}
+summary(m1)
+```
+
+```{r}
+confint(m1) |> round(3)
+```
+
+- `Intercept`: The estimated FOMO score for someone aged zero with zero total followers is 26.52 points.
+- `Age`: Increasing one year of age is associated with a decrease in FOMO score of 0.17 points (holding follower count constant). This estimate is significantly different from zero (b = –0.17, 95% CI [–0.18, –0.15], p < .001).
+    - prediction borne out!
+- `TotalFollowers`: Increasing one follower is associated with an increase in FOMO score of 0.018 points (holding age constant). This estimate is significantly different from zero (b = 0.018, 95% CI [0.016, 0.020], p < .001).
+    - prediction borne out!
+    - (rounded to 3 dp because otherwise estim and CI bounds are all 0.02)
+
+<br>
+
+Nice regression table:
+
+```{r}
+tab_model(
+    m1,
+    dv.labels = 'Fear of missing out (FOMO)',
+    pred.labels = c("Age" = "Age (in years)"),
+    title = "RQ1: Linear model coefficient estimates"
+)
+```
+
+<br>
+
+Plot model-fitted values:
+
+```{r}
+plot_model(
+    m1, 
+    type = 'eff', 
+    terms = c('Age', 'TotalFollowers'), 
+    show.data = TRUE
+)
+```
+
+
+# RQ2 – Bonus challenge
+
+RQ: Do the Big 5 personality traits significantly predict FOMO, in addition to the effects of age and total Instagram followers?
+
+
+## 1b: Set up variables
+
+This is a model comparison kind of question.
+
+<br>
+
+Outcome: `FOMO`
+Predictors: `Age`, `TotalFollowers`, and each OCEAN variable
+
+<br>
+
+No great good way to plot data to set the scene for a model comparison question.
+
+<br>
+
+Descriptives table:
+
+```{r}
+fomo |> 
+    select(O, C, E, A, N) |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(caption = "Descriptive statistics for Big 5 personality traits", digits = 2) |>
+    kable_styling()
+```
+
+
+
+## 2: Model
+
+```{r}
+m2 <- lm(
+    FOMO ~ Age + TotalFollowers + O + C + E + A + N,
+    data = fomo
+)
+summary(m2)
+```
+
+
+## 3a: Plot and interpret model estimates
+
+
+Compare models. Because they're nested, we can use the incremental F-test via the `anova()` function.
+
+```{r}
+anova(m1, m2)
+```
+
+Significant result, so yes, Big 5 personality traits do predict FOMO over and above age and total Instagram followers (F(5, 3362) = 146.45, p < .001).
+
+
+
+
+# Example write-up for RQ1
+
+## Set the scene
+
+In this study, we wanted to test how people's Fear of Missing Out (FOMO) is associated with socio-demographic factors: specifically, people's age and how many followers they have on Instagram.
+We predicted that as age increases, FOMO will decrease, but that as the number of followers increases, FOMO will increase.
+
+## Describe and show sample data
+
+To test these predictions, we are using data gathered from 3370 individuals across the UK.
+The data contains a FOMO score, as measured by a 10-item FOMO scale which produces scores ranging from 10 to 50.
+The data also contains each respondent's age in years and the number of Instagram followers they have.
+Descriptive statistics for the three relevant variables are shown in Table 1.
+
+```{r}
+#| code-fold: true
+
+fomo |> 
+    select(FOMO, Age, TotalFollowers) |>
+    rename(
+        "Fear of Missing Out" = FOMO, 
+        "Age (in years)" = Age, 
+        "Number of Instagram Followers" = TotalFollowers
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(
+        caption = "Table 1: Descriptive statistics for FOMO and socio-demographic factors", 
+        digits = 2
+    ) |>
+    kable_styling()
+```
+
+
+## Visualise and summarise  data patterns that address RQ
+
+As shown in Figure 1, age appears to be negatively associated with FOMO (left), while number of Instagram followers appears positively associated with FOMO (right).
+
+```{r fig.cap='ehlo'}
+#| fig_caption: true
+#| code-fold: true
+
+p_age <- fomo |>
+    ggplot(aes(x = Age, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Age (in years)'
+    )
+p_followers <- fomo |>
+    ggplot(aes(x = TotalFollowers, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Number of Instagram followers'
+    )
+
+p_age + p_followers
+```
+
+> Figure 1: Associations between socio-demographic factors and FOMO. Age appears to have a positive association with FOMO, while the number of instagram followers appears to have a negative association.
+
+
+## Introduce statistical analysis
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To address the RQ, we fit a linear model which predicts FOMO as a function of age in years and number of Instagram followers.
+The mathematical model formulation of the model is as follows:
+
+$$
+\text{FOMO} = \beta_0 + (\beta_1 \cdot \text{Age}) + (\beta_2 \cdot \text{Followers}) + \epsilon
+$$
+
+The null hypothesis is that neither age nor number of followers are significantly associated with FOMO.
+The alternative hypothesis is that either age or number of followers (or both) are significantly associated with FOMO.
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+
+## Report results of analysis
+
+If our predictions were borne out, we would expect $\beta_1$ (the slope coefficient for age) to be negative, and we would expect $\beta_2$ (the slope coefficient for the number of followers) to be positive.
+
+Indeed, $\beta_1$ is negative and significantly different from zero ($b$ = –0.17, 95% CI [–0.18, –0.15], $p$ < .001).
+Thus age is significantly negatively associated with FOMO: for every year increased in age (holding follower count constant), FOMO is estimated to decrease by 0.17 points.
+Further, $\beta_2$ is positive and also significantly different from zero ($b$ = 0.018, 95% CI [0.016, 0.020], $p$ < .001), indicating that follower count is significantly positively associated with FOMO.
+Specifically, for an increase in one follower, FOMO is estimated to increase by 0.018 points.
+Thus we can reject the null hypothesis defined above.
+
+For an overview of all regression coefficients, see Table 2, and for a plot of model-fitted values, see Figure 2.
+
+```{r}
+tab_model(
+    m1,
+    dv.labels = 'Fear of missing out (FOMO)',
+    pred.labels = c("Age" = "Age (in years)"),
+    title = "Table 2: Linear model coefficient estimates"
+)
+```
+
+
+```{r}
+plot_model(
+    m1, 
+    type = 'eff', 
+    terms = c('Age', 'TotalFollowers'), 
+    show.data = TRUE
+)
+```
+
+> Observed data (individual points) and well as model-fitted values (lines and 95% CI error ribbons) indicating that as age increases, FOMO tends to decrease, holding follower count constant; additionally, as total follower count increases, FOMO tends to also increase, holding age constant.
+
+
+# Example write-up for RQ2
+
+## Set the scene
+
+Additionally, we are interested in the additional role that personality factors may play in predicting FOMO.
+Specifically, we want to know: Do the Big 5 personality traits predict FOMO, over and above the roles played by age and number of Instagram followers?
+
+
+## Describe and show sample data
+
+Our data also includes measures of the Big 5 personality traits for each respondent: Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.
+Descriptive statistics for these traits are shown in Table 3.
+
+```{r}
+fomo |> 
+    select(O, C, E, A, N) |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(caption = "Table 3: Descriptive statistics for Big 5 personality traits", digits = 2) |>
+    kable_styling()
+```
+
+
+## Visualise and summarise data patterns that address RQ
+
+Figure 3 shows how each personality trait is associated with FOMO in our data.
+The largest association appears to be a positive association with Neuroticism, though Agreeableness and Conscientiousness may also be more weakly negatively associated with FOMO.
+
+```{r}
+#| code-fold: true
+
+# you could accomplish the same thing by making five plots and patchworking
+# them together, but this is a bit less repetitive
+
+fomo |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    pivot_longer(
+        cols = Neuroticism:Conscientiousness, 
+        names_to = 'Trait', 
+        values_to = 'Score'
+    ) |>
+    ggplot(aes(x = Score, y = FOMO)) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(method = 'lm', se = F) +
+    facet_wrap(~ Trait)
+```
+
+> Figure 3: Associations between each Big 5 personality trait and FOMO. Most personality traits appear to have a small negative association with FOMO, although Neuroticism appears to have a larger positive association.
+
+
+## Introduce statistical analysis
+
+To address this research question, we conducted an incremental F-test to compare the model from RQ1 to a new model which contains those same variables as well as each of the Big 5 traits.
+Specifically, the new model is the following:
+
+$$
+\text{FOMO} = \beta_0 + 
+(\beta_1 \cdot \text{Age}) + 
+(\beta_2 \cdot \text{Followers}) + 
+(\beta_3 \cdot \text{O}) + 
+(\beta_4 \cdot \text{C}) + 
+(\beta_5 \cdot \text{E}) + 
+(\beta_6 \cdot \text{A}) + 
+(\beta_7 \cdot \text{N}) + 
+\epsilon
+$$
+
+The null hypothesis that corresponds to this model comparison is that none of Big 5 predictors are significantly associated with FOMO.
+The alternative hypothesis is that any one (or more) of the Big 5 predictors are significantly associated with FOMO.
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 3, 4, 5, 6, 7 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+
+## Report results of analysis 
+
+Based on an incremental F-test, we conclude that the Big 5 personality traits do significantly predict FOMO over and above the effects of age and follower count ($F$(5, 3362) = 146.45, $p$ < .001).
+We therefore reject the null hypothesis defined above.
+
