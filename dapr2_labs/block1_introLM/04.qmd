@@ -1,0 +1,438 @@
+---
+title: "04: Model comparison"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE  # TODO replace w TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll practice interpreting the F-test for model fit, as well as comparing different sorts of models to one another using incremental F-tests and AIC/BIC.
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab04.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+   
+:::
+
+---
+
+:::frame
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and wellbeing. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) |> gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and wellbeing. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+
+:::
+
+:::
+
+# Test a model's fit
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+Read in the data from  <https://uoepsy.github.io/data/wellbeing_rural.csv> and store it in a variable named `mwdata` ("mw" stands for "mental wellbeing").
+
+For this week's lab, we'll need to delete all observations that contain any NAs in the following columns:
+
+- `wellbeing`
+- `age`
+- `outdoor_time`
+- `social_int`
+- `steps_k`
+
+Use the tidyverse function `drop_na()` and assign the outcome back to the variable name `mwdata`.
+
+You'll know you've done it right if `mwdata` now contains 134 observations, not 200.
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace the `...` with the actual variable names.
+
+```{r eval=F}
+mwdata <- mwdata |>
+  drop_na(..., ..., ...)
+```
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+
+mwdata <- mwdata |>
+  drop_na(wellbeing, age, outdoor_time, social_int, steps_k)
+
+nrow(mwdata)
+```
+
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+
+Use the function `lm()` to fit the linear model represented by the mathematical model formulation below, and name the result `m0`.
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{outdoor\_time}) +
+(\beta_2 \cdot \text{social\_int}) +
+\epsilon
+$$
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+m0 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
+```
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+is `m0` significantly better at predicting `wellbeing` than a model with no predictors, i.e., a null model?
+
+Address this question using the F-test reported at the bottom of the model summary for `m0`.
+Report your answer using APA notation.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+summary(m0)
+```
+
+
+
+Yes, this model is a significant improvement over a null model.
+It significantly predicted the variance in wellbeing score ($F(2, 131) = 7.949$, $p < .001$).
+
+`r solend()`
+
+# Compare nested models
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+RQ: **Is wellbeing predicted by number of steps (`steps_k`) and hours outdoors (`outdoor_time`), over and above the impact of years of age (`age`) and number of social interactions (`social_int`)?**
+
+To address this RQ, you'll need to compare two models.
+
+Write out the formulae for both models, using either R notation or mathematical model notation, whichever you prefer.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The smaller model will predict wellbeing as a function of `age` and `social_int`.
+The larger model will predict wellbeing as a function of `age` and `social_int` *as well as* `steps_k` and `outdoor_time`.
+
+Model 1: `wellbeing ~ age + social_int`, or
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{age}) +
+(\beta_2 \cdot \text{social\_int}) +
+\epsilon
+$$
+
+<br>
+
+
+Model 2: `wellbeing ~ age + social_int + steps_k + outdoor_time`, or
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{age}) +
+(\beta_2 \cdot \text{social\_int}) +
+(\beta_3 \cdot \text{steps\_k}) +
+(\beta_4 \cdot \text{outdoor\_time}) +
+\epsilon
+$$
+
+
+
+`r solend()`
+
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+Fit the two models you identified in Q4.
+Name the model with fewer predictors `m1` and the model with more predictors `m2`.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+m1 <- lm(wellbeing ~ age + social_int, data = mwdata)
+m2 <- lm(wellbeing ~ age + social_int + steps_k + outdoor_time, data = mwdata)
+```
+
+`r solend()`
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+Use an incremental F-test to compare these two models.
+
+Based on the results of the test, write a sentence that addresses the research question, and report the relevant statistical quantities using APA notation.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+anova(m1, m2)
+```
+
+Yes, wellbeing is predicted by number of steps and hours outdoors, over and above the impact of years of age and number of social interactions ($F(2, 129) = 7.25, p = .001$).
+
+`r solend()`
+
+
+# Compare non-nested models
+
+<!-- # q7 -->
+
+`r qbegin(qcounter())`
+
+RQ: **Do number of steps (`steps_k`) and hours outdoors (`outdoor_time`) predict wellbeing better than years of age (`age`) and number of social interactions (`social_int`)?**
+
+To address this RQ, you’ll need to compare two models.
+
+Write out the formulae for both models, using either R notation or mathematical model notation, whichever you prefer.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+One model will predict wellbeing as a function of `steps_k` and `outdoor_time`.
+The other model will predict wellbeing as a function of `age` and `social_int`.
+
+Model 1: `wellbeing ~ age + social_int + steps_k + outdoor_time`, or
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{steps\_k}) +
+(\beta_2 \cdot \text{outdoor\_time}) +
+\epsilon
+$$
+
+<br>
+
+Model 2: `wellbeing ~ age + social_int`, or
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{age}) +
+(\beta_2 \cdot \text{social\_int}) +
+\epsilon
+$$
+
+
+
+`r solend()`
+
+<!-- # q8 -->
+
+`r qbegin(qcounter())`
+
+Fit the two models you identified in Q7.
+Name one model `m3` and the other `m4`.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+m3 <- lm(wellbeing ~ steps_k + outdoor_time, data = mwdata)
+m4 <- lm(wellbeing ~ age + social_int, data = mwdata)
+```
+
+`r solend()`
+
+<!-- # q9 -->
+
+`r qbegin(qcounter())`
+
+Use AIC and BIC to compare these two models.
+
+Based on the results, write a sentence that addresses the research question, and report each model's AIC and BIC using APA notation.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+For both AIC and BIC, smaller values indicate a model with better fit.
+
+```{r}
+AIC(m3, m4)
+```
+
+- Based on AIC, the better-fitting model is `m3`.
+
+<br>
+
+```{r}
+BIC(m3, m4)
+```
+
+- Based on BIC, the better-fitting model is also `m3`.
+- And additionally, since the difference is just under 10, we have strong evidence of a difference between the two models.
+
+<br>
+
+Yes, a model containing number of steps and hours outdoors (AIC = 829.75, BIC = 841.34) predicts wellbeing better than a model containing years of age and number of social interactions (AIC = 839.52, BIC = 851.11).
+
+`r solend()`
+
+
+# Identify nestedness of models
+
+<!-- # q10 -->
+
+`r qbegin(qcounter())`
+
+For each of the following pairs of models, state whether they are nested or not.
+Assume all models are fitted to the same dataset `mwdata`.
+
+Pair 1:
+
+- `wellbeing ~ social_int`
+- `wellbeing ~ social_int + outdoor_time`
+
+Pair 2:
+
+- `wellbeing ~ social_int + outdoor_time`
+- `wellbeing ~ social_int + age`
+
+Pair 3:
+
+- `wellbeing ~ social_int`
+- `wellbeing ~ social_int + outdoor_time + age`
+
+Pair 4:
+
+- `wellbeing ~ social_int + age`
+- `wellbeing ~ outdoor_time + age + social_int + steps_k`
+
+
+Pair 5:
+
+- `wellbeing ~ social_int`
+- `wellbeing ~ outdoor_time`
+
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- Pair 1: Nested (all variables in one model are contained in the other model).
+- Pair 2: Not nested (neither model contains all the variables that the other one contains).
+- Pair 3: Nested.
+- Pair 4: Nested (the order of predictors doesn't matter, just their presence/absence).
+- Pair 5: Not nested.
+
+`r solend()`
+
+
+
+
+
+
+
+
+
+
+
+
+
