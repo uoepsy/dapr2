@@ -1,0 +1,977 @@
+---
+title: "05: Practice write-up"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: TRUE
+    # TOGGLE: FALSE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(kableExtra)
+library(patchwork)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week (and every fifth week this year), you'll practice writing up the analysis that was developed live during lectures.
+
+Your goal is to present your analysis in a journal-article-style Results section that a reader could reproduce in any statistical software, not just R.
+
+Quick links to key flash cards:
+
+- [Analysis workflow (Block 1)](TODO){target="_blank"}
+- [Write-up checklist](TODO){target="_blank"}
+
+:::{.callout-important}
+
+The example write-ups that will be provided **are not perfect.**
+
+You must not copy them directly for this write-up or any future assessment, as copying and presenting them as your own work would constitute academic misconduct.
+But you may refer to them for stylistic guidance.
+
+:::
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab05.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `psych`
+    - `sjPlot`
+    - `kableExtra`
+    - `patchwork`
+   
+:::
+
+---
+
+:::frame
+
+The data in `FOMOdataset.csv` contain eight attributes collected from a sample of $n=3370$ hypothetical individuals across the UK, and include: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
+tibble(
+Variable = names(fomo),
+Description = c("FOMO Score (as measured by the 10-item FOMO scale)", "Age (in years)", "Score on personality items assessing Neuroticism from the Big Five Inventory (BFI)", "Score on personality items assessing Extraversion from the Big Five Inventory (BFI)", "Score on personality items assessing Openness from the Big Five Inventory (BFI)", "Score on personality items assessing Agreeableness from the Big Five Inventory (BFI)", "Score on personality items assessing Conscientiousness from the Big Five Inventory (BFI)", "Total Number of Instagram Followers")
+) |> gt::gt()
+```
+ 
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+The data used for this write-up exercise are simulated, drawing on recent work on Fear of Missing Out (FOMO), socio-demographic factors, and the Big Five personality traits. The simulated data are based on the findings of this work, and acted to expand upon the methods and results reported in the following paper:
+
+Rozgonjuk, D., Sindermann, C., Elhai, J. D., & Montag, C. (2021). Individual differences in Fear of Missing Out (FOMO): Age, gender, and the Big Five personality trait domains, facets, and items. *Personality and Individual Differences, 171*, 110546.  [https://doi.org/10.1016/j.paid.2020.110546](https://doi.org/10.1016/j.paid.2020.110546)
+
+In the current study, participants were invited to an online study investigating the associations among FOMO, socio-demographic factors, and personality. The final sample comprised 3370 people. Participants completed a FOMO scale and a personality inventory. The 10-item FOMO scale measured the extent of experiencing apprehension regarding missing out on interesting events of others on a 5-point scale (1 = “not at all true of me” to 5 = “extremely true of me”), producing a possible range of scores between 10 and 50. The Big Five Inventory (BFI) is a 45-item personality assessment questionnaire (note that only 44 items were used to match the study above) that uses a five-point response scale (1 = “very inapplicable” to 5 = “very applicable”). The BFI consists of five domains: Neuroticism (8 items; possible range of scores 8-40), Extraversion (8 items; possible range of scores 8-40), Openness to Experience (10 items; possible range of scores 10-50), Agreeableness (9 items; possible range of scores 9-45), and Conscientiousness (9 items; possible range of scores 9-45). We extended the aforementioned study to include an extra socio-demographic variable - a measure of popularity on social media based on the number of followers. Unlike the original study, we do not have measures of gender, education level, or specific country of residence.
+
+:::
+
+:::
+
+# RQ1
+
+:::frame
+
+RQ: How is people's sense of Fear of Missing Out (FOMO) associated with their age and how many Instagram followers they have?
+
+Specific predictions:
+
+- As age increases, FOMO will decrease.
+- As the number of Instagram followers increases, FOMO will increase.
+
+:::
+
+:::{.callout-tip collapse='true'}
+### Provided analysis code for RQ1
+
+This code should resemble the analysis developed during lectures this week.
+
+```{r eval=F}
+# RQ1 example code ----
+
+# Follows workflow here: dapr2/2627/dapr2_flashcards/resources/workflow.html
+
+## Phase 1: Before model fitting ----
+
+### 1a: Set up code and data ----
+
+# Load required R packages
+library(tidyverse)   # for wrangling
+library(psych)       # for summarising
+library(sjPlot)      # for nice tables/plots
+library(kableExtra)  # for nicely-formatted tables
+library(patchwork)   # for combining plots into one graphic
+
+
+# Read in data
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
+
+
+# Tidy data if needed
+summary(fomo)
+# Ranges all look reasonable, and there are no NAs, so we're good to continue
+
+
+### 1b: Set up the variables we'll model ----
+
+# RQ: How is people's sense of Fear of Missing Out (FOMO) associated with their age and how many Instagram followers they have?
+
+# Based on RQ, identify outcome variables and predictors.
+# - Outcome: `FOMO`
+# - Predictors: `Age`, `TotalFollowers`
+
+# Based on RQ, decide whether to test hypotheses using coefficient significance tests or model comparison.
+# - The RQ is about associations between variables, so we'll test it using significance test for coef estimates.
+
+# Set up continuous predictors. (e.g., any transformations?)
+# - One option might be to z-score Age and TotalFollowers.
+#   This would be an important step if Age = 0 and TotalFollowers = 0 were totally meaningless quantities (imagine Height = 0 or ShoeSize = 0 – impossible and nonexistent).
+#   But Age = 0 means an infant, and TotalFollowers = 0 means someone with no followers.
+#   So they are reasonable quantities to generate predictions for.
+
+# Explore patterns in the data by plotting outcome and predictor variables together.
+
+p_age <- fomo |>
+  ggplot(aes(x = Age, y = FOMO)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE)
+p_age
+
+p_followers <- fomo |>
+  ggplot(aes(x = TotalFollowers, y = FOMO)) +
+  geom_point() +
+  geom_smooth(method = 'lm', se = FALSE)
+p_followers
+
+p_age + p_followers  # combine using patchwork
+
+
+# Make a nice descriptives table
+
+fomo |> 
+  # Select only the variables we want in the table
+  select(FOMO, Age, TotalFollowers) |>
+  
+  # Give the variables more readable names
+  rename(
+    "Fear of Missing Out" = FOMO, 
+    "Age (in years)" = Age, 
+    "Number of Instagram Followers" = TotalFollowers
+  ) |>
+  
+  # Use describe() from the psych package to get descriptive stats
+  describe() |>
+  
+  # Select only the summary stats we care about
+  select(n, mean, sd, min, max) |>
+  
+  # Give these stats more readable names
+  rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+  
+  # kable() from the kableExtra package formats the table nicely
+  kable(
+    caption = "Descriptive statistics for FOMO and socio-demographic factors", 
+    digits = 2
+  ) |>
+  kable_styling()
+
+
+## Phase 2: Model fitting ----
+
+# Write the mathematical model formulation for your model(s).
+#  $$
+#    \text{FOMO} = \beta_0 + (\beta_1 \cdot \text{Age}) + (\beta_2 \cdot \text{Followers}) + \epsilon
+#  $$
+
+
+# Explicitly define the hypotheses that your RQ is aiming to test.
+#  $$
+#  \begin{align}
+#  H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2 \\
+#  H_1 &: \text{ Any } \beta_j \neq 0 \\
+#  \end{align}
+#  $$
+
+# Fit your model(s) using lm().
+m1 <- lm(
+  FOMO ~ Age + TotalFollowers,
+  data = fomo
+)
+
+
+## Phase 3: After model fitting ----
+
+### 3a: Plot and interpret model estimates ----
+
+# Interpret the coefficient estimates (if appropriate for your RQ).
+summary(m1)
+confint(m1) |> round(2)
+confint(m1) |> round(3)  # for TotalFollowers
+
+# - `Intercept`: The estimated FOMO score for someone aged zero with zero total followers is 26.52 points.
+# - `Age`: Increasing one year of age is associated with a decrease in FOMO score of 0.17 points (holding follower count constant). This estimate is significantly different from zero (b = –0.17, 95% CI [–0.18, –0.15], p < .001).
+# - prediction borne out!
+#   - `TotalFollowers`: Increasing one follower is associated with an increase in FOMO score of 0.018 points (holding age constant). This estimate is significantly different from zero (b = 0.018, 95% CI [0.016, 0.020], p < .001).
+# - prediction borne out!
+#   - (rounded to 3 dp because otherwise estim and CI bounds are all 0.02)
+
+
+# Generate a nicely-formatted regression table (if appropriate for your RQ).
+tab_model(
+  m1,
+  dv.labels = 'Fear of missing out (FOMO)',
+  pred.labels = c("Age" = "Age (in years)"),
+  title = "RQ1: Linear model coefficient estimates"
+)
+
+# Plot model-fitted values (if appropriate for your RQ).
+plot_model(
+  m1, 
+  type = 'eff', 
+  terms = c('Age', 'TotalFollowers'), 
+  show.data = TRUE
+)
+```
+
+```{r include=F}
+fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
+m1 <- lm(FOMO ~ Age + TotalFollowers, data = fomo)
+```
+
+
+:::
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+**Set the scene (so the reader knows what you're talking about).**
+
+- [ ] Remind the reader briefly what the study aimed to test (e.g., what the predictions were).
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+In this study, we wanted to test how people's Fear of Missing Out (FOMO) is associated with socio-demographic factors: specifically, people's age and how many followers they have on Instagram.
+We predicted that as age increases, FOMO will decrease, but that as the number of followers increases, FOMO will increase.
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+**Describe and show the sample data (so that the reader knows how generalisable your analysis might be).**
+
+- [ ] Introduce the variables the study is using to test this prediction, but avoid using R variable names; describe the variables in human-readable terms instead (e.g., what scale are they on? how were they measured?)
+- [ ] Briefly describe the data set: how many observations? what does each observation represent? 
+- [ ] Include a table of descriptive statistics for all the relevant variables (and make sure to refer to it in the text).
+- [ ] If applicable, mention any data cleaning / outlier removal / transformations.
+  
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+To test these predictions, we are using data gathered from 3370 individuals across the UK.
+The data contains a FOMO score, as measured by a 10-item FOMO scale which produces scores ranging from 10 to 50.
+The data also contains each respondent's age in years and the number of Instagram followers they have.
+Descriptive statistics for these three variables are shown in Table 1.
+
+```{r}
+#| code-fold: true
+
+fomo |> 
+    select(FOMO, Age, TotalFollowers) |>
+    rename(
+        "Fear of Missing Out" = FOMO, 
+        "Age (in years)" = Age, 
+        "Number of Instagram Followers" = TotalFollowers
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(
+        caption = "Table 1: Descriptive statistics for FOMO and socio-demographic factors", 
+        digits = 2
+    ) |>
+    kable_styling()
+```
+
+<br>
+
+*[Note that your write-ups must not contain any R code.
+You can hide a code chunk and only show its output by including `echo = FALSE` in the code chunk's header.
+Here, we've just included the option to uncollapse the code for educational purposes, so that you can see what code we've used to generate each table and figure.]*
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+**Visualise and summarise data patterns that address the RQ (so the reader knows the basic pattern of what you found).**
+
+- [ ] Include a plot of the data which includes all relevant variables (and make sure to refer to it in the text).
+  - Tip: If you transform any continuous predictors for analysis, use the transformed version of the predictor in the plot.
+  - Tip: Academic writing styles vary, but Elizabeth likes it when figure captions give the reader a brief take-home message about what they should see in the plot.
+- [ ] In a sentence or two, describe the overall pattern of results.
+  - Tip: If you find yourself listing loads of numbers in the text, consider using tables or plots instead (and they're better for your word count too!). 
+  - Tip: No inferential stats have been done yet, so we can't make any claims just yet about whether the predictions were supported. But it is OK to say whether the results appear broadly in line with the prediction.
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+As shown in Figure 1, age appears to be negatively associated with FOMO (left), while number of Instagram followers appears positively associated with FOMO (right).
+
+```{r fig.cap='Figure 1: Associations between socio-demographic factors and FOMO. Age appears to have a positive association with FOMO, while the number of instagram followers appears to have a negative association, in line with predictions.'}
+#| code-fold: true
+
+p_age <- fomo |>
+    ggplot(aes(x = Age, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Age (in years)'
+    )
+p_followers <- fomo |>
+    ggplot(aes(x = TotalFollowers, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Number of Instagram followers'
+    )
+
+p_age + p_followers
+```
+
+`r solend()`
+
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+**Introduce your statistical analysis (so the reader can interpret the numbers you will report).**
+
+- [ ] State that you're running your analysis using R, and cite the developers (run `citation()` in the console to get the citation for your version of R). 
+- [ ] State the $\alpha$ level that you're using for all your analyses (in Psychology, the convention is 5%).
+- [ ] Describe the structure of your model in words, e.g.: "We fit a linear model predicting Y as a function of X1 and X2".
+- [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
+- [ ] Include the mathematical model formulation of your model.
+- [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To address the RQ, we fit a linear model which predicts FOMO as a function of age and number of Instagram followers.
+The mathematical model formulation is as follows:
+
+$$
+\text{FOMO} = \beta_0 + (\beta_1 \cdot \text{Age}) + (\beta_2 \cdot \text{Followers}) + \epsilon
+$$
+
+The null hypothesis is that neither age nor number of followers are significantly associated with FOMO.
+And the alternative hypothesis is that either age or number of followers, or both, are significantly associated with FOMO:
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+
+`r solend()`
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+**Report the results of your analysis (so the reader knows exactly what you found).**
+
+- [ ] State which model coefficient(s) are related to which prediction(s), and what direction/sign (positive or negative) you would expect the coefficients to have if the predictions were borne out, if applicable.
+- [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < 0.001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = 0.18)", if applicable.
+  - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
+  - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
+- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+- [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
+- [ ] Report the results of a model comparison, if applicable.
+- [ ] Report any other information you consider important for your story!
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+If our predictions were borne out, we would expect $\beta_1$ (the slope coefficient for age) to be negative, and we would expect $\beta_2$ (the slope coefficient for the number of followers) to be positive.
+
+Indeed, $\beta_1$ is negative and significantly different from zero ($b$ = –0.17, 95% CI [–0.18, –0.15], $p$ < .001).
+Thus age is significantly negatively associated with FOMO: for every year increased in age (holding follower count constant), FOMO is estimated to decrease by 0.17 points.
+Further, $\beta_2$ is positive and also significantly different from zero ($b$ = 0.018, 95% CI [0.016, 0.020], $p$ < .001), indicating that follower count is significantly positively associated with FOMO.
+Specifically, for an increase in one follower (holding age constant), FOMO is estimated to increase by 0.018 points.
+Thus our predictions are both supported and we can reject the null hypothesis defined above.
+
+For an overview of all regression coefficients, see Table 2, and for a plot of model-fitted values, see Figure 2.
+
+```{r}
+#| code-fold: true
+
+
+tab_model(
+    m1,
+    dv.labels = 'Fear of missing out (FOMO)',
+    pred.labels = c("Age" = "Age (in years)"),
+    title = "Table 2: Linear model coefficient estimates"
+)
+```
+
+
+```{r fig.cap='Figure 2: Observed data (individual points) and well as model-fitted values (lines and 95% CI error ribbons) indicating that as age increases, FOMO tends to decrease, holding follower count constant; additionally, as total follower count increases, FOMO tends to also increase, holding age constant.'}
+#| code-fold: true
+
+plot_model(
+    m1, 
+    type = 'eff', 
+    terms = c('Age', 'TotalFollowers'), 
+    show.data = TRUE
+)
+```
+
+`r solend()`
+
+<br>
+
+`r solbegin(label='– full write-up for RQ1', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+In this study, we wanted to test how people's Fear of Missing Out (FOMO) is associated with socio-demographic factors: specifically, people's age and how many followers they have on Instagram.
+We predicted that as age increases, FOMO will decrease, but that as the number of followers increases, FOMO will increase.
+
+
+To test these predictions, we are using data gathered from 3370 individuals across the UK.
+The data contains a FOMO score, as measured by a 10-item FOMO scale which produces scores ranging from 10 to 50.
+The data also contains each respondent's age in years and the number of Instagram followers they have.
+Descriptive statistics for these three variables are shown in Table 1.
+
+```{r echo=F}
+fomo |> 
+    select(FOMO, Age, TotalFollowers) |>
+    rename(
+        "Fear of Missing Out" = FOMO, 
+        "Age (in years)" = Age, 
+        "Number of Instagram Followers" = TotalFollowers
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(
+        caption = "Table 1: Descriptive statistics for FOMO and socio-demographic factors", 
+        digits = 2
+    ) |>
+    kable_styling()
+```
+
+<br>
+
+As shown in Figure 1, age appears to be negatively associated with FOMO (left), while number of Instagram followers appears positively associated with FOMO (right).
+
+```{r echo=F, fig.cap='Figure 1: Associations between socio-demographic factors and FOMO. Age appears to have a positive association with FOMO, while the number of instagram followers appears to have a negative association, in line with predictions.'}
+
+p_age <- fomo |>
+    ggplot(aes(x = Age, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Age (in years)'
+    )
+p_followers <- fomo |>
+    ggplot(aes(x = TotalFollowers, y = FOMO)) +
+    geom_point() +
+    geom_smooth(method = 'lm', se = FALSE) +
+    labs(
+        x = 'Number of Instagram followers'
+    )
+
+p_age + p_followers
+```
+
+<br>
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To address the RQ, we fit a linear model which predicts FOMO as a function of age and number of Instagram followers.
+The mathematical model formulation is as follows:
+
+$$
+\text{FOMO} = \beta_0 + (\beta_1 \cdot \text{Age}) + (\beta_2 \cdot \text{Followers}) + \epsilon
+$$
+
+The null hypothesis is that neither age nor number of followers are significantly associated with FOMO.
+And the alternative hypothesis is that either age or number of followers, or both, are significantly associated with FOMO:
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+
+If our predictions were borne out, we would expect $\beta_1$ (the slope coefficient for age) to be negative, and we would expect $\beta_2$ (the slope coefficient for the number of followers) to be positive.
+
+Indeed, $\beta_1$ is negative and significantly different from zero ($b$ = –0.17, 95% CI [–0.18, –0.15], $p$ < .001).
+Thus age is significantly negatively associated with FOMO: for every year increased in age (holding follower count constant), FOMO is estimated to decrease by 0.17 points.
+Further, $\beta_2$ is positive and also significantly different from zero ($b$ = 0.018, 95% CI [0.016, 0.020], $p$ < .001), indicating that follower count is significantly positively associated with FOMO.
+Specifically, for an increase in one follower (holding age constant), FOMO is estimated to increase by 0.018 points.
+Thus our predictions are both supported and we can reject the null hypothesis defined above.
+
+For an overview of all regression coefficients, see Table 2, and for a plot of model-fitted values, see Figure 2.
+
+```{r echo=F}
+tab_model(
+    m1,
+    dv.labels = 'Fear of missing out (FOMO)',
+    pred.labels = c("Age" = "Age (in years)"),
+    title = "Table 2: Linear model coefficient estimates"
+)
+```
+
+<br>
+
+```{r echo=F, fig.cap='Figure 2: Observed data (individual points) and well as model-fitted values (lines and 95% CI error ribbons) indicating that as age increases, FOMO tends to decrease, holding follower count constant; additionally, as total follower count increases, FOMO tends to also increase, holding age constant.'}
+
+plot_model(
+    m1, 
+    type = 'eff', 
+    terms = c('Age', 'TotalFollowers'), 
+    show.data = TRUE
+)
+```
+
+<br>
+
+**References**
+
+R Core Team (2025). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+
+`r solend()`
+
+# Bonus challenge: RQ2
+
+:::frame
+
+RQ: Do the Big 5 personality traits significantly predict FOMO, in addition to the effects of age and total Instagram followers?
+
+:::
+
+:::{.callout-tip collapse='true'}
+### Provided analysis code for RQ2
+
+This code should resemble the analysis developed during lectures this week.
+
+```{r eval=F}
+
+## Phase 1: Before model fitting ----
+
+### 1a: Set up code and data – DONE ----
+
+### 1b: Set up the variables we'll model ----
+
+# RQ: Do the Big 5 personality traits significantly predict FOMO, in addition to the effects of age and total Instagram followers?
+
+# Based on RQ, identify outcome variables and predictors.
+# - Outcome: `FOMO`
+# - Predictors: `Age`, `TotalFollowers`, and each OCEAN variable
+
+# Based on RQ, decide whether to test hypotheses using coefficient significance tests or model comparison.
+# - The RQ asks whether multiple predictors predict an outcome jointly, so it's a model comparison question.
+
+# Set up continuous predictors. (e.g., any transformations?)
+# - One option might be to z-score the OCEAN variables.
+#   Zero is not very meaningful as-is.
+#   But we actually don't care about interpreting any of those coefficients, just whether their inclusion helps the model.
+#   So we can leave the OCEAN variables as-is too.
+#   (Emphasise: this is a choice that could be made either way – just justify it!)
+
+# Explore patterns in the data by plotting outcome and predictor variables together.
+# - you could accomplish the same thing by making five plots and patchworking
+#   them together, but this is a bit less repetitive
+
+fomo |>
+  rename(
+    "Outgoingness" = O,
+    "Conscientiousness" = C,
+    "Extraversion" = E,
+    "Agreeableness" = A,
+    "Neuroticism" = N
+  ) |>
+  pivot_longer(
+    cols = Neuroticism:Conscientiousness, 
+    names_to = 'Trait', 
+    values_to = 'Score'
+  ) |>
+  ggplot(aes(x = Score, y = FOMO)) +
+  geom_point(alpha = 0.1) +
+  geom_smooth(method = 'lm', se = F) +
+  facet_wrap(~ Trait)
+
+
+# Make a nice descriptives table
+fomo |> 
+  select(O, C, E, A, N) |>
+  rename(
+    "Outgoingness" = O,
+    "Conscientiousness" = C,
+    "Extraversion" = E,
+    "Agreeableness" = A,
+    "Neuroticism" = N
+  ) |>
+  describe() |>
+  select(n, mean, sd, min, max) |>
+  rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+  kable(caption = "Descriptive statistics for Big 5 personality traits", digits = 2) |>
+  kable_styling()
+
+
+## Phase 2: Model fitting ----
+
+# Write the mathematical model formulation for your model(s).
+# - First model = model from RQ1. Second model:
+#   $$
+#     \text{FOMO} = \beta_0 + 
+#     (\beta_1 \cdot \text{Age}) + 
+#     (\beta_2 \cdot \text{Followers}) + 
+#     (\beta_3 \cdot \text{O}) + 
+#     (\beta_4 \cdot \text{C}) + 
+#     (\beta_5 \cdot \text{E}) + 
+#     (\beta_6 \cdot \text{A}) + 
+#     (\beta_7 \cdot \text{N}) + 
+#     \epsilon
+#   $$
+
+# Explicitly define the hypotheses that your RQ is aiming to test.
+# - The null hypothesis that corresponds to this model comparison is that none of Big 5 predictors are significantly associated with FOMO.
+#   $$
+#   \begin{align}
+#   H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 3, 4, 5, 6, 7 \\
+#   H_1 &: \text{ Any } \beta_j \neq 0 \\
+#   \end{align}
+#   $$
+
+# Fit your model(s) using lm().
+m2 <- lm(
+  FOMO ~ Age + TotalFollowers + O + C + E + A + N,
+  data = fomo
+)
+
+## Phase 3: After model fitting ----
+
+### 3a: Plot and interpret model estimates ----
+
+# Compare models and interpret model comparison statistics (if appropriate for your RQ).
+# - Because these models are nested, we can use the incremental F-test via the `anova()` function.
+anova(m1, m2)
+```
+
+```{r include=F}
+m2 <- lm(
+    FOMO ~ Age + TotalFollowers + O + C + E + A + N,
+    data = fomo
+)
+```
+
+
+:::
+
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+**Set the scene (so the reader knows what you're talking about).**
+
+- [ ] Remind the reader briefly what the study aimed to test (e.g., what the predictions were).
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Additionally, we are interested in the additional role that personality factors may play in predicting FOMO.
+Specifically, we want to know: Do the Big 5 personality traits predict FOMO, over and above the roles played by age and number of Instagram followers?
+
+`r solend()`
+
+<!-- # q7 -->
+
+`r qbegin(qcounter())`
+
+**Describe and show the sample data (so that the reader knows how generalisable your analysis might be).**
+
+- [ ] Introduce the variables the study is using to test this prediction, but avoid using R variable names; describe the variables in human-readable terms instead (e.g., what scale are they on? how were they measured?)
+- [ ] Briefly describe the data set: how many observations? what does each observation represent? 
+- [ ] Include a table of descriptive statistics for all the relevant variables (and make sure to refer to it in the text).
+- [ ] If applicable, mention any data cleaning / outlier removal / transformations.
+  
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Our data also includes measures of the Big 5 personality traits for each respondent: Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.
+Descriptive statistics for these traits are shown in Table 3.
+
+```{r}
+#| code-fold: true
+
+fomo |> 
+    select(O, C, E, A, N) |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(caption = "Table 3: Descriptive statistics for Big 5 personality traits", digits = 2) |>
+    kable_styling()
+```
+
+`r solend()`
+
+<!-- # q8 -->
+
+`r qbegin(qcounter())`
+
+**Visualise and summarise data patterns that address the RQ (so the reader knows the basic pattern of what you found).**
+
+- [ ] Include a plot of the data which includes all relevant variables (and make sure to refer to it in the text).
+  - Tip: If you transform any continuous predictors for analysis, use the transformed version of the predictor in the plot.
+  - Tip: Academic writing styles vary, but Elizabeth likes it when figure captions give the reader a brief take-home message about what they should see in the plot.
+- [ ] In a sentence or two, describe the overall pattern of results.
+  - Tip: If you find yourself listing loads of numbers in the text, consider using tables or plots instead (and they're better for your word count too!). 
+  - Tip: No inferential stats have been done yet, so we can't make any claims just yet about whether the predictions were supported. But it is OK to say whether the results appear broadly in line with the prediction.
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Figure 3 shows how each personality trait is associated with FOMO in our data.
+The largest association appears to be a positive association with Neuroticism, though Agreeableness and Conscientiousness may also be more weakly negatively associated with FOMO.
+
+```{r fig.cap = 'Figure 3: Associations between each Big 5 personality trait and FOMO. Most personality traits appear to have a small negative association with FOMO, although Neuroticism appears to have a larger positive association.'}
+#| code-fold: true
+
+# you could accomplish the same thing by making five plots and patchworking
+# them together, but this is a bit less repetitive
+
+fomo |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    pivot_longer(
+        cols = Neuroticism:Conscientiousness, 
+        names_to = 'Trait', 
+        values_to = 'Score'
+    ) |>
+    ggplot(aes(x = Score, y = FOMO)) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(method = 'lm', se = F) +
+    facet_wrap(~ Trait)
+```
+
+`r solend()`
+
+
+<!-- # q9 -->
+
+`r qbegin(qcounter())`
+
+**Introduce your statistical analysis (so the reader can interpret the numbers you will report).**
+
+- [ ] State that you're running your analysis using R, and cite the developers (run `citation()` in the console to get the citation for your version of R). 
+- [ ] State the $\alpha$ level that you're using for all your analyses (in Psychology, the convention is 5%).
+- [ ] Describe the structure of your model in words, e.g.: "We fit a linear model predicting Y as a function of X1, X2, and their interaction".
+- [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
+- [ ] Include the mathematical model formulation of your model.
+- [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+To address this research question, we conducted an incremental F-test to compare the model from RQ1 to a new model which contains those same variables as well as each of the Big 5 traits.
+Specifically, the new model is the following:
+
+$$
+\text{FOMO} = \beta_0 + 
+(\beta_1 \cdot \text{Age}) + 
+(\beta_2 \cdot \text{Followers}) + 
+(\beta_3 \cdot \text{O}) + 
+(\beta_4 \cdot \text{C}) + 
+(\beta_5 \cdot \text{E}) + 
+(\beta_6 \cdot \text{A}) + 
+(\beta_7 \cdot \text{N}) + 
+\epsilon
+$$
+
+The null hypothesis that corresponds to this model comparison is that none of Big 5 predictors are significantly associated with FOMO.
+The alternative hypothesis is that any one (or more) of the Big 5 predictors are significantly associated with FOMO.
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 3, 4, 5, 6, 7 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+`r solend()`
+
+<!-- # q10 -->
+
+`r qbegin(qcounter())`
+
+**Report the results of your analysis (so the reader knows exactly what you found).**
+
+- [ ] State which model coefficient(s) are related to which prediction(s), and what direction/sign (positive or negative) you would expect the coefficients to have if the predictions were borne out, if applicable.
+- [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < 0.001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = 0.18)", if applicable.
+  - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
+  - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
+- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+- [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
+- [ ] Report the results of a model comparison, if applicable.
+- [ ] Report any other information you consider important for your story!
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Based on an incremental F-test, we conclude that the Big 5 personality traits do significantly predict FOMO over and above the effects of age and follower count ($F$(5, 3362) = 146.45, $p$ < .001).
+We therefore reject the null hypothesis defined above.
+
+`r solend()`
+
+<br>
+
+
+`r solbegin(label='– full write-up for RQ2', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Additionally, we are interested in the additional role that personality factors may play in predicting FOMO.
+Specifically, we want to know: Do the Big 5 personality traits predict FOMO, over and above the roles played by age and number of Instagram followers?
+
+Our data also includes measures of the Big 5 personality traits for each respondent: Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.
+Descriptive statistics for these traits are shown in Table 3.
+
+```{r echo=F}
+fomo |> 
+    select(O, C, E, A, N) |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    describe() |>
+    select(n, mean, sd, min, max) |>
+    rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
+    kable(caption = "Table 3: Descriptive statistics for Big 5 personality traits", digits = 2) |>
+    kable_styling()
+```
+
+<br>
+
+Figure 3 shows how each personality trait is associated with FOMO in our data.
+The largest association appears to be a positive association with Neuroticism, though Agreeableness and Conscientiousness may also be more weakly negatively associated with FOMO.
+
+```{r echo=F, fig.cap = 'Figure 3: Associations between each Big 5 personality trait and FOMO. Most personality traits appear to have a small negative association with FOMO, although Neuroticism appears to have a larger positive association.'}
+
+fomo |>
+    rename(
+        "Outgoingness" = O,
+        "Conscientiousness" = C,
+        "Extraversion" = E,
+        "Agreeableness" = A,
+        "Neuroticism" = N
+    ) |>
+    pivot_longer(
+        cols = Neuroticism:Conscientiousness, 
+        names_to = 'Trait', 
+        values_to = 'Score'
+    ) |>
+    ggplot(aes(x = Score, y = FOMO)) +
+    geom_point(alpha = 0.1) +
+    geom_smooth(method = 'lm', se = F) +
+    facet_wrap(~ Trait)
+```
+
+<br>
+
+
+To address this research question, we conducted an incremental F-test to compare the model from RQ1 to a new model which contains those same variables as well as each of the Big 5 traits.
+Specifically, the new model is the following:
+
+$$
+\text{FOMO} = \beta_0 + 
+(\beta_1 \cdot \text{Age}) + 
+(\beta_2 \cdot \text{Followers}) + 
+(\beta_3 \cdot \text{O}) + 
+(\beta_4 \cdot \text{C}) + 
+(\beta_5 \cdot \text{E}) + 
+(\beta_6 \cdot \text{A}) + 
+(\beta_7 \cdot \text{N}) + 
+\epsilon
+$$
+
+The null hypothesis that corresponds to this model comparison is that none of Big 5 predictors are significantly associated with FOMO.
+The alternative hypothesis is that any one (or more) of the Big 5 predictors are significantly associated with FOMO.
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 3, 4, 5, 6, 7 \\
+H_1 &: \text{ Any } \beta_j \neq 0 \\
+\end{align}
+$$
+Based on an incremental F-test, we conclude that the Big 5 personality traits do significantly predict FOMO over and above the effects of age and follower count ($F$(5, 3362) = 146.45, $p$ < .001).
+We therefore reject the null hypothesis defined above.
+
+`r solend()`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
