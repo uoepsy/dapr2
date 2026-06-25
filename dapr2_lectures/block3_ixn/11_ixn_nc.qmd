@@ -1,0 +1,1725 @@
+---
+title: "Mean-centering and numeric/categorical interactions"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(interactions)  # for probe_interactions() plot
+library(simglm)        # for illustrative simulated data
+
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_minimal(
+    base_size = 28
+  )
+)
+
+salary <- read_csv("data/salary_lec.csv", show_col_types = FALSE) |>
+  mutate(
+    envt = factor(ifelse(dept == 1, 'nature', 'urban'))
+  )
+
+# make the acct slope a bit steeper to illustrate the point better
+# and rename/relabel the data so it's about time outdoors and not salary
+outdoors <- salary |>
+  mutate(
+    salary_aug = ifelse(
+      envt == 'nature',
+      salary + (service^2)/1.5 - 10,
+      salary
+    ),
+    wellbeing = salary_aug
+  ) |>
+  rename(
+    outdoor_time = service
+  ) |>
+  select(wellbeing, envt, outdoor_time)
+
+palette_probe <- c('#4ab8fc', '#ff7b01')
+```
+
+
+# Course Overview
+
+<br>
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block1_name = "Introduction to linear Models"
+block1_lecs = c("Intro to linear regression",
+                "Interpreting linear models",
+                "Testing individual predictors",
+                "Model testing & comparison",
+                "Linear model analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical predictors and dummy coding",
+                "Effect coding and manual post-hoc contrasts",
+                "Assumptions and diagnostics",
+                "Bootstrapping and confidence intervals",
+                "Categorical predictors: Practice analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block3_name = "Interactions"
+block3_lecs = c("Mean-centering and numeric/categorical interactions",
+                "Numeric/numeric interactions",
+                "Categorical/categorical interactions",
+                "Manual contrast interactions and multiple comparisons",
+                "Interactions: Practice analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power analysis",
+                "Binary logistic regression I",
+                "Binary logistic regression II",
+                "Logistic regression: Practice analysis",
+                "Exam prep and course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 1)
+```
+
+:::
+
+::::
+
+# Welcome-back warm-up
+
+## Welcome-back warm-up on Wooclap
+
+<br>
+<br>
+
+:::{.hcenter style="font-size: 150%;"}
+
+`wooclap.com`, enter code `BMLTOH`
+
+:::
+
+
+## This week's learning objectives
+
+<br>
+
+::::: {style="font-size: 125%;"}
+
+::: {.dapr2callout .fragment}
+What does it mean to "mean-centre" a variable?
+:::
+
+::: {.dapr2callout .fragment}
+How does mean-centering a predictor affect how we interpret the model's intercept and other slope coefficients?
+:::
+
+::: {.dapr2callout .fragment}
+How do we tell a model that an association between a predictor and the outcome _depends_ on another predictor?
+:::
+
+::: {.dapr2callout .fragment}
+How do interactions change what a model's slope coefficients mean?
+:::
+
+:::::
+
+# Why did we practice finding the intercept?
+
+## Why did we practice finding the intercept?
+
+<!-- To notice that the intercept (the part of the line where x = 0) might be in lots of different places, compared to the actual data. -->
+Because what the intercept represents is very different when it's in different places, relative to the data.
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Right in the middle of the data:**
+
+```{r include=F}
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 0, sd = 5)),
+  error = list(variance = 5),
+  sample_size = 100,
+  reg_weights = c(1, .2)
+)
+
+set.seed(1)
+
+d1 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |>
+  mutate(
+    x = x - mean(x)
+  )
+# mean(d1$x)
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d1 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point(size = 3) +
+  geom_smooth(se = F, method = 'lm') +
+  geom_point(x = 0, y = 1, size = 20, alpha = .005, colour = 'black')
+```
+
+
+:::
+::: {.column width="50%"}
+
+**Off to one side of the data:**
+
+```{r include=F}
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 0, sd = 6)),
+  error = list(variance = 200),
+  sample_size = 35,
+  reg_weights = c(50, -5)
+)
+
+set.seed(1)
+
+d2 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |>
+  mutate(
+    x = x - min(x)
+  )
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d2 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(se = F, method = 'lm') +
+  geom_point(x = 0, y = 120, size = 20, alpha = .01, colour = 'black') +
+  ylim(0, 125) +
+  NULL
+```
+:::
+::::
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Totally outside of the data's range:**
+
+```{r include=F}
+int <- 10
+slp <- 1
+  
+sim_arguments <- list(
+  formula = y ~ 1 + x,
+  fixed = list(x = list(var_type = 'continuous', mean = 20, sd = 5)),
+  error = list(variance = 50),
+  sample_size = 100,
+  reg_weights = c(int, slp)
+)
+
+set.seed(1)
+
+d3 <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments)
+```
+
+
+```{r echo=F, message=F, fig.align = 'center', fig.dim = c(8, 4.5)}
+d3 |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  geom_abline(aes(slope = slp, intercept = int), colour = '#3366ff', linewidth = 2.5) +
+  geom_point(x = 0, y = 10, size = 20, alpha = .005, colour = 'black') +
+  xlim(-10, 35) +
+  ylim(-10, 55) +
+  NULL
+```
+
+:::
+::: {.column width="50%"}
+**Why does this matter?**
+:::
+::::
+
+
+
+
+## Sometimes data = 0 doesn't make sense
+
+Imagine using people's height in cm to predict their UK shoe size.
+
+```{r echo=F, fig.align='center', fig.dim = c(14, 8)}
+int <- -10
+slp <- 0.1
+
+sim_arguments <- list(
+  formula = shoesize ~ 1 + height,
+  fixed = list(height = list(var_type = 'continuous', mean = 170, sd = 18)),
+  error = list(variance = 6),
+  sample_size = 80,
+  reg_weights = c(int, slp)
+)
+
+set.seed(1)
+
+d_shoe <- simulate_fixed(data = NULL, sim_arguments) |>
+  simulate_error(sim_arguments) |>
+  generate_response(sim_arguments) |> 
+  filter(shoesize > 1) |>
+  mutate(shoesize = plyr::round_any(shoesize, 0.5))
+
+d_shoe |>
+  ggplot(aes(x = height, y = shoesize)) +
+  geom_point() +
+  # geom_smooth(method= 'lm', se = F) +
+  geom_abline(aes(intercept = int, slope = slp),
+              , colour = '#3366ff',
+              linewidth = 3) +
+  xlim(-10, 220) +
+  ylim(-15, 20) +
+  NULL
+```
+
+
+
+- A height of 0 cm is nonsense!
+- And the predicted shoe size of –10-ish is even more nonsense!
+
+In case like this, it's useful to *transform* our variable, so that the value zero is more sensible/meaningful.
+
+
+## Change what data = 0 represents
+
+For example, if we make the value zero represent the *mean* height in our sample...
+
+```{r echo=F, fig.align='center', fig.dim = c(14, 8)}
+d_shoe |>
+  mutate(
+    height_mean_is_zero = height - mean(height)
+  ) |>
+  ggplot(aes(x = height_mean_is_zero, y = shoesize)) +
+  geom_point() +
+  geom_abline(aes(intercept = 7, slope = slp),
+              , colour = '#3366ff',
+              linewidth = 3) +
+  NULL
+```
+
+
+... then the line's intercept represents **the UK shoe size we'd expect for someone with average height: 7.**
+
+That's a LOT nicer than "for someone who's 0 cm tall, their estimated shoe size is –10!"
+
+**Transforming variables like this is a really useful tool to make the model's coefficients make more sense.**
+
+
+
+## Where we are in the analysis workflow
+
+![](figs/block3-flowchart-00.svg){height="550" fig-align="center"}
+
+
+## A new tool in our toolkit: "Mean-centering"
+
+To mean-centre a variable means to **transform it so that the mean of the centered version is zero.**
+
+
+**An example variable, x1:**
+
+:::: {.columns}
+::: {.column width="35%"}
+
+::::{.hcenter}
+
+|  x1 |
+| --: |
+|  1 |
+|  8 |
+|  3 |
+|  2 |
+|  6 |
+::::
+
+:::
+::: {.column width="65%"}
+
+The mean of **x1:**
+
+$$
+\begin{align}
+=& \frac{1 + 8 + 3 + 2 + 6}{5} \\
+=& ~\frac{20}{5}  \\
+=& ~4
+\end{align}
+$$
+:::
+::::
+
+:::::{.fragment}
+**To mean-centre x1, subtract the mean of x1 from every observation:**
+
+:::: {.columns}
+::: {.column width="35%"}
+
+::::{.hcenter}
+
+|  x1_c |
+| --: |
+|  1 – 4 = –3 |
+|  8 – 4 =  4 |
+|  3 – 4 = –1 |
+|  2 – 4 = –2 |
+|  6 – 4 =  2 |
+::::
+
+:::
+::: {.column width="65%" .fragment}
+
+The mean of **x1_c:**
+
+$$
+\begin{align}
+=& \frac{-3 + 4 - 1 - 2 + 2}{5} \\
+=& ~\frac{0}{5}  \\
+=& ~0
+\end{align}
+$$
+:::
+::::
+:::::
+
+
+## Today's data: Wellbeing and time outdoors
+
+<br>
+
+```{r include=F}
+outdoors1 <- outdoors |>
+  filter(envt == 'urban') |>
+  select(wellbeing, outdoor_time) |>
+  mutate(outdoor_time_c = outdoor_time - mean(outdoor_time))
+
+m_outdoors1 <- lm(wellbeing ~ outdoor_time, data = outdoors1)
+m_outdoors2 <- lm(wellbeing ~ outdoor_time_c, data = outdoors1)
+
+```
+
+```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
+outdoors1 |>
+  ggplot(aes(x = outdoor_time, y = wellbeing)) +
+  geom_point(size = 8)
+```
+
+
+
+## How does the mean-centered version compare to the original?
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Original (the predictor is not mean-centered):**
+
+```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
+outdoors1 |>
+  ggplot(aes(x = outdoor_time, y = wellbeing)) +
+  # geom_vline(aes(xintercept = 4.78), colour = '#888', linewidth = 3) +
+  geom_point(size = 8) +
+  # scale_x_continuous(breaks = c(3, 4, 4.78, 5, 6, 7),
+                     # labels = c('3', '4', '4.78', '5', '6', '7'))
+  NULL
+```
+
+```{r}
+mean(outdoors1$outdoor_time) |> round(2)
+```
+:::
+
+::: {.column width="50%"}
+
+**The predictor IS mean-centered:**
+
+```{r echo=F, fig.align='center', fig.dim = c(8, 8)}
+outdoors1 |>
+  ggplot(aes(x = outdoor_time_c, y = wellbeing)) +
+  # geom_vline(aes(xintercept = 0), colour = '#888', linewidth = 3) +
+  geom_point(size = 8) +
+  NULL
+```
+
+```{r}
+mean(outdoors1$outdoor_time_c)|>round(2)
+```
+:::
+::::
+
+
+## If this seems a little familiar...
+
+<br>
+
+Flashback to [standardising predictors in week 2](https://uoepsy.github.io/dapr2/2526/lectures/dapr2_02_lm2.html#/option-2-standardising-the-variables)!
+
+![](figs/venn.svg){fig-align="center" height="400"}
+
+
+- Mean-centered variables and standardised/z-scored variables _both_ have a mean of 0.
+
+- But mean-centered variables still have their original standard deviation.
+
+
+
+## Find the intercept (telepathy edition)
+
+:::: {.columns}
+::: {.column width="50%"}
+
+
+**Original (not mean-centered):**
+
+
+```{r echo=F, fig.align='center', fig.dim = c(8, 7)}
+outdoors1 |>
+  ggplot(aes(x = outdoor_time, y = wellbeing)) +
+  geom_point(size = 8) +
+  geom_abline(aes(intercept = m_outdoors1$coefficients[['(Intercept)']], slope = m_outdoors1$coefficients[['outdoor_time']]), colour = '#3366ff', linewidth = 3) +
+  ylim(10, 40) +
+  xlim(-7, 7) +
+  NULL
+```
+:::
+
+::: {.column width="50%"}
+
+**Mean-centered:**
+
+```{r echo=F, fig.align='center', fig.dim = c(8, 7)}
+outdoors1 |>
+  ggplot(aes(x = outdoor_time_c, y = wellbeing)) +
+  geom_point(size = 8) +
+  geom_abline(aes(intercept = m_outdoors2$coefficients[['(Intercept)']], slope = m_outdoors2$coefficients[['outdoor_time_c']]), colour = '#3366ff', linewidth = 3) +
+  ylim(10, 40) +
+  xlim(-7, 7)
+```
+:::
+::::
+
+:::{.dapr2callout} 
+<!-- style="font-size:125%;"} -->
+**When a predictor is mean-centered, the intercept gives us the outcome value at the mean value of the predictor.**
+
+- This is because the intercept always tells us the outcome value when the predictor = 0.
+- And now 0 represents the predictor's mean.
+:::
+
+
+<!-- ## Vote: Which data is mean-centered? -->
+<!-- NOTE: prob won't have time for this -->
+
+<!-- [grid of four plots and thumbs up/down for each] -->
+
+ 
+
+
+# Modelling with a mean-centered predictor
+
+## Mean-centre a predictor in R
+
+We have a couple ways to subtract the mean from each observation using `mutate()`.
+
+<br>
+
+**The first option:** explicitly subtract the mean (I prefer this way).
+
+```{r eval=F}
+outdoors1 <- outdoors1 |>
+  mutate(
+    outdoor_time_c = outdoor_time - mean(outdoor_time)
+  )
+```
+
+<br>
+
+**The second option:** use `scale()` with `center = TRUE, scale = FALSE`.
+
+```{r eval=F}
+outdoors1 <- outdoors1 |>
+  mutate(
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE)
+  )
+```
+
+I don't like using `scale()` for mean-centering because its output is slightly weirdly formatted, and this prevents us from using certain functions later.
+
+
+## Fit the model after mean-centering
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + \epsilon
+$$
+
+```{r}
+m_c <- lm(wellbeing ~ outdoor_time_c, data = outdoors1)
+```
+
+:::{.fragment}
+
+```{r}
+summary(m_c)
+```
+
+:::
+
+
+## Intepreting coefficients after mean-centering
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m_c)), '\n')[9:12])
+```
+
+<br>
+
+**`(Intercept)`**
+
+- When centered outdoor time is equal to zero, **i.e., when outdoor time is at its mean value,** the estimated mean wellbeing is 29.9.
+
+
+**`outdoor_time_c`**
+
+- When centered outdoor time increases by one hour, wellbeing increases by about 2.7 points.
+- So: 
+  - one hour above the mean: 29.9 + 2.7 = 32.6
+  - two hours above the mean: 29.9 + 2.7 + 2.7 = 35.3
+  - ...
+
+
+
+## In general: When to mean-centre?
+
+<br>
+
+**When would you mean-centre a predictor `x`?**
+
+- When `x` doesn't have a meaningful/interpretable zero point.
+  - e.g., if modelling `shoesize ~ height`, a height of zero is nonsense. And so the predicted value for `shoesize` will probably also be nonsense.
+- When you want the model's intercept to represent the estimated outcome at the mean value of `x`.
+
+<br>
+
+**When would you _not_ mean-centre a predictor `x`?**
+
+- When `x` has a meaningful/interpretable zero point.
+  - e.g., if modelling `skill ~ years of training`, it makes sense to think about someone's skills when they have zero years of training, that is, before their training begins.
+  - e.g., if modelling `wellbeing ~ weeks in therapy`, it makes sense to think about someone's wellbeing after zero weeks of therapy, that is, before they've done any therapy.
+- When you want the model's intercept to represent the estimated outcome for whatever `x = 0` already represents.
+
+
+# Refresher: Modelling multiple predictors
+
+```{r warning=F, message=F, include=F}
+# fit no-interaction model and generate plot
+
+m1 <- lm(wellbeing ~ outdoor_time + envt, data = outdoors)
+
+outdoors_probedat <- outdoors |>
+  mutate(
+    pred = outdoor_time,
+    modx_group = envt
+  )
+  
+plot_m1_probe <- probe_interaction(
+  model = m1, pred = outdoor_time,
+  modx = envt,
+  interval = F
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8)
+
+plot_data_probe <- plot_m1_probe
+
+plot_data_probe$layers[[1]] <- NULL
+# plot_data_probe$layers[[1]] <- NULL
+```
+
+
+## Today's data: Now with two predictors
+
+<br>
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align = "center", fig.dim=c(10, 8)}
+plot_data_probe +
+  theme(text = element_text(size = 28))
+```
+:::
+::: {.column width="40%"}
+```{r}
+outdoors |>
+  head(12)
+```
+:::
+::::
+
+
+:::{.hcenter style="font-size:125%;"}
+How are **outdoor time** and **environment** associated with people's **wellbeing?**
+:::
+
+
+## Fit the model (nothing is centered yet!)
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt})  + \epsilon
+$$
+
+```{r eval=F}
+m1 <- lm(wellbeing ~ outdoor_time + envt, data = outdoors)
+```
+
+:::{.fragment}
+
+```{r}
+summary(m1)
+```
+
+:::
+
+## Interpreting the model
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+plot_m1_probe +
+  theme(text = element_text(size = 28))
+```
+
+::::{ style="font-size:90%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m1)), '\n')[9:13])
+```
+::::
+:::
+::: {.column width="40%"}
+
+**Intercept:**
+
+- When `outdoor_time = 0` and `envt = 0`, the average `wellbeing` is about 19.
+  - `outdoor_time = 0` means zero hours spent outdoors.
+  - `envt = 0` means `envt = nature` (the reference level).
+
+
+**Outdoor time:**
+
+- When `envt = 0 = nature`, spending an additional hour outdoors is associated with an increase in wellbeing of about 8 points.
+
+
+**Environment:**
+
+- When `outdoor_time = 0` hours spent outdoors, being in an urban environment is associated with a decrease in wellbeing of about 26 points.
+:::
+::::
+
+
+
+
+## Two core ideas for multiple regression
+
+<br>
+<br>
+
+:::{.dapr2callout style="font-size:150%;"}
+
+A model's intercept is the mean outcome **when every predictor in the model is at zero.**
+
+:::
+
+<br>
+
+:::{.dapr2callout style="font-size:150%;"}
+
+Each predictor's slope represents the association of the given predictor with the outcome **when every other predictor is at zero.**
+
+:::
+
+
+
+# Modelling multiple predictors with mean-centering
+
+## Mean-centre `outdoor_time`
+
+<br>
+
+```{r}
+outdoors <- outdoors |>
+  mutate(
+    outdoor_time_c = outdoor_time - mean(outdoor_time)
+  )
+
+head(outdoors)
+```
+
+<br>
+
+```{r}
+mean(outdoors$outdoor_time_c) |> round(2)
+```
+
+
+## Visualise the mean-centered data
+
+```{r warning=F, message=F, include=F}
+# fit no-interaction model with mean-centered data and generate plot
+
+m1_c <- lm(wellbeing ~ outdoor_time_c + envt, data = outdoors)
+
+outdoors_probedat <- outdoors |>
+  mutate(
+    pred = outdoor_time_c,
+    modx_group = envt
+  )
+  
+plot_m1_probe_c <- probe_interaction(
+  model = m1_c,
+  pred = outdoor_time_c,
+  modx = envt,
+  interval = F
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8)
+
+plot_data_probe_c <- plot_m1_probe_c
+
+plot_data_probe_c$layers[[1]] <- NULL
+# plot_data_probe$layers[[1]] <- NULL
+```
+
+```{r echo=F, fig.align='center', fig.dim = c(10, 8)}
+plot_data_probe_c +
+  theme(text = element_text(size = 28))
+```
+
+
+## Fit the model (with mean-centered predictor)
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + (\beta_2 \cdot \text{envt})  + \epsilon
+$$
+
+```{r}
+m2 <- lm(wellbeing ~ outdoor_time_c + envt, data = outdoors)
+```
+
+:::{.fragment}
+
+```{r}
+summary(m2)
+```
+
+:::
+
+## Interpreting the model with mean-centering
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+plot_m1_probe_c +
+  theme(text = element_text(size = 28))
+```
+
+::::{ style="font-size:90%;"}
+```{r echo=F}
+cat(paste0(capture.output(summary(m2)), '\n')[9:13])
+```
+::::
+:::
+::: {.column width="40%"}
+
+**Intercept:**
+
+- When `outdoor_time_c = 0` and `envt = 0`, the average `wellbeing` is about 57.
+  - **`outdoor_time_c = 0` means at the mean of time spent outdoors**
+  - `envt = 0` means `envt = nature` (the reference level).
+
+
+**Outdoor time:**
+
+- When `envt = 0 = nature`, spending an additional hour outdoors is associated with an increase in wellbeing of about 8 points.
+
+
+**Environment:**
+
+- When `outdoor_time_c = 0`, so **when outdoor time is at its mean,** being in an urban environment is associated with a decrease in wellbeing of about 26 points.
+:::
+::::
+
+
+
+
+# But: This model is not quite right for this data
+
+## This model is not quite right for this data
+
+:::: {.columns}
+::: {.column width="60%"}
+```{r echo=F, fig.align='center', fig.dim=c(10, 8)}
+plot_m1_probe +
+  theme(text = element_text(size = 28))
+```
+
+<!-- ::::{ style="font-size:90%;"} -->
+<!-- ```{r echo=F} -->
+<!-- cat(paste0(capture.output(summary(m1)), '\n')[9:13]) -->
+<!-- ``` -->
+<!-- :::: -->
+:::
+::: {.column width="40%"}
+
+
+1. This model assumes that **whatever your environment,** an extra hour of being outdoors improves your wellbeing by about 8.
+
+<br>
+
+2. This model assumes that **whatever your time spent outdoors,** being in an urban environment reduces your wellbeing by about 26 points.
+
+
+<br>
+
+**But these assumptions don't totally match the data.**
+
+:::
+::::
+
+
+::::{.dapr2callout style="font-size:125%"}
+Back to Wooclap (code `JXOBYL`): 
+**This model fails to capture some patterns in the data. Can you try to put into words what it misses?**
+::::
+
+## Wouldn't it be better if...
+
+```{r include=F, warning=F, message=F}
+m2 <- lm(wellbeing ~ outdoor_time + envt + outdoor_time:envt, data = outdoors)
+```
+
+::::{.r-stack}
+
+```{r echo=F, fig.dim=c(12, 9), fig.align="center"}
+plot_data_probe +
+  ylim(18, 95) +
+  theme(text = element_text(size=28)) +
+  NULL
+```
+
+
+:::{.fragment}
+```{r echo=F, fig.dim=c(12, 9), fig.align="center"}
+plot_m2_probe <- probe_interaction(
+  model = m2,
+  pred = outdoor_time,
+  modx = envt,
+  interval = F
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8) +
+  ylim(18, 95) +
+  theme(text = element_text(size=28)) +
+  NULL
+
+plot_m2_probe
+```
+
+
+:::
+
+::::
+
+:::{.fragment style="font-size:120%;"}
+What if the association between time outdoors and wellbeing could be different, **depending on** your environment?
+
+- In nature, more time outdoors improves wellbeing _more_ than in an urban environment.
+- In an urban environment, time outdoors still helps, but _less_ than in nature.
+
+:::
+
+# "Depends on" $\rightarrow$ Interactions
+
+## "Depends on" $\rightarrow$ Interactions
+
+When the association between one predictor and the outcome **depends on the value of another predictor**, we are dealing with an **interaction** between predictors.
+
+![](figs/depends-on-11.svg){fig-align="center"}
+
+
+## How do we tell our model that "it depends"?
+
+We need an extra bit of information to tell us "how _much_ does the association between outdoor time and wellbeing change between natural and urban environments"?
+
+This information appears in the model as the product of the two original variables (that is, both original variables multiplied together.)
+
+<br>
+
+The previous model:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt})  + \epsilon
+$$
+
+The updated model that includes an interaction:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time} \cdot \text{envt}) + \epsilon
+$$
+
+<br>
+
+This updated model says that `wellbeing` is predicted by
+
+- some amount of `outdoor_time`
+- some amount of `envt`
+- and a little addition to one of those amounts, depending on the value of the other variable.
+
+<br>
+
+(Why multiplication? See appendix!)
+
+
+# Interactions in R
+
+## Interactions in R
+
+<!-- The model with no interaction (the non-mean-centered version): -->
+
+<!-- ```{r eval=F} -->
+<!-- lm(wellbeing ~ outdoor_time + envt, data = outdoors) -->
+<!-- ``` -->
+
+<br>
+
+In R syntax, the interaction term is shown by a colon `:` between the two interacting predictors.
+
+```{r eval=F}
+lm(wellbeing ~ outdoor_time + envt + outdoor_time:envt, data = outdoors)
+```
+
+<br>
+
+Because this can be a lot to write out, a shortcut is to use `*`:
+
+```{r eval=F}
+lm(wellbeing ~ outdoor_time * envt, data = outdoors)
+```
+
+<br>
+
+Both versions accomplish the exact same thing.
+
+
+## Fit our first interaction model
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time} \cdot \text{envt}) + \epsilon
+$$
+
+```{r}
+m3 <- lm(wellbeing ~ outdoor_time * envt, data = outdoors)
+```
+
+:::{.fragment}
+
+```{r}
+summary(m3)
+```
+
+:::
+
+
+
+
+
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#fitting-interactions-in-r  -->
+
+
+
+## Interpreting coefficients in interaction models
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m3)), '\n')[9:14])
+```
+
+
+:::{.dapr2callout .fragment}
+`(Intercept)`: When all predictors are zero, the average wellbeing is about –3.
+
+  - `outdoor_time = 0` means when zero hours are spent outdoors.
+  - `envt = 0` means `envt = nature` (the reference level).
+:::
+ 
+:::{.dapr2callout .fragment}
+`outdoor_time`: **Only** when `envt = 0 = nature`, spending an additional hour outdoors is associated with an increase in wellbeing of about 12 points.
+:::
+
+:::{.dapr2callout .fragment}
+`envturban`: **Only** when `outdoor_time = 0` hours spent outdoors, being in an urban environment is associated with an increase in wellbeing of about 20 points.
+:::
+
+
+:::{.dapr2callout .fragment}
+`outdoor_time:envturban`: When we change environment from `natural` to `urban`, the **association between `outdoor_time` and `wellbeing` changes** by about –10.
+
+- When `envt = natural`, the association is the one estimated above, 12 (the `outdoor_time` coef above).
+- When `envt = urban`, the association changes! 12 (`outdoor_time` coef) – 10 (interaction coef) = 2-ish.
+:::
+
+
+<!-- https://uoepsy.github.io/usmr/2526/readings/15_interactions.html?panelset_002=example-22#interpretation  -->
+
+<!-- Recall that when there is an interaction AB, the coefficients A and B are no longer _main effects_. Instead, they are _conditional effects_, conditional on the other being zero. -->
+
+<!-- - simple slopes = slope of association between x and y at a specific value of interacting variable Z -->
+
+
+## Investigating interactions with `probe_interaction()`
+
+```{r warning=F}
+m3_probe <- probe_interaction(
+  model = m3,
+  pred = outdoor_time,
+  modx = envt,
+  interval = T
+)
+```
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+m3_probe$simslopes
+```
+:::
+::: {.column width="50%"}
+```{r eval=F}
+m3_probe$interactplot
+```
+
+```{r echo=F, fig.align='center', fig.dim=c(8,6)}
+m3_probe$interactplot +
+  theme(text = element_text(size = 28))
+```
+
+:::
+::::
+
+## A visual intuition for each coefficient
+
+```{r include=F}
+plot_m3_probe <- probe_interaction(
+  model = m3,
+  pred = outdoor_time,
+  modx = envt,
+  interval = T
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8) +
+  ylim(18, 95) +
+  theme(text = element_text(size=28)) +
+  NULL
+
+m3_simple_effs <- tibble(
+  envt = c('nature', 'urban'),
+  modx_group = c('nature', 'urban'),
+  int = c(
+    coef(m3)[['(Intercept)']], 
+    coef(m3)[['(Intercept)']] + coef(m3)[['envturban']]
+    ),
+  slp = c(
+    coef(m3)[['outdoor_time']],
+    coef(m3)[['outdoor_time']] + coef(m3)[['outdoor_time:envturban']]
+    )
+)
+
+plot_m3_probe_intercept <- plot_m3_probe
+plot_m3_probe_intercept$layers[[1]] <- NULL
+
+p_m3_int <- plot_m3_probe_intercept +
+  geom_point(data = outdoors_probedat, size = 8) +
+  xlim(-7, 7) +
+  ylim(-10, 100) +
+  geom_abline(
+    data = m3_simple_effs, 
+    aes(intercept = int, slope = slp, colour = envt, linetype = envt),
+    linewidth = 1.5
+  ) +
+  # geom_point(
+  #   data = m3_simple_effs,
+  #   x = 0,
+  #   aes(y = int),
+  #   size = 5,
+  #   shape = 15
+  # ) +
+  geom_vline(xintercept = 0, linetype = 'dotted') +
+  # labs(
+  #   subtitle = 'original outdoor_time'
+  # ) +
+  theme(
+    legend.position = 'bottom'
+  ) +
+  NULL
+```
+
+
+```{r echo=F, fig.dim = c(10, 5), fig.align = 'center'}
+p_m3_int
+```
+
+
+
+## A visual intuition: `Intercept`
+
+```{r echo=F, fig.dim = c(10, 5), fig.align = 'center'}
+p_m3_int +
+  geom_point(x = 0, 
+             y = coef(m3)[['(Intercept)']], 
+             size = 15, 
+             alpha = 0.002, 
+             colour = 'black')
+```
+
+:::{.dapr2callout}
+`(Intercept)`: When all predictors are zero, the average wellbeing is about –3.
+
+  - `outdoor_time = 0` means when zero hours are spent outdoors.
+  - `envt = 0` means `envt = nature` (the reference level).
+:::
+
+## A visual intuition: `outdoor_time`
+
+```{r echo=F, fig.dim = c(10, 5), fig.align = 'center'}
+p_m3_int +
+  geom_segment(
+    x = 0, xend = 1, 
+    y = coef(m3)[['(Intercept)']], 
+    yend = coef(m3)[['(Intercept)']], 
+    # yend = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']] , 
+    arrow = arrow(length = unit(0.3, "cm")),
+    # linetype = 'dotted',
+    linewidth = 1, colour = '#555', show.legend = FALSE 
+  ) +
+  geom_text(
+    x = 0.4, y = -10, label = '1 hr increase', colour = '#555', size = 6, hjust = 0.5
+  ) +
+  geom_segment(
+    x = 1, xend = 1, 
+    y = coef(m3)[['(Intercept)']], 
+    yend = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']], 
+    arrow = arrow(length = unit(0.3, "cm")), 
+    linewidth = 1.5, colour = 'black', show.legend = FALSE 
+  ) +
+  geom_text(
+    x = 1.2, y = 0, label = '12-ish wellbeing increase', colour = 'black', size = 6, hjust = 0
+  ) +
+  NULL
+  # # old arrow slope version
+  # geom_segment( x = 0, xend = 1, y = coef(m3)[['(Intercept)']], yend = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']] , linewidth = 2, colour = 'black', arrow = arrow(length = unit(0.5, "cm"), ends='both') , show.legend = FALSE )
+```
+
+ 
+:::{.dapr2callout}
+`outdoor_time`: **Only** when `envt = 0 = nature`, spending an additional hour outdoors is associated with an increase in wellbeing of about 12 points.
+:::
+
+## A visual intuition: `envturban`
+
+
+```{r echo=F, fig.dim = c(10, 5), fig.align = 'center'}
+p_m3_int +
+  geom_segment(
+    x = 0, xend = 0, 
+    y = coef(m3)[['(Intercept)']], 
+    yend = coef(m3)[['(Intercept)']] + coef(m3)[['envturban']], 
+    arrow = arrow(length = unit(0.3, "cm")), 
+    linewidth = 1.5, colour = 'black', show.legend = FALSE 
+  ) +
+  geom_text(
+    x = 0.3, y = 6, label = '20-ish wellbeing increase', colour = 'black', size = 6, hjust = 0
+  ) +
+  NULL
+```
+
+:::{.dapr2callout}
+`envturban`: **Only** when `outdoor_time = 0` hours spent outdoors, being in an urban environment is associated with an increase in wellbeing of about 20 points.
+:::
+
+
+
+## A visual intuition: `outdoor_time:envturban`
+
+```{r echo=F, fig.dim = c(10, 5), fig.align = 'center'}
+p_m3_int +
+  geom_segment(
+    x = 0, xend = 1, 
+    y = coef(m3)[['(Intercept)']] + coef(m3)[['envturban']],
+    yend = coef(m3)[['(Intercept)']] + coef(m3)[['envturban']],
+    arrow = arrow(length = unit(0.3, "cm")), 
+    linewidth = 1.5, colour = '#555', show.legend = FALSE 
+  ) +
+  geom_text(
+    x = 0.5, y = 6, label = '1h increase', colour = '#555', size = 6, hjust = 0.5
+  ) +
+  # original slope from nature
+  geom_segment(
+    x = 1,
+    xend = 1,
+    y = coef(m3)[['(Intercept)']] + coef(m3)[['envturban']] ,
+    yend = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']] + coef(m3)[['envturban']],
+    arrow = arrow(length = unit(0.3, "cm")), 
+    linewidth = 1.5, colour = 'black', show.legend = FALSE 
+  ) +
+  geom_text(
+    x = 0.7, y = 32, label = '12-ish wellbeing increase\n(the slope of nature)', colour = 'black', size = 6, hjust = 1
+  ) +
+  # adjustment from interaction
+  geom_segment(
+    x = 1.2,
+    xend = 1.2,
+    y = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']] + coef(m3)[['envturban']],
+    yend = coef(m3)[['(Intercept)']] + coef(m3)[['outdoor_time']] + coef(m3)[['envturban']] + coef(m3)[['outdoor_time:envturban']],
+    arrow = arrow(length = unit(0.3, "cm")), 
+    linewidth = 1.5, colour = dapr2red, show.legend = FALSE 
+  ) +
+  geom_label(
+    x = 1.5, y = 25, label = '10-ish wellbeing decrease\n(the change from\n the interaction)', colour = dapr2red, size = 6, hjust = 0,
+    show.legend = FALSE
+  ) +
+  NULL
+```
+
+:::{.dapr2callout}
+`outdoor_time:envturban`: When we change environment from `natural` to `urban`, the association between `outdoor_time` and `wellbeing` changes by about –10.
+
+To get the slope for `urban`, we add up the slope for `natural` and the interaction coefficient: 12 + (–10) = 2.
+:::
+
+
+# Changing the interpretation by mean-centering
+
+## Changing the interpretation by mean-centering
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Not mean-centered:**
+
+```{r echo=F, fig.align='center', fig.dim = c(7,7)}
+p_m3_int
+```
+
+:::
+::: {.column width="50%"}
+
+```{r include=F}
+m4 <- lm(wellbeing ~ outdoor_time_c + envt + outdoor_time_c:envt, data = outdoors)
+
+outdoors_probedat <- outdoors_probedat |>
+  mutate(
+    outdoor_time_c = scale(outdoor_time, center = TRUE, scale = FALSE)
+  )
+
+plot_m4_probe <- probe_interaction(
+  model = m4,
+  pred = outdoor_time_c,
+  modx = envt,
+  interval = T
+)$interactplot +
+  geom_point(data = outdoors_probedat, size = 8)
+
+
+m4_simple_effs <- tibble(
+  envt = c('nature', 'urban'),
+  modx_group = c('nature', 'urban'),
+  int = c(
+    coef(m4)[['(Intercept)']], 
+    coef(m4)[['(Intercept)']] + coef(m4)[['envturban']]
+    ),
+  slp = c(
+    coef(m4)[['outdoor_time_c']],
+    coef(m4)[['outdoor_time_c']] + coef(m4)[['outdoor_time_c:envturban']]
+    )
+)
+
+plot_m4_probe_intercept <- plot_m4_probe
+plot_m4_probe_intercept$layers[[1]] <- NULL
+
+p_m4_int <- plot_m4_probe_intercept +
+  xlim(-7, 7) +
+    ylim(-10, 100) +
+  geom_abline(
+    data = m4_simple_effs, 
+    aes(intercept = int, slope = slp, colour = envt, linetype = envt),
+    linewidth = 1.5
+  ) +
+  geom_point(
+    data = m4_simple_effs,
+    x = 0,
+    aes(y = int),
+    size = 5,
+    shape = 15
+  ) +
+  geom_vline(xintercept = 0, linetype = 'dotted') +
+  # labs(
+  #   subtitle = 'outdoor_time mean-centered'
+  # ) +
+  theme(
+    legend.position = 'bottom'
+  ) +
+  NULL
+```
+
+**Mean-centered:**
+
+```{r echo=F, fig.align='center', fig.dim = c(7,7)}
+p_m4_int +
+  theme(text = element_text(size= 28))
+```
+
+:::
+::::
+
+<!-- What will each coefficient mean when `outdoor_time` is mean-centered? -->
+
+<!-- NOTE: If time, in future years, add a prediction activity here. -->
+
+## Fit the new model
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time_c}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time_c} \cdot \text{envt}) + \epsilon
+$$
+
+```{r}
+m4 <- lm(wellbeing ~ outdoor_time_c * envt, data = outdoors)
+```
+
+:::{.fragment}
+
+```{r}
+summary(m4)
+```
+
+:::
+
+
+## Interpreting coefs with centering, interactions
+
+```{r echo=F}
+cat(paste0(capture.output(summary(m4)), '\n')[9:14])
+```
+
+
+:::{.dapr2callout .fragment}
+`(Intercept)`: When all predictors are zero, the average wellbeing is about 56.
+
+  -  **`outdoor_time_c = 0` means when the average number of hours are spent outdoors** 
+  - `envt = 0` means `envt = nature` (the reference level).
+:::
+ 
+:::{.dapr2callout .fragment}
+`outdoor_time_c`: **Only** when `envt = 0 = nature`, spending an additional hour outdoors is associated with an increase in wellbeing of about 12 points.
+:::
+
+:::{.dapr2callout .fragment}
+`envturban`: **Only** when `outdoor_time_c = 0`, **which represents the average number of hours spent outdoors,** being in an urban environment is associated with an decrease in wellbeing of about 26 points.
+:::
+
+:::{.dapr2callout .fragment}
+`outdoor_time_c:envturban`: When we change environment from `natural` to `urban`, the **association** between `outdoor_time_c` and `wellbeing` changes by about –10.
+
+- When `envt = natural`, the association is about 12 (the `outdoor_time_c` coef above).
+- When `envt = urban`, the association is about 12 – 10 = 2-ish.
+:::
+
+
+<!-- ## In general: The impact of mean-centering on the slopes in interaction models -->
+
+<!-- <br> -->
+
+<!-- Imagine we have an interaction model `y ~ x1 * x2`. -->
+
+<!-- <br> -->
+
+<!-- We know that the coefficient for `x2` represents "the association between `x2` and `y` when `x1` is equal to zero". -->
+
+<!-- <br> -->
+
+<!-- **If we mean-centre `x1`, then the coefficient for `x2` "the association between `x2` and `y` when `x1` is at its average value".** -->
+
+<!-- This is because in a mean-centered variable, zero represents that variable's average value. -->
+
+<!-- <br> -->
+
+<!-- FIXME in future years: if there's time in the session, could do visual intuitions here again -->
+
+
+## The #1 key to interpreting every linear model ever
+
+<br>
+
+:::{.dapr2callout style="font-size:135%"}
+**For each predictor in your model, know what zero represents.**
+:::
+
+
+## Building an analysis workflow, feat. interactions
+
+![](figs/block3-flowchart-01.svg){height="650" fig-align="center"}
+
+## Building an analysis workflow: A new evolution
+
+![](figs/block3-flowchart-02.svg){height="925" fig-align="center"}
+
+
+# Back matter
+
+## Revisiting this week's learning objectives
+
+<br>
+
+
+::: {.dapr2callout}
+**What does it mean to "mean-centre" a variable?**
+
+- Transform the variable so that its mean is equal to zero.
+- To mean-centre a variable, subtract that variable's mean from every observation.
+
+:::
+
+
+
+::: {.dapr2callout}
+**How does mean-centering a predictor affect how we interpret the model's intercept and other slope coefficients?**
+
+- The key idea: the mean of the predictor is represented by the number zero.
+- So in a model `y ~ x1_c`, the intercept represents the estimated outcome `y` **when the predictor `x1_c` is at its mean of zero.**
+- If a model contains other predictors, e.g., `y ~ x1_c + x2`, then the coefficient for `x2` represents the association between `x2` and `y` when `x1_c` is at its mean of zero.
+:::
+
+
+## Revisiting this week's learning objectives
+
+<br>
+
+
+::: {.dapr2callout}
+**How do we tell a model that an association between a predictor and the outcome _depends_ on another predictor?**
+
+- We include an interaction between those two predictors in the model.
+:::
+
+::: {.dapr2callout}
+**How do interactions change what a model's slope coefficients mean?**
+
+- When a model includes an interaction, the slope coefficients must be interpreted as **conditional effects:** they only apply when the other interacting predictor is 0. (In other words, they are "conditional" on the other predictor being 0.)
+- For example, in a model like `y ~ x1 * x2`, the coefficient for `x1` tells us the association between `x1` and `y`, but only when `x2` is 0.
+- This is because the association between `x1` and `y` depends on `x2`. So the association between `x1` and `y` might be a different number when `x2` is 1, or 2, or ...
+:::
+
+
+
+
+## This week
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Tasks:**
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises**
+
+:::
+::: {.column width="50%"}
+
+**Support:**
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+:::
+::::
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+:::
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+:::
+::::
+
+
+
+# Appendix {.appendix} 
+
+
+## Why multiplication?
+
+<br>
+
+In the basic model without the interaction, the effect of `outdoor_time` on `wellbeing` is just $\beta_1$, a single constant number.
+
+
+$$
+\text{wellbeing} = \beta_0 + (\underbrace{\beta_1}_{\text{effect of}\\ \text{outdoor}\\ \text{time}} \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + \epsilon
+$$
+But if the effect of `outdoor_time` *depends* on `envt`, then the effect isn't just a single constant number.
+It's more like "some number plus some amount of `envt`".
+
+To represent "some amount of `envt`, let's use $\beta_3 \cdot \text{envt}$.
+
+$$
+\text{wellbeing} = \beta_0 + (\underbrace{(\overbrace{\beta_1}^{\text{some}\\ \text{number}} + \overbrace{\beta_3 \cdot \text{envt}}^{\text{some amount}\\ \text{of environment}})}_{\text{effect of outdoor time}} \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + \epsilon
+$$
+
+And if you expand this expression by multiplying both $\beta_1$ and $\beta_3 \cdot \text{envt}$ by $\text{outdoor_time}$, you get the final linear expression we use for this model:
+
+$$
+\text{wellbeing} = \beta_0 + (\beta_1 \cdot \text{outdoor_time}) + (\beta_2 \cdot \text{envt}) + (\beta_3 \cdot \text{outdoor_time} \cdot \text{envt}) + \epsilon
+$$
+
+
+
+## Simple slopes for the no-interaction not-centered model
+
+The linear expression:
+
+$$
+\widehat{wellbeing} = \beta_0 + (\beta_1 \cdot outdoor\_time) + (\beta_2 \cdot envt) \\
+$$
+
+Substituting in the coefficient values:
+
+```{r}
+coef(m1) |> round(1)
+```
+
+
+$$
+\widehat{wellbeing} = 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot envt) \\ 
+$$
+
+When $envt = 0$ (nature):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{nature} &= 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot 0) \\
+\widehat{wellbeing}_{nature} &= 19    + (7.8 \cdot outdoor\_time)      \\
+\end{align}
+$$
+
+When $envt = 1$ (urban):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{urban} &= 19    + (7.8 \cdot outdoor\_time)     + (-26.2 \cdot 1) \\
+\widehat{wellbeing}_{urban} &= 19 - 26.2   + (7.8 \cdot outdoor\_time)      \\
+\widehat{wellbeing}_{urban} &= 9   + (7.8 \cdot outdoor\_time)      \\
+\end{align}
+$$
+
+
+## Simple slopes for the interaction (non-centered) model
+
+:::{style="font-size:80%"}
+```{r}
+coef(m3)
+```
+:::
+
+
+$$
+\begin{align}
+\widehat{wellbeing} &= \beta_0 + (\beta_1 \cdot out) + (\beta_2 \cdot envt) + (\beta_3 \cdot out \cdot envt)\\
+\widehat{wellbeing} &= -3.4    + (12.3 \cdot out)     + (20.3 \cdot envt)    + (-9.6 \cdot out \cdot envt)\\
+\end{align}
+$$
+
+
+When $envt = 0$ (nature):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{nature} &= -3.4    + (12.3 \cdot out)     + (20.3 \cdot envt)    + (-9.6 \cdot out \cdot envt)\\
+\widehat{wellbeing}_{nature} &= -3.4    + (12.3 \cdot out)     + (20.3 \cdot 0)    + (-9.6 \cdot out \cdot 0)\\
+\widehat{wellbeing}_{nature} &= -3.4    + (12.3 \cdot out)\\
+\end{align}
+$$
+
+
+When $envt = 1$ (urban):
+
+$$
+\begin{align}
+\widehat{wellbeing}_{urban} &= -3.4    + (12.3 \cdot out)     + (20.3 \cdot envt)    + (-9.6 \cdot out \cdot envt)\\
+\widehat{wellbeing}_{urban} &= -3.4    + (12.3 \cdot out)     + (20.3 \cdot 1)    + (-9.6 \cdot out \cdot 1)\\
+\widehat{wellbeing}_{urban} &= -3.4 + 20.3   + (12.3 \cdot out) + (-9.6 \cdot out)\\
+\widehat{wellbeing}_{urban} &= 16.9   + (12.3 \cdot out) + (-9.6 \cdot out)\\
+\widehat{wellbeing}_{urban} &= 16.9   + ((12.3 - 9.6) \cdot out) \\
+\widehat{wellbeing}_{urban} &= 16.9   + (2.7 \cdot out)\\
+\end{align}
+$$
+
+
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- style="font-size: 125%;" -->

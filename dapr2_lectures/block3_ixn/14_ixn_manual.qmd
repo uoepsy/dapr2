@@ -1,0 +1,1490 @@
+---
+title: "Manual contrast interactions and multiple comparisons"
+editor_options: 
+  chunk_output_type: console
+format:
+  revealjs:
+    smaller: true
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(emmeans)
+dapr2red <- "#BF1932" 
+
+theme_set(
+  theme_minimal(
+    base_size = 28
+  )
+)
+
+hosp <- read_csv("data/hospital.csv") |>
+  mutate(
+    Treatment = case_when(
+      Treatment == 'TreatA' ~ 'Meds',
+      Treatment == 'TreatB' ~ 'EMDR',
+      Treatment == 'TreatC' ~ 'CBT',
+    ),
+    Treatment = factor(Treatment),
+    Hospital = factor(Hospital),
+  )
+
+# get group means
+mean_Meds_1 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp1')$SWB)
+mean_EMDR_1 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp1')$SWB)
+mean_CBT_1  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp1')$SWB)
+mean_Meds_2 <- mean(filter(hosp, Treatment == 'Meds', Hospital == 'Hosp2')$SWB)
+mean_EMDR_2 <- mean(filter(hosp, Treatment == 'EMDR', Hospital == 'Hosp2')$SWB)
+mean_CBT_2  <- mean(filter(hosp, Treatment == 'CBT',  Hospital == 'Hosp2')$SWB)
+```
+
+
+# Course Overview
+
+<br>
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block1_name = "Introduction to linear Models"
+block1_lecs = c("Intro to linear regression",
+                "Interpreting linear models",
+                "Testing individual predictors",
+                "Model testing & comparison",
+                "Linear model analysis")
+block2_name = "Analysing Experimental Studies"
+block2_lecs = c("Categorical predictors and dummy coding",
+                "Effect coding and manual post-hoc contrasts",
+                "Assumptions and diagnostics",
+                "Bootstrapping and confidence intervals",
+                "Categorical predictors: Practice analysis")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0)
+```
+
+:::
+
+::: {.column width="50%"}
+
+```{r echo = FALSE, results='asis', warning = FALSE}
+block3_name = "Interactions"
+block3_lecs = c("Mean-centering and numeric/categorical interactions",
+                "Numeric/numeric interactions",
+                "Categorical/categorical interactions",
+                "Manual contrast interactions and multiple comparisons",
+                "Interactions: Practice analysis")
+block4_name = "Advanced Topics"
+block4_lecs = c("Power analysis",
+                "Binary logistic regression I",
+                "Binary logistic regression II",
+                "Logistic regression: Practice analysis",
+                "Exam prep and course Q&A")
+
+source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
+
+course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 4)
+```
+
+:::
+
+::::
+
+
+## This week's learning objectives
+
+<br>
+
+::::: {style="font-size: 125%;"}
+
+::: {.dapr2callout}
+How do we test an interaction between two manually-coded post-hoc contrasts?
+:::
+
+::: {.dapr2callout .fragment}
+What's the main danger of running multiple statistical tests on the same data?
+:::
+
+::: {.dapr2callout .fragment}
+What are two common ways that we can correct for running multiple statistical tests on the same data?
+:::
+
+:::::
+
+
+## Where we are in the analysis workflow
+
+![](figs/block3-flowchart-04.svg){height="925" fig-align="center"}
+
+# Interactions between manual post-hoc contrasts
+
+## Today's data
+
+**The subjective wellbeing (`SWB`) of patients at two different hospitals:**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+`Hosp1`:
+<br>
+![](figs/Hosp1.jpg){height="300"}
+:::
+::: {.column width="50%"}
+`Hosp2`:
+<br>
+![](figs/Hosp2.jpg){height="300"}
+:::
+::::
+
+
+**who have undergone one of three different treatments for depression:**
+
+:::: {.columns}
+::: {.column width="33%"}
+Cognitive Behavioural Therapy (`CBT`)
+<br>
+![](figs/CBT.jpg){height="300"}
+:::
+::: {.column width="33%"}
+Eye Movement Desensitisation and Reprocessing therapy (`EMDR`)
+<br>
+![](figs/EMDR.jpg){height="300"}
+:::
+
+::: {.column width="33%"}
+Antidepressant medication <br> (`Meds`):
+<br>
+![](figs/Meds.jpg){height="300"}
+:::
+::::
+
+
+## Visualising the data
+
+
+<br>
+
+:::: {.columns}
+::: {.column width="70%"}
+```{r echo=F, fig.align = 'center', fig.dim = c(12, 7)}
+hosp |>
+  ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = F) +
+  theme(legend.position = 'none') +
+  NULL
+```
+:::
+
+::: {.column width="30%"}
+
+::::{ style="font-size:85%;"}
+```{r}
+hosp |>
+  head(12)
+```
+::::
+
+:::
+
+::::
+
+What we want to know: **Is the difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different in each hospital?**
+
+- We'll manually chunk CBT and EMDR together in a post-hoc contrast, which we'll call `TrtmtType`.
+- We'll also specify a very simple manual post-hoc contrast for `Hospital`.
+- Then we'll make a **post-hoc interaction contrast** to test whether the `Hospital` contrast interacts with the `TrtmtType` contrast.
+
+
+## Set up the model
+
+<br>
+
+We only care about the post-hoc contrasts, so it's fine to fit the model using R's default treatment coding.
+
+<br>
+
+Check on the reference levels:
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+contrasts(hosp$Treatment)
+```
+:::
+::: {.column width="50%"}
+```{r}
+contrasts(hosp$Hospital)
+```
+:::
+::::
+
+<br>
+
+The model in R syntax:
+
+```{r}
+m1 <- lm(SWB ~ Treatment * Hospital, data = hosp)
+```
+
+
+<br>
+
+On your own time, practice writing out the model's linear expression in mathematical terms, and check the appendix for the solution :)
+
+<!-- :::{.dapr2callout style="font-size:120%" .hcenter} -->
+<!-- `wooclap.com`, code `UBEQCF` -->
+<!-- ::: -->
+
+
+## Get estimated marginal means
+
+<br>
+
+```{r}
+m1_emm <- emmeans(m1, ~ Treatment * Hospital)
+m1_emm
+```
+
+```{r eval=F, echo=F, fig.align = 'center', fig.dim = c(14, 6)}
+plot(m1_emm) + 
+  coord_flip() +
+  theme(text = element_text(size=28))
+```
+
+
+
+
+# Defining post-hoc contrasts
+
+## Define post-hoc contrast for `TrtmtType`
+
+:::: {.columns}
+
+::: {.column width="65%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: `Meds`.
+- Chunk 2: `CBT`, `EMDR`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+
+::: {.column width="35%"}
+:::{.hcenter}
+
+:::{.r-stack}
+
+| `Treatment`  | `TrtmtType` |
+| :----------- | ------------: |
+| `CBT`        |               |
+| `EMDR`       |               |
+| `Meds`       |               |
+|||
+
+<!-- ::::{.fragment} -->
+
+<!-- | `Treatment`  | `TrtmtType` | -->
+<!-- | :----------- | ------------: | -->
+<!-- | `CBT`        |          –1/2  | -->
+<!-- | `EMDR`       |          –1/2  | -->
+<!-- | `Meds`       |             1  | -->
+<!-- ||| -->
+
+<!-- :::: -->
+
+
+:::
+
+<br>
+
+:::{.dapr2callout style="font-size:120%" .hcenter}
+`wooclap.com`
+
+code `UBEQCF`
+:::
+
+:::
+:::
+
+::::
+
+## Define post-hoc contrast for `Hospital`
+
+
+:::: {.columns}
+
+::: {.column width="65%"}
+
+:::{.dapr2callout}
+**Step 1:** "Chunk" together the two group(s) that the research question is comparing.
+
+- Chunk 1: `Hosp2`.
+- Chunk 2: `Hosp1`.
+:::
+
+:::{.dapr2callout}
+**Step 2:** Assign a 0 to any group(s) that aren't in one of the chunks from Step 1.
+:::
+
+
+:::{.dapr2callout}
+**Step 3:** Assign a plus sign to every group in Chunk 1, and a minus sign to every group in Chunk 2.
+:::
+
+:::{.dapr2callout}
+**Step 4:** Count the plus signs and minus signs.
+:::
+
+:::{.dapr2callout}
+**Step 5:** To figure out the actual values for each cell, start with 1 and –1.
+Divide 1 by $n_{plus}$, and divide –1 by $n_{minus}$.
+:::
+
+:::{.dapr2callout}
+**Step 6:** In the coding matrix, replace the plus signs with the positive coding value from Step 5, and replace the minus signs with the negative coding value from Step 5. **Done!**
+:::
+
+:::
+
+::: {.column width="35%"}
+:::{.hcenter}
+
+:::{.r-stack}
+
+| `Hospital`  | `Hosp` |
+| :---------- | -----: |
+| `Hosp1`     |        |
+| `Hosp2`     |        |
+|||
+
+
+<!-- ::::{.fragment} -->
+
+<!-- | `Hospital`  | `Hosp` | -->
+<!-- | :---------- | -----: | -->
+<!-- | `Hosp1`     |  –1    | -->
+<!-- | `Hosp2`     |   1    | -->
+<!-- ||| -->
+
+<!-- :::: -->
+
+:::
+
+<br>
+
+:::{.dapr2callout style="font-size:120%" .hcenter}
+`wooclap.com`
+
+code `UBEQCF`
+:::
+
+
+:::
+:::
+
+::::
+
+## Visualising the interaction we'll test
+
+We want to know: Is there a difference between hospitals in how different treatment types (talk therapy vs. pharmaceutical therapy) are associated with SWB?
+
+```{r echo=F, fig.dim = c(14, 8), fig.align = "center"}
+hosp |>
+  mutate(
+    TrtmtType = ifelse(Treatment == 'Meds', 'PharmaTherapy', 'TalkTherapy')
+  ) |>
+  ggplot(aes(x = TrtmtType, y = SWB)) +
+  geom_violin() +
+  geom_jitter(aes(colour = Treatment), alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  NULL
+```
+
+
+# H0/H1 for interactions between manual contrasts
+
+## Step 1: Define means of all combinations of factor levels
+
+When we test differences between groups, we're testing differences between group **means.**
+
+So, we will start by defining the group means for all combinations of factor levels in our data.
+
+
+![](figs/14-groupmeans.png){fig-align="center"}
+<!-- \begin{matrix} -->
+<!--                    &    &           \textbf{Hospital} & \\ -->
+<!--                    &    &           \text{Hosp1} & \text{Hosp2}  \\ -->
+<!--                    &  \text{ CBT}  & \mu_{\text{CBT,Hosp1} }&  \mu_{\text{CBT,Hosp2}}\\ -->
+<!-- \textbf{Treatment} &  \text{ EMDR} & \mu_{\text{EMDR,Hosp1}} & \mu_{\text{EMDR,Hosp2}} \\ -->
+<!--                    &  \text{ Meds} & \mu_{\text{Meds,Hosp1}} & \mu_{\text{Meds,Hosp2}} -->
+<!-- \end{matrix} -->
+
+Next, we'll combine these group means in the way that the manual contrasts specify.
+
+
+## Step 2: "Chunk" some of the means together
+
+Within each hospital, we chunk CBT and EMDR together, because they are both talk therapy.
+
+![](figs/14-groupmeans-chunks.png){fig-align="center"}
+
+<br>
+
+When we chunk two group means together, mathematically we are **taking the mean of those group means.**
+
+
+:::: {.columns}
+::: {.column width="50%"}
+
+To represent the <span style="color:#3173C9;"> <b>mean of the blue chunk</b> </span> (top left):
+
+$$
+\frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2}
+$$
+:::
+::: {.column width="50%"}
+
+To represent the <span style="color:#51B375;"> <b>mean of the green chunk</b> </span> (top right):
+
+$$
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2}
+$$
+:::
+::::
+
+
+## Step 3: Set up H0 as differences between chunk means, based on RQ
+
+**RQ:** Is the difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) different in each hospital?
+
+<br>
+
+**Null hypothesis in words:** The difference in SWB between talk therapy (both `CBT` and `EMDR`) and pharmaceutical therapy (`Meds`) is the same in each hospital.
+<br>
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%" .fragment}
+**In words arranged like the math:**
+
+- (the mean SWB of CBT and EMDR in Hosp1) 
+- minus
+- (the mean SWB of Meds in Hosp1) 
+- equals 
+- (the mean SWB of CBT and EMDR in Hosp2) 
+- minus
+- (the mean SWB of Meds in Hosp2) 
+
+
+:::
+::: {.column width="50%" .fragment}
+
+**In math arranged like the words:**
+
+- $\frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2}$
+- –
+- $\mu_{\text{Meds,Hosp1}}$
+- = 
+- $\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2}$
+- –
+- $\mu_{\text{Meds,Hosp2}}$
+
+:::
+::::
+
+
+## Formal H0 and H1 for interactions between manual contrasts
+
+**Version 1: Differences are the same (H0) or not the same (H1):**
+
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+
+
+<br>
+
+:::{.fragment}
+
+**Version 2, also fine: Difference between differences is zero (H0) or not zero (H1):**
+
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+
+\end{align}
+
+:::
+
+<br>
+<br>
+<br>
+
+(LaTeX code in appendix)
+
+
+# Post-hoc contrasts in R
+
+## Post-hoc contrasts in R
+
+<br>
+
+
+:::: {.columns}
+::: {.column width="50%"}
+::::{.hcenter}
+
+| `Treatment`  | `TrtmtType` |
+| :----------- | ------------: |
+| `CBT`        |         –1/2  |
+| `EMDR`       |         –1/2  |
+| `Meds`       |            1  |
+|||
+
+::::
+:::
+
+::: {.column width="50%"}
+::::{.hcenter}
+
+| `Hospital`  | `Hosp` |
+| :---------- | -----: |
+| `Hosp1`     |  –1    |
+| `Hosp2`     |   1    |
+|||
+
+::::
+:::
+::::
+
+<br>
+
+```{r}
+TrtmtType_contr <- c(
+  'CBT'  = -1/2,
+  'EMDR' = -1/2,
+  'Meds' =    1
+)
+
+Hosp_contr <- c(
+  'Hosp1' = -1,
+  'Hosp2' =  1
+)
+```
+
+
+
+## The interaction's contrast is the product of the two interacting contrasts
+
+<br>
+
+In other words: To get the interaction's contrast, we multiply together the two contrasts for the interacting predictors.
+
+<br>
+
+:::{.r-stack}
+
+| Treatment | Hospital | TrtmtType | Hosp | TrtmtType:Hosp |
+| --------- | -------- | ----------: | ---: | ---------------: |
+| CBT       | Hosp1    | –0.5       | –1    |                  |
+| EMDR      | Hosp1    | –0.5       | –1    |                  |
+| Meds      | Hosp1    | 1          | –1    |                  |
+| CBT       | Hosp2    | –0.5       | 1     |                  |
+| EMDR      | Hosp2    | –0.5       | 1     |                  |
+| Meds      | Hosp2    | 1          | 1     |                  |
+
+<!-- ::::{.fragment} -->
+
+<!-- | Treatment | Hospital | TrtmtType | Hosp | TrtmtType:Hosp | -->
+<!-- | --------- | -------- | ----------: | ---: | ---------------: | -->
+<!-- | CBT       | Hosp1    | 0.5         | 1    | 0.5              | -->
+<!-- | EMDR      | Hosp1    | 0.5         | 1    | 0.5              | -->
+<!-- | Meds      | Hosp1    | –1          | 1    | –1               | -->
+<!-- | CBT       | Hosp2    | 0.5         | –1   | –0.5             | -->
+<!-- | EMDR      | Hosp2    | 0.5         | –1   | –0.5             | -->
+<!-- | Meds      | Hosp2    | –1          | –1   | 1                | -->
+
+<!-- :::: -->
+
+:::
+
+<br>
+
+:::{.dapr2callout style="font-size:120%" .hcenter}
+`wooclap.com`, code `UBEQCF`
+:::
+
+
+## Put the interaction's contrast into R, two ways
+
+**(1) The fancy way:**
+
+Here are the two individual manual contrasts we defined a couple slides ago:
+
+:::: {.columns}
+::: {.column width="50%"}
+```{r}
+TrtmtType_contr
+```
+
+:::
+::: {.column width="50%"}
+
+```{r}
+Hosp_contr
+```
+
+:::
+::::
+
+:::{.fragment}
+
+Multiply them together using `outer()`.
+Write `TrtmtType` first because we told emmeans &nbsp; `~ Treatment * Hospital`, with `Treatment` first.
+
+```{r}
+outer(TrtmtType_contr, Hosp_contr)
+```
+
+:::
+
+:::{.fragment}
+Flatten this table using `as.vector()`:
+
+```{r}
+as.vector( outer(TrtmtType_contr, Hosp_contr) )
+```
+
+:::
+
+<br>
+
+:::{.fragment}
+
+Name the contrast, wrap it in a list, and assign that list to a variable called `interaction_contr`:
+
+```{r}
+interaction_contr <- list(
+  'TrtmtType:Hospital' = as.vector(outer(TrtmtType_contr, Hosp_contr))
+)
+```
+
+:::
+
+## Put the interaction's contrast into R, two ways
+
+**(2) The manual way:**
+
+Check the order of items that emmeans uses:
+
+```{r}
+m1_emm
+```
+
+<br>
+
+Figure out the correct coding values manually (as we did a few slides ago).
+
+Make sure to match emmeans' order and type up the contrast coding by hand:
+
+```{r}
+interaction_contr <- list( "TrtmtType:Hospital" =
+    c(
+        0.5,    # CBT  Hosp1 
+        0.5,    # EMDR Hosp1
+         -1,    # Meds Hosp1
+       -0.5,    # CBT  Hosp2
+       -0.5,    # EMDR Hosp2
+          1     # Meds Hosp2
+    )
+)
+```
+
+
+## Test the interaction contrast
+
+When we test the contrast using `contrast()`, we are testing the H0 that the estimate is equal to zero.
+For this interaction, the H0 says there's no difference between `Hospital` in how `TrtmtType` is associated with `SWB`.
+
+```{r}
+(m1_ixn_test <- contrast(m1_emm, interaction_contr))
+```
+
+<br>
+
+:::{.fragment}
+
+Get the associated 95% CIs using `confint()`:
+
+```{r}
+(m1_ixn_confint <- confint(m1_ixn_test))
+```
+:::
+
+<br>
+
+:::{.fragment}
+The null hypothesis:
+
+- **There's no difference between hospitals in how different treatment types (talk therapy vs. pharmaceutical therapy) are associated with SWB.**
+- In other words, if the null hypothesis were true, the data for both hospitals would pattern the same.
+
+:::{.dapr2callout .hcenter}
+
+Can we reject the null hypothesis?
+
+![](figs/codicon--thumbsup-filled.svg){width=40}
+![](figs/codicon--thumbsdown-filled.svg){width=40}
+
+:::
+
+:::
+
+## Where does this estimate of –3.73 come from?
+
+
+It's the result of multiplying each group mean (column **mean_SWB**) by the corresponding value from the interaction's contrast (column **TrtmtType:Hospital**), shown in the column **product**, and then adding all those numbers together.
+
+```{r echo=F}
+(hosp_manual <- hosp |>
+  group_by(Treatment, Hospital) |>
+  summarise(mean_SWB = mean(SWB)) |>
+  arrange(Hospital) |>
+  ungroup() |>
+  mutate(
+    `TrtmtType:Hospital` = c(0.5, 0.5, -1, -0.5, -0.5, 1),
+    product  = mean_SWB * `TrtmtType:Hospital`
+  )) |>
+  kableExtra::kable(digits = 2)
+```
+
+<br>
+
+```{r}
+sum(hosp_manual$product) |> round(2)
+```
+
+<br>
+
+:::{.fragment}
+
+Can we give this number a more intuitive explanation?
+
+Not really tbh :(
+Interaction coefficients are adjustments to other effects, not effects themselves.
+**But we don't have any other coefficients to relate this adjustment to, so we can't compute simple slopes or anything.** And it's not very useful to interpret this single number on its own.
+
+**The reason manual interactions are useful is essentially just the significance test.**
+
+:::
+
+
+## Extending the analysis workflow
+
+![](figs/block3-flowchart-05.svg){height="925" fig-align="center"}
+
+
+
+# Testing simple effects
+
+## <img style="vertical-align: text-bottom; width: 1.5em;" src="figs/icon-park-twotone--brain.svg">  Retrieval practice: Testing simple effects
+
+<br>
+
+- What's a simple effect?
+- If I ask for simple effects of `Hospital` at each level of `Treatment`, what am I looking for?
+- What's the difference between simple effects and simple slopes?
+- What does it mean to *test* a simple effect?
+
+
+## Testing simple effects with `pairs()`
+
+<br>
+
+We've seen the math of how to compute simple effects by hand.
+
+But that only gives us the value of the effect, not a test of whether that value is significantly different from zero.
+
+<br>
+
+When we had continuous predictors, we could test simple slopes using `probe_interactions()`.
+
+Now that we have categorical predictors, we can test simple effects by giving the `pairs()` function the model's emmeans object and specifing the `simple=` argument.
+
+<br>
+
+For example, to get the simple effects of `Hospital` at each level of `Treatment`:
+
+```{r eval=F}
+pairs(m1_emm, simple = "Hospital")
+```
+
+
+## Simple effects of `Hospital` at each level of `Treatment`
+
+
+:::: {.columns}
+::: {.column width="60%"}
+
+```{r}
+pairs(m1_emm, simple = "Hospital")
+```
+:::
+::: {.column width="40%"}
+
+```{r echo=F, fig.align = "center", fig.dim = c(7, 7)}
+interactions::cat_plot(
+  m1,
+  pred = Hospital,
+  modx = Treatment,
+) +
+  theme(
+    text = element_text(size = 28),
+    legend.position = 'bottom'
+  )
+```
+
+:::
+::::
+
+Note on the positive/negative signs:
+
+- `pairs()` computes `Hosp1 – Hosp2` because of how factor levels in the factor `Hospital` are ordered.
+- To compute `Hosp2 – Hosp1` instead, we would have to code `Hosp2` as the reference level of `Hospital` before fitting the model.
+
+
+
+
+## Simple effects of `Treatment` for each level of `Hospital`
+:::: {.columns}
+::: {.column width="60%"}
+
+```{r}
+pairs(m1_emm, simple = "Treatment")
+```
+:::
+::: {.column width="40%"}
+
+```{r echo=F, fig.align = "center", fig.dim = c(7, 7)}
+interactions::cat_plot(
+  m1,
+  pred = Treatment,
+  modx = Hospital,
+) +
+  theme(
+    text = element_text(size = 28),
+    legend.position = 'bottom'
+  )
+```
+
+:::
+::::
+<br>
+
+What's this "P value adjustment: tukey method" thing? We'll find out soon, but first ...
+
+
+## Visualising cat/cat interactions
+
+:::: {.columns}
+::: {.column width="50%"}
+**Using `cat_plot()`:**
+
+```{r echo=T, eval=F}
+interactions::cat_plot(
+  m1,
+  pred = Hospital,
+  modx = Treatment,
+  geom = 'line'
+)
+```
+
+```{r echo=F, fig.align = "center", fig.dim = c(8, 6)}
+interactions::cat_plot(
+  m1,
+  pred = Hospital,
+  modx = Treatment,
+  geom = 'line'
+) +
+  theme(text = element_text(size = 32))
+```
+:::
+
+::: {.column width="50%"}
+**Using `emmip()` (estimated marginal means interaction plot):**
+
+```{r echo=T, eval=F}
+emmip(
+  m1_emm, 
+  Treatment ~ Hospital, 
+  CIs = TRUE
+)
+```
+
+```{r echo=F, fig.align = "center", fig.dim = c(8, 6)}
+emmip(
+  m1_emm, 
+  Treatment ~ Hospital, 
+  CIs = TRUE
+) +
+  theme(text = element_text(size = 32))
+```
+
+:::
+::::
+
+
+
+# The multiple comparisons problem
+
+## Let's roll some dice
+
+On a twenty-sided die (a d20), the probability of rolling a 1 (or any other individual number) is 1/20 = 5%.
+
+But if we roll the d20 over and over again, the probability that we'll roll a 1 **at least once** goes up and up and up.
+
+:::: {.columns}
+::: {.column width="30%"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+:::
+
+::: {.column width="20%"}
+$.05$
+:::
+
+::: {.column width="50%"}
+$= 1 – 0.95$
+:::
+::::
+
+
+
+:::: {.columns}
+::: {.column width="30%"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+:::
+::: {.column width="20%"}
+$.0975$
+:::
+::: {.column width="50%"}
+$= 1 – (0.95 \times 0.95)$
+:::
+
+::::
+
+:::: {.columns}
+::: {.column width="30%"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+![](figs/arcticons--rpg-simple-dice.svg){width="80"}
+
+:::
+::: {.column width="20%"}
+$.1426$
+:::
+::: {.column width="50%"}
+$= 1 – (0.95 \times 0.95 \times 0.95) = 1 - 0.95^3$
+:::
+
+::::
+
+:::{.dapr2callout .fragment}
+
+In general:
+
+$$
+P(\text{rolling a 1 in m rolls}) = 1 - (1 - 0.05)^m
+$$
+
+:::
+
+:::{.dapr2callout .fragment .hcenter}
+**What's the probability that we'll roll a 1 at least once in twenty rolls?**
+
+`wooclap.com`,  code `UBEQCF`
+
+:::
+
+
+
+
+## From dice to statistical tests
+
+<br>
+
+**Why did we spend time rolling those dice?**
+
+
+- When $\alpha = .05$,
+  - we accept the risk that 5% of the time, we'll reject the H0 when actually we shouldn't.
+  - (aka that we'll get a false positive result)
+  - (aka that we'll make a Type I error)
+- **A d20 rolling a 1 happens with the same probability as us rejecting the H0 when actually we shouldn't: one time in twenty.**
+- We saw that the probability of rolling a 1 at least once increases, the more dice you roll.
+**It's also true that the probability of rejecting the H0 when actually we shouldn't will increase, the more statistical tests we run.**
+- So if we run 20 statistical tests, say, then even though we only want to incorrectly reject the H0 one time out of twenty (5% of the time), we would actually reject it with much higher probability.
+- The actual level of risk becomes higher than the level of risk that we wanted.
+
+
+
+## relevant XKCD (<https://xkcd.com/882/>)
+
+![](figs/xkcd-significant-1.png)
+
+---
+
+![](figs/xkcd-significant-2.png)
+
+---
+
+![](figs/xkcd-significant-3.png)
+
+---
+
+![](figs/xkcd-significant-4.png)
+
+
+
+
+## The more tests you run, the more likely you are to see something unlikely just due to chance
+
+<br>
+
+With $\alpha = 0.05$, we accept the risk that, we will incorrectly reject the null hypothesis 5% of the time.
+
+And if we accept that positive result and ignore all the negative results (green jelly bean style), then we run into **the multiple comparisons problem: we are more than 5% likely to see at least one false positive, the more tests (aka, the more comparisons) we run.**
+  
+<br>
+
+
+How much more likely?
+
+Depends on the number of tests.
+
+$$
+\begin{align}
+P(\text{incorrectly reject H0}) &= \alpha \\
+P(\text{correctly reject H0}) &= 1 - \alpha \\
+P(\text{correctly reject H0 in} ~m~ \text{tests}) &= (1 - \alpha)^m \\
+P(\text{incorrectly reject H0 in} ~m~ \text{tests}) &= 1 - (1 - \alpha)^m \\
+\end{align}
+$$
+
+
+
+## How likely are we to incorrectly reject H0?
+
+<br>
+
+For the green jelly beans scenario:
+
+$$
+\begin{align}
+P(\text{incorrectly reject H0 in 20 tests}) &= 1 - (1 - 0.05)^{20} \\
+ &= 1 - (0.95)^{20} \\
+ &= 1 - 0.36 \\
+ &= 0.64 \\
+\end{align}
+$$
+
+We accepted the risk of incorrectly rejecting the null hypothesis 5% of the time.
+But if we run 20 tests and accept any positive result, we will risk incorrectly rejecting H0 64% of the time!
+
+<br>
+
+**How do we fix it?**
+
+Lower the $\alpha$ level (aka our accepted level of risk, aka the false positive rate, aka the Type I error rate) to compensate for the increased probability of incorrectly rejecting H0.
+ 
+
+
+
+
+## Common corrections
+
+<br>
+
+- Tukey
+- Bonferroni
+- Šídák
+- Scheffe
+- Holm's step-down
+- Hochberg's step-up
+- ...
+
+<br>
+
+**You only need to know about Tukey and Bonferroni, the two most common.**
+
+<br>
+
+We'll start with Bonferroni, because it's simplest.
+
+
+## The Bonferroni correction
+
+<br>
+
+The goal is to lower the $\alpha$ level of our tests so that it matches our desired level of risk.
+
+The Bonferroni correction takes our original $\alpha$ level and divides it by the number of tests:
+
+$$
+\alpha_{\text{Bonferroni}} = \frac{\alpha}{\text{number of tests}}
+$$
+
+<br>
+
+**For the jelly bean scenario, with 20 tests:**
+
+```{r}
+0.05 / 20
+```
+
+
+<br>
+
+**For our simple effects of `Treatment` by `Hospital`, with three tests:**
+
+```{r}
+0.05 / 3
+```
+
+
+
+## Bonferroni in action
+
+<br>
+
+```{r}
+pairs(m1_emm, simple = 'Treatment', adjust = "bonferroni")
+```
+
+
+
+
+## Tukey's Honest Significant Differences (HSD)
+
+<br>
+
+**Think back to independent-samples t-tests in DAPR1:**
+
+- This kind of t-test compares whether two group means are significantly different from one another.
+- The difference between group means is represented as a **t-statistic.**
+- The t-statistic is compared to a critical value from the **t-distribution** to decide whether the difference is significant.
+
+**At heart, Tukey's HSD is very similar!**
+
+- Tukey's HSD compares the means of the members of one pair in a pairwise comparison.
+- The difference between group means is represented as a **q-statistic.**
+- The q-statistic is compared to a critical value from the **studentised range distribution** to decide whether the difference is significant.
+
+<br>
+
+**You do not need to know how to calculate this adjustment by hand!**
+
+If you *want* to know, here's [a YouTube video that walks through the calculation](https://www.youtube.com/watch?v=EBGnAJHs3G4&t=218s){target="_blank"}.
+(The main action is between 3:41–7:42.)
+
+## Tukey in action
+
+<br>
+
+```{r}
+pairs(m1_emm, simple = 'Treatment', adjust = "tukey")
+```
+
+
+## When to choose Bonferroni vs. Tukey
+
+<br>
+
+**When to choose Bonferroni:**
+
+- When you're interested in a small number of comparisons.
+- When you've got a set of p-values that come from the same data, regardless of what kind of test generated them.
+
+<br>
+
+**When to choose Tukey:**
+
+- When you want to compare the means of levels of a categorical predictor.
+- When you're interested in many/all pairwise comparisons between groups.
+
+<br>
+
+Check the [flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#multiple-comparisons){target="_blank"} for more details.
+
+
+## Analysis workflow: The final form!
+
+![](figs/block3-flowchart-06.svg){height="925" fig-align="center"}
+
+
+# Back matter
+
+## Revisiting this week's learning objectives
+
+::: {.dapr2callout}
+**How do we test an interaction between two manually-coded post-hoc contrasts?**
+
+- Manually code the interaction between them, using the same procedure that we saw for treatment-coded predictors last week: 
+  - get all combinations of levels, and
+  - multiply each pair of coding values together.
+  - The result is the contrast coding of the interaction.
+- Test that contrast using our `emmeans()` toolkit.
+:::
+
+::: {.dapr2callout}
+**What's the main danger of running multiple statistical tests on the same data?**
+
+- We'll end up rejecting the H0 at least once in all those tests with a probability much higher than our desired $\alpha$ level.
+- This phenomenon is called the "multiple comparisons problem".
+- The solution: Make the $\alpha$ level smaller, to compensate for this increased likelihood of rejecting the H0.
+:::
+
+::: {.dapr2callout}
+**What are two common ways that we can correct for running multiple statistical tests on the same data?**
+
+- Bonferroni correction (a global adjustment to all $\alpha$s).
+- Tukey's HSD (an adjustment to each comparison's $\alpha$ based on how different the two group means being compared are).
+:::
+
+## This week
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Tasks:**
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/labs.svg')
+```
+
+**Attend your lab and work together on the exercises**
+
+:::
+::: {.column width="50%"}
+
+**Support:**
+
+<br>
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/forum.svg')
+```
+
+**Help each other on the Piazza forum**
+
+:::
+::::
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/exam.svg')
+```
+
+**Complete the weekly quiz**
+
+:::
+::: {.column width="50%"}
+
+```{r, echo = F, out.width='15%'}
+knitr::include_graphics('figs/oh.png')
+```
+
+**Attend office hours (see Learn page for details)**
+
+:::
+::::
+
+
+
+# Appendix {.appendix} 
+
+## Code for data plot
+
+```{r fig.align = 'center', fig.dim = c(12, 8)}
+hosp |>
+  ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = F) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+
+## Code for visualising manual chunks
+
+```{r fig.dim = c(14, 8), fig.align = "center"}
+hosp |>
+  mutate(
+    TrtmtType = ifelse(Treatment == 'Meds', 'PharmaTherapy', 'TalkTherapy')
+  ) |>
+  ggplot(aes(x = TrtmtType, y = SWB)) +
+  geom_violin() +
+  geom_jitter(aes(colour = Treatment), alpha = 0.5, size = 5) +
+  facet_wrap(~ Hospital) +
+  NULL
+```
+
+
+## H0 and H1 LaTeX code
+
+
+**Version 1: Differences are the same (H0) or not the same (H1):**
+
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+
+```
+$$
+\begin{align}
+H_0 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} = 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \\
+
+H_1 &: \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \neq 
+\frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} 
+\end{align}
+$$
+```
+
+<br>
+
+**Version 2, also fine: Difference between differences is zero (H0) or not zero (H1):**
+
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+\end{align}
+
+
+```
+$$
+\begin{align}
+H_0 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) = 0 \\
+
+H_1 &: \Big( \frac{ \mu_{\text{CBT,Hosp1}} + \mu_{\text{EMDR,Hosp1}} }{2} - \mu_{\text{Meds,Hosp1}} \Big) - 
+\Big( \frac{ \mu_{\text{CBT,Hosp2}} + \mu_{\text{EMDR,Hosp2}} }{2} - \mu_{\text{Meds,Hosp2}} \Big) \neq 0 \\
+\end{align}
+$$
+```
+
+
+
+
+## Linear expression for model
+
+<br>
+
+$$
+\begin{align}
+\text{SWB} ~=~& \beta_0 +
+(\beta_1 \cdot \text{Treatment}_{\text{EMDR}}) +
+(\beta_2 \cdot \text{Treatment}_{\text{Meds}}) +
+(\beta_3 \cdot \text{Hospital}) ~ + \\
+& (\beta_4 \cdot \text{Treatment}_{\text{EMDR}} \cdot \text{Hospital}) +
+(\beta_5 \cdot \text{Treatment}_{\text{Meds}} \cdot \text{Hospital}) +
+\epsilon
+\end{align}
+$$
+<br>
+
+## Are we adjusting $\alpha$ or p?
+
+If we compare `pairs()` with no correction and with the Bonferroni correction, it's only the p-values that change.
+
+:::: {.columns}
+::: {.column width="50%" style="font-size:85%"}
+```{r}
+pairs(m1_emm, simple = 'Treatment', adjust = "none")
+```
+:::
+::: {.column width="50%" style="font-size:90%"}
+```{r}
+pairs(m1_emm, simple = 'Treatment', adjust = "bonferroni")
+```
+:::
+::::
+
+So technically, `pairs()` adjusts p, not $\alpha$.
+But whichever one is adjusted, the results are equivalent!
+
+**Adjusting $\alpha$ by dividing by 3 is the same as adjusting p by multiplying by 3** (and if the value ends up above 1, setting it equal to 1).
+
+For example, the unadjusted p-value in `Hosp1` for `CBT - Meds`, 0.1847, multiplied by 3 (the number of tests), is the Bonferroni-adjusted p-value, 0.5541.
+
+```{r}
+0.1847 * 3
+```
+
+
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%"} -->
+<!-- a -->
+<!-- ::: -->
+<!-- ::: {.column width="50%"} -->
+<!-- b -->
+<!-- ::: -->
+<!-- :::: -->
