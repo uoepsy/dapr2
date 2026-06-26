@@ -1,0 +1,953 @@
+---
+title: "10: Practice write-up"
+params: 
+    SHOW_SOLS: TRUE
+    # TOGGLE: TRUE
+    TOGGLE: FALSE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(kableExtra)
+library(patchwork)
+library(car)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week (and every fifth week this year), you'll practice writing up the analysis that was developed live during lectures.
+
+Your goal is to present your analysis in a journal-article-style Results section that a reader could reproduce in any statistical software, not just R.
+
+Quick links to key flash cards:
+
+- [Analysis workflow (Block 2)](TODO){target="_blank"}
+- [Write-up checklist](TODO){target="_blank"}
+
+:::{.callout-important}
+
+The example write-ups that will be provided **are not perfect.**
+
+You must not copy them directly for this write-up or any future assessment, as copying and presenting them as your own work would constitute academic misconduct.
+But you may refer to them for stylistic guidance.
+
+:::
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab05.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `psych`
+    - `sjPlot`
+    - `kableExtra`
+    - `patchwork`
+    - `car`
+   
+:::
+
+---
+
+:::frame
+
+The data in `DapR2_S1B2_PracticalPart1.csv` contain six attributes collected from a simulated sample of $n=397$ hypothetical individuals, and includes: 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data1 <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+tibble(
+Variable = names(data1),
+Description = c("Participant ID number", "Total attendance (in days)", "Conscientiousness (Levels: Low, Moderate, High)", "Time of Class (Levels: 9AM, 10AM, 11AM, 12PM, 1PM, 2PM, 3PM, 4PM)", "Frequency of access to online course materials (Levels: Rarely, Sometimes, Often)", "Year of Study in University (Y1, Y2, Y3, Y4, MsC, PhD)")
+) %>% gt::gt()
+```
+ 
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+The data used for this write-up exercise are simulated, drawing on a meta-analysis that explored the association between student characteristics and grades. The simulated data are loosely based on the findings of this work, and acted to expand upon the methods and results reported in the paper:
+
+Credé, M., Roch, S. G., & Kieszczynka, U. M. (2010). Class attendance in college: A meta-analytic review of the relationship of class attendance with grades and student characteristics. *Review of Educational Research, 80*(2), 272-295. [https://doi.org/10.3102/0034654310362998](https://doi.org/10.3102/0034654310362998)
+
+The current study was split into two parts. In the first, researchers were interested in further exploring possible predictors of attendance in university courses. They collected information from 397 students across all years of study (i.e., UG (Y1 - Y4), MSc, and PhD), and recorded their class attendance across the academic year, their level of Conscientiousness (categorized as Low, Moderate, or High), the frequency of which they accessed online course materials (categorized as Rarely, Sometimes, or Often), and the timing of class (categorized as 9AM, 10AM, 11AM, 12PM 1PM, 2PM, 3PM, 4PM). In the second, researchers collected data from 200 students, and recorded their class attendance across the academic year and their final course grade. 
+
+:::
+
+:::
+
+:::frame
+
+RQ: Do people with greater conscientiousness and more advanced years of study attend their university courses more?
+
+:::
+
+:::{.callout-tip collapse='true'}
+### Provided analysis code
+
+This code should resemble the analysis developed during lectures this week.
+
+```{r eval=F}
+# Categorical predictors: Practice analysis
+# Follows workflow here: dapr2/2627/dapr2_flashcards/resources/workflow-b2.html
+
+# Phase 1: Before model fitting ---- 
+
+## 1a: Set up code and data ---- 
+
+# Load the required R packages
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(kableExtra)
+library(patchwork)
+library(car)
+
+# Read in data
+attend_df <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+
+# rename Conscientiousness because it's a lot to type
+attend_df <- attend_df |>
+  rename(Consc = Conscientiousness)
+
+# **Tidy data** (e.g., any missingness, any implausible values? are data types set correctly?).
+summary(attend_df)  # no NAs, no wacky values
+glimpse(attend_df)  # lets us see example values for categorical preds, looks OK
+
+
+## 1b: Set up the variables you'll model ----
+
+# Based on the RQ, decide whether you'll test your hypotheses using coefficient significance tests or model comparison.
+# - RQ: Do people with greater conscientiousness and more advanced years of study attend university courses more?
+# - This question is about associations between predictors and outcomes, so we can test it using coef significance tests.
+
+# Based on the RQ, identify your outcome variable and the predictors.
+# - Outcome: `Attendance`
+# - Predictors: `Consc` and `Year`
+
+# Set up categorical predictors (e.g., factor levels? which contrast coding scheme?)
+
+# - First, `Consc` has three levels: `Low`, `Moderate`, and `High`.
+# - This is not their alphabetical order, so let's specify this order using `mutate()`.
+attend_df <- attend_df |>
+  mutate(
+    Consc = factor(Consc, levels = c('Low', 'Moderate', 'High'))
+  )
+
+# - We are interested in comparing people with higher conscientiousness to people with lower conscientiousness, so treatment coding is fine.
+# - How will `Consc` be coded?
+contrasts(attend_df$Consc)
+# - Reference level = `Low`, and two dummy variables which compare `Low` to `Moderate` and `Low` to `High`.
+
+# - Next, `Year` has many levels: Y1, Y2, Y3, Y4, MSc, and PhD.
+# - This is also not alphabetical, so we'll specify manually.
+attend_df <- attend_df |>
+  mutate(
+    Year = factor(Year, c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+  )
+contrasts(attend_df$Year)
+# - `Y1` is the ref level, and we have five dummy variables which compare Y1 to each following year.
+
+# Set up continuous predictors –  NA.
+
+# Explore patterns in the data by plotting outcome and predictor variables together
+# - Consc:
+#   boxplots are fine for a quick look, but not as good because it doesn't show the data itself
+attend_df |>
+  ggplot(aes(x = Consc, y = Attendance)) +
+  geom_boxplot()
+
+#    violin plots are better for a report
+p_consc <- attend_df |>
+  ggplot(aes(x = Consc, y = Attendance, fill = Consc, colour = Consc)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+p_consc
+
+# - Year:
+#   boxplot (quick and dirty)
+attend_df |>
+  ggplot(aes(x = Year, y = Attendance)) +
+  geom_boxplot()
+#   violin plot (nicer)
+p_year <- attend_df |>
+  ggplot(aes(x = Year, y = Attendance, fill = Year, colour = Year)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none')
+p_year
+
+# - Patchwork violin plots together:
+p_consc + p_year
+
+
+# Make a nice descriptives table of all relevant variables for the write-up
+attend_df |>
+  group_by(Year, Consc) |>
+  summarise(
+    n = n(), 
+    Mean = mean(Attendance), 
+    SD = sd(Attendance),
+    Minimum = min(Attendance),
+    Maximum = max(Attendance)
+  ) |>
+  kable(
+    caption = "Descriptive statistics about attendance by year of study and level of conscientiousness", 
+    digits = 2
+  ) |>
+  kable_styling()   
+
+
+# Phase 2: Model fitting ----
+
+# Write the mathematical model formulation for your model(s)
+# - Refer back to contrast matrices to know what the dummy variables will be.
+#   $$
+#     \text{Attendance} = \beta_0 + 
+#     (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
+#     (\beta_2 \cdot \text{Consc}_\text{High}) +  \\
+#     (\beta_3 \cdot \text{Year}_\text{Y2}) + 
+#     (\beta_4 \cdot \text{Year}_\text{Y3}) + 
+#     (\beta_5 \cdot \text{Year}_\text{Y4}) + 
+#     (\beta_6 \cdot \text{Year}_\text{MSc}) + 
+#     (\beta_7 \cdot \text{Year}_\text{PhD}) + 
+#     \epsilon
+#   $$
+
+# - A nicely aligned version:
+#   $$
+#   \begin{align}
+#   \text{Attendance } =& \beta_0 + 
+#     (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
+#     (\beta_2 \cdot \text{Consc}_\text{High}) ~ + \\
+#   & (\beta_3 \cdot \text{Year}_\text{Y2}) + 
+#     (\beta_4 \cdot \text{Year}_\text{Y3}) + 
+#     (\beta_5 \cdot \text{Year}_\text{Y4}) + \\
+#   & (\beta_6 \cdot \text{Year}_\text{MSc}) + 
+#     (\beta_7 \cdot \text{Year}_\text{PhD}) + 
+#     \epsilon \\
+#   \end{align}
+#   $$
+
+# - NOTE: Incorrect model formula (because disregards dummy variables):
+#   $$
+#  \text{Attendance} = \beta_0 + 
+#  (\beta_1 \cdot \text{Consc}) + 
+#  (\beta_2 \cdot \text{Year}) + 
+#  \epsilon
+#$$
+  
+  
+# Explicitly define the hypotheses that your RQ is aiming to test.
+# - We want to know whether there are significant associations between any dummy variable and Attendance, so:
+#   $$
+#   \begin{align}
+#   H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2, 3, 4, 5, 6, 7\\
+#   H_1 &: \text{ Any } \beta_j \neq 0\\
+#   \end{align}
+#   $$
+
+# Fit your model(s) using `lm()`.
+attend_mdl <- lm(
+  Attendance ~ Consc + Year,
+  data = attend_df
+)
+attend_mdl
+
+
+# Phase 3: After model fitting ----
+
+## 3a: Check assumptions and diagnostics ----
+
+# Check model assumptions:
+# - Linearity of association -- assume it's met bc all preds are categorical
+# - Independence of errors -- assume it's met bc we have one obs per ppt (pid column)
+# - Normality of errors
+plot(attend_mdl, which = 2)  # good match to diagonal
+# - Equal variance of errors
+plot(attend_mdl, which = 1)  # vertical spread varies a little. judgement call. I say fine.
+# - overall: looks fine!
+  
+# Run diagnostics for multicollinearity.
+vif(attend_mdl)
+# - GVIF (categorical version) close to 1, so we're good!
+
+# Run diagnostics for influential observations.
+plot(attend_mdl, which = 4)
+# - There are a few data points with relatively larger Cook's Distance values.
+
+# If you find extreme influential observations: run sensitivity analysis.
+# - (NOTE: You'll need to look at main model first to compare results, so come back to this
+#   if time allows!)
+# - Three sensitivity analyses, one for each of the three most extreme points.
+
+attend_mdl_no355 <- lm(
+  Attendance ~ Consc + Year,
+  data = attend_df[-355,]
+)
+summary(attend_mdl_no355)  # no change to significance pattern
+
+attend_mdl_no365 <- lm(
+  Attendance ~ Consc + Year,
+  data = attend_df[-365,]
+)
+summary(attend_mdl_no365) # no change to significance pattern
+
+attend_mdl_no161 <- lm(
+  Attendance ~ Consc + Year,
+  data = attend_df[-161,]
+)
+summary(attend_mdl_no161)  # no change to significance pattern
+   
+   
+## 3b: Plot and interpret model estimates ----
+   
+# Interpret the coefficient estimates
+summary(attend_mdl)
+confint(attend_mdl) |> round(2)
+# - `(Intercept)`
+#   - The estimated mean attendance for people with low conscientiousness (Consc = 0 = Low) in first-year (Year = 0 = Y1) is 14.57 days.
+# 
+# - `ConscModerate`
+#   - Holding year of study constant, moving from low conscientiousness to moderate conscientiousness is associated with an estimated increase in attendance of 10.80 days.
+#   - This estimate is significantly different from zero (p < .001).
+# 
+# - `ConscHigh`
+#   - Holding year of study constant, moving from low conscientiousness to high conscientiousness is associated with an estimated increase in attendance of 18.24 days.
+#   - This estimate is significantly different from zero (p < .001).
+# 
+# - `YearY2`
+#   - Holding conscientiousness constant, moving from Y1 to Y2 is associated with an estimated increase in attendance of 4.76 days.
+#   - This estimate is significantly different from zero (p = 0.004).
+# 
+# - `YearY3`
+#   - Holding conscientiousness constant, moving from Y1 to Y3 is associated with an estimated increase in attendance of 3.44 days.
+#   - This estimate is not significantly different from zero (p = 0.07).
+# 
+# - `YearY4`
+#   - Holding conscientiousness constant, moving from Y1 to Y4 is associated with an estimated increase in attendance of 4.60 days.
+#   - This estimate is significantly different from zero (p = 0.013).
+# 
+# - `YearMSc`
+#   - Holding conscientiousness constant, moving from Y1 to MSc is associated with an estimated increase in attendance of 5.96 days.
+#   - This estimate is significantly different from zero (p = 0.004).
+# 
+# - `YearPhD`   
+#   - Holding conscientiousness constant, moving from Y1 to PhD is associated with an estimated increase in attendance of 12.57 days.
+#   - This estimate is significantly different from zero (p < 0.001).
+
+
+# Generate a nicely-formatted regression table.
+tab_model(
+  attend_mdl,
+  dv.labels = 'Attendance (days)',
+  pred.labels = c(
+    "ConscModerate" = "Conscientiousness [Moderate]",
+    "ConscHigh" = "Conscientiousness [High]"
+    ),
+  title = "Linear model coefficient estimates"
+)
+
+# Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
+
+# Plot model-fitted values.
+plot_model(
+  attend_mdl, 
+  type = 'eff', 
+  terms = c('Year', 'Consc')   # first term is the one on x axis
+) +
+  labs(
+    colour = 'Conscientiousness'
+  )
+
+## 3c: Write up -- in labs! ----
+```
+
+```{r include=F}
+attend_df <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv") |>
+  rename(Consc = Conscientiousness)
+
+attend_df <- attend_df |>
+  mutate(
+    Consc = factor(Consc, levels = c('Low', 'Moderate', 'High')),
+    Year = factor(Year, c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+  )
+
+attend_mdl <- lm(
+  Attendance ~ Consc + Year,
+  data = attend_df
+)
+```
+
+
+:::
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+**Set the scene (so the reader knows what you're talking about).**
+
+- [ ] Remind the reader briefly what the study aimed to test (e.g., what the predictions were).
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We want to find out what factors are associated with greater attendance of university courses.
+Specifically, we want to know whether people with higher conscientiousness and people in more advanced years of academic study attend their courses more often.
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+**Describe and show the sample data (so that the reader knows how generalisable your analysis might be).**
+
+- [ ] Introduce the variables the study is using to test this prediction, but avoid using R variable names; describe the variables in human-readable terms instead (e.g., what scale are they on? how were they measured?)
+- [ ] Briefly describe the data set: how many observations? what does each observation represent? 
+- [ ] Include a table of descriptive statistics for all the relevant variables (and make sure to refer to it in the text).
+  - Tip: If this table is really long, then you can keep the main text streamlined by putting the table in an Appendix section.
+- [ ] If applicable, mention any data cleaning / outlier removal / transformations.
+  
+  
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We have data from 397 university students.
+For each student, we know the total number of days they have attended university, their level of conscientiousness (categorised into low, medium and high), and their year of study (Y1, Y2, Y3, Y4, MSc, or PhD).
+See Table A.1 in Appendix A for descriptive statistics which summarise attendance for each combination of conscientiousness levels and years of study.
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+**Visualise and summarise data patterns that address the RQ (so the reader knows the basic pattern of what you found).**
+
+- [ ] Include a plot of the data which includes all relevant variables (and make sure to refer to it in the text).
+  - Tip: If you transform any continuous predictors for analysis, use the transformed version of the predictor in the plot.
+  - Tip: Academic writing styles vary, but Elizabeth likes it when figure captions give the reader a brief take-home message about what they should see in the plot.
+- [ ] In a sentence or two, describe the overall pattern of results.
+  - Tip: If you find yourself listing loads of numbers in the text, consider using tables or plots instead (and they're better for your word count too!). 
+  - Tip: No inferential stats have been done yet, so we can't make any claims just yet about whether the predictions were supported. But it is OK to say whether the results appear broadly in line with the prediction.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Students' attendance is visualised alongside their conscientiousness level and year of study in Figure 1.
+It appears that, as conscientiousness levels increase, attendance improves, and as year of study increases, attendance also tends to improve (with some variability in the four years of undergraduate study).
+
+```{r fig.cap = "Figure 1: Relationships between conscientiousness, year of study, and days of attendance. Each student's data is represented by one coloured dot, and black dots represent the mean attendance for each group. Generally speaking, higher conscientiousness and more advanced years of study appear to co-occur with higher attendance.", fig.width = 8, fig.height = 4}
+#| code-fold: true
+
+p_consc <- attend_df |>
+  ggplot(aes(x = Consc, y = Attendance, fill = Consc, colour = Consc)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  labs(
+      x = 'Conscientiousness',
+      y = 'Attendance (in days)'
+  )
+
+p_year <- attend_df |>
+  ggplot(aes(x = Year, y = Attendance, fill = Year, colour = Year)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  labs(
+      y = '',
+      x = 'Year of study'
+  )
+
+p_consc + p_year
+```
+
+
+`r solend()`
+
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+**Introduce your statistical analysis (so the reader can interpret the numbers you will report).**
+
+- [ ] State that you're running your analysis using R, and cite the developers (run `citation()` in the console to get the citation for your version of R). 
+- [ ] State the $\alpha$ level that you're using for all your analyses (in Psychology, the convention is 5%).
+- [ ] Describe the structure of your model in words, e.g.: "We fit a linear model predicting Y as a function of X1 and X2".
+- [ ] Include the mathematical model formulation of your model.
+- [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
+- [ ] If categorical predictors, describe contrast coding, e.g.: "X1 has two levels, A (coded as –1) and B (coded as 1)".
+- [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
+- [ ] For each model assumption, state whether you are satisfied that the assumption has been met.
+- [ ] Include plots for each assumption check as figures in the Appendix section of the document (and refer to them in the main text).
+- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing each influential observation.
+  - Tip: If you'll report your results using the full regression table for your coefficients, then also include the full regression table for the sensitivity analysis in another Appendix section.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To address our research question, we fit a linear model predicting attendance (in days) as a function of conscientiousness level and year of study.
+Conscientiousness was treatment-coded, with "Low" as the reference level (resulting in two dummy variables), and year of study was treatment-coded as well, with "Y1" as the reference level (resulting in five dummy variables).
+The mathematical model formulation is as follows.
+
+$$
+\begin{align}
+\text{Attendance } =& \beta_0 + 
+  (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
+  (\beta_2 \cdot \text{Consc}_\text{High}) ~ + \\
+  & (\beta_3 \cdot \text{Year}_\text{Y2}) + 
+  (\beta_4 \cdot \text{Year}_\text{Y3}) + 
+  (\beta_5 \cdot \text{Year}_\text{Y4}) + \\
+  & (\beta_6 \cdot \text{Year}_\text{MSc}) + 
+  (\beta_7 \cdot \text{Year}_\text{PhD}) + 
+  \epsilon \\
+\end{align}
+$$
+We are testing the null hypothesis that all slope coefficients are equal to zero, that is, that there is no association between any predictor and attendance.
+Formally:
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2, 3, 4, 5, 6, 7\\
+H_1 &: \text{ Any } \beta_j \neq 0\\
+\end{align}
+$$
+
+After fitting this model, we checked its assumptions.
+First, we can assume that associations are linear, because all predictors are categorical.
+Second, we can also assume that all data points are independent, because each observation comes from a different student.
+Third, errors appear sufficiently normally-distributed (see Figure B.1 in Appendix B), and fourth, errors also have sufficiently equal variance (see Figure B.2 in Appendix B).
+
+We also checked for multicollinearity between the two predictors.
+Both GVIF values are close to 1, indicating little variance inflation, so multicollinearity is not a concern for this analysis.
+
+Finally, we checked for influential data points and found three which had a relatively large Cook's distance compared to the others (about 0.03 or greater).
+We performed sensitivity analyses, leaving out each one of those data points in turn, and found that none of them impact the pattern of results.
+Coefficient tables for the sensitivity analysis models are presented in Appendix C.
+
+`r solend()`
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+**Report the results of your analysis (so the reader knows exactly what you found).**
+
+- [ ] State which model coefficient(s) are related to which prediction(s), and what direction/sign (positive or negative) you would expect the coefficients to have if the predictions were borne out, if applicable.
+- [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < .001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = .18)", if applicable.
+  - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
+  - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
+- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+  - Tip: if you DO report all coefficient estimates in the text, then there's no need to include the coefficient table because the information is redundant.
+- [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
+- [ ] Report the results of a model comparison, if applicable.
+- [ ] Report any other information you consider important for your story!
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Focusing first on conscientiousness: if attendance increases as conscientiousness increases, then we would expect the coefficient that compares moderate to low conscientiousness to be positive and the coefficient that compares high to low conscientiousness to be even more positive.
+That is what we find.
+Holding year of study constant, somebody with moderate conscientiousness is estimated to attend 10.80 more days, on average, than someone with low conscientiousness ($b$ = 10.80, 95% CI [8.02, 13.09], $p$ < .001).
+And someone with high conscientiousness is estimated to attend 18.24 more days ($b$ = 18.24, 95% CI [15.36, 21.12], $p$ < .001).
+
+Turning now to year of study: if attendance increases as year of study increases, we would expect a similar pattern: positive coefficients which get ever larger for progressively more advanced years of study.
+This pattern is borne out in general, though with some variability in the undergraduate years, particularly Y3.
+See Table 1 for a summary of regression coefficients.
+
+```{r}
+#| code-fold: true
+tab_model(
+  attend_mdl,
+  dv.labels = 'Attendance (days)',
+  title = "Table 1: Linear model coefficient estimates"
+)
+```
+
+<br>
+
+Model-fitted attendance estimates for all combinations of conscientiousness and year of study are visualised in Figure 2.
+
+```{r fig.cap = 'Figure 2: Model-fitted values for attendance across years of study and levels of conscientiousness, showing a generally increasing pattern over years and for increasing conscientiousness. Points represent the estimates and error bars represent their 95% CIs.'}
+#| code-fold: true
+plot_model(
+  attend_mdl, 
+  type = 'eff', 
+  terms = c('Year', 'Consc')   # first term is the one on x axis
+) +
+  labs(
+    colour = 'Conscientiousness'
+  )
+```
+
+
+
+
+`r solend()`
+
+<br>
+
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+**Appendices might include:**
+
+- [ ] Descriptives tables that are too big/disruptive to include in main text
+- [ ] Figures that visualise assumption checks
+- [ ] Sensitivity analysis regression table / any other useful details
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+**Appendix A: Descriptive statistics**
+
+```{r}
+#| code-fold: true
+
+attend_df |>
+  rename(Conscientiousness = Consc) |>
+  group_by(Year, Conscientiousness) |>
+  summarise(
+    n = n(), 
+    Mean = mean(Attendance), 
+    SD = sd(Attendance),
+    Minimum = min(Attendance),
+    Maximum = max(Attendance)
+  ) |>
+  kable(
+    caption = "Table A.1: Descriptive statistics about attendance by year of study and level of conscientiousness", 
+    digits = 2
+  ) |>
+  kable_styling()   
+```
+
+<br>
+
+**Appendix B: Model assumption checks**
+
+```{r fig.cap = 'Figure B.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+#| code-fold: true
+plot(attend_mdl, which = 2)
+```
+
+<br>
+
+```{r fig.cap = "Figure B.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
+#| code-fold: true
+plot(attend_mdl, which = 1)
+```
+
+<br>
+
+
+**Appendix C: Details of sensitivity analysis**
+
+The Cook's distance of each observation is shown in Figure C.1, which highlights the three potentially influential points: observations 355, 161, and 365.
+
+```{r fig.cap = "Cook's distance for each observation in our data set. Observations 355, 365, and 161 have higher Cook's distance, and thus potentially greater influence on model estimates, than the other data points."}
+#| code-fold: true
+plot(attend_mdl, which = 4)
+```
+
+<br>
+
+We present coefficient tables for the models in which each of those data points is left out in turn: Table C.1 without observation 355, Table C.2 without observation 161, and Table C.3 without observation 365.
+
+
+```{r}
+#| code-fold: true
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-355,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.1: Linear model coefficient estimates for the sensitivity analysis model without observation 355"
+)
+```
+
+<br>
+
+```{r}
+#| code-fold: true
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-161,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.2: Linear model coefficient estimates for the sensitivity analysis model without observation 161"
+)
+```
+
+<br>
+
+```{r}
+#| code-fold: true
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-365,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.3: Linear model coefficient estimates for the sensitivity analysis model without observation 365"
+)
+```
+
+`r solend()`
+
+
+<br>
+
+
+`r solbegin(label='– full write-up', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We want to find out what factors are associated with greater attendance of university courses.
+Specifically, we want to know whether people with higher conscientiousness and people in more advanced years of academic study attend their courses more often.
+
+We have data from 397 university students.
+For each student, we know the total number of days they have attended university, their level of conscientiousness (categorised into low, medium and high), and their year of study (Y1, Y2, Y3, Y4, MSc, or PhD).
+See Table A.1 in Appendix A for descriptive statistics which summarise attendance for each combination of conscientiousness levels and years of study.
+
+Students' attendance is visualised alongside their conscientiousness level and year of study in Figure 1.
+It appears that, as conscientiousness levels increase, attendance improves, and as year of study increases, attendance also tends to improve (with some variability in the four years of undergraduate study).
+
+```{r echo=F, fig.cap = "Figure 1: Relationships between conscientiousness, year of study, and days of attendance. Each student's data is represented by one coloured dot, and black dots represent the mean attendance for each group. Generally speaking, higher conscientiousness and more advanced years of study appear to co-occur with higher attendance.", fig.width = 8, fig.height = 4}
+
+p_consc <- attend_df |>
+  ggplot(aes(x = Consc, y = Attendance, fill = Consc, colour = Consc)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  labs(
+      x = 'Conscientiousness',
+      y = 'Attendance (in days)'
+  )
+
+p_year <- attend_df |>
+  ggplot(aes(x = Year, y = Attendance, fill = Year, colour = Year)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  labs(
+      y = '',
+      x = 'Year of study'
+  )
+
+p_consc + p_year
+```
+
+<br>
+
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To address our research question, we fit a linear model predicting attendance (in days) as a function of conscientiousness level and year of study.
+Conscientiousness was treatment-coded, with "Low" as the reference level (resulting in two dummy variables), and year of study was treatment-coded as well, with "Y1" as the reference level (resulting in five dummy variables).
+The mathematical model formulation is as follows.
+
+$$
+\begin{align}
+\text{Attendance } =& \beta_0 + 
+  (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
+  (\beta_2 \cdot \text{Consc}_\text{High}) ~ + \\
+  & (\beta_3 \cdot \text{Year}_\text{Y2}) + 
+  (\beta_4 \cdot \text{Year}_\text{Y3}) + 
+  (\beta_5 \cdot \text{Year}_\text{Y4}) + \\
+  & (\beta_6 \cdot \text{Year}_\text{MSc}) + 
+  (\beta_7 \cdot \text{Year}_\text{PhD}) + 
+  \epsilon \\
+\end{align}
+$$
+We are testing the null hypothesis that all slope coefficients are equal to zero, that is, that there is no association between any predictor and attendance.
+Formally:
+
+$$
+\begin{align}
+H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2, 3, 4, 5, 6, 7\\
+H_1 &: \text{ Any } \beta_j \neq 0\\
+\end{align}
+$$
+
+After fitting this model, we checked its assumptions.
+First, we can assume that associations are linear, because all predictors are categorical.
+Second, we can also assume that all data points are independent, because each observation comes from a different student.
+Third, errors appear sufficiently normally-distributed (see Figure B.1 in Appendix B), and fourth, errors also have sufficiently equal variance (see Figure B.2 in Appendix B).
+
+We also checked for multicollinearity between the two predictors.
+Both GVIF values are close to 1, indicating little variance inflation, so multicollinearity is not a concern for this analysis.
+
+Finally, we checked for influential data points and found three which had a relatively large Cook's distance compared to the others (about 0.03 or greater).
+We performed sensitivity analyses, leaving out each one of those data points in turn, and found that none of them impact the pattern of results.
+Coefficient tables for the sensitivity analysis models are presented in Appendix C.
+
+
+Focusing first on conscientiousness: if attendance increases as conscientiousness increases, then we would expect the coefficient that compares moderate to low conscientiousness to be positive and the coefficient that compares high to low conscientiousness to be even more positive.
+That is what we find.
+Holding year of study constant, somebody with moderate conscientiousness is estimated to attend 10.80 more days, on average, than someone with low conscientiousness ($b$ = 10.80, 95% CI [8.02, 13.09], $p$ < .001).
+And someone with high conscientiousness is estimated to attend 18.24 more days ($b$ = 18.24, 95% CI [15.36, 21.12], $p$ < .001).
+
+Turning now to year of study: if attendance increases as year of study increases, we would expect a similar pattern: positive coefficients which get ever larger for progressively more advanced years of study.
+This pattern is borne out in general, though with some variability in the undergraduate years, particularly Y3.
+See Table 1 for a summary of regression coefficients.
+
+```{r echo=F}
+tab_model(
+  attend_mdl,
+  dv.labels = 'Attendance (days)',
+  title = "Table 1: Linear model coefficient estimates"
+)
+```
+
+<br>
+
+Model-fitted attendance estimates for all combinations of conscientiousness and year of study are visualised in Figure 2.
+
+```{r echo=F, fig.cap = 'Figure 2: Model-fitted values for attendance across years of study and levels of conscientiousness, showing a generally increasing pattern over years and for increasing conscientiousness. Points represent the estimates and error bars represent their 95% CIs.'}
+plot_model(
+  attend_mdl, 
+  type = 'eff', 
+  terms = c('Year', 'Consc')   # first term is the one on x axis
+) +
+  labs(
+    colour = 'Conscientiousness'
+  )
+```
+
+<br>
+
+
+**Appendix A: Descriptive statistics**
+
+```{r echo=F}
+attend_df |>
+  rename(Conscientiousness = Consc) |>
+  group_by(Year, Conscientiousness) |>
+  summarise(
+    n = n(), 
+    Mean = mean(Attendance), 
+    SD = sd(Attendance),
+    Minimum = min(Attendance),
+    Maximum = max(Attendance)
+  ) |>
+  kable(
+    caption = "Table A.1: Descriptive statistics about attendance by year of study and level of conscientiousness", 
+    digits = 2
+  ) |>
+  kable_styling()   
+```
+
+<br>
+
+**Appendix B: Model assumption checks**
+
+```{r echo=F, fig.cap = 'Figure B.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+plot(attend_mdl, which = 2)
+```
+
+<br>
+
+```{r echo=F, fig.cap = "Figure B.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
+plot(attend_mdl, which = 1)
+```
+
+<br>
+
+
+**Appendix C: Details of sensitivity analysis**
+
+The Cook's distance of each observation is shown in Figure C.1, which highlights the three potentially influential points: observations 355, 161, and 365.
+
+```{r echo=F, fig.cap = "Cook's distance for each observation in our data set. Observations 355, 365, and 161 have higher Cook's distance, and thus potentially greater influence on model estimates, than the other data points."}
+plot(attend_mdl, which = 4)
+```
+
+<br>
+
+We present coefficient tables for the models in which each of those data points is left out in turn: Table C.1 without observation 355, Table C.2 without observation 161, and Table C.3 without observation 365.
+
+
+```{r echo=F}
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-355,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.1: Linear model coefficient estimates for the sensitivity analysis model without observation 355"
+)
+```
+
+<br>
+
+```{r echo=F}
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-161,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.2: Linear model coefficient estimates for the sensitivity analysis model without observation 161"
+)
+```
+
+<br>
+
+```{r echo=F}
+tab_model(
+  lm(
+    Attendance ~ Consc + Year,
+    data = attend_df[-365,]
+  ),
+  dv.labels = 'Attendance (days)',
+  title = "Table C.3: Linear model coefficient estimates for the sensitivity analysis model without observation 365"
+)
+```
+
+<br>
+
+**References**
+
+R Core Team (2025). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+
+`r solend()`
+
