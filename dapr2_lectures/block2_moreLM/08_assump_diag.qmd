@@ -66,11 +66,15 @@ When we use any statistical model, we are saying **"This model is the process th
 
 <br>
 
-**Linear models are constrained in certain ways:** for example, associations between predictors and outcomes can only be linear.
+**Linear models are constrained in certain ways:** for example, associations between predictors and outcomes can only be modelled as straight lines.
+We cannot change this within the linear model machinery.
 
 <br>
 
 These constraints are the **assumptions** that the linear model makes about how the data was generated.
+
+If our data does not match the assumptions, then a linear model is a bad way to analyse the data.
+**So we have to check whether the assumptions are met before we interpret our model's results.**
 
 
 # Assumptions
@@ -166,68 +170,64 @@ p_good + p_quad
 ```
 
 
-## Checking linearity with one predictor
+<!-- ## Checking linearity with one predictor -->
 
-Make a scatterplot with a straight line and a "LOESS" line (**LO**cally **E**stimated **S**catterplot **S**moothing).
+<!-- Make a scatterplot with a straight line and a "LOESS" line (**LO**cally **E**stimated **S**catterplot **S**moothing). -->
 
-:::: {.columns}
-::: {.column width="50%" style="font-size: 85%;"}
+<!-- :::: {.columns} -->
+<!-- ::: {.column width="50%" style="font-size: 85%;"} -->
 
-**The linear variable:**
+<!-- **The linear variable:** -->
 
-```{r fig.asp = .7, fig.width = 10, fig.align = 'center', warning=F, message=F}
-df_nonlin |>
-  ggplot(aes(x=x1, y=y)) +
-  geom_point(size = 5) +
-  geom_smooth(method = 'lm',
-              colour = 'blue', se = FALSE, linewidth = 3) +
-  geom_smooth(method = 'loess',
-              colour = 'red', se = FALSE, linewidth = 3)
-```
-
-
-:::
-::: {.column width="50%" style="font-size: 85%;"}
-
-**The non-linear variable:**
-
-```{r fig.asp = .7, fig.width = 10, fig.align='center', warning=F, message=F}
-df_nonlin |>
-  ggplot(aes(x=x2, y=y)) +
-  geom_point(size = 5) +
-  geom_smooth(method = 'lm',
-              colour = 'blue', se = FALSE, linewidth = 3) +
-  geom_smooth(method = 'loess',
-              colour = 'red', se = FALSE, linewidth = 3)
-```
-
-:::
-::::
-
-You want the LOESS line (`method = 'loess'`, red) to stick close to the straight line (`method = 'lm'`, blue).
-Deviations suggest non-linearity.
+<!-- ```{r fig.asp = .7, fig.width = 10, fig.align = 'center', warning=F, message=F} -->
+<!-- df_nonlin |> -->
+<!--   ggplot(aes(x=x1, y=y)) + -->
+<!--   geom_point(size = 5) + -->
+<!--   geom_smooth(method = 'lm', -->
+<!--               colour = 'blue', se = FALSE, linewidth = 3) + -->
+<!--   geom_smooth(method = 'loess', -->
+<!--               colour = 'red', se = FALSE, linewidth = 3) -->
+<!-- ``` -->
 
 
-## Checking linearity with >1 predictor
+<!-- ::: -->
+<!-- ::: {.column width="50%" style="font-size: 85%;"} -->
 
-<br> 
+<!-- **The non-linear variable:** -->
 
-With multiple predictors, we need to get slightly more complex.
+<!-- ```{r fig.asp = .7, fig.width = 10, fig.align='center', warning=F, message=F} -->
+<!-- df_nonlin |> -->
+<!--   ggplot(aes(x=x2, y=y)) + -->
+<!--   geom_point(size = 5) + -->
+<!--   geom_smooth(method = 'lm', -->
+<!--               colour = 'blue', se = FALSE, linewidth = 3) + -->
+<!--   geom_smooth(method = 'loess', -->
+<!--               colour = 'red', se = FALSE, linewidth = 3) -->
+<!-- ``` -->
+
+<!-- ::: -->
+<!-- :::: -->
+
+<!-- You want the LOESS line (`method = 'loess'`, red) to stick close to the straight line (`method = 'lm'`, blue). -->
+<!-- Deviations suggest non-linearity. -->
+
+
+## Checking linearity
 
 Now we have to hold the other predictors constant while we look at each one in turn.
 
 <br>
 
-**The solution: Component+residual plots** (aka "partial-residual plots").
+**The solution: Component+residual plots** (CR plots, aka "partial-residual plots").
 
 - **Component:** The association between one particular predictor and the outcome, with all the other predictors held constant.
-  - In other words, each predictor's contribution to the overall linear model.
+  - Think of this as each predictor's individual contribution to the overall linear model.
 
 - **Residual:** The differences between the line the model predicts and the actual observed data points.
 
 <br>
 
-Basically, CR plots can look at the linearity of each predictor without any of the other predictors getting in the way.
+Basically, CR plots can look at the linearity of each association individually, without any of the other predictors getting in the way.
 
 
 
@@ -254,10 +254,13 @@ car::crPlots(
   )
 ```
 
-Again, we want the LOESS line to match the straight line as closely as possible.
+We want the wobbly pink line to match the straight blue line as closely as possible.
 Deviations suggest non-linearity.
 
-**How much of a deviation is a problem?** This is kind of a judgement call. Some deviation is normal.
+**We must decide: is the association linear enough that it's OK to model the association using a straight line?**
+
+This is a judgement call. There is no single correct answer.
+You'll develop a clearer sense of this with time and experience.
 
 
 ## What to do if an association is not linear
@@ -632,46 +635,27 @@ p_good + p_beta
 
 The differences between the fitted line and each data point (aka the **residuals**) should be normally-distributed.
 
+Check normality using:
 
-## To check normality of errors
+1. **A histogram of residuals**
+2. **A Q-Q plot**
 
-<br>
-
-Before there can be any residuals, there must be a fitted line.
-
-So first, fit a model.
-
-:::: {.columns}
-::: {.column width="50%"}
-```{r}
+```{r include=F}
 m_norm <- lm(
   y_norm ~ x, 
   data = df_nonnorm
 )
-```
 
-:::
-::: {.column width="50%"}
-```{r}
 m_nonnorm <- lm(
   y_nonnorm ~ x, 
   data = df_nonnorm
 )
 ```
-:::
-::::
-
-<br>
-
-Now we have a couple of options:
-
-1. **A histogram of residuals**
-2. **A Q-Q plot**
 
 
 ## 1. To check normality of errors: Histogram
 
-<br>
+We'll see two examples: one with normal errors (left) and one with non-normal errors (right).
 
 With a histogram of the residuals, we can eyeball how normally-distributed they appear.
 
@@ -711,8 +695,6 @@ We can compare the model's residuals to what the residuals WOULD look like in a 
 
 This is what a "quantile-quantile plot", a Q-Q plot, does.
 **The dots should follow the diagonal line.**
-
-<br>
 
 :::: {.columns}
 ::: {.column width="50%"}
@@ -765,8 +747,7 @@ Bottom left and top right diverge a *lot*!
 ::::
 
 A perfect match to the diagonal is rare.
-Ask: **How big is the mismatch?**
-
+**We must decide: is the distribution of errors normal enough that it's OK to model them using the linear model machinery?**
 
 
 ## What to do if errors are not normal
@@ -780,9 +761,11 @@ Ask: **How big is the mismatch?**
 
 :::
 ::: {.column width="60%"}
-If errors aren't normally distributed, then a model which assumes they *are* will produce weird (aka biased) estimates:
+<br>
 
-```{r echo=F, fig.align = 'center'}
+If errors are extremely non-normally distributed, then a model which assumes they *are* will produce weird (aka biased) estimates:
+
+```{r echo=F, fig.align = 'center', fig.height = 6}
 mean_beta <- mean(m_nonnorm$residuals)
 sd_beta <- sd(m_nonnorm$residuals)
 
@@ -886,40 +869,21 @@ p_good + p_unequal
 - Equal variance of errors is also called **"homoscedasticity"** or **"homogeneity of errors"**.
 - Unequal variance of errors is also called **"heteroscedasticity"** or **"heterogeneity of errors"**.
 
-When variance if errors is not equal, the model is not equally good at estimating the outcome for all values of the predictor.
+When errors don't have equal variance, the model is not equally good at estimating the outcome for all values of the predictor.
 
+**Check by plotting the residuals against the fitted (predicted) outcome values.**
 
-## To check equal variance of errors
-
-<br>
-
-Again, to find the residuals—the differences between the fitted line and each data point—we need a fitted line.
-
-So first, fit a model.
-
-:::: {.columns}
-::: {.column width="50%"}
-```{r}
+```{r include=F}
 m_equal <- lm(
   y_equal ~ x, 
   data = df_unequal
 )
-```
 
-:::
-::: {.column width="50%"}
-```{r}
 m_unequal <- lm(
   y_unequal ~ x, 
   data = df_unequal
 )
 ```
-:::
-::::
-
-<br>
-
-**Investigate by plotting the residuals against the fitted (predicted) outcome values.**
 
 
 ## To check equal variance of errors
@@ -975,15 +939,11 @@ plot(
 :::
 ::::
 
-**What we want to see:**
+We want to see a random-looking cloud of data points with the same vertical distance from 0 across the whole x axis.
 
-<!-- 1. A solid line which matches the horizontal dotted line, **AND** -->
-- A random-looking cloud of data points with the same vertical distance from 0 across the whole x axis
-
-
+**We must decide: is the variance of errors equal enough that it's OK to model the data using the linear model machinery?**
 
 ## What to do if errors don't have equal variance
-
 
 <br>
 
@@ -1063,7 +1023,7 @@ Bootstrap your model estimates (more next week).
 
 :::{.fragment}
 
-Checking assumptions is not an absolute science.
+Checking assumptions is not an absolute science, and there are no right/wrong answers.
 It relies on intuitions and vibes (sorry!!)
 
 **$\rightarrow$ Look at the plots, motivate your reasoning, and you'll be fine.**
@@ -1121,7 +1081,7 @@ A single observation might influence our model's estimates more than it should i
 <img src="figs/levg.svg" width="300px"/>
 :::
 :::{.column width="33%"}
-**Both outlying and high leverage:**
+**Outlier with high leverage:**
 
 <img src="figs/infl.svg" width="300px"/>
 :::
@@ -1174,18 +1134,13 @@ p_good + p_infl
 ```
 
 
-:::{.fragment}
 **We diagnose high influence using Cook's distance.**
-
-:::
 
 ## Diagnose influence using Cook's distance
 
 <br>
 
 Cook's distance measures **the average distance that the predicted outcome values will move, if a given data point is removed.**
-
-<br>
 
 
 Cook's distance is essentially **outlyingness $\times$ leverage** (mathy details in appendix).
@@ -1229,68 +1184,30 @@ Cook's distance is essentially **outlyingness $\times$ leverage** (mathy details
 ```
 
 
-## TODO Compute Cook's distance with `cooks.distance()`
-
-```{r}
-# m_infl_good <- lm(y_good ~ x, data = df_infl)
-# df_infl$D_good <- c(cooks.distance(m_infl_good), NA)
-
-# df_infl |> head()
-```
-
-
-## TODO Cook's distance can give us "false alarms"
-
-```{r eval=F}
-plot(attend_mdl, which = 4)
-```
-
-
-:::: {.columns}
-::: {.column width="50%" #good}
-
-$D$ for the data with no extreme high-influence values:
-
 ```{r include=F}
-m_infl_good <- lm(y_good ~ x, data = df_infl)
-df_infl$D_good <- c(cooks.distance(m_infl_good), NA)
+m_infl <- lm(y_infl ~ x, df_infl)
+m_good <- lm(y_good ~ x, df_infl)
 ```
-
-
-```{r fig.align='center', fig.width=8, echo=F}
-#| code-fold: true
-df_infl |>
-  ggplot(aes(x = x, y = D_good)) +
-  geom_hline(yintercept = 4/(101-1-1), colour = 'red', linewidth = 2) +
-  geom_point(size = 5) +
-  labs(y = 'D') +
-  ylim(0, 0.166) +
-  NULL
-```
-
-
-:::
-::: {.column width="50%" #outl}
-
-$D$ for the data with one extreme high-influence value:
-
-```{r fig.align='center', fig.width=8, echo=F}
-df_infl |>
-  ggplot(aes(x = x, y = D)) +
-  geom_hline(yintercept = D_threshold, colour = 'red', linewidth = 2) +
-  geom_point(size = 5) +
-  ylim(0, 0.166) +
-  NULL
-```
-
-
-:::
-::::
-
-
-**$\rightarrow$ The more extreme the Cook's distance, the higher the influence of that data point.**
 
 <br>
+
+Compute Cook's distance using `cooks.distance()`:
+
+```{r}
+cooks.distance(m_infl) |> head()
+```
+
+
+## Visually check Cook's distance
+
+```{r}
+plot(
+  m_infl,
+  which = 4
+)
+```
+
+Data point 102 has the greatest influence on the model's estimates.
 
 
 ## Vote: What to do if you find unusual data points
@@ -1343,13 +1260,10 @@ A sensitivity analysis asks: **Do our conclusions change if we leave out the unu
 
 <br>
 
-Imagine we want to know whether there's a significant positive association between **x** and **y**, but that one data point has a really big Cook's distance, above 0.15.
-
-
 :::: {.columns}
 ::: {.column width="50%"}
 
-One high-influence data point:
+We found one very high-influence data point, number 102:
 
 ```{r message = FALSE, warning=F, echo=F, fig.align='center', fig.width=7}
 p_infl + labs(title='', y = 'y') 
@@ -1369,22 +1283,17 @@ p_good + labs(title='')
 
 ## Filter out that high-influence data point
 
+<br>
 
-Only keep rows where `D`, Cook's distance, is smaller than 0.15:
-
-```{r}
-df_infl_sens <- df_infl |>
-  filter(D < 0.15)
-
-nrow(df_infl_sens)
-```
+The Cook's distance plot told us that the influential data point is in row 102, so we can re-fit the model and just remove that one row:
 
 <br>
 
-And fit the same model as before:
-
 ```{r}
-m_sens <- lm(y_infl ~ x, data = df_infl_sens)
+m_infl_sens <- lm(
+  y_infl ~ x, 
+  data = df_infl[-102,]  # "subtract" row 102 (notation: [rownum, colnum])
+)
 ```
 
 
@@ -1408,7 +1317,7 @@ A model fit to the data with the <br> high-influence value **removed**:
 :::{style="font-size: 80%;"}
 ```{r}
 
-summary(m_sens)
+summary(m_infl_sens)
 ```
 :::
 :::
@@ -1417,9 +1326,9 @@ summary(m_sens)
 
 <br>
 
-Even if we remove the data point, we still see a significant positive association between **x** and **y**.
+The coefficients change slightly, but the significant positive association is still there.
 
-**$\rightarrow$ The high-influence point doesn't affect our conclusions, so it's not a major cause for concern.**
+**$\rightarrow$ The high-influence point doesn't affect our conclusions, so it's not a cause for concern.**
 
 
 
@@ -1445,7 +1354,8 @@ When two predictors are correlated, they contain similar information.
 **If you know one, you can guess the other.**
 
 The model cannot tell which predictor is contributing what information, so its estimates are less precise.
-In other words, **the variance of its estimates increases.**
+
+Technically speaking, **the variance of its estimates increases.**
 
 :::
 
@@ -1545,7 +1455,6 @@ We can detect this using the **Variance Inflation Factor** or VIF.
 
 <br> 
 
-:::{.fragment}
 
 Intepreting VIF:
 
@@ -1555,7 +1464,6 @@ Intepreting VIF:
   - $\sqrt{10} = 3.16$, so SE is 3.16 times bigger than it would be if we removed the correlated predictors.
 - **More than 10 is big,** cause for lots of concern.
 
-:::
 
 
 ## VIF in R
@@ -1564,7 +1472,7 @@ We calculate the Variance Inflation Factor in R using `vif()` from the package `
 
 :::: {.columns}
 ::: {.column width="50%"}
-Correlated predictors:
+**Correlated predictors:**
 
 ```{r echo=F, fig.align = 'center', fig.asp = .7}
 pairs(corr_df, cex = 2, cex.axis=3, cex.labels=4)
@@ -1580,7 +1488,7 @@ The SE of each predictor is $\sqrt{7.4} = 2.72$ times bigger than it would be wi
 Slightly worrisome!
 :::
 ::: {.column width="50%"}
-Uncorrelated predictors:
+**Uncorrelated predictors:**
 
 ```{r echo=F, fig.align = 'center', fig.asp = .7}
 pairs(uncorr_df, cex = 2, cex.axis=3, cex.labels=4)
@@ -1686,9 +1594,6 @@ How can we diagnose it?**
 - High influence: an unusual value for the outcome and/or the predictor. 
 - Diagnose using Cook's Distance.
 :::
-
-
-## Revisiting this week's learning objectives
 
 ::: {.dapr2callout}
 **What relationship between predictors do we want to avoid? How can we diagnose it?**
