@@ -1,0 +1,482 @@
+---
+title: "06: Treatment coding"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll practice implementing and interpreting a treatment-coded categorical predictor with four levels.
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab06.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+   
+:::
+
+---
+
+:::frame
+
+To investigate if the number of words typed per minute (WPM) differs between people who've consumed different kinds of beverages, the researchers conducted an experiment where 40 participants were each randomly allocated to one of four beverage conditions.
+
+The data in `caffeinedrink.csv` contained two attributes collected from $n=40$ participants:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+tibble(
+    variable = names(read_csv("https://uoepsy.github.io/data/caffeinedrink.csv")),
+    description = c("which one of four treatment conditions the participant was assigned - control (water), coffee, mint tea, or red bull", "average number of words typed per minute")
+) |> gt::gt()
+```
+
+:::
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/caffeinedrink.csv> and store it in a variable named `wpm_data`.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wpm_data <- read_csv("https://uoepsy.github.io/data/caffeinedrink.csv")
+```
+
+`r solend()`
+
+
+
+# q2
+
+`r qbegin(qcounter())`
+
+A quick-and-dirty way to plot a numeric outcome as a function of a categorical predictor is a boxplot:
+
+```{r}
+wpm_data |>
+  ggplot(aes(x = treatment, y = wpm)) +
+  geom_boxplot()
+```
+
+
+But [boxplots aren't great, because the way they summarise the data can often misrepresent how the data is actually distributed](https://nightingaledvs.com/ive-stopped-using-box-plots-should-you/){target="_blank"}.
+Also, they show the median by default, whereas in linear modelling, we are usually focused on the means.
+
+A better style of plot for this purpose is a violin plot (a kind of vertical density plot, which shows the overall distribution more faithfully) with jittered points (so that we can see each actual observed data point) and superimposed group means.
+
+To create a violin plot that shows how `wpm` varies based on beverage `treatment`, copy the following code template and replace the `...` bits with the appropriate variable names.
+
+```{r eval=F}
+... |>
+  ggplot(aes(x = ..., y = ..., fill = ..., colour = ...)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wpm_data |>
+  ggplot(aes(x = treatment, y = wpm, fill = treatment, colour = treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+`r solend()`
+
+
+# q3
+
+`r qbegin(qcounter())`
+
+Which of the four levels of `treatment` do you think would be a suitable reference level?
+Write down briefly why you think so.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+I'd make the reference level the `control` level, which represents people just drinking water.
+
+This is an appropriate reference level because we can think of water as the "default" or "baseline" beverage, compared to the other beverages coffee, mint tea, and red bull.
+
+`r solend()`
+
+
+# q4
+
+`r qbegin(qcounter())`
+
+Based on the reference level you chose above, you'll now try to predict what the contrast matrix for the `treatment` variable will look like.
+(You'll get R to generate the actual contrast matrix later, and you can check your predictions then.)
+
+Here is a Markdown table and the code that produced it.
+Copy the code to your own Rmd file, fill in the column names with the appropriate levels of `treatment`, and fill in the other empty cells with 0s and 1s as appropriate:
+
+|            | ... | ... | ... |
+| ---------- | --- | --- | --- |
+| `coffee`   | ... | ... | ... |
+| `control`  | ... | ... | ... |
+| `mint_tea` | ... | ... | ... |
+| `red_bull` | ... | ... | ... |
+
+The code:
+
+```
+|            | ... | ... | ... |
+| ---------- | --- | --- | --- |
+| `coffee`   | ... | ... | ... |
+| `control`  | ... | ... | ... |
+| `mint_tea` | ... | ... | ... |
+| `red_bull` | ... | ... | ... |
+```
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+If the reference level is `control`, then we know a couple things:
+
+- the columns, which represent the three dummy variables, will be named after the *other* three levels;
+- the row labelled `control` will be filled with 0s all the way across.
+
+
+|            | `coffee` | `mint_tea` | `red_bull` |
+| ---------- | --- | --- | --- |
+| `coffee`   | ... | ... | ... |
+| `control`  | 0 | 0 | 0 |
+| `mint_tea` | ... | ... | ... |
+| `red_bull` | ... | ... | ... |
+
+<br>
+
+Further, each of the non-reference level rows will contain a 1 in the column with the same name.
+
+|            | `coffee` | `mint_tea` | `red_bull` |
+| ---------- | --- | --- | --- |
+| `coffee`   | 1 | ... | ... |
+| `control`  | 0 | 0 | 0 |
+| `mint_tea` | ... | 1 | ... |
+| `red_bull` | ... | ... | 1 |
+
+<br>
+
+And finally, every remaining `...` will be replaced by a 0.
+
+|            | `coffee` | `mint_tea` | `red_bull` |
+| ---------- | -------- | ---------- | ---------- |
+| `coffee`   |        1 |          0 |          0 |
+| `control`  |        0 |          0 |          0 |
+| `mint_tea` |        0 |          1 |          0 |
+| `red_bull` |        0 |          0 |          1 |
+
+<br>
+
+Here's the code for the finished Markdown table:
+
+```
+|            | `coffee` | `mint_tea` | `red_bull` |
+| ---------- | -------- | ---------- | ---------- |
+| `coffee`   |        1 |          0 |          0 |
+| `control`  |        0 |          0 |          0 |
+| `mint_tea` |        0 |          1 |          0 |
+| `red_bull` |        0 |          0 |          1 |
+```
+
+`r solend()`
+
+# q5
+
+`r qbegin(qcounter())`
+
+Use `mutate()` to convert `treatment` into a factor and reorder the levels so that your chosen reference level comes first.
+
+Then, run the following code to produce the contrast matrix:
+
+```{r eval=F}
+contrasts(wpm_data$treatment)
+```
+
+Did your predictions match this output?
+(Don't worry if the rows are in a different order!
+Just pay attention to the column names and where the 0s and 1s are placed.)
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wpm_data <- wpm_data |>
+  mutate(
+    treatment = factor(treatment, levels = c('control', 'coffee', 'mint_tea', 'red_bull'))
+  )
+
+contrasts(wpm_data$treatment)
+```
+
+(Note: The rows are in a different order than in the Markdown table above because they are shown in the order of factor levels, which we just modified.)
+
+`r solend()`
+
+# q6
+
+`r qbegin(qcounter())`
+
+Write the mathematical model formulation for the model that we're about to fit, using the dummy variables identified above.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\text{WPM} = \beta_0 + 
+(\beta_1 \cdot \text{Treatment}_\text{Coffee}) + 
+(\beta_2 \cdot \text{Treatment}_\text{Red Bull}) + 
+(\beta_3 \cdot \text{Treatment}_\text{Mint Tea}) + 
+\epsilon
+$$
+
+Write:
+
+```
+$$
+\text{WPM} = \beta_0 + 
+(\beta_1 \cdot \text{Treatment}_\text{Coffee}) + 
+(\beta_2 \cdot \text{Treatment}_\text{Red Bull}) + 
+(\beta_3 \cdot \text{Treatment}_\text{Mint Tea}) + 
+\epsilon
+$$
+```
+
+<br>
+
+If you want line breaks mid-expression but still keep everything nicely aligned, try this:
+
+
+$$
+\begin{align}
+\text{WPM} ~=~& \beta_0 + (\beta_1 \cdot \text{Treatment}_\text{Coffee}) + (\beta_2 \cdot \text{Treatment}_\text{Red Bull}) + \\
+& (\beta_3 \cdot \text{Treatment}_\text{Mint Tea}) + \epsilon
+\end{align}
+$$
+
+Write:
+
+```
+\begin{align}
+\text{WPM} ~=~& \beta_0 + (\beta_1 \cdot \text{Treatment}_\text{Coffee}) + (\beta_2 \cdot \text{Treatment}_\text{Red Bull}) ~ + \\
+& (\beta_3 \cdot \text{Treatment}_\text{Mint Tea}) + \epsilon
+\end{align}
+```
+
+<br>
+
+Note that the following mathematical model formulation is **incorrect** because it does not contain any dummy variables and therefore has too few $\beta$ coefficients.
+(The number of $\beta$s in the equation should always match the number of coefficients produced by the model summary.)
+
+$$
+\text{WPM} = \beta_0 + 
+(\beta_1 \cdot \text{Treatment}) + 
+\epsilon
+$$
+
+`r solend()`
+
+# q7
+
+`r qbegin(qcounter())`
+
+You've now chosen a reference level and identified the dummy variables that the model will estimate.
+
+The model will have four coefficients: one intercept and three slopes which each compare one of the non-reference levels back to the reference level.
+
+Based on the plot you created back in Q2, write down your best guess about the approximate value that each of the model's four coefficients will have.
+(After you fit the model later, you'll check your predictions.)
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+For convenience, here's the plot again:
+
+```{r}
+wpm_data |>
+  ggplot(aes(x = treatment, y = wpm, fill = treatment, colour = treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+The four coefficients will be:
+
+- `(Intercept)` $\beta_0$: 
+    - The mean of the reference level `control`, which appears to be about 112 WPM.
+- `treatmentcoffee` $\beta_1$: 
+    - WPM for `coffee` minus WPM for `control` (i.e., the difference between `coffee` and `control`), which appears to be a bit less than 3 WPM.
+- `treatmentmint_tea` $\beta_2$: 
+    - The difference between `mint_tea` and `control`, which appears to be about –1 WPM.
+- `treatmentred_bull` $\beta_3$: 
+    - The difference between `red_bull` and `control`, which appears to be just under 5 WPM.
+
+`r solend()`
+
+# q8
+
+`r qbegin(qcounter())`
+
+Now fit the model in R and check the model summary.
+Were your predictions about the coefficients correct?
+
+If they were, celebrate!
+If not, can you figure out how you can update your thinking to better match the results?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wpm_m1 <- lm(wpm ~ treatment, data = wpm_data)
+summary(wpm_m1)
+```
+
+`r solend()`
+
+
+# q9
+
+`r qbegin(qcounter())`
+
+For these last two questions, imagine changing the reference level to `coffee` (or if you already used `coffee` as your reference level, imagine changing it to something else).
+
+If the reference level were updated to `coffee`, what would the model's coefficients be estimating?
+
+Using the plot again, visually estimate the approximate value of all four model coefficients.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+For convenience, here's the plot again:
+
+```{r}
+wpm_data |>
+  ggplot(aes(x = treatment, y = wpm, fill = treatment, colour = treatment)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+
+The four coefficients will be:
+
+- `(Intercept)`:
+    - The mean of the reference level `coffee`, which appears to be just above 114 WPM.
+- `treatmentcontrol`:
+    - WPM for `control` minus WPM for `coffee` (i.e., the difference between `control` and `coffee`), which appears to be between –2 and –3.
+- `treatmentmint_tea`:
+    - The difference between `mint_tea` and `coffee`, which appears to be a bit less than –4 WPM.
+- `treatmentred_bull`:
+    - The difference between `red_bull` and `coffee`, which appears to be about 2 WPM.
+
+`r solend()`
+
+# q10
+
+`r qbegin(qcounter())`
+
+Change the reference level of `treatment` to `coffee` and generate the contrast matrix to verify that `coffee` is the reference level.
+Then re-fit the model and check the model summary.
+
+Were your predictions from Q9 supported?
+Why or why not?
+
+Optional but recommended: After checking your predictions, write a little guide for yourself, in your own words, about how to interpret treatment-coded predictors.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+wpm_data <- wpm_data |>
+  mutate(
+    treatment = factor(treatment, levels = c('coffee', 'control', 'mint_tea', 'red_bull'))
+  )
+
+contrasts(wpm_data$treatment)
+```
+
+Good! 
+`coffee` is the reference level.
+We can tell because it's got 0s all the way across its row.
+
+```{r}
+wpm_m2 <- lm(wpm ~ treatment, data = wpm_data)
+summary(wpm_m2)
+```
+
+
+`r solend()`
