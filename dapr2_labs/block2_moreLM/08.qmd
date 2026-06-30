@@ -1,0 +1,359 @@
+---
+title: "08: Assumptions and diagnostics"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+library(car)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll practice checking assumptions and running diagnostics of multicollinearity and influence for a multiple regression model you developed back in Block 1.
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab08.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `car`
+   
+:::
+
+---
+
+:::frame
+
+Research question (RQ): **Is there an association between wellbeing and time spent outdoors, when controlling for the effect that social interaction has on wellbeing?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and wellbeing. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) |> gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and wellbeing. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.  
+
+:::
+
+:::
+
+# Set up data and model
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+Read in the data from  <https://uoepsy.github.io/data/wellbeing_rural.csv> and store it in a variable named `mwdata` ("mw" stands for "mental wellbeing").
+
+Use the function `lm()` to fit the linear model represented by the mathematical model formulation below, and name the result `m1`.
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{outdoor\_time}) +
+(\beta_2 \cdot \text{social\_int}) +
+\epsilon
+$$
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+m1    <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
+```
+
+`r solend()`
+
+
+# Check assumptions
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+Do the associations between each predictor and the outcome appear sufficiently linear to justify using a linear model for this data?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Assess visually using component-residual plots.
+
+```{r}
+crPlots(m1)
+```
+
+We want the wobbly pink line to match the dashed blue line.
+I think the match is pretty good!
+Associations look sufficiently linear.
+
+`r solend()`
+
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+Are the errors of `m1` independent?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+As long as each observation comes from a different source—for example, as long as we don't have multiple observations from the same person—we can safely assume that errors are independent.
+
+Let's double-check this in the data:
+
+```{r}
+mwdata |> head()
+```
+
+A clear give-away would be a column like `participant_id` with IDs that appear only once each.
+But we can still tell that we have one observation per person because every row has a different value of `age`.
+
+So we can assume here that errors are independent because each observation comes from a different source.
+
+`r solend()`
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+Are the errors of `m1` sufficiently normally distributed?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Assess visually using a Q-Q plot.
+
+```{r}
+plot(m1, which = 2)
+```
+
+The match to the diagonal is pretty good, except for that one observation in row 109 (top right) that's pretty far off the diagonal.
+But it's just one data point, which could be random chance, so I'd tend to say that the errors are sufficiently normally distributed.
+
+`r solend()`
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+Do the errors of `m1` have sufficiently equal variance across the whole range of fitted values?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Assess visually using a residuals-vs-fitted plot.
+
+```{r}
+plot(m1, which = 1)
+```
+
+We're looking for an even vertical spread of residuals across the whole x axis.
+That's *not* what we see here!
+The residuals are not a uniform cloud, but have a fan/funnel kind of shape.
+Specifically, the vertical spread of the residuals is a lot smaller for fitted values around 32 and 34, and a lot bigger around 38 and 40.
+So the the errors of this model do *not* have equal variance.
+
+A pattern like this should suggest to you that we should bootstrap this model before interpreting its estimates; bootstrapping will be covered in lab/lecture 09.
+
+`r solend()`
+
+# Check multicollinearity
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+Do you think multicollinearity between predictors is a problem for `m1`?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Measure multicollinearity using VIF (variance inflation factor).
+
+```{r}
+vif(m1)
+```
+
+We want values below 5, and the closer to 1, the better.
+Because these values are very close to 1, I would conclude that multicollinearity between predictors is not inflating the model's variance estimates.
+
+`r solend()`
+
+# Check influence
+
+<!-- # q7 -->
+
+`r qbegin(qcounter())`
+
+One particular observations influences the model's estimates more than others.
+What row is that observation in?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Measure influence using Cook's Distance.
+
+```{r}
+plot(m1, which = 4)
+```
+
+It's observation 109 again!
+
+(If you look back, observation 109 appears in both the Q-Q plot and the residuals-vs-fitted plot as a data point behaving strangely!)
+
+`r solend()`
+
+# Run sensitivity analysis
+
+<!-- # q8 -->
+
+`r qbegin(qcounter())`
+
+Fit the same model from Q1 to a version of the dataset that does not include the high-influence data point.
+Call that model `m2`.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+m2 <- lm(
+  wellbeing ~ outdoor_time + social_int,
+  data = mwdata[-109,]  # "subtract" row 109
+)
+```
+
+`r solend()`
+
+
+<!-- # q9 -->
+
+`r qbegin(qcounter())`
+
+Compare the model summaries for `m1` and `m2`.
+
+- How much do the coefficient estimates change after the high-influence data point has been removed?
+- How much does the pattern of statistical significance change?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+::::{.columns}
+:::{.column width="48%"}
+```{r}
+summary(m1)
+```
+
+:::
+:::{.column width="4%"}
+
+:::
+:::{.column width="48%"}
+
+```{r}
+summary(m2)
+```
+
+:::
+::::
+
+The coefficient estimates change a little bit, but the sign stays the same (i.e., if an estimate was positive in `m1`, it's still positive in `m2`).
+And the pattern of significance doesn't change at all: all coefs are still significant at $p$ < .001.
+
+`r solend()`
+
+<!-- # q10 -->
+
+`r qbegin(qcounter())`
+
+Does the high-influence observation impact the conclusions you would draw from the model?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+No.
+Even though observation 109 has a Cook's distance that's much greater than any of its fellows, it does not have much practical impact on our conclusions.
+When it's excluded, the signs of the coefficients and the pattern of significance do not change.
+We can therefore conclude that observation 109 is not driving the effects we observe in the model.
+
+`r solend()`
