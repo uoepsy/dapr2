@@ -1,0 +1,229 @@
+---
+title: "09: Bootstrapping"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+library(car)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll bootstrap some coefficient estimates for last week's model.
+
+There's relatively little new coding this week, so if you have extra time after running through the exercises, why not start putting together some study materials?
+Some suggestions are included below.
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab09.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `car`
+   
+:::
+
+---
+
+:::frame
+
+Research question (RQ): **Is there an association between wellbeing and time spent outdoors, when controlling for the effect that social interaction has on wellbeing?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mwdata  <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+tibble(
+variable = names(mwdata),
+description = c("Age in years of respondent","Self report estimated number of hours per week spent outdoors ", "Self report estimated number of social interactions per week (both online and in-person)", "Binary 1=Yes/0=No response to the question 'Do you follow a daily routine throughout the week?'", "Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS), a self-report measure of mental health and wellbeing. The scale is scored by summing responses to each item, with items answered on a 1 to 5 Likert scale. The minimum scale score is 14 and the maximum is 70", "Location of primary residence (City, Suburb, Rural)", "Average weekly number of steps in thousands (as given by activity tracker if available)")
+) |> gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+From the Edinburgh & Lothians, 100 city/suburb residences and 100 rural residences were chosen at random and contacted to participate in the study. The Warwick-Edinburgh Mental Wellbeing Scale (WEMWBS) was used to measure mental health and wellbeing. 
+
+Participants filled out a questionnaire including items concerning: estimated average number of hours spent outdoors each week, estimated average number of social interactions each week (whether on-line or in-person), whether a daily routine is followed (yes/no). For those respondents who had an activity tracker app or smart watch, they were asked to provide their average weekly number of steps.
+
+:::
+
+:::
+
+# Bootstrapping
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+Read in the data from  <https://uoepsy.github.io/data/wellbeing_rural.csv> and store it in a variable named `mwdata` ("mw" stands for "mental wellbeing").
+
+Use the function `lm()` to fit the linear model represented by the mathematical model formulation below, and name the result `m1`.
+
+$$
+\text{wellbeing} = \beta_0 + 
+(\beta_1 \cdot \text{outdoor\_time}) +
+(\beta_2 \cdot \text{social\_int}) +
+\epsilon
+$$
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
+m1    <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
+```
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+Here's a plot from last week's lab that illustrates a problem with this model's residuals:
+
+```{r}
+plot(m1, which = 1)
+```
+
+Make an attempt to write down from memory (a) what assumption this plot is checking, (b) what each point represents, and (c) the problem with the model's results that this plot illustrates.
+
+After you've made a good-faith effort to respond to each point from memory, you can revisit last week's lab/notes to complete your responses.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+(a) This is a residuals-vs-fitted plot, and it's used to visually assess the assumption of equal variance of errors.
+
+(b) Each point represents one observation from our dataset: specifically, its residual (y axis) and its model-fitted/model-predicted outcome value (x axis).
+
+(c) The problem is that these data points appear to build a fan/funnel/cone shape, where the vertical spread is much smaller on one side of the axis compared to the other. This indicates unequal variance, and it means we can't trust the model's estimates of variability, because they won't apply equally to the whole dataset.
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+Because the assumption shown in the plot above is not met, we must bootstrap our linear model's estimates.
+
+Use the function `Boot()` to draw 1000 bootstrapped samples.
+Name the output `m1_boot`.
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace the `...` in the code below with the appropriate values.
+
+```{r eval=F}
+... <- Boot(..., R = ...)
+```
+
+:::
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+m1_boot <- Boot(m1, R = 1000)
+```
+
+`r solend()`
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+Copy and run the following line of code.
+
+```{r eval=F}
+summary(m1_boot)
+```
+
+Identify (a) the column of the output that represents the coefficent estimate, and (b) the column of the output that represents the standard error (i.e., the standard deviation of the sampling distribution).
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+summary(m1_boot)
+```
+
+(a) `original` is the column containing the coefficient estimate.
+
+(b) `bootSE` is the column containing the bootstrapped standard error.
+
+`r solend()`
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+Use the function `confint()` to get the 95% CIs for each coefficient estimate.
+
+For each coefficient, can we reject the H0 that the coefficient is equal to zero?
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+confint(m1_boot)
+```
+
+None of these 95% CIs contain zero, so for all three coefficients, we can reject the H0 at $\alpha$ = .05.
+
+`r solend()`
+
+
+# Develop study materials/strategies
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+If you reach this point and still have a bit of time to dedicate to DAPR this week, we'd recommend that you start thinking about study/revision materials and strategies.
+
+Yes, the time of year when you'll write your reports and exams is still far away, but your learning will develop best through little bits of continuous effort.
+So the more prep you do now, the more your understanding will grow over time.
+
+Here are some of Elizabeth's favourite study methods (note that it's the *process* here that will help you learn, much more than the end product):
+
+1. [Mind mapping](https://subjectguides.york.ac.uk/note-taking/mind-map){target="_blank"}: Create a visual representation of how concepts are connected. Why not start one now and keep updating it as the course goes on?
+1. [Flash cards (and other active recall methods)](https://subjectguides.york.ac.uk/study-revision/active-recall#s-lg-box-16274981){target="_blank"}: Testing yourself using active recall now will train your brain in retrieving key information, so that it's there when you need it later.
+    - If you like using physical flash cards, try the [Leitner system](https://subjectguides.york.ac.uk/study-revision/leitner-system){target="_blank"}, a system that adds in spaced repetition to help build your long-term memory.
+1. [The Feynman technique](https://subjectguides.york.ac.uk/study-revision/feynman-technique){target="_blank"}: Teach or explain an idea as simply as you can. Wherever you're not sure what to say or how to explain something, brush up on those areas and try again.
+
+`r qend()`
+
