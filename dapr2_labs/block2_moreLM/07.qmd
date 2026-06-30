@@ -48,20 +48,414 @@ This week, you'll TODO
 
 :::frame
 
-TODO FIXME
+RQ: **Controlling for people's pre-existing anxiety levels, is coughing before a polygraph test significantly associated with a lower-than-average heart rate during the test?**
 
-To investigate if the number of words typed per minute (WPM) differs between people who've consumed different kinds of beverages, the researchers conducted an experiment where 40 participants were each randomly allocated to one of four beverage conditions.
+Data dictionary:
 
-The data in `caffeinedrink.csv` contained two attributes collected from $n=40$ participants:
+```{r}
+#| echo: false
+heartrate <- read_csv('https://uoepsy.github.io/data/polygraph.csv')
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
 tibble(
-    variable = names(read_csv("https://uoepsy.github.io/data/caffeinedrink.csv")),
-    description = c("which one of four treatment conditions the participant was assigned - control (water), coffee, mint tea, or red bull", "average number of words typed per minute")
+  variable = names(heartrate),
+  description = c(
+    "Age of participant (years)",
+    "Anxiety measure (z-scored)",
+    "Pre-test calming strategy (CloseEyes, Cough, DeepBreath)",
+    "Average heart rate (in bpm, beats per minute) during test"
+  )
 ) |> gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+Law enforcement in some countries regularly rely on ‘polygraph’ tests as a form of ‘lie detection’.
+These tests involve measuring heart rate, blood pressure, respiratory rate and sweat. 
+However, there is very little evidence to suggest that these methods are remotely accurate in being able to determine whether or not someone is lying.
+
+Researchers are interested in if peoples’ heart rates during polygraph tests can be influenced by various pre-test strategies, including deep breathing, or closing their eyes.
+They recruited 142 participants (ages 22 to 64).
+Participants were told they were playing a game in which their task was to deceive the polygraph test, and they would receive financial rewards if they managed successfully.
+At the outset of the study, they completed a questionnaire which asked about their anxiety in relation to taking part.
+Participants then chose one of three strategies to prepare themselves for the test, each lasting one minute.
+These were "deep breathing", "close your eyes", or "cough" (apparently coughing is a way to immediately lower heart rate!). 
+Then the average heart rate of each participant was recorded during their polygraph test.
+
+:::
+
+:::
+
+
+# Set up and plot data
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+Read in the data from  <https://uoepsy.github.io/data/polygraph.csv> and store it in a variable named `heartrate`.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+heartrate <- read_csv('https://uoepsy.github.io/data/polygraph.csv')
+```
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+Make a violin plot (including jittered points and group means) to show how heart rate `hr` is associated with each pre-test calming `strategy`.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+heartrate |>
+  ggplot(aes(x = strategy, y = hr, fill = strategy, colour = strategy)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  NULL
+```
+
+`r solend()`
+
+# Set up sum coding
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+First, convert `strategy` into a factor.
+
+Then, run the following code to show the contrast matrix that R would use by default if we used `strategy` as a predictor right now:
+
+```{r eval=F}
+contrasts(heartrate$strategy)
+```
+
+What contrast coding scheme does this contrast matrix represent?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+heartrate <- heartrate |>
+  mutate(
+    strategy = factor(strategy)
+  )
+```
+
+```{r}
+contrasts(heartrate$strategy)
+```
+
+This contrast coding scheme is treatment coding, which we got to know last week.
+
+By default, R will always treatment-code a categorical predictor unless we tell it otherwise.
+
+`r solend()`
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+Tell R to apply sum coding to `strategy` using the function `contr.sum()`.
+
+Give the dummy variables (the columns of the contrast matrix) more useful names that tell you which level is coded as 1 in each variable.
+
+Finally, generate the contrast matrix for `strategy` again and verify that it looks the way you'd expect.
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace the `...` in the code below with the appropriate values.
+
+```{r eval=F}
+contrasts(...$...) <- contr.sum(...)
+```
+
+To change the dummy variable names:
+
+```{r eval=F}
+dimnames(contrasts(...$...))[[2]] <- c('...', '...')
 ```
 
 :::
 
-# q1
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+contrasts(heartrate$strategy) <- contr.sum(3)
+contrasts(heartrate$strategy)
+```
+
+For the first dummy variable, `CloseEyes` is coded as 1, and for the second, it's `Cough`.
+So:
+
+```{r}
+dimnames(contrasts(heartrate$strategy))[[2]] <- c('CloseEyes', 'Cough')
+```
+
+Sense check:
+
+```{r}
+contrasts(heartrate$strategy)
+```
+
+Good!
+
+`r solend()`
+
+# Think ahead to model interpretation
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+The model we fit later will have two coefficients which correspond to the `strategy` variable: `strategyCloseEyes` and `strategyCough`.
+(We know this because there are two columns in the contrast matrix we generated above, and two columns $\rightarrow$ two dummy variables $\rightarrow$ two coefficients.)
+
+Write a brief sentence that describes what each coefficient will mean/represent, now that we've sum-coded them.
+
+Which of those coefficients will help you address the research question?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- `strategyCloseEyes`: The difference between estimated heart rate when `strategy = CloseEyes` and the grand mean estimated heart rate.
+- `strategyCough`: The difference between estimated heart rate when `strategy = Cough` and the grand mean estimated heart rate.
+
+The research question: **Controlling for people's pre-existing anxiety levels, is coughing before a polygraph test significantly associated with a lower-than-average heart rate during the test?**
+
+- The coefficient that will let us address this RQ is `strategyCough`.
+
+`r solend()`
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+This is a synthesis/review/challenge question.
+
+The RQ specifies that we must control for people's pre-existing anxiety levels, which are contained in the continuous numeric variable `anx`.
+Therefore, we'll include `anx` as a predictor in our model, and we'll get a coefficient estimate for `anx`.
+Write a brief sentence about what this coefficient will mean/represent.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Recall that `anx` has been z-scored, so `anx = 0` represents mean anxiety, and `anx = 1` represents one SD above the mean.
+
+`anx`: Holding `strategy` constant (you can think of this as averaging over all strategies), how much the average heart rate increases/decreases when `anx` increases by one SD.
+
+
+`r solend()`
+
+
+<!-- # q7 -->
+
+`r qbegin(qcounter())`
+
+Using the predictors you've thought about in the last couple questions, write the mathematical formulation of this model.
+
+Which $\beta$ coefficient will help you address the research question?
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+$$
+\text{heart rate} = \beta_0 + 
+(\beta_1 \cdot \text{strategy}_\text{CloseEyes}) + 
+(\beta_2 \cdot \text{strategy}_\text{Cough}) + 
+(\beta_3 \cdot \text{anx}) + 
+\epsilon
+$$
+
+The $\beta$ coefficient that's relevant for the research question is $\beta_2$, the coefficient of $\text{strategy}_\text{Cough}$.
+
+`r solend()`
+
+
+# Fit and interpret the model
+
+<!-- # q8 -->
+
+`r qbegin(qcounter())`
+
+Fit the linear model in R and look at the model summary.
+Also use `confint()` to generate the 95% CIs for each coefficient.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+hr_mdl <- lm(hr ~ strategy + anx, data = heartrate)
+summary(hr_mdl)
+confint(hr_mdl)
+```
+
+`r solend()`
+
+
+<!-- # q9 -->
+
+`r qbegin(qcounter())`
+
+Briefly interpret each of the model's four coefficients.
+
+Then, write one sentence that responds to the research question.
+Bonus: use APA formatting to report the relevant coefficient estimates.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- `(Intercept)`:
+  - The grand mean heart rate for somebody with average anxiety (equal to 0, because it's z-scored) is estimated to be 53.92 bpm.
+
+- `strategyCloseEyes`:
+  - Holding anxiety constant, closing one's eyes before the polygraph test is associated with an increase of 3.03 bpm compared to the grand mean bpm.
+  - This estimate is significantly different from zero ($p$ < .001).
+
+- `strategyCough`:
+  - Holding anxiety constant, coughing before the polygraph test is associated with a decrease of 0.84 bpm compared to the grand mean bpm.
+  - This estimate is not significantly different from zero ($p$ = .20).
+
+- `anx`:
+  - Holding strategy constant, increasing one SD of anxiety is associated with an increase of 3.40 bpm.
+  - This estimate is significantly different from zero ($p$ < .001).
+  
+  
+Responding to RQ: 
+When controlling for anxiety, coughing before a polygraph test is not significantly associated with a lower-than-average heart rate during the polygraph test ($b$ = 0.84, 95% CI [–2.13, 0.44], $p$ = .20)
+
+```{r include=F, eval=F}
+# sense check
+
+pdat <- tibble(
+  strategy = unique(heartrate$strategy),
+  anx = 0
+)
+pdat$pred = predict(hr_mdl, newdata=pdat)
+# strategy coefs
+pdat$pred-mean(pdat$pred)  
+# anx coef
+predict(hr_mdl, newdata=pdat |> mutate(anx=1)) - pdat$pred
+```
+
+
+`r solend()`
+
+
+# Choosing coding schemes for different RQs
+
+<!-- # q10 -->
+
+
+`r qbegin(qcounter())`
+
+
+When you want to model a categorical predictor, you need to choose between treatment coding or sum coding.
+In order to make this choice, you must think about what coding scheme will let you address your specific RQ the best.
+
+Based on the phrasing of the following RQs, which contrast coding scheme would you choose, and why? 
+(And if you choose treatment coding, what would your reference level be, and why?)
+
+1. Do schoolchildren learn better when their classroom contains natural light compared to artificial light?
+1. What kind of background sound is associated with people spending more money in restaurants: no music, pop music, or classical music?
+1. Is life satisfaction in London lower than the average life satisfaction in the UK?
+1. Do students in Psychology spend more time studying than students in PPLS on average?
+1. In a Stroop task, do autistic people perform better than neurotypical people?
+
+Bonus: Write down a note to your future self where you describe, in your own words, how you make this decision.
+
+:::red
+🗂️
+See [TODO](https://uoepsy.github.io/dapr2/2627/flashcards/block1/TODO.html){target="_blank"} flash cards.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+1. Do schoolchildren learn better when their classroom contains natural light compared to artificial light?
+
+- The RQ asks about a direct comparison between two levels of a predictor, so we want treatment coding.
+- A good reference level: artificial light, so that the slope coefficient tells us how much learning increases when a classroom gets natural light.
+
+<br>
+
+2. What kind of background sound is associated with people spending more money in restaurants: no music, pop music, or classical music?
+
+- The RQ asks about a direct comparison between two levels of a predictor, so we want treatment coding.
+- A good reference level: no music, because it's a natural baseline to compare different kinds of music to.
+
+<br>
+
+3. Is life satisfaction in London lower than the average life satisfaction in the UK?
+
+- The RQ asks about comparing a particular level of a predictor (here, places in the UK) to the average, so we want sum coding.
+
+<br>
+
+4. Do students in Psychology spend more time studying than students in PPLS on average?
+
+- The RQ asks about comparing a particular level of a predictor (here, subject areas in PPLS) to the average, so we want sum coding.
+
+<br>
+
+5. In a Stroop task, do autistic people perform better than neurotypical people?
+
+- The RQ asks about a direct comparison between two levels of a predictor, so we want treatment coding.
+- A good reference level: neurotypical, so that the slope coefficient tells us how much better performance is for autistic people.
+
+`r solend()`
+
+
+
+
+
+
+
+
+
+
 
