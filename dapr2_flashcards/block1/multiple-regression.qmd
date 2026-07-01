@@ -7,24 +7,31 @@ params:
 ```{r setup, include=FALSE}
 source('../assets/setup.R')
 library(tidyverse)
+library(patchwork)
 library(psych)
 library(sjPlot)
 ```
 
-## Description and model specification
 
+## Description and model specification
 
 Multiple linear regression involves looking at one continuous outcome (i.e., DV), with two or more independent variables (i.e., IVs). 
 
 A multiple linear regression model takes the following form:
 
 $$
-y_i = \beta_0 + \beta_1 \cdot x_{1_i} + \beta_2 \cdot x_{2_i} + .... + \beta_j \cdot x_{j_i} + \epsilon_i
+y = \beta_0 + (\beta_1 \cdot x_{1}) + (\beta_2 \cdot x_{2}) + .... + (\beta_j \cdot x_{j}) + \epsilon
+\quad \text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
 $$
 
+```
 $$
-\quad \text{where} \quad \epsilon_i \sim N(0, \sigma) \text{ independently}
+y = \beta_0 + (\beta_1 \cdot x_{1}) + (\beta_2 \cdot x_{2}) + .... + (\beta_j \cdot x_{j}) + \epsilon
+\quad \text{where} \quad \epsilon \sim N(0, \sigma) \text{ independently}
 $$
+```
+
+<br>
 
 In R:
 
@@ -77,42 +84,68 @@ recalldata <- read_csv('https://uoepsy.github.io/data/recalldata.csv')
 > Is recall accuracy associated with recall confidence and age? 
 
 
-## Visualise data
+### Visualise data
 
-```{r}
+```{r fig.asp = .4}
 #| label: fig-pairsp2
-#| fig-cap: "Recall SPLOM"
+#| fig-cap: "Association between Recall Accuracy, Recall Confidence, and Age"
 
-recalldata |>
-    select(recall_accuracy, recall_confidence, age) |>
-    pairs.panels(main = "Recall SPLOM")
+p_acc <- recalldata |>
+  ggplot(aes(x = recall_accuracy)) +
+  geom_histogram(binwidth=5) +
+  xlab('Recall\naccuracy') +
+  ylab('Count')
+
+p_con <- recalldata |>
+  ggplot(aes(x = recall_confidence)) +
+  geom_histogram(binwidth=5) +
+  xlab('Recall\nconfidence') +
+  ylab('')
+
+p_age <- recalldata |>
+  ggplot(aes(x = age)) +
+  geom_histogram(binwidth=5) +
+  xlab('Age') +
+  ylab('')
+
+p_acc + p_con + p_age
 ```
 
-
-## Model and hypothesis specification
-
-
-::: {.panel-tabset}
-
-## Model Specification 
+### Model Specification 
 
 $$
-\text{Recall Accuracy}_i = \beta_0 + \beta_1 \cdot \text{Recall Confidence}_i + \beta_2 \cdot \text{Age}_i + \epsilon_i \\
+\text{Recall Accuracy} = \beta_0 + (\beta_1 \cdot \text{Recall Confidence}) + (\beta_2 \cdot \text{Age}) + \epsilon \\
 $$
 
-## Hypothesis Specification
+```
+$$
+\text{Recall Accuracy} = \beta_0 + (\beta_1 \cdot \text{Recall Confidence}) + (\beta_2 \cdot \text{Age}) + \epsilon \\
+$$
+```
+
+### Hypothesis Specification
 
 $H_0:$ All $\beta_j = 0$ (for $j = 1, 2$)
 
+```
+$H_0:$ All $\beta_j = 0$ (for $j = 1, 2$)
+```
+
 There is no association between recall accuracy and recall confidence and/or age. 
+
+<br>
 
 $H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2$)
 
+```
+$H_1:$ At least one $\beta_j \neq  0$ (for $j = 1, 2$)
+
+```
+
 There is an association between recall accuracy and recall confidence and/or age. 
 
-:::
 
-## Fitting model
+### Fitting model
 
 ```{r}
 recall_multi <- lm(
@@ -122,57 +155,49 @@ recall_multi <- lm(
 ```
 
 
-## Interpreting results
+### Interpreting results
 
-
-::: {.panel-tabset}
-
-## `(Intercept)`   
 
 $\beta_0$ = `(Intercept)` = `r round(coef(recall_multi)[1],2)`  
   
-+ The intercept, or predicted recall accuracy when recall confidence was 0 and age was 0.  
-    - An individual aged 0 years with no recall confidence was expected to have a recall accuracy of $`r round(coef(recall_multi)[1],2)`$.  
+- An individual aged 0 years with no recall confidence was expected to have a recall accuracy of $`r round(coef(recall_multi)[1],2)`$.  
     
 *Note:* the intercept isn’t very useful here at all. It estimates the accuracy for a newborn (who wouldn’t be able to complete the task!).
-    
-## `recall_confidence`  
 
+<br>
+    
 $\beta_1$ = `recall_confidence` = `r round(coef(recall_multi)[2],2)`   
   
-+ The estimated difference in recall accuracy for each additional unit increase in confidence controlling for age.  
-    - Holding age constant, each 1 additional unit in recall confidence was associated with a significant $`r round(coef(recall_multi)[2],2)`$ percentage point increase in recall accuracy $(p < .001)$.  
+- Holding age constant, increasing one unit in recall confidence is associated with a $`r round(coef(recall_multi)[2],2)`$ percentage point increase in recall accuracy.
+- This estimate is significantly different from zero $(p < .001)$.  
     
-## `age`   
+<br>
 
 $\beta_2$ = `age` = `r round(coef(recall_multi)[3],2)`   
   
-+ The estimated difference in recall accuracy for each additional year in age controlling for recall confidence.  
-    - Holding recall confidence constant, every 1 additional year in age was associated with a significant $`r round(coef(recall_multi)[3],2)`$ percentage point decrease in recall accuracy $(p = .041)$.  
-    
-:::
+- Holding recall confidence constant, increasing one year of age is associated with a $`r round(coef(recall_multi)[3],2)`$ percentage point decrease in recall accuracy.
+- This estimate is significantly different from zero $(p = .041)$.  
 
+### Visualising the model
 
-## Visualising the model
+We can use the function `plot_model()` from **sjPlot**.
 
-
-When we have 2+ predictors, we can’t just plot our data an add `geom_smooth(method=lm)`, because that would give a visualisation of a linear model with just one predictor (whichever one is on the $x$-axis).  
-
-Instead, we can use the function `plot_model()` from **sjPlot**.
-
-```{r}
+```{r fig.width=10, fig.height=5}
 #| label: fig-recalmod
 #| fig-cap: "Association between Recall Accuracy, Recall Confidence, and Age"
 
-plot_model(recall_multi,
+p_con_mod <- plot_model(recall_multi,
            type = "eff",
            terms = "recall_confidence",
            show.data = TRUE)
 
-plot_model(recall_multi,
+p_age_mod <- plot_model(recall_multi,
            type = "eff",
            terms = "age",
-           show.data = TRUE)
+           show.data = TRUE) +
+  ylab('')
+
+p_con_mod + p_age_mod
 ```
 
 
