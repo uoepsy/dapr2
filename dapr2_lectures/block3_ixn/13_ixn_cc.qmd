@@ -14,6 +14,7 @@ format:
 library(tidyverse)
 library(interactions)  # for cat_plot()
 dapr2red <- "#BF1932" 
+source('../_theme/theme_quarto.R')
 
 col_C_CS <- '#DDAA33'
 col_C_RR <- '#EE6677'
@@ -22,35 +23,29 @@ col_M_RR <- '#228833'
 col_C_DC <- '#AA3377'
 col_M_DC <- '#66CCEE'
 
-theme_set(
-  theme_minimal(
-    base_size = 32
-  )
-)
 
 anx2 <- read_csv('../data/post_travel_anx.csv') |>
   mutate(
-    combo_labs = paste0(transport, road_type)
+    combo_labs = paste0(vehicle, road)
   )
 anx1 <- anx2 |> 
-  filter(road_type %in% c('CityStreet', 'RuralRoad')) |>
+  filter(road %in% c('City', 'Rural')) |>
   mutate(
-    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
-    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet')),
+    vehicle = factor(vehicle, levels = c('Car', 'Bike')),
+    road = factor(road, levels = c('Rural', 'City')),
   ) 
 
-mean_Cyclist_CityStreet <- filter(anx2, road_type == 'CityStreet', transport == 'Cyclist')$anx |> mean()
-mean_Cyclist_RuralRoad <- filter(anx2, road_type == 'RuralRoad', transport == 'Cyclist')$anx |> mean()
-mean_Cyclist_DualCarr <- filter(anx2, road_type == 'DualCarr', transport == 'Cyclist')$anx |> mean()
+mean_Bike_City <- filter(anx2, road == 'City', vehicle == 'Bike')$anx |> mean()
+mean_Bike_Rural <- filter(anx2, road == 'Rural', vehicle == 'Bike')$anx |> mean()
+mean_Bike_DualCarr <- filter(anx2, road == 'DualCarr', vehicle == 'Bike')$anx |> mean()
 
-mean_Motorist_CityStreet <- filter(anx2, road_type == 'CityStreet', transport == 'Motorist')$anx |> mean()
-mean_Motorist_RuralRoad <- filter(anx2, road_type == 'RuralRoad', transport == 'Motorist')$anx |> mean()
-mean_Motorist_DualCarr <- filter(anx2, road_type == 'DualCarr', transport == 'Motorist')$anx |> mean()
-
-
+mean_Car_City <- filter(anx2, road == 'City', vehicle == 'Car')$anx |> mean()
+mean_Car_Rural <- filter(anx2, road == 'Rural', vehicle == 'Car')$anx |> mean()
+mean_Car_DualCarr <- filter(anx2, road == 'DualCarr', vehicle == 'Car')$anx |> mean()
 
 palette_probe <- c('#4ab8fc', '#ff7b01')
 ```
+
 # Course overview {background-color="white"}
 
 TODO
@@ -77,9 +72,9 @@ TODO
 What does the interaction coefficient of a linear model mean?
 :::
 
-::: {.dapr2callout .fragment}
-If we know the contrast coding for two interacting categorical predictors, how do we work out the coding of the interaction term?
-:::
+<!-- ::: {.dapr2callout .fragment} -->
+<!-- If we know the contrast coding for two interacting categorical predictors, how do we work out the coding of the interaction term? -->
+<!-- ::: -->
 
 ::: {.dapr2callout .fragment}
 What’s the difference between a “simple slope” and a “simple effect”?
@@ -91,10 +86,9 @@ How can we calculate how many interaction terms a model will have when two categ
 
 :::::
 
-
 ## Where we are in the analysis plan today
 
-![](figs/block3-flowchart-03.svg){height="925" fig-align="center"}
+![](figs/workflow-11.svg){fig-align="center"}
 
 
 ## What's an interaction again?
@@ -109,32 +103,32 @@ An interaction is how we allow a model to estimate that **the association betwee
 
 ## Today's data
 
-**Post-travel anxiety ratings for people using two different kinds of `transport`:**
+**Post-travel anxiety ratings for people using two different kinds of `vehicle`:**
 
 
 :::: {.columns}
 ::: {.column width="50%"}
-`Motorist`:
+`Car`:
 <br>
-![](figs/Motorist.jpg){height="300"}
+![](figs/Car.jpg){height="300"}
 :::
 ::: {.column width="50%"}
-`Cyclist`:
+`Bike`:
 <br>
-![](figs/Cyclist.jpg){height="300"}
+![](figs/Bike.jpg){height="300"}
 :::
 ::::
 
 
 
 
-**on two different `road_types`:**
+**on two different `roads`:**
 
 :::: {.columns}
 ::: {.column width="50%"}
-`RuralRoad`:
+`Rural`:
 <br>
-![](figs/RuralRoad.jpg){height="300"}
+![](figs/Rural.jpg){height="300"}
 
 
 ::::{style="font-size:70%"}
@@ -143,9 +137,9 @@ An interaction is how we allow a model to estimate that **the association betwee
 
 :::
 ::: {.column width="50%"}
-`CityStreet`:
+`City`:
 <br>
-![](figs/CityStreet.jpg){height="300"}
+![](figs/City.jpg){height="300"}
 :::
 ::::
 
@@ -158,23 +152,28 @@ An interaction is how we allow a model to estimate that **the association betwee
 
 :::: {.columns}
 ::: {.column width="60%"}
-```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
+```{r fig.align = 'center', fig.dim = c(10, 8)}
+#| code-fold: true
 anx1 <- anx1 |>
   mutate(
-    combo_labs = paste0(transport, road_type)
+    combo_labs = paste0(vehicle, road)
   )
 
 set.seed(1)
 p_anx1_transfacet <- anx1 |>
-  ggplot(aes(x = road_type, y = anx, colour = combo_labs, fill = combo_labs)) +
+  ggplot(aes(x = road, y = anx, colour = combo_labs, fill = combo_labs)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5, size = 5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
-  facet_wrap(~ transport) +
-  theme(legend.position = 'none') +
+  facet_wrap(~ vehicle) +
+  theme(
+    legend.position = 'none',
+    strip.text = element_text(size = 24)
+  ) +
   scale_colour_manual(values = c(col_C_CS, col_C_RR, col_M_CS, col_M_RR)) +
   scale_fill_manual(values = c(col_C_CS, col_C_RR, col_M_CS, col_M_RR)) +
   NULL
+
 p_anx1_transfacet
 ```
 :::
@@ -201,9 +200,9 @@ anx1 |>
 
 ::::
 
-**Does the difference in anxiety after travelling on different road types _depend on_ the kind of transport?**
+**Does the difference in anxiety after travelling on different road types _depend on_ the kind of vehicle?**
 
-Or, specifically: Is the difference in anxiety after travelling on rural roads vs. city streets different for motorists and cyclists?
+Or, specifically: Is the difference in anxiety after travelling on rural roads vs. city streets different for Cars and Bikes?
 
 
 
@@ -213,15 +212,19 @@ Or, specifically: Is the difference in anxiety after travelling on rural roads v
 
 :::: {.columns}
 ::: {.column width="60%"}
-```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
+```{r fig.align = 'center', fig.dim = c(10, 8)}
+#| code-fold: true
 set.seed(1)
 p_anx1_roadfacet <- anx1 |>
-  ggplot(aes(x = transport, y = anx, colour = combo_labs, fill = combo_labs)) +
+  ggplot(aes(x = vehicle, y = anx, colour = combo_labs, fill = combo_labs)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5, size = 5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
-  facet_wrap(~ road_type) +
-  theme(legend.position = 'none') +
+  facet_wrap(~ road) +
+  theme(
+    legend.position = 'none',
+    strip.text = element_text(size = 24)
+  ) +
   scale_colour_manual(values = c(col_C_CS, col_C_RR,  col_M_CS,col_M_RR)) +
   scale_fill_manual(values   = c(col_C_CS, col_C_RR,  col_M_CS,col_M_RR)) +
   NULL
@@ -230,8 +233,8 @@ p_anx1_roadfacet
 :::
 
 ```{r include=F, eval=F}
-ggsave('EP-lecs/figs/anx1_transfacet.svg',p_anx1_transfacet, width = 30, height = 20, units = 'cm')
-ggsave('EP-lecs/figs/anx1_roadfacet.svg',p_anx1_roadfacet, width = 30, height = 20, units = 'cm')
+ggsave('figs/anx1_transfacet.svg',p_anx1_transfacet, width = 30, height = 20, units = 'cm')
+ggsave('figs/anx1_roadfacet.svg',p_anx1_roadfacet, width = 30, height = 20, units = 'cm')
 ```
 
 
@@ -257,9 +260,9 @@ anx1 |>
 
 ::::
 
-**Does the difference in anxiety after travelling on different road types _depend on_ the kind of transport?**
+**Does the difference in anxiety after travelling on different road types _depend on_ the kind of vehicle?**
 
-Or, equivalently: Is the difference in anxiety between motorists and cyclists different after travelling on rural roads and on city streets?
+Or, equivalently: Is the difference in anxiety between Cars and Bikes different after travelling on rural roads and on city streets?
 
 
 # Let's play with the numbers
@@ -275,10 +278,10 @@ Or, equivalently: Is the difference in anxiety between motorists and cyclists di
 :::
 
 
-<!-- | | RuralRoad| CityStreet| -->
+<!-- | | Rural| City| -->
 <!-- |:---------|---------:|----------:| -->
-<!-- |<b>Motorist</b>  |      27.03 |       31.92 | -->
-<!-- |<b>Cyclist</b>   |      27.47  |       40.12 | -->
+<!-- |<b>Car</b>  |      27.03 |       31.92 | -->
+<!-- |<b>Bike</b>   |      27.47  |       40.12 | -->
 
 
 
@@ -291,8 +294,8 @@ Or, equivalently: Is the difference in anxiety between motorists and cyclists di
 ```{r}
 anx1 <- anx1 |>
   mutate(
-    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
-    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet')),
+    vehicle = factor(vehicle, levels = c('Car', 'Bike')),
+    road = factor(road, levels = c('Rural', 'City')),
   )
 ```
 
@@ -301,13 +304,13 @@ anx1 <- anx1 |>
 The default contrast coding (treatment coding):
 
 ```{r}
-contrasts(anx1$transport)
+contrasts(anx1$vehicle)
 ```
 
 <br>
 
 ```{r}
-contrasts(anx1$road_type)
+contrasts(anx1$road)
 ```
 
 
@@ -320,12 +323,12 @@ In other words: To get the interaction's contrast, we multiply together each pai
 <br>
 
 
-| transport | road_type  | transportCyclist | road_typeCityStreet | tC:rtCS |
+| vehicle | road  | vehicleBike | roadCity | vehicleBike:roadCity |
 | --------- | ---------- | ---------------: | ------------------: | ----------: |
-| Motorist  | RuralRoad  | 0                | 0                   | 0 * 0 = 0   |
-| Motorist  | CityStreet | 0                | 1                   | 0 * 1 = 0   |
-| Cyclist   | RuralRoad  | 1                | 0                   | 1 * 0 = 0   |
-| Cyclist   | CityStreet | 1                | 1                   | 1 * 1 = 1   |
+| Car  | Rural  | 0                | 0                   | 0 * 0 = 0   |
+| Car  | City | 0                | 1                   | 0 * 1 = 0   |
+| Bike   | Rural  | 1                | 0                   | 1 * 0 = 0   |
+| Bike   | City | 1                | 1                   | 1 * 1 = 1   |
 
 
 
@@ -337,8 +340,8 @@ In other words: To get the interaction's contrast, we multiply together each pai
 <!-- **For every predictor that goes into your model, know what zero represents.** -->
 <!-- ::: -->
 
-<!-- - What does `transport = 0` represent? -->
-<!-- - What does `road_type = 0` represent? -->
+<!-- - What does `vehicle = 0` represent? -->
+<!-- - What does `road = 0` represent? -->
 
 <!-- <br> -->
 
@@ -358,20 +361,20 @@ In other words: To get the interaction's contrast, we multiply together each pai
 
 <!-- ::: -->
 
-<!-- - What will the slope of `transport` represent? -->
-<!-- - What will the slope of `road_type` represent? -->
+<!-- - What will the slope of `vehicle` represent? -->
+<!-- - What will the slope of `road` represent? -->
 
 
 ## Think–Pair–Share: Cat/cat interaction coefs
 
 <br>
 
-The interaction model &nbsp; `anx ~ transport * road_type` &nbsp; will have four coefficients:
+The interaction model &nbsp; `anx ~ vehicle * road` &nbsp; will have four coefficients:
 
 - `Intercept` (but you're pretty good at interpreting the intercept by now, so we'll spend time on the harder stuff!)
-- `transportCyclist`
-- `road_typeCityStreet`
-- `transportCyclist:road_typeCityStreet`
+- `vehicleBike`
+- `roadCity`
+- `vehicleBike:roadCity`
 
 **Without looking ahead, try to figure out: What will each coefficient represent?**
 
@@ -381,8 +384,6 @@ The interaction model &nbsp; `anx ~ transport * road_type` &nbsp; will have four
 :::{.dapr2callout style="font-size:100%"}
 
 - **Think** to yourself about each coefficient's meaning. / **Pair** up with your neighbour and think together.
-
-![](figs/streamline-plump--hourglass-remix.svg){fig-align="center"}
 
 - Then **share** on `wooclap.com`, enter code `GECHXE`
 
@@ -394,14 +395,14 @@ The interaction model &nbsp; `anx ~ transport * road_type` &nbsp; will have four
 
 $$
 \text{anx} = \beta_0 + 
-(\beta_1 \cdot \text{transport}) +
-(\beta_2 \cdot \text{road_type}) +
-(\beta_3 \cdot \text{transport} \cdot \text{road_type}) +
+(\beta_1 \cdot \text{vehicle}_\text{Bike}) +
+(\beta_2 \cdot \text{road}_\text{City}) +
+(\beta_3 \cdot \text{vehicle}_\text{Bike} \cdot \text{road}_\text{City}) +
 \epsilon
 $$
 
 ```{r}
-m1 <- lm(anx ~ transport * road_type, data = anx1)
+m1 <- lm(anx ~ vehicle * road, data = anx1)
 ```
 
 :::{.fragment}
@@ -422,10 +423,9 @@ set.seed(1)
 p_anx1_transfacet
 ```
 
-::::{ style="font-size:75%;"}
+::::{ style="font-size:85%;"}
 ```{r echo=F}
-# cat(paste0(capture.output(summary(m1)), '\n')[10:14])
-summary(m1)$coefficients |> round(2)
+cat(paste0(capture.output(summary(m1)), '\n')[10:14])
 ```
 ::::
 :::
@@ -435,24 +435,26 @@ summary(m1)$coefficients |> round(2)
 
 **`Intercept`**
 
-- When `transport = 0 = Motorist` and `road_type = 0 = RuralRoad`, the estimated average anxiety is 27.03 points.
+- When `vehicle = 0 = Car` and `road = 0 = Rural`, the estimated average anxiety is 27.03 points.
 
 ::::
 
 ::::{.fragment}
 
-**`transportCyclist`**
+**`vehicleBike`**
 
-- Specifically when `road_type = 0 = RuralRoad`, being a cyclist is associated with an increase in anxiety of 0.44 points.
+- Specifically when `road = 0 = Rural`, riding a bike is associated with an increase in anxiety of 0.44 points.
+- This estimate is not significantly different from zero ($p$ = .842).
 
 ::::
 
 
 ::::{.fragment}
 
-**`road_typeCityStreet`**
+**`roadCity`**
 
-- Specifically when `transport = 0 = Motorist`, being on city streets is associated with an increase in anxiety of 4.89 points.
+- Specifically when `vehicle = 0 = Car`, being on city roads is associated with an increase in anxiety of 4.89 points.
+- This estimate is significantly different from zero ($p$ = .030).
 
 ::::
 
@@ -471,28 +473,28 @@ set.seed(1)
 p_anx1_transfacet
 ```
 
-::::{ style="font-size:75%;"}
+::::{ style="font-size:85%;"}
 ```{r echo=F}
-# cat(paste0(capture.output(summary(m1)), '\n')[10:14])
-summary(m1)$coefficients |> round(2)
+cat(paste0(capture.output(summary(m1)), '\n')[10:14])
 ```
 ::::
 :::
 ::: {.column width="35%"}
 
-**`transportCyclist:road_typeCityStreet`**
+**`vehicleBike:roadCity`**
 
-- Being a cyclist changes the association of `road_type` with `anx` by 7.76 points.
-- So, the association of `road_type` with `anx` when ...
-  - `transport = 0 = Motorist` is 4.89
-  - `transport = 1 = Cyclist` is 4.89 + 7.76 = 12.65
+- Riding a bike increases the association of `road` with `anx` by 7.76 points.
+- This estimate is significantly different from zero ($p$ = .014).
+- The association of `road` with `anx` when ...
+  - `vehicle = 0 = Car` is 4.89
+  - `vehicle = 1 = Bike` is 4.89 + 7.76 = 12.65
   
   
 :::{.fragment}
-- **Equivalently,** being on city streets changes the association of `transport` with `anx` by 7.76 points.
-- So, the association of `transport` with `anx` when ...
-  - `road_type = 0 = RuralRoad` is 0.44
-  - `road_type = 1 = CityStreet` is 0.44 + 7.76 = 8.2
+- **Equivalently,** being on city roads increases the association of `vehicle` with `anx` by 7.76 points.
+- So, the association of `vehicle` with `anx` when ...
+  - `road = 0 = Rural` is 0.44
+  - `road = 1 = City` is 0.44 + 7.76 = 8.2
 :::  
   
 :::
@@ -501,47 +503,11 @@ summary(m1)$coefficients |> round(2)
 
 
 
-
-## Mapping model coefficients to group means
-
-A more formal version of "find the difference of differences". (You'll practice this more in labs!)
-
-**Model coefficients:**
-
-:::{style = "font-size:90%"}
-```{r echo=F}
-summary(m1)$coefficients |> round(2)
-```
-:::
-
-**Group means:**
-
-| | RuralRoad| CityStreet|
-|:---------|---------:|----------:|
-|<b>Motorist</b>  |      27.03 |       31.92 |
-|<b>Cyclist</b>   |      27.47  |       40.12 |
-
-
-**How model coefficients and group means are related:**
-
-
-
-| | | |
-| :-- | :-- | --: |
-| `(Intercept)`| mean(Motorist, RuralRoad) | **27.03** |
-| `transportCyclist` | mean(Cyclist, RuralRoad) – mean(Motorist, RuralRoad) | 27.47 – 27.03 = **0.44** |
-| `road_typeCityStreet`| mean(Motorist, CityStreet) – mean(Motorist, RuralRoad) | 31.92 – 27.03 = **4.89** |
-| `tC:rtCS`| [mean(Cyclist, CityStreet) – mean(Motorist, CityStreet)] –  [mean(Cyclist, RuralRoad) – mean(Motorist, RuralRoad)] | (40.12 – 31.92) – (27.47 – 27.03) = **7.76** |
-
-
-
-
-
 ## Visualising the model's estimates (1)
 
 When we had continuous predictors, we used `probe_interaction()` from the `interactions` library.
 
-Now that we have only categorical predictors, we must use `cat_plot()` instead.
+Now that we have only categorical predictors, we must use `interactions::cat_plot()` instead.
 
 :::: {.columns}
 ::: {.column width="40%"}
@@ -550,8 +516,8 @@ Now that we have only categorical predictors, we must use `cat_plot()` instead.
 ```{r eval=F}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
 )
 ```
 :::
@@ -559,8 +525,8 @@ cat_plot(
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 8)}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   # geom = 'line'
 ) +
   theme(text = element_text(size = 32))
@@ -583,8 +549,8 @@ If you like to think about interactions in terms of **differences in vertical di
 ```{r eval=F}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 )
 ```
@@ -593,8 +559,8 @@ cat_plot(
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 8)}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 ) +
   theme(text = element_text(size = 32))
@@ -636,10 +602,10 @@ We need the model's linear expression:
 
 $$
 \text{anx} = \beta_0 + 
-(\beta_1 \cdot \text{transport}) + 
-(\beta_2 \cdot \text{road_type}) + 
-(\beta_3 \cdot \text{transport} \cdot \text{road_type}) + 
-\epsilon \\
+(\beta_1 \cdot \text{vehicle}_\text{Bike}) +
+(\beta_2 \cdot \text{road}_\text{City}) +
+(\beta_3 \cdot \text{vehicle}_\text{Bike} \cdot \text{road}_\text{City}) +
+\epsilon
 $$
 
 
@@ -654,19 +620,23 @@ coef(m1) |> round(2)
 We substitute the coefficient estimates into the linear expression, to give:
 
 $$
-\text{anx} = 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot \text{transport} \cdot \text{road_type}) +  \epsilon \\
+\text{anx} = 27.03 + 
+(0.44 \cdot \text{vehicle}_\text{Bike}) +
+(4.89 \cdot \text{road}_\text{City}) +
+(7.76 \cdot \text{vehicle}_\text{Bike} \cdot \text{road}_\text{City}) +
+\epsilon
 $$
 
 
-## The simple effect of `transport` for rural roads
+## The simple effect of `vehicle` for rural roads
 
-Rural roads are represented by `road_type = 0`, so we substitute 0 for $\text{road_type}$.
+Rural roads are represented by `road = 0`, so we substitute 0 for $\text{road}$.
 
 \begin{align}
-\text{anx} &= 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot \text{transport} \cdot \text{road_type}) +  \epsilon \\
+\text{anx} &= 27.03 +  (0.44 \cdot \text{vehicle}) +  (4.89 \cdot \text{road}) +  (7.76 \cdot \text{vehicle} \cdot \text{road}) +  \epsilon \\
 
-\text{anx}_{\text{Rural}} &= 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot 0) +  (7.76 \cdot \text{transport} \cdot 0) +  \epsilon \\
-\text{anx}_{\text{Rural}} &= 27.03 +  (0.44 \cdot \text{transport}) + \epsilon \\
+\text{anx}_{\text{Rural}} &= 27.03 +  (0.44 \cdot \text{vehicle}) +  (4.89 \cdot 0) +  (7.76 \cdot \text{vehicle} \cdot 0) +  \epsilon \\
+\text{anx}_{\text{Rural}} &= 27.03 +  (0.44 \cdot \text{vehicle}) + \epsilon \\
 \end{align}
 
 This is the equation for the blue line in this plot:
@@ -674,8 +644,8 @@ This is the equation for the blue line in this plot:
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 6)}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 ) +
   theme(text = element_text(size = 32))
@@ -684,17 +654,17 @@ cat_plot(
 **When we ask for a "simple effect", we ask for the _slope_ of this line: the difference between groups at a specific level of another predictor. So here, the simple effect is 0.44.**
 
 
-## The simple effect of `transport` for city streets
+## The simple effect of `vehicle` for city streets
 
-City streets are represented by `road_type = 1`, so we substitute 1 for $\text{road_type}$ below.
+City streets are represented by `road = 1`, so we substitute 1 for $\text{road}$ below.
 
 \begin{align}
-\text{anx} &= 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot \text{road_type}) +  (7.76 \cdot \text{transport} \cdot \text{road_type}) +  \epsilon \\
+\text{anx} &= 27.03 +  (0.44 \cdot \text{vehicle}) +  (4.89 \cdot \text{road}) +  (7.76 \cdot \text{vehicle} \cdot \text{road}) +  \epsilon \\
 
-\text{anx}_{\text{City}} &= 27.03 +  (0.44 \cdot \text{transport}) +  (4.89 \cdot 1) +  (7.76 \cdot \text{transport} \cdot 1) +  \epsilon \\
-\text{anx}_{\text{City}} &= 27.03 + 4.89 +  (0.44 \cdot \text{transport}) + (7.76 \cdot \text{transport}) +  \epsilon \\
-\text{anx}_{\text{City}} &= 31.92 +  ((0.44 + 7.76) \cdot \text{transport}) +  \epsilon \\
-\text{anx}_{\text{City}} &= 31.92 +  (8.2 \cdot \text{transport}) +  \epsilon \\
+\text{anx}_{\text{City}} &= 27.03 +  (0.44 \cdot \text{vehicle}) +  (4.89 \cdot 1) +  (7.76 \cdot \text{vehicle} \cdot 1) +  \epsilon \\
+\text{anx}_{\text{City}} &= 27.03 + 4.89 +  (0.44 \cdot \text{vehicle}) + (7.76 \cdot \text{vehicle}) +  \epsilon \\
+\text{anx}_{\text{City}} &= 31.92 +  ((0.44 + 7.76) \cdot \text{vehicle}) +  \epsilon \\
+\text{anx}_{\text{City}} &= 31.92 +  (8.2 \cdot \text{vehicle}) +  \epsilon \\
 \end{align}
 
 This is the equation for the orange line in this plot:
@@ -702,17 +672,17 @@ This is the equation for the orange line in this plot:
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 6)}
 cat_plot(
   m1,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 ) +
   theme(text = element_text(size = 32))
 ```
 
-**If we ask for the simple effect of transport for city streets, it's the slope of this line: 8.2.**
+**If we ask for the simple effect of vehicle for city streets, it's the slope of this line: 8.2.**
 
 
-## What about simple effects of `road_type`?
+## What about simple effects of `road`?
 
 Also doable! Those would be the symmetrical simple effects: also true, just a different angle of looking at the same data.
 
@@ -721,8 +691,8 @@ Those simple effects would match the blue and orange slopes in this plot:
 ```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
 cat_plot(
   m1,
-  pred = road_type,
-  modx = transport,
+  pred = road,
+  modx = vehicle,
   geom = 'line'
 ) +
   theme(text = element_text(size = 28))
@@ -739,34 +709,34 @@ I'll leave calculating those lines to you—it's good practice :)
 
 ## Interactions with 2x3 data, treatment-coded
 
-**Post-travel anxiety ratings for people using two different kinds of `transport`:**
+**Post-travel anxiety ratings for people using two different kinds of `vehicle`:**
 
 :::: {.columns}
 ::: {.column width="50%"}
-`Motorist`:
+`Car`:
 <br>
-![](figs/Motorist.jpg){height="300"}
+![](figs/Car.jpg){height="300"}
 :::
 ::: {.column width="50%"}
-`Cyclist`:
+`Bike`:
 <br>
-![](figs/Cyclist.jpg){height="300"}
+![](figs/Bike.jpg){height="300"}
 :::
 ::::
 
 
-**now on _three_ different `road_types`:**
+**now on _three_ different `roads`:**
 
 :::: {.columns}
 ::: {.column width="33%"}
-`RuralRoad`:
+`Rural`:
 <br>
-![](figs/RuralRoad.jpg){height="300"}
+![](figs/Rural.jpg){height="300"}
 :::
 ::: {.column width="33%"}
-`CityStreet`:
+`City`:
 <br>
-![](figs/CityStreet.jpg){height="300"}
+![](figs/City.jpg){height="300"}
 :::
 
 ::: {.column width="33%"}
@@ -786,18 +756,22 @@ I'll leave calculating those lines to you—it's good practice :)
 
 ## Visualise the data
 
-```{r echo=F, fig.align = "center", fig.dim = c(14, 8)}
+```{r fig.align = "center", fig.dim = c(14, 8)}
+#| code-fold: true
 p_anx2_transfacet <- anx2 |> 
   mutate(
-    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
-    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet', 'DualCarr'))
+    vehicle = factor(vehicle, levels = c('Car', 'Bike')),
+    road = factor(road, levels = c('Rural', 'City', 'DualCarr'))
   ) |>
-  ggplot(aes(x = road_type, y = anx, colour = combo_labs, fill = combo_labs)) +
+  ggplot(aes(x = road, y = anx, colour = combo_labs, fill = combo_labs)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5, size = 5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8) +
-  facet_wrap(~ transport) +
-  theme(legend.position = 'none') +
+  facet_wrap(~ vehicle) +
+  theme(
+    legend.position = 'none',
+    strip.text = element_text(size = 24)
+  ) +
   scale_fill_manual(values = c( col_C_CS, col_C_DC, col_C_RR, col_M_CS, col_M_DC, col_M_RR )) +
   scale_colour_manual(values = c( col_C_CS, col_C_DC, col_C_RR, col_M_CS, col_M_DC, col_M_RR )) +
   NULL
@@ -817,8 +791,8 @@ Factor levels:
 ```{r}
 anx2 <- anx2 |>
   mutate(
-    transport = factor(transport, levels = c('Motorist', 'Cyclist')),
-    road_type = factor(road_type, levels = c('RuralRoad', 'CityStreet', 'DualCarr')),
+    vehicle = factor(vehicle, levels = c('Car', 'Bike')),
+    road = factor(road, levels = c('Rural', 'City', 'DualCarr')),
   )
 ```
 
@@ -830,14 +804,14 @@ The default contrast coding (treatment coding):
 ::: {.column width="50%"}
  
 ```{r}
-contrasts(anx2$transport)
+contrasts(anx2$vehicle)
 ```
 
 :::
 ::: {.column width="50%"}
 
 ```{r}
-contrasts(anx2$road_type)
+contrasts(anx2$road)
 ```
 
 :::
@@ -847,8 +821,8 @@ contrasts(anx2$road_type)
 
 Our model of this data will have **two interaction terms**: 
 
-1. `transportCyclist:road_typeCityStreet` **and**
-1. `transportCyclist:road_typeDualCarr`
+1. `vehicleBike:roadCity` **and**
+1. `vehicleBike:roadDualCarr`
 
 ## In general, how many interaction terms will a model have?
 
@@ -863,10 +837,10 @@ $$
 
 To see why we are talking about "rows" and "columns", imagine the variables arranged like this:
 
-|              | RuralRoad | CityStreet | DualCarr |
+|              | Rural | City | DualCarr |
 | ------------ | --- | ---- | ---- |
-| <b>Motorist</b> |     |      |      |   
-| <b>Cyclist</b> |     |      |      |   
+| <b>Car</b> |     |      |      |   
+| <b>Bike</b> |     |      |      |   
 |
 
 So in our 2x3 data, where $r=2$ and $c=3$, we have
@@ -880,58 +854,58 @@ So in our 2x3 data, where $r=2$ and $c=3$, we have
 
 interaction terms.
 
-## Each interaction's contrast is the product of the two interacting contrasts (1)
+<!-- ## Each interaction's contrast is the product of the two interacting contrasts (1) -->
 
-<br>
+<!-- <br> -->
 
-**Let's start with `transportCyclist:road_typeCityStreet`:**
+<!-- **Let's start with `vehicleBike:roadCity`:** -->
 
-<br>
+<!-- <br> -->
 
-| transport | road_type | transportCyclist | road_typeCityStreet | tC:rtCS |
-|---|---|--:|--:|--:|
-| Motorist | RuralRoad |  0 |  0 | ? |
-| Motorist | CityStreet  |  0 |  1 | ? |
-| Motorist | DualCarr  |  0 |  0 | ? |
-| Cyclist  | RuralRoad |  1 |  0 | ? |
-| Cyclist  | CityStreet  |  1 |  1 | ? |
-| Cyclist  | DualCarr  |  1 |  0 | ? |
+<!-- | vehicle | road | vehicleBike | roadCity | tC:rtCS | -->
+<!-- |---|---|--:|--:|--:| -->
+<!-- | Car | Rural |  0 |  0 | ? | -->
+<!-- | Car | City  |  0 |  1 | ? | -->
+<!-- | Car | DualCarr  |  0 |  0 | ? | -->
+<!-- | Bike  | Rural |  1 |  0 | ? | -->
+<!-- | Bike  | City  |  1 |  1 | ? | -->
+<!-- | Bike  | DualCarr  |  1 |  0 | ? | -->
 
-<br>
+<!-- <br> -->
 
-:::{.hcenter style="font-size: 125%;"}
+<!-- :::{.hcenter style="font-size: 125%;"} -->
 
-`wooclap.com`, enter code `GECHXE`
+<!-- `wooclap.com`, enter code `GECHXE` -->
 
-:::
-
-
-
-## Each interaction's contrast is the product of the two interacting contrasts (2)
-
-<br>
-
-**Continue on with `transportCyclist:road_typeDualCarr`:**
-
-<br>
-
-| transport | road_type | transportCyclist | road_typeDualCarr | tC:rtDC |
-|---|---|--:|--:|--:|
-| Motorist | RuralRoad |  0 |  0 | ? |
-| Motorist | CityStreet  |  0 |  0 | ? |
-| Motorist | DualCarr  |  0 |  1 | ? |
-| Cyclist  | RuralRoad |  1 |  0 | ? |
-| Cyclist  | CityStreet  |  1 |  0 | ? |
-| Cyclist  | DualCarr  |  1 |  1 | ? |
-
-<br>
+<!-- ::: -->
 
 
-:::{.hcenter style="font-size: 125%;"}
 
-`wooclap.com`, enter code `GECHXE`
+<!-- ## Each interaction's contrast is the product of the two interacting contrasts (2) -->
 
-:::
+<!-- <br> -->
+
+<!-- **Continue on with `vehicleBike:roadDualCarr`:** -->
+
+<!-- <br> -->
+
+<!-- | vehicle | road | vehicleBike | roadDualCarr | tC:rtDC | -->
+<!-- |---|---|--:|--:|--:| -->
+<!-- | Car | Rural |  0 |  0 | ? | -->
+<!-- | Car | City  |  0 |  0 | ? | -->
+<!-- | Car | DualCarr  |  0 |  1 | ? | -->
+<!-- | Bike  | Rural |  1 |  0 | ? | -->
+<!-- | Bike  | City  |  1 |  0 | ? | -->
+<!-- | Bike  | DualCarr  |  1 |  1 | ? | -->
+
+<!-- <br> -->
+
+
+<!-- :::{.hcenter style="font-size: 125%;"} -->
+
+<!-- `wooclap.com`, enter code `GECHXE` -->
+
+<!-- ::: -->
 
 
 # Model time
@@ -943,18 +917,18 @@ interaction terms.
 $$
 \begin{align}
 \text{anx} ~=~& \beta_0 + 
-(\beta_1 \cdot \text{transport}) + 
-(\beta_2 \cdot \text{road_type}_{\text{CS}}) + 
-(\beta_3 \cdot \text{road_type}_{\text{DC}}) +  \\
-& (\beta_4 \cdot \text{transport} \cdot \text{road_type}_{\text{CS}}) + 
-(\beta_5 \cdot \text{transport} \cdot \text{road_type}_{\text{DC}}) + 
+(\beta_1 \cdot \text{vehicle}_\text{Bike}) + 
+(\beta_2 \cdot \text{road}_{\text{City}}) + 
+(\beta_3 \cdot \text{road}_{\text{DualCarr}}) +  \\
+& (\beta_4 \cdot \text{vehicle}_\text{Bike} \cdot \text{road}_{\text{City}}) + 
+(\beta_5 \cdot \text{vehicle}_\text{Bike} \cdot \text{road}_{\text{DualCarr}}) + 
 \epsilon
 \end{align}
 $$
 
 
 ```{r}
-m2 <- lm(anx ~ transport * road_type, data = anx2)
+m2 <- lm(anx ~ vehicle * road, data = anx2)
 ```
 
 :::{.fragment}
@@ -975,20 +949,13 @@ set.seed(1)
 p_anx2_transfacet
 ```
 
-::::{ style="font-size:150%;"}
+::::{ style="font-size:75%;"}
 ```{r echo=F}
-# summary(m2)$coefficients |> round(2)
+cat(paste0(capture.output(
+  summary(m2)
+), '\n')[9:16])
 ```
 
-```
-                                      Estimate 
-(Intercept)                              27.03 
-transportCyclist                          0.44 
-road_typeCityStreet                       4.89 
-road_typeDualCarr                         6.02 
-transportCyclist:road_typeCityStreet      7.76 
-transportCyclist:road_typeDualCarr       14.33 
-```
 ::::
 :::
 ::: {.column width="40%"}
@@ -996,19 +963,19 @@ transportCyclist:road_typeDualCarr       14.33
 
 **`Intercept`** (same as before)
 
-- For Motorists on RuralRoads (i.e., at the reference levels of `transport` and `road_type`, where all predictors = 0), the estimated average `anx` is 27.03 points.
+- For cars on rural roads (i.e., at the reference levels of `vehicle` and `road`, where all predictors = 0), the estimated average `anx` is 27.03 points.
 
-**`transportCyclist`** (same as before)
+**`vehicleBike`** (same as before)
 
-- Specifically at the reference level of `road_type` (RuralRoad), being a cyclist is associated with an increase in anxiety of 0.44 points.
+- Specifically at the reference level of `road` (Rural), riding a bike is associated with an increase in anxiety of 0.44 points ($p$ = .845).
 
-**`road_typeCityStreet`** (same as before)
+**`roadCity`** (same as before)
 
-- Specifically at the reference level of `transport` (Motorist), being on city streets is associated with an increase in anxiety of 4.89 points.
+- Specifically at the reference level of `vehicle` (Car), being on city streets is associated with an increase in anxiety of 4.89 points ($p$ = 0.33).
 
-**`road_typeDualCarr`** (new!)
+**`roadDualCarr`** (new!)
 
-- Specifically at the reference level of `transport` (Motorist), being on dual carriageways is associated with an increase in anxiety of 6.02 points.
+- Specifically at the reference level of `vehicle` (Car), being on dual carriageways is associated with an increase in anxiety of 6.02 points ($p$ = .008).
 
 ::::
 
@@ -1026,22 +993,13 @@ set.seed(1)
 p_anx2_transfacet
 ```
 
-:::::{ style="font-size:150%;"}
+::::{ style="font-size:75%;"}
 ```{r echo=F}
-# summary(m2)$coefficients |> round(2)
+cat(paste0(capture.output(
+  summary(m2)
+), '\n')[9:16])
 ```
-
-```
-                                      Estimate 
-(Intercept)                              27.03 
-transportCyclist                          0.44 
-road_typeCityStreet                       4.89 
-road_typeDualCarr                         6.02 
-transportCyclist:road_typeCityStreet      7.76 
-transportCyclist:road_typeDualCarr       14.33 
-```
-
-:::::
+::::
 
 :::
 
@@ -1050,18 +1008,18 @@ transportCyclist:road_typeDualCarr       14.33
 :::: {style="font-size:90%"}
 
 
-**`transportCyclist:road_typeCityStreet`**
+**`vehicleBike:roadCity`**
 
-- Being a cyclist changes the association of `road_typeCityStreet` with `anx` by 7.76 points.
-- So, the association of `road_typeCityStreet` with `anx` when ...
-  - `transport = 0 = Motorist` is 4.89
-  - `transport = 1 = Cyclist` is 4.89 + 7.76 = 12.65
+- Riding a bike increases the association of `roadCity` with `anx` by 7.76 points ($p$ = .016).
+- So, the association of `roadCity` with `anx` when ...
+  - `vehicle = 0 = Car` is 4.89
+  - `vehicle = 1 = Bike` is 4.89 + 7.76 = 12.65
   
   
-- **Equivalently,** being on city streets changes the association of `transport` with `anx` by 7.76 points.
-- So, the association of `transport` with `anx` when ...
-  - `road_typeCityStreet = 0 = RuralRoad` is 0.44
-  - `road_typeCityStreet = 1 = CityStreet` is 0.44 + 7.76 = 8.2
+- **Equivalently,** being on city streets increases the association of `vehicle` with `anx` by 7.76 points.
+- So, the association of `vehicle` with `anx` when ...
+  - `roadCity = 0 = Rural` is 0.44
+  - `roadCity = 1 = City` is 0.44 + 7.76 = 8.2
   
 :::
 
@@ -1079,39 +1037,32 @@ set.seed(1)
 p_anx2_transfacet
 ```
 
-::::{ style="font-size:150%;"}
+::::{ style="font-size:75%;"}
 ```{r echo=F}
-# summary(m2)$coefficients |> round(2)
-```
-
-```
-                                      Estimate 
-(Intercept)                              27.03 
-transportCyclist                          0.44 
-road_typeCityStreet                       4.89 
-road_typeDualCarr                         6.02 
-transportCyclist:road_typeCityStreet      7.76 
-transportCyclist:road_typeDualCarr       14.33 
+cat(paste0(capture.output(
+  summary(m2)
+), '\n')[9:16])
 ```
 ::::
+
 :::
 
 ::: {.column width="40%"}
 :::: {style="font-size:90%"}
 
-**`transportCyclist:road_typeDualCarr`**
+**`vehicleBike:roadDualCarr`**
 
--  Being a cyclist changes the association of `road_typeDualCarr` with `anx` by about 14.33 points.
-- So, the association of `road_type DualCarr` with `anx` when ...
-  - `transport = 0 = Motorist` is 6.02
-  - `transport = 1 = Cyclist` is 6.02 + 14.33 = 20.35
+-  Riding a bike increases the association of `roadDualCarr` with `anx` by about 14.33 points.
+- So, the association of `road DualCarr` with `anx` when ...
+  - `vehicle = 0 = Car` is 6.02
+  - `vehicle = 1 = Bike` is 6.02 + 14.33 = 20.35
 
 
   
-- **Equivalently,** being on dual carriageways changes the association of `transport` with `anx` by 14.33 points.
-- So, the association of `transport` with `anx` when ...
-  - `road_typeDualCarr = 0 = RuralRoad` is 0.44
-  - `road_typeDualCarr = 1 = DualCarr` is 0.44 + 14.33 = 14.77
+- **Equivalently,** being on dual carriageways increases the association of `vehicle` with `anx` by 14.33 points.
+- So, the association of `vehicle` with `anx` when ...
+  - `roadDualCarr = 0 = Rural` is 0.44
+  - `roadDualCarr = 1 = DualCarr` is 0.44 + 14.33 = 14.77
   
 :::
 
@@ -1132,17 +1083,17 @@ transportCyclist:road_typeDualCarr       14.33
 ```{r eval=F}
 cat_plot(
   m2,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
 )
 ```
 :::
 ::: {.column width="70%"}
-```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
+```{r echo=F, fig.align = "center", fig.dim = c(10, 4)}
 cat_plot(
   m2,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
 ) +
   theme(text = element_text(size = 32))
 ```
@@ -1156,18 +1107,18 @@ cat_plot(
 ```{r eval=F}
 cat_plot(
   m2,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 )
 ```
 :::
 ::: {.column width="70%"}
-```{r echo=F, fig.align = "center", fig.dim = c(10, 5)}
+```{r echo=F, fig.align = "center", fig.dim = c(10, 4)}
 cat_plot(
   m2,
-  pred = transport,
-  modx = road_type,
+  pred = vehicle,
+  modx = road,
   geom = 'line'
 ) +
   theme(text = element_text(size = 32))
@@ -1204,7 +1155,7 @@ So far, we've been focusing on **interactions between two predictors, called "tw
 
 But in principle, we could throw another variable into the mix:
 
-Maybe **countries with different amounts of bike infrastructure differ** in the anxiety that cyclists vs. motorists feel on different road types.
+Maybe **countries with different amounts of bike infrastructure differ** in the anxiety that cyclists vs. car drivers feel on different kinds of road.
 
 
 :::: {.columns}
@@ -1217,7 +1168,7 @@ Maybe **countries with different amounts of bike infrastructure differ** in the 
 ::::
 
 
-This would be a **three-way interaction** between country, transport, and road type.
+This would be a **three-way interaction** between country, vehicle, and road type.
 
 :::{.dapr2callout}
 
@@ -1239,20 +1190,20 @@ My advice to you: **Try not to design studies that involve three-way interaction
 ::: {.dapr2callout}
 **What does the interaction coefficient of a linear model mean?**
 
-- How the slope of one predictor _changes_, when the other predictor goes from 0 to 1. (This interpretation applies to all kinds of predictors, both continuous and categorical.)
+- How the slope of one predictor increases or decreases, when the other predictor goes from 0 to 1. (This interpretation applies to all kinds of predictors, both continuous and categorical.)
 - The interaction term is _not_ a slope on its own. It is an adjustment value that we _add_ to one of the predictor's slopes.
 - If we have two interacting predictors, A and B, then the interaction term tells us
 	- how much does the association between A and the outcome (i.e., the slope of A) change, when B goes from 0 to 1?
 	- how much does the association between B and the outcome (i.e., the slope of B) change, when A goes from 0 to 1?
 :::
 
-::: {.dapr2callout}
-**If we know the contrast coding for two interacting categorical predictors, how do we work out the coding of the interaction term?**
+<!-- ::: {.dapr2callout} -->
+<!-- **If we know the contrast coding for two interacting categorical predictors, how do we work out the coding of the interaction term?** -->
 
-- Get all combinations of levels in the interacting predictors.
-- Multiply each pair of coding values together (i.e., get the product of each pair of values).
-- The resulting list of numbers is the coding of the interaction.
-:::
+<!-- - Get all combinations of levels in the interacting predictors. -->
+<!-- - Multiply each pair of coding values together (i.e., get the product of each pair of values). -->
+<!-- - The resulting list of numbers is the coding of the interaction. -->
+<!-- ::: -->
 
 
 
@@ -1340,16 +1291,16 @@ We really like seeing you in office hours!
 ```{r echo=F, echo=F, fig.align = 'center', fig.dim = c(10, 8)}
 # Add diff of diff lines
 anx1_diffdiff_transfacet <- tibble(
-  road_type = NA,
+  road = NA,
   combo_labs = NA,
-  transport = factor(c('Cyclist', 'Motorist'), levels = c('Motorist', 'Cyclist') ),
+  vehicle = factor(c('Bike', 'Car'), levels = c('Car', 'Bike') ),
   x = 1.5,
   xend = 1.5,
-  y = c(mean_Cyclist_RuralRoad, mean_Motorist_RuralRoad),
-  yend = c(mean_Cyclist_CityStreet, mean_Motorist_CityStreet),
+  y = c(mean_Bike_Rural, mean_Car_Rural),
+  yend = c(mean_Bike_City, mean_Car_City),
   meany = c(
-    mean(c(mean_Cyclist_RuralRoad, mean_Cyclist_CityStreet)),
-    mean(c(mean_Motorist_RuralRoad, mean_Motorist_CityStreet))
+    mean(c(mean_Bike_Rural, mean_Bike_City)),
+    mean(c(mean_Car_Rural, mean_Car_City))
     ),
   labs = c('12.65', '4.89')
 )
@@ -1389,16 +1340,16 @@ $$
 ```{r echo=F, fig.align = 'center', fig.dim = c(10, 8)}
 # Add diff of diff lines
 anx1_diffdiff_roadfacet <- tibble(
-  road_type = factor(c('RuralRoad', 'CityStreet'), levels = c('RuralRoad', 'CityStreet')),
-  transport = NA,
+  road = factor(c('Rural', 'City'), levels = c('Rural', 'City')),
+  vehicle = NA,
   combo_labs = NA,
   x = 1.5,
   xend = 1.5,
-  y = c(mean_Motorist_RuralRoad, mean_Motorist_CityStreet),
-  yend = c(mean_Cyclist_RuralRoad, mean_Cyclist_CityStreet),
+  y = c(mean_Car_Rural, mean_Car_City),
+  yend = c(mean_Bike_Rural, mean_Bike_City),
   meany = c(
-    mean(c(mean_Motorist_RuralRoad, mean_Cyclist_RuralRoad)),
-    mean(c(mean_Motorist_CityStreet, mean_Cyclist_CityStreet))
+    mean(c(mean_Car_Rural, mean_Bike_Rural)),
+    mean(c(mean_Car_City, mean_Bike_City))
     ),
   labs = c('0.44', '8.2')
 )
@@ -1450,7 +1401,7 @@ As we saw last week: **interactions are symmetrical.**
 p_anx1_transfacet_diffdiff 
 ```
 
-*(`Motorist` and `RuralRoad` are the reference levels)*
+*(`Car` and `Rural` are the reference levels)*
 
 :::
 
@@ -1461,33 +1412,33 @@ Group means:
 :::{.hcenter}
 ```{r include=F}
 anx1 |>
-  group_by(transport, road_type) |>
+  group_by(vehicle, road) |>
   summarise(m = round(mean(anx), 1)) |>
-  pivot_wider(names_from = road_type, values_from = m) |>
+  pivot_wider(names_from = road, values_from = m) |>
   kableExtra::kable()
 ```
 
-| | RuralRoad| CityStreet|
+| | Rural| City|
 |:---------|---------:|----------:|
-|<b>Motorist</b>  |      27.03 |       31.92 |
-|<b>Cyclist</b>   |      27.47  |       40.12 |
+|<b>Car</b>  |      27.03 |       31.92 |
+|<b>Bike</b>   |      27.47  |       40.12 |
 :::
 
-**For motorists,** the difference between city and rural:
+**For Cars,** the difference between city and rural:
 
 $$
 \begin{align}
-& \text{CityStreet}~ - \text{RuralRoad} \\
+& \text{City}~ - \text{Rural} \\
 =~ & 31.92 - 27.03 \\
 =~ & 4.89 \\
 \end{align}
 $$
 
-**For cyclists,** the difference between city and rural:
+**For Bikes,** the difference between city and rural:
 
 $$
 \begin{align}
-& \text{CityStreet}~ - \text{RuralRoad} \\
+& \text{City}~ - \text{Rural} \\
 =~ & 40.12 - 27.47 \\
 =~ & 12.65 \\
 \end{align}
@@ -1497,11 +1448,11 @@ $$
 ::::
 
 
-The difference between cyclists' difference and motorists' difference:
+The difference between Bikes' difference and Cars' difference:
 
 $$
 \begin{align}
-& \text{CyclistDiff}~ - \text{MotoristDiff} \\
+& \text{BikeDiff}~ - \text{CarDiff} \\
 =~ & 12.65 - 4.89 \\
 =~ & 7.76 \\
 \end{align}
@@ -1517,7 +1468,7 @@ $$
 p_anx1_roadfacet_diffdiff
 ```
 
-*(`Motorist` and `RuralRoad` are the reference levels)*
+*(`Car` and `Rural` are the reference levels)*
 
 :::
 
@@ -1529,33 +1480,33 @@ Group means:
 :::{.hcenter}
 ```{r include=F}
 anx1 |>
-  group_by(transport, road_type) |>
+  group_by(vehicle, road) |>
   summarise(m = round(mean(anx), 1)) |>
-  pivot_wider(names_from = road_type, values_from = m) |>
+  pivot_wider(names_from = road, values_from = m) |>
   kableExtra::kable()
 ```
 
-| | RuralRoad| CityStreet|
+| | Rural| City|
 |:---------|---------:|----------:|
-|<b>Motorist</b>  |      27.03 |       31.92 |
-|<b>Cyclist</b>   |      27.47  |       40.12 |
+|<b>Car</b>  |      27.03 |       31.92 |
+|<b>Bike</b>   |      27.47  |       40.12 |
 :::
 
-**For rural roads,** the difference between cyclists and motorists:
+**For rural roads,** the difference between Bikes and Cars:
 
 $$
 \begin{align}
-& \text{Cyclist}~ - \text{Motorist} \\
+& \text{Bike}~ - \text{Car} \\
 =~ & 27.47 - 27.03 \\
 =~ & 0.44 \\
 \end{align}
 $$
 
-**For city streets,** the difference between cyclists and motorists:
+**For city streets,** the difference between Bikes and Cars:
 
 $$
 \begin{align}
-& \text{Cyclist}~ - \text{Motorist} \\
+& \text{Bike}~ - \text{Car} \\
 =~ & 40.12 - 31.92 \\
 =~ & 8.2 \\
 \end{align}
@@ -1569,11 +1520,46 @@ The difference between city streets' difference and rural roads' difference:
 
 $$
 \begin{align}
-& \text{CityStreetsDiff}~ - \text{RuralRoadsDiff} \\
+& \text{CitysDiff}~ - \text{RuralsDiff} \\
 =~ & 8.2 - 0.44 \\
 =~ & 7.76 \\
 \end{align}
 $$
+
+## Mapping model coefficients to group means
+
+A more formal version of "find the difference of differences". 
+
+**Model coefficients:**
+
+:::{style = "font-size:90%"}
+```{r echo=F}
+cat(paste0(capture.output(
+  summary(m1)
+), '\n')[10:14])
+```
+:::
+
+**Group means:**
+
+| | Rural| City|
+|:---------|---------:|----------:|
+|<b>Car</b>  |      27.03 |       31.92 |
+|<b>Bike</b>   |      27.47  |       40.12 |
+
+
+**How model coefficients and group means are related:**
+
+
+
+| | | |
+| :-- | :-- | --: |
+| `(Intercept)`| mean(Car, Rural) | **27.03** |
+| `vehicleBike` | mean(Bike, Rural) – mean(Car, Rural) | 27.47 – 27.03 = **0.44** |
+| `roadCity`| mean(Car, City) – mean(Car, Rural) | 31.92 – 27.03 = **4.89** |
+| `tC:rtCS`| [mean(Bike, City) – mean(Car, City)] –  [mean(Bike, Rural) – mean(Car, Rural)] | (40.12 – 31.92) – (27.47 – 27.03) = **7.76** |
+
+
 
 
 ## Mapping 2x3 model coefs to group means
@@ -1585,22 +1571,14 @@ $$
 
 **Model coefficients:**
 
-::::{style = "font-size:150%"}
+::::{style = "font-size:80%"}
 
 ```{r echo=F}
-# summary(m2)$coefficients[,'Estimate'] |> round(2)
-# coef(m2) |> round(2)
+cat(paste0(capture.output(
+  summary(m2)
+), '\n')[10:16])
 ```
 
-```
-                                      Estimate 
-(Intercept)                              27.03 
-transportCyclist                          0.44 
-road_typeCityStreet                       4.89 
-road_typeDualCarr                         6.02 
-transportCyclist:road_typeCityStreet      7.76 
-transportCyclist:road_typeDualCarr       14.33 
-```
 
 ::::
 
@@ -1608,10 +1586,10 @@ transportCyclist:road_typeDualCarr       14.33
 ::: {.column width="45%"}
 **Group means:**
 
-|                 | RuralRoad | CityStreet | DualCarr |
+|                 | Rural | City | DualCarr |
 |  -------------- | --------: | ---------: | ---: |
-| <b>Motorist</b> |  27.03    |    31.92   |  33.05    |   
-| <b>Cyclist</b>  |  27.47    |    40.12   |  47.82    |   
+| <b>Car</b> |  27.03    |    31.92   |  33.05    |   
+| <b>Bike</b>  |  27.47    |    40.12   |  47.82    |   
 
 :::
 ::::
@@ -1622,22 +1600,12 @@ transportCyclist:road_typeDualCarr       14.33
 
 | | | |
 | :-- | :-- | --: |
-| `(Intercept)`| mean(Motorist, RuralRoad) | **27.03** |
-| `transportCyclist`| mean(Cyclist, RuralRoad) – mean(Motorist, RuralRoad) | 27.47 – 27.03 = **0.44** |
-| `road_typeCityStreet`| mean(Motorist, CityStreet) – mean(Motorist, RuralRoad) | 31.92 – 27.03 = **4.89** |
-| `road_typeDualCarr`| mean(Motorist, DualCarr) – mean(Motorist, RuralRoad) | 33.05 – 27.03 = **6.02** |
-| `tC:rtCS`| [mean(Cyclist, CityStreet) – mean(Motorist, CityStreet)] –  [mean(Cyclist, RuralRoad) – mean(Motorist, RuralRoad)] | (40.12 – 31.92) – (27.47 – 27.03) = **7.76** |
-| `tC:rtDC`| [mean(Cyclist, DualCarr) – mean(Motorist, DualCarr)] –  [mean(Cyclist, RuralRoad) – mean(Motorist, RuralRoad)] | (47.82 – 33.05) – (27.47 – 27.03) = **14.33** |
+| `(Intercept)`| mean(Car, Rural) | **27.03** |
+| `vehicleBike`| mean(Bike, Rural) – mean(Car, Rural) | 27.47 – 27.03 = **0.44** |
+| `roadCity`| mean(Car, City) – mean(Car, Rural) | 31.92 – 27.03 = **4.89** |
+| `roadDualCarr`| mean(Car, DualCarr) – mean(Car, Rural) | 33.05 – 27.03 = **6.02** |
+| `tC:rtCS`| [mean(Bike, City) – mean(Car, City)] –  [mean(Bike, Rural) – mean(Car, Rural)] | (40.12 – 31.92) – (27.47 – 27.03) = **7.76** |
+| `tC:rtDC`| [mean(Bike, DualCarr) – mean(Car, DualCarr)] –  [mean(Bike, Rural) – mean(Car, Rural)] | (47.82 – 33.05) – (27.47 – 27.03) = **14.33** |
 
 :::
 
-
-
-<!-- :::: {.columns} -->
-<!-- ::: {.column width="50%"} -->
-<!-- a -->
-<!-- ::: -->
-<!-- ::: {.column width="50%"} -->
-<!-- b -->
-<!-- ::: -->
-<!-- :::: -->

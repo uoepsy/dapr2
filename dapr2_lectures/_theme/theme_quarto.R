@@ -39,7 +39,8 @@ theme_quarto <- function (text_color = color_text,
     legend.text = ggplot2::element_text(size = title_font_size * 0.8),
     plot.caption = ggplot2::element_text(size = text_font_size * 0.8,
                                          color = blend(0.3)),
-    strip.text.x = element_text(size = 16)
+    strip.background = element_blank()
+    # strip.text.x = element_text(size = 24)
   )
 }
 
