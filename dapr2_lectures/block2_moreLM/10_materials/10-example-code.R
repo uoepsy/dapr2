@@ -255,10 +255,6 @@ confint(attend_mdl) |> round(2)
 tab_model(
   attend_mdl,
   dv.labels = 'Attendance (days)',
-  pred.labels = c(
-    "ConscModerate" = "Conscientiousness [Moderate]",
-    "ConscHigh" = "Conscientiousness [High]"
-    ),
   title = "Linear model coefficient estimates"
 )
 

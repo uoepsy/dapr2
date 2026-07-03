@@ -1,0 +1,760 @@
+---
+title: "15: Practice write-up"
+params: 
+    SHOW_SOLS: TRUE
+    # TOGGLE: TRUE
+    TOGGLE: FALSE
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(kableExtra)
+library(patchwork)
+library(car)
+library(interactions)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week (and every fifth week this year), you'll practice writing up the analysis that was developed live during lectures.
+
+Your goal is to present your analysis in a journal-article-style Results section that a reader could reproduce in any statistical software, not just R.
+
+Quick links to key flash cards:
+
+- 🗂️   [Analysis workflow (Block 3)](https://uoepsy.github.io/dapr2/2627/flashcards/resources/workflow-b3.html){target="_blank"}
+- 🗂️   [Reporting LM analysis checklist](https://uoepsy.github.io/dapr2/2627/flashcards/resources/reporting-lm.html){target="_blank"}
+
+
+:::{.callout-important}
+
+The example write-ups that will be provided **are not perfect.**
+
+You must not copy them directly for this write-up or any future assessment, as copying and presenting them as your own work would constitute academic misconduct.
+But you may refer to them for stylistic guidance.
+
+:::
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab15.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `psych`
+    - `sjPlot`
+    - `kableExtra`
+    - `patchwork`
+    - `car`
+    - `interactions`
+   
+:::
+
+---
+
+:::frame
+
+The data in `laptop_vs_longhand.csv` contain three attributes collected from a simulated sample of $n=160$ hypothetical individuals, and includes:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+notes <- read_csv("https://uoepsy.github.io/data/laptop_vs_longhand.csv")
+tibble(
+Variable = names(notes),
+Description = c("Test Score (0-100)", "Medium of note-taking (levels = Longhand, Laptop)", "Study time (levels = No, Minimal, Moderate, Extensive)")
+) %>% gt::gt()
+```
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+The data used for this write-up exercise are simulated, drawing on a research paper that explored the association between student note taking and performance when answering different types of questions.
+The simulated data are loosely based on the findings of this work, and act to expand upon the methods and results reported in the paper:
+
+Mueller, P. A., & Oppenheimer, D. M. (2014). The pen is mightier than the keyboard: Advantages of longhand over laptop note taking. Psychological Science, 25(6), 1159–1168. <https://doi.org/10.1177/0956797614524581>
+
+In the current study, participants were invited to take part in a study investigating the the medium of note taking and study time on test scores.
+The sample comprised 160 students who took notes on a lecture via one of two mediums—either on a laptop or longhand (i.e., using pen and paper).
+After watching the lecture and taking notes, they were then randomly allocated to one of four study time conditions, either engaging in no, minimal, moderate, or extensive study of the notes taken on their assigned medium.
+After engaging in study for their allocated time, participants took a test on the lecture content.
+The test involved a series of questions, where participants could score a maximum of 100 points.
+
+:::
+
+:::
+
+:::frame
+
+RQ: Is the association between amount of studying and test scores affected by the note-taking medium that people used?
+
+:::
+
+:::{.callout-tip collapse='true'}
+### Provided analysis code
+
+This code should resemble the analysis developed during lectures this week.
+
+```{r eval=F}
+# Interactions: Practice analysis
+# Follows workflow here: dapr2/2627/dapr2_flashcards/resources/workflow-b3.html
+
+# Phase 1: Before model fitting ---- 
+
+## 1a: Set up code and data ---- 
+
+# Load the required R packages
+library(tidyverse)
+library(psych)
+library(sjPlot)
+library(kableExtra)
+library(patchwork)
+library(car)
+library(interactions)
+
+# Read in data
+notes_df <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
+
+# Tidy data (e.g., any missingness, any implausible values? are data types set correctly?).
+summary(notes_df)  # no NAs, test_score range looks plausible
+glimpse(notes_df)  # lets us see example values for categorical preds, looks OK
+
+
+## 1b: Set up the variables you'll model ----
+
+# Based on the RQ, decide whether you'll test your hypotheses using coefficient significance tests or model comparison.
+# - RQ: Is the association between amount of studying and test scores affected by the note-taking medium that people used (notes either written longhand or typed on a laptop)?
+# - This question asks about associations between predictors and outcomes (and whether other predictors affect this association), so test using coef significance tests.
+
+# Based on the RQ, decide whether your model requires an interaction between predictors.
+# - RQ asks whether an association between predictor and outcome is affected by the value of another predictor, so this is a classic interaction RQ.
+
+# Based on the RQ, identify your outcome variable and the predictors.
+# - Outcome: `test_score`
+# - Predictors: `medium`, `study`, and their interaction
+
+# Set up categorical predictors (e.g., factor levels? which contrast coding scheme?)
+# - Both categ preds should be converted to factors
+# - We've been using treatment coding for all interaction models so far, so we'll do that here
+# - Reference level of `study` should be "No" (the smallest amount of studying, 
+#   so coefs will tell us how much improvement)
+# - Reference level of `medium` doesn't really matter, let's say "Laptop" so we can see
+#   if "Longhand" is an improvement
+
+notes_df <- notes_df |>
+  mutate(
+    medium = factor(medium, levels = c('Laptop', 'Longhand')),
+    study = factor(study, levels = c('No', 'Minimal', 'Moderate', 'Extensive'))
+  )
+
+# - Check contrast coding
+contrasts(notes_df$medium)
+contrasts(notes_df$study)
+
+# Set up continuous predictors –  NA.
+
+# Explore patterns in the data by plotting outcome and predictor variables together
+# - For multiple regression, we plotted predictors separately, but for interactions,
+#   it's nice to combine them all into a single plot.
+notes_df |>
+  ggplot(aes(x = study, y = test_score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  facet_wrap(~ medium) +
+  labs(
+    y = 'Test score',
+    x = 'Amount of study'
+  )
+
+
+# Make a nice descriptives table of all relevant variables for the write-up
+notes_df |>
+  group_by(study, medium) |>
+  summarise(
+    n = n(), 
+    Mean = mean(test_score), 
+    SD = sd(test_score),
+    Minimum = min(test_score),
+    Maximum = max(test_score)
+  ) |>
+  # rename study and medium column headers for nicer display
+  rename(
+    'Amount of study' = study,
+    'Note-taking medium' = medium
+  ) |>
+  kable(
+    caption = "Descriptive statistics about test score by amount of study and note-taking medium", 
+    digits = 2
+  ) |>
+  kable_styling()   
+
+# Phase 2: Model fitting ----
+
+# Write the mathematical model formulation for your model(s)
+# - Refer back to contrast matrices to know what the dummy variables will be.
+#   $$
+#   \begin{align}
+#   \text{test score} ~=~& \beta_0 ~+ \\
+#     & (\beta_1 \cdot \text{study}_\text{Minimal}) ~+ \\
+#     & (\beta_2 \cdot \text{study}_\text{Moderate}) ~+ \\
+#     & (\beta_3 \cdot \text{study}_\text{Extensive}) ~+ \\
+#     & (\beta_4 \cdot \text{medium}_\text{Longhand}) ~+ \\
+#     & (\beta_5 \cdot \text{study}_\text{Minimal}   \cdot \text{medium}_\text{Longhand}) ~+ \\
+#     & (\beta_6 \cdot \text{study}_\text{Moderate}  \cdot \text{medium}_\text{Longhand}) ~+ \\
+#     & (\beta_7 \cdot \text{study}_\text{Extensive} \cdot \text{medium}_\text{Longhand}) ~+ \\
+#     & \epsilon
+#   \end{align}
+#   $$
+  
+# - NOTE: Incorrect model formula (because disregards dummy variables):
+#   $$
+#   \begin{align}
+#   \text{test score} ~=~& \beta_0 ~+ \\
+#     & (\beta_1 \cdot \text{study}) ~+ \\
+#     & (\beta_2 \cdot \text{medium}) ~+ \\
+#     & (\beta_3 \cdot \text{study} \cdot \text{medium}) ~+ \\
+#     & \epsilon
+#   \end{align}
+#   $$
+  
+  
+# Explicitly define the hypotheses that your RQ is aiming to test.
+# - Are any of the interaction terms significant?
+#   $$
+#   \begin{align}
+#   H_0 &: \text{All } \beta_j = 0 \text{ for } j = 5, 6, 7\\
+#   H_1 &: \text{Any } \beta_j \neq 0\\
+#   \end{align}
+#   $$
+
+# Fit your model(s) using `lm()`.
+notes_mdl <- lm(test_score ~ study * medium, data = notes_df)
+notes_mdl
+
+# Phase 3: After model fitting ----
+
+## 3a: Check assumptions and diagnostics ----
+
+# Check model assumptions:
+# - Linearity of association -- assume it's met bc all preds are categorical
+# - Independence of errors -- assume it's met bc we have one obs per person
+# - Normality of errors
+plot(notes_mdl, which = 2)  # good!
+# - Equal variance of errors
+plot(notes_mdl, which = 1)  # good! 
+#   (the indiv lines are bc we only observed a handful of diff test scores)
+  
+# Run diagnostics for multicollinearity.
+vif(notes_mdl)  # obviously the interaction term is correlated with both, hence R's recommendation
+vif(notes_mdl, type = 'predictor')  # all GVIF = 1, ideal!
+
+# Run diagnostics for influential observations.
+plot(notes_mdl, which = 4)  # no super extreme influential points, prob no need for sensitivity analysis
+
+# If you find extreme influential observations: run sensitivity analysis. - NA
+
+   
+## 3b: Plot and interpret model estimates ----
+   
+# Interpret the coefficient estimates
+summary(notes_mdl)
+confint(notes_mdl) |> round(2)
+
+# - `(Intercept)`
+#   - The estimated mean test score for people who didn't study at all and who took notes on their laptop was 48.12 points.
+
+# - `studyMinimal`                 
+#   - When people took notes on their laptop and studied minimally, their test scores were estimated to increase by 7.45 points compared to laptop note-takers who didn't study at all.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `studyModerate`                
+#   - When people took notes on their laptop and studied moderately, their test scores were estimated to increase by 11.18 points compared to laptop note-takers who didn't study at all.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `studyExtensive`               
+#   - When people took notes on their laptop and studied extensively, their test scores were estimated to increase by 13.04 points compared to laptop note-takers who didn't study at all.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `mediumLonghand`               
+#   - When people did not study at all and took longhand notes, their test scores were estimated to increase by 2.90 points compared to non-studiers who took notes on a laptop.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `studyMinimal:mediumLonghand`  
+#   - For people who take notes longhand, the effect of minimal studying is estimated to increase by 2.44 points.
+#   - Or: For people who study minimally, the effect of taking notes longhand is estimated to increase by 2.44 points.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `studyModerate:mediumLonghand` 
+#   - For people who take notes longhand, the effect of moderate studying is estimated to increase by 18.49 points.
+#   - Or: For people who study moderately, the effect of taking notes longhand is estimated to increase by 18.49 points.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# - `studyExtensive:mediumLonghand`
+#   - For people who take notes longhand, the effect of extensive studying is estimated to increase by 26.52 points.
+#   - Or: For people who study extensively, the effect of taking notes longhand is estimated to increase by 26.52 points.
+#   - This estimate is significantly different from zero ($p$ < .001).
+
+# Generate a nicely-formatted regression table.
+tab_model(
+  notes_mdl,
+  dv.labels = 'Test score',
+  title = "Linear model coefficient estimates"
+)
+
+# Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
+
+# Plot model-fitted values and/or simple slopes/simple effects.
+cat_plot(
+  notes_mdl,
+  pred = 'study',
+  modx = 'medium',
+  geom = 'line'  # clearly shows the different pattern in each medium
+)
+
+## 3c: Write up -- in labs! ----
+
+```
+
+```{r include=F}
+notes_df <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
+
+notes_df <- notes_df |>
+  mutate(
+    medium = factor(medium, levels = c('Laptop', 'Longhand')),
+    study = factor(study, levels = c('No', 'Minimal', 'Moderate', 'Extensive'))
+  )
+
+notes_mdl <- lm(test_score ~ study * medium, data = notes_df)
+```
+
+
+:::
+
+<!-- # q1 -->
+
+`r qbegin(qcounter())`
+
+**Set the scene (so the reader knows what you're talking about).**
+
+- [ ] Remind the reader briefly what the study aimed to test (e.g., what the predictions were).
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+In this study, researchers are interested in finding out how people's test scores are associated with how much they studied for the test, and how this association might depend on whether people initially took notes using a laptop or by writing longhand.
+
+`r solend()`
+
+<!-- # q2 -->
+
+`r qbegin(qcounter())`
+
+**Describe and show the sample data (so that the reader knows how generalisable your analysis might be).**
+
+- [ ] Introduce the variables the study is using to test this prediction, but avoid using R variable names; describe the variables in human-readable terms instead (e.g., what scale are they on? how were they measured?)
+- [ ] Briefly describe the data set: how many observations? what does each observation represent? 
+- [ ] Include a table of descriptive statistics for all the relevant variables (and make sure to refer to it in the text).
+  - Tip: If this table is really long, then you can keep the main text streamlined by putting the table in an Appendix section.
+- [ ] If applicable, mention any data cleaning / outlier removal / transformations.
+  
+  
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We have data from 160 people.
+Of those people, 80 took notes on a laptop, and the other 80 took notes longhand.
+Then people were assigned at random to do a certain amount of studying (either none, minimal, moderate, or extensive).
+Twenty people from each note-taking condition were assigned to each studying condition.
+Then everybody took a test, and their test scores were recorded.
+Table 1 summarises the test scores for each group of participants.
+
+```{r}
+#| code-fold: true
+notes_df |>
+  group_by(study, medium) |>
+  summarise(
+    n = n(), 
+    Mean = mean(test_score), 
+    SD = sd(test_score),
+    Minimum = min(test_score),
+    Maximum = max(test_score)
+  ) |>
+  rename(
+    'Amount of study' = study,
+    'Note-taking medium' = medium
+  ) |>
+  kable(
+    caption = "Table 1: Descriptive statistics about test score by amount of study and note-taking medium", 
+    digits = 2
+  ) |>
+  kable_styling()
+```
+
+
+
+`r solend()`
+
+<!-- # q3 -->
+
+`r qbegin(qcounter())`
+
+**Visualise and summarise data patterns that address the RQ (so the reader knows the basic pattern of what you found).**
+
+- [ ] Include a plot of the data which includes all relevant variables (and make sure to refer to it in the text).
+  - Tip: If you transform any continuous predictors for analysis, use the transformed version of the predictor in the plot.
+  - Tip: Academic writing styles vary, but Elizabeth likes it when figure captions give the reader a brief take-home message about what they should see in the plot.
+- [ ] In a sentence or two, describe the overall pattern of results.
+  - Tip: If you find yourself listing loads of numbers in the text, consider using tables or plots instead (and they're better for your word count too!). 
+  - Tip: No inferential stats have been done yet, so we can't make any claims just yet about whether the predictions were supported. But it is OK to say whether the results appear broadly in line with the prediction.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Test scores for each group of participants are also visualised in Figure 1.
+It appears that people who study more do tend to achieve higher test scores and that taking notes longhand may amplify this effect: people who took notes longhand outperformed laptop note-takers even with less time spent studying.
+
+```{r fig.cap = "Figure 1: How test scores are associated with amount of study and note-taking medium. Each participant's data is represented by one coloured dot, and black dots represent the mean test score for each group. In general, as people study more, their test scores tend to increase, and this increase appears much stronger for people who took notes by hand.", fig.width = 8, fig.height = 4}
+#| code-fold: true
+
+notes_df |>
+  ggplot(aes(x = study, y = test_score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  facet_wrap(~ medium) +
+  labs(
+    y = 'Test score',
+    x = 'Amount of study'
+  )
+```
+
+`r solend()`
+
+
+<!-- # q4 -->
+
+`r qbegin(qcounter())`
+
+**Introduce your statistical analysis (so the reader can interpret the numbers you will report).**
+
+- [ ] State that you're running your analysis using R, and cite the developers (run `citation()` in the console to get the citation for your version of R). 
+- [ ] State the $\alpha$ level that you're using for all your analyses (in Psychology, the convention is 5%).
+- [ ] Describe the structure of your model in words, e.g.: "We fit a linear model predicting Y as a function of X1, X2, and their interaction".
+- [ ] Include the mathematical model formulation of your model.
+- [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
+- [ ] If categorical predictors, describe contrast coding, e.g.: "X1 has two levels, A (coded as –1) and B (coded as 1)".
+- [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
+- [ ] For each model assumption, state whether you are satisfied that the assumption has been met.
+- [ ] Include plots for each assumption check as figures in the Appendix section of the document (and refer to them in the main text).
+- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing each influential observation.
+  - Tip: If you'll report your results using the full regression table for your coefficients, then also include the full regression table for the sensitivity analysis in another Appendix section.
+
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To test whether the association between amount of study and test scores is significantly affected by note-taking medium, we fit a linear model predicting people's test scores as a function of how much they studied, what note-taking medium they used, and the interaction between these two variables.
+We coded the "study" variable using treatment coding, with "no studying" as the reference level.
+We also coded the "medium" variable using treatment coding, and there, "Laptop" is the reference level.
+
+Formally, the model we fit is the following:
+
+$$
+\begin{align}
+\text{test score} ~=~& \beta_0 ~+ \\
+  & (\beta_1 \cdot \text{study}_\text{Minimal}) ~+ \\
+  & (\beta_2 \cdot \text{study}_\text{Moderate}) ~+ \\
+  & (\beta_3 \cdot \text{study}_\text{Extensive}) ~+ \\
+  & (\beta_4 \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_5 \cdot \text{study}_\text{Minimal}   \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_6 \cdot \text{study}_\text{Moderate}  \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_7 \cdot \text{study}_\text{Extensive} \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & \epsilon
+\end{align}
+$$
+
+Our aim was to test the null hypothesis that all of the interaction coefficients are equal to zero:
+
+$$
+\begin{align}
+H_0 &: \text{All } \beta_j = 0 \text{ for } j = 5, 6, 7\\
+H_1 &: \text{Any } \beta_j \neq 0\\
+\end{align}
+$$
+After we fit the model, we made sure we were satisfied that its assumptions were met.
+Linearity of association can be assumed, since the predictors are categorical, and independence of errors can be assumed, since each participant contributed only one observation to the dataset.
+We are also satisfied that errors are sufficiently normally distributed (see Figure A.1 in Appendix A) with sufficiently equal variance (see Figure A.2 in Appendix A).
+Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates unduly.
+We therefore proceed to report the results of our analysis.
+
+`r solend()`
+
+<!-- # q5 -->
+
+`r qbegin(qcounter())`
+
+**Report the results of your analysis (so the reader knows exactly what you found).**
+
+- [ ] State which model coefficient(s) are related to which prediction(s), and what direction/sign (positive or negative) you would expect the coefficients to have if the predictions were borne out, if applicable.
+- [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < .001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = .18)", if applicable.
+  - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
+  - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
+- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+  - Tip: if you DO report all coefficient estimates in the text, then there's no need to include the coefficient table because the information is redundant.
+- [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
+- [ ] Report the results of a model comparison, if applicable.
+- [ ] Report any other information you consider important for your story!
+
+`r qend()`
+`r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+If with the same amount of studying, people achieved higher test scores after taking longhand notes, we would expect all the interaction coefficients to be positive and significantly different from zero.
+(This is because an already-positive effect of studying would become more positive still after adjustment from a positive interaction term.)
+That is indeed what we find; we therefore reject the null hypothesis that there is no difference between how amount of study is associated with test score for each note-taking medium.
+
+Specifically: for laptop note-takers, we found that minimal studying was estimated to increase test score by 7.45 points compared to no studying ($b$ = 7.45, 95% CI [6.20, 8.70], $p$ < .001); for longhand note-takers, this effect was estimated to increase by a further 2.44 points ($b$ = 2.44, 95% CI [0.67, 4.21], $p$ < .001).
+
+Next, laptop note-takers' scores increased after moderate study by an estimated 11.18 points compared to no studying ($b$ = 11.18, 95% CI [9.93, 12.43], $p$ < .001), while longhand note-takers' scores were estimated to increase by an additional 18.49 points ($b$ = 18.49, 95% CI [16.72, 20.26], $p$ < .001).
+
+Finally, after extensive study, laptop note-takers' scores were estimated to increase by 13.04 points compared to no studying ($b$ = 13.04, 95% CI [11.79, 14.29], $p$ < .001), and for longhand note-takers, this increase was estimated to grow by another 26.52 points ($b$ = 26.52, 95% CI [24.75, 28.29], $p$ < .001).
+
+For an overview of all regression coefficients, see Table 2.
+
+```{r}
+#| code-fold: true
+tab_model(
+  notes_mdl,
+  dv.labels = 'Test score',
+  title = "Table 2: Linear model coefficient estimates"
+)
+```
+
+The pattern of model-estimated test scores for all combinations of conditions is shown in Figure 2.
+
+```{r fig.cap = "Figure 2: Model-estimated test scores for all combinations of amounts of studying and note-taking medium. Points represent the estimated test score for each group, and error bars represent their 95% CIs. Test scores are estimated to improve substantially more with study after people took longhand notes, compared to taking notes on a laptop.", fig.width = 5, fig.height = 3}
+#| code-fold: true
+cat_plot(
+  notes_mdl,
+  pred = 'study',
+  modx = 'medium',
+  geom = 'line'
+)
+```
+
+`r solend()`
+
+<br>
+
+
+<!-- # q6 -->
+
+`r qbegin(qcounter())`
+
+**Appendices might include:**
+
+- [ ] Descriptives tables that are too big/disruptive to include in main text
+- [ ] Figures that visualise assumption checks
+- [ ] Sensitivity analysis regression table / any other useful details
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+**Appendix A: Model assumption checks**
+
+```{r fig.cap = 'Figure A.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+#| code-fold: true
+plot(notes_mdl, which = 2)
+```
+
+<br>
+
+```{r fig.cap = "Figure A.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals appear to have sufficiently equal variance."}
+#| code-fold: true
+plot(notes_mdl, which = 1)
+```
+
+
+`r solend()`
+
+<br>
+
+
+`r solbegin(label='– full write-up', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+In this study, researchers are interested in finding out how people's test scores are associated with how much they studied for the test, and how this association might depend on whether people initially took notes using a laptop or by writing longhand.
+
+
+We have data from 160 people.
+Of those people, 80 took notes on a laptop, and the other 80 took notes longhand.
+Then people were assigned at random to do a certain amount of studying (either none, minimal, moderate, or extensive).
+Twenty people from each note-taking condition were assigned to each studying condition.
+Then everybody took a test, and their test scores were recorded.
+Table 1 summarises the test scores for each group of participants.
+
+```{r echo=F}
+notes_df |>
+  group_by(study, medium) |>
+  summarise(
+    n = n(), 
+    Mean = mean(test_score), 
+    SD = sd(test_score),
+    Minimum = min(test_score),
+    Maximum = max(test_score)
+  ) |>
+  rename(
+    'Amount of study' = study,
+    'Note-taking medium' = medium
+  ) |>
+  kable(
+    caption = "Table 1: Descriptive statistics about test score by amount of study and note-taking medium", 
+    digits = 2
+  ) |>
+  kable_styling()
+```
+
+<br>
+
+Test scores for each group of participants are also visualised in Figure 1.
+It appears that people who study more do tend to achieve higher test scores and that taking notes longhand may amplify this effect: people who took notes longhand outperformed laptop note-takers even with less time spent studying.
+
+```{r echo=F, fig.cap = "Figure 1: How test scores are associated with amount of study and note-taking medium. Each participant's data is represented by one coloured dot, and black dots represent the mean test score for each group. In general, as people study more, their test scores tend to increase, and this increase appears much stronger for people who took notes by hand.", fig.width = 8, fig.height = 4}
+notes_df |>
+  ggplot(aes(x = study, y = test_score, fill = study, colour = study)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  facet_wrap(~ medium) +
+  labs(
+    y = 'Test score',
+    x = 'Amount of study'
+  )
+```
+
+<br>
+
+We conducted all statistical analyses using R (R Core Team, 2025), and we will consider effects significant at $\alpha = .05$.
+
+To test whether the association between amount of study and test scores is significantly affected by note-taking medium, we fit a linear model predicting people's test scores as a function of how much they studied, what note-taking medium they used, and the interaction between these two variables.
+We coded the "study" variable using treatment coding, with "no studying" as the reference level.
+We also coded the "medium" variable using treatment coding, and there, "Laptop" is the reference level.
+
+Formally, the model we fit is the following:
+
+$$
+\begin{align}
+\text{test score} ~=~& \beta_0 ~+ \\
+  & (\beta_1 \cdot \text{study}_\text{Minimal}) ~+ \\
+  & (\beta_2 \cdot \text{study}_\text{Moderate}) ~+ \\
+  & (\beta_3 \cdot \text{study}_\text{Extensive}) ~+ \\
+  & (\beta_4 \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_5 \cdot \text{study}_\text{Minimal}   \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_6 \cdot \text{study}_\text{Moderate}  \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & (\beta_7 \cdot \text{study}_\text{Extensive} \cdot \text{medium}_\text{Longhand}) ~+ \\
+  & \epsilon
+\end{align}
+$$
+
+Our aim was to test the null hypothesis that all of the interaction coefficients are equal to zero:
+
+$$
+\begin{align}
+H_0 &: \text{All } \beta_j = 0 \text{ for } j = 5, 6, 7\\
+H_1 &: \text{Any } \beta_j \neq 0\\
+\end{align}
+$$
+
+After we fit the model, we made sure we were satisfied that its assumptions were met.
+Linearity of association can be assumed, since the predictors are categorical, and independence of errors can be assumed, since each participant contributed only one observation to the dataset.
+We are also satisfied that errors are sufficiently normally distributed (see Figure A.1 in Appendix A) with sufficiently equal variance (see Figure A.2 in Appendix A).
+Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates unduly.
+We therefore proceed to report the results of our analysis.
+
+
+If with the same amount of studying, people achieved higher test scores after taking longhand notes, we would expect all the interaction coefficients to be positive and significantly different from zero.
+(This is because an already-positive effect of studying would become more positive still after adjustment from a positive interaction term.)
+That is indeed what we find; we therefore reject the null hypothesis that there is no difference between how amount of study is associated with test score for each note-taking medium.
+
+Specifically: for laptop note-takers, we found that minimal studying was estimated to increase test score by 7.45 points compared to no studying ($b$ = 7.45, 95% CI [6.20, 8.70], $p$ < .001); for longhand note-takers, this effect was estimated to increase by a further 2.44 points ($b$ = 2.44, 95% CI [0.67, 4.21], $p$ < .001).
+
+Next, laptop note-takers' scores increased after moderate study by an estimated 11.18 points compared to no studying ($b$ = 11.18, 95% CI [9.93, 12.43], $p$ < .001), while longhand note-takers' scores were estimated to increase by an additional 18.49 points ($b$ = 18.49, 95% CI [16.72, 20.26], $p$ < .001).
+
+Finally, after extensive study, laptop note-takers' scores were estimated to increase by 13.04 points compared to no studying ($b$ = 13.04, 95% CI [11.79, 14.29], $p$ < .001), and for longhand note-takers, this increase was estimated to grow by another 26.52 points ($b$ = 26.52, 95% CI [24.75, 28.29], $p$ < .001).
+
+For an overview of all regression coefficients, see Table 2.
+
+```{r echo=F}
+tab_model(
+  notes_mdl,
+  dv.labels = 'Test score',
+  title = "Table 2: Linear model coefficient estimates"
+)
+```
+
+<br>
+
+The pattern of model-estimated test scores for all combinations of conditions is shown in Figure 2.
+
+```{r echo=F, fig.cap = "Figure 2: Model-estimated test scores for all combinations of amounts of studying and note-taking medium. Points represent the estimated test score for each group, and error bars represent their 95% CIs. Test scores are estimated to improve substantially more with study after people took longhand notes, compared to taking notes on a laptop.", fig.width = 5, fig.height = 3}
+cat_plot(
+  notes_mdl,
+  pred = 'study',
+  modx = 'medium',
+  geom = 'line'
+)
+```
+
+
+<br>
+
+
+**Appendix A: Model assumption checks**
+
+```{r echo=F, fig.cap = 'Figure A.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+plot(notes_mdl, which = 2)
+```
+
+<br>
+
+```{r echo=F, fig.cap = "Figure A.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals appear to have sufficiently equal variance."}
+plot(notes_mdl, which = 1)
+```
+
+
+
+<br>
+
+**References**
+
+R Core Team (2025). _R: A Language and Environment for Statistical Computing_. R Foundation for Statistical Computing, Vienna, Austria. <https://www.R-project.org/>.
+
+`r solend()`
+
