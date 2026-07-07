@@ -1,0 +1,293 @@
+---
+title: "14: Testing simple effects"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+library(interactions)
+library(emmeans)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll expand on the same model you fit last week by computing and testing its simple effects.
+
+Otherwise, there's relatively little new coding this week, so if you have extra time after running through the exercises, why not spend some more time putting together some study materials?
+Some suggestions are included below.
+
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab14.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `interactions`
+    - `emmeans`
+   
+:::
+
+---
+
+:::frame
+
+RQ: **How do differences in performance on explicit vs. implicit memory tasks differ for people experiencing different cognitive impairments?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+tibble(
+variable = names(cog),
+description = c("Diagnosis classifies the three types of individuals: 1 = Amnesic patients, 2 = Huntingtons patients, and 3 = Control group of individuals with no known neurological disorder", "Task tells us to which one of two tasks each study participant was randomly assigned to: 1 = Grammar (which consists of classifying letter sequences as either following or not following grammatical rules), and 2 = Recognition (which consists of recognising particular stimuli as stimuli that have previously been presented during the task)", "Score")) %>% gt::gt()
+```
+  
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+ The researchers designed a study yielding a 3 by 2 factorial design to test the above theory.   
+
+The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.  
+
+Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.
+
+The data in `cognitive_experiment_3_by_2.csv` contain three attributes collected from $n=30$ participants.
+
+:::
+
+:::
+
+# Recap from last week
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv> and store it in a variable named `cog_data`.
+
+Copy and run the following code to make the data a bit easier to understand and to work with.
+This code also sets the reference levels to `Diagnosis = Control` and `Task = Recognition`.
+
+```{r eval=F}
+cog_data <- cog_data |>
+    # replace numbers in each column with actual informative values
+    mutate(
+        Diagnosis = case_when(
+            Diagnosis == 1 ~ 'Amnesia',
+            Diagnosis == 2 ~ 'Huntingtons',
+            Diagnosis == 3 ~ 'Control'
+        ),
+        Diagnosis = factor(Diagnosis, levels = c('Control', 'Amnesia', 'Huntingtons')),
+        Task = ifelse(
+            Task == 1,
+            'Grammar',
+            'Recognition'
+        ),
+        Task = factor(Task, levels = c('Recognition', 'Grammar'))
+    ) |>
+    # rename Y column to 'score'
+    rename(Score = Y)
+```
+
+
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+cog_data <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+
+cog_data <- cog_data |>
+    # replace numbers in each column with actual informative values
+    mutate(
+        Diagnosis = case_when(
+            Diagnosis == 1 ~ 'Amnesia',
+            Diagnosis == 2 ~ 'Huntingtons',
+            Diagnosis == 3 ~ 'Control'
+        ),
+        Diagnosis = factor(Diagnosis, levels = c('Control', 'Amnesia', 'Huntingtons')),
+        Task = ifelse(
+            Task == 1,
+            'Grammar',
+            'Recognition'
+        ),
+        Task = factor(Task, levels = c('Recognition', 'Grammar'))
+    ) |>
+    # rename Y column to 'score'
+    rename(Score = Y)
+
+head(cog_data)
+```
+
+`r solend()`
+
+# q2
+
+
+`r qbegin(qcounter())`
+
+Fit the model defined by the model expression below, and name the output `cog_mdl`.
+
+$$
+\begin{align}
+\text{Score} ~=~& \beta_0 + 
+(\beta_1 \cdot \text{Diagnosis}_\text{Amnesia}) + 
+(\beta_2 \cdot \text{Diagnosis}_\text{Huntingtons}) + 
+(\beta_3 \cdot \text{Task}_\text{Grammar}) +  \\
+& (\beta_4 \cdot \text{Diagnosis}_\text{Amnesia} \cdot \text{Task}_\text{Grammar}) + 
+ (\beta_5 \cdot \text{Diagnosis}_\text{Huntingtons} \cdot \text{Task}_\text{Grammar}) + 
+\epsilon \\
+\end{align}
+$$
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+cog_mdl <- lm(Score ~ Diagnosis * Task, data = cog_data)
+```
+
+`r solend()`
+
+# Simple effects and correcting for multiple comparisons
+
+# q3
+
+`r qbegin(qcounter())`
+
+Compute all simple effects for `Task` at each level of `Diagnosis`.
+
+Which simple effects are significantly different from zero?
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace `...` with the appropriate values.
+
+```{r eval=F}
+pairs(
+  emmeans(..., ~ ... * ...), 
+  simple = '...'
+)
+```
+
+:::
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+pairs(
+  emmeans(cog_mdl, ~ Diagnosis * Task), 
+  simple = 'Task'
+)
+```
+
+The only simple effect that is significantly different from zero is the difference between recognition and grammar for people with a Huntingtons diagnosis ($p$ < .001).
+
+`r solend()`
+
+# q4
+
+`r qbegin(qcounter())`
+
+Compute all simple effects for `Task` at each level of `Diagnosis`.
+
+Which simple effects are significantly different from zero?
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+pairs(
+  emmeans(cog_mdl, ~ Diagnosis * Task), 
+  simple = 'Diagnosis'
+)
+```
+Within the recognition task, both the differences Control vs. Amnesia and Amnesia vs. Huntingtons are significantly different from zero (both $p$ < .001, Tukey-corrected).
+
+Within the grammar task, the only simple effect significantly different from zero is Control vs. Huntingtons ($p$ < .001, Tukey-corrected).
+
+`r solend()`
+
+`r qbegin(qcounter())`
+
+Run the same code you used in Q4, but now with the Bonferroni correction instead of the automatically-used Tukey correction.
+
+Are the same terms statistically significant with the Bonferroni correction?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+pairs(
+  emmeans(cog_mdl, ~ Diagnosis * Task), 
+  simple = 'Diagnosis',
+  adjust = 'bonferroni'
+)
+```
+
+Yes, the same simple effects are statistically significant here.
+In other analyses, this may not always be the case.
+
+`r solend()`
+
+
+
+# Develop study materials/strategies
+
+# q5
+
+`r qbegin(qcounter())`
+
+If you reach this point and still have a bit of time to dedicate to DAPR this week, we'd recommend that you continue thinking about study/revision materials and strategies—or if you haven't started thinking about these things yet, now is a very good time to begin.
+
+Here are some of Elizabeth's favourite learning strategies (note that it's the *process* here that will help you learn, much more than the end product):
+
+1. [Mind mapping](https://subjectguides.york.ac.uk/note-taking/mind-map){target="_blank"}: Create a visual representation of how concepts are connected.
+1. [Flash cards (and other active recall methods)](https://subjectguides.york.ac.uk/study-revision/active-recall#s-lg-box-16274981){target="_blank"}: Testing yourself using active recall now will train your brain in retrieving key information, so that it's there when you need it later.
+    - If you like using physical flash cards, try the [Leitner system](https://subjectguides.york.ac.uk/study-revision/leitner-system){target="_blank"}, a system that adds in spaced repetition to help build your long-term memory.
+1. [The Feynman technique](https://subjectguides.york.ac.uk/study-revision/feynman-technique){target="_blank"}: Teach or explain an idea as simply as you can. Wherever you're not sure what to say or how to explain something, brush up on those areas and try again.
+
+`r qend()`
