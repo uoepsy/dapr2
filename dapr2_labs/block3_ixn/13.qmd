@@ -1,0 +1,434 @@
+---
+title: "13: Categorical/categorical interactions"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+library(interactions)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll TODO
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab13.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `interactions`
+   
+:::
+
+---
+
+:::frame
+
+RQ: **Do differences in performance on explicit vs. implicit memory tasks differ for people experiencing different cognitive impairments?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+cog <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+tibble(
+variable = names(cog),
+description = c("Diagnosis classifies the three types of individuals: 1 = Amnesic patients, 2 = Huntingtons patients, and 3 = Control group of individuals with no known neurological disorder", "Task tells us to which one of two tasks each study participant was randomly assigned to: 1 = Grammar (which consists of classifying letter sequences as either following or not following grammatical rules), and 2 = Recognition (which consists of recognising particular stimuli as stimuli that have previously been presented during the task)", "Score")) %>% gt::gt()
+```
+  
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+ The researchers designed a study yielding a 3 by 2 factorial design to test the above theory.   
+
+The tasks chosen by the researchers have been picked to map onto the theoretical differences between the three types of research participants. The first task (grammar) is known to reflect implicit memory processes, whereas the recognition task is known to reflect explicit memory processes. If the theory is correct, we would expect the difference in scores between the recognition and grammar tasks to be relatively similar for the control and amnesiac groups, but relatively larger for the Huntingtons group compared to controls.  
+
+Keep in mind that each person has been randomly assigned to one of the two tasks, so there are five observations per cell of the design.
+
+The data in `cognitive_experiment_3_by_2.csv` contain three attributes collected from $n=30$ participants.
+
+:::
+
+:::
+
+# Set up, describe, and plot the data
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv> and store it in a variable named `cog_data`.
+
+Copy and run the following code to make the data a bit easier to understand and to work with.
+This code also sets the reference levels to `Diagnosis = Control` and `Task = Recognition`.
+
+```{r eval=F}
+cog_data <- cog_data |>
+    # replace numbers in each column with actual informative values
+    mutate(
+        Diagnosis = case_when(
+            Diagnosis == 1 ~ 'Amnesia',
+            Diagnosis == 2 ~ 'Huntingtons',
+            Diagnosis == 3 ~ 'Control'
+        ),
+        Diagnosis = factor(Diagnosis, levels = c('Control', 'Amnesia', 'Huntingtons')),
+        Task = ifelse(
+            Task == 1,
+            'Grammar',
+            'Recognition'
+        ),
+        Task = factor(Task, levels = c('Recognition', 'Grammar'))
+    ) |>
+    # rename Y column to 'score'
+    rename(Score = Y)
+```
+
+
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+cog_data <- read_csv("https://uoepsy.github.io/data/cognitive_experiment_3_by_2.csv")
+
+cog_data <- cog_data |>
+    # replace numbers in each column with actual informative values
+    mutate(
+        Diagnosis = case_when(
+            Diagnosis == 1 ~ 'Amnesia',
+            Diagnosis == 2 ~ 'Huntingtons',
+            Diagnosis == 3 ~ 'Control'
+        ),
+        Diagnosis = factor(Diagnosis, levels = c('Control', 'Amnesia', 'Huntingtons')),
+        Task = ifelse(
+            Task == 1,
+            'Grammar',
+            'Recognition'
+        ),
+        Task = factor(Task, levels = c('Recognition', 'Grammar'))
+    ) |>
+    # rename Y column to 'score'
+    rename(Score = Y)
+
+head(cog_data)
+```
+
+`r solend()`
+
+# q2
+
+`r qbegin(qcounter())`
+
+Use tidyverse's `group_by()` and `summarise()` functions to make a descriptives table that summarises `Score` for each level of the two categorical variables (`Diagnosis` and `Task`).
+Specifically, show the mean and SD of scores for each combination of levels.
+
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace `...` with the appropriate values.
+
+```{r eval=F}
+... |>
+    group_by(..., ...) |>
+    summarise(
+        ... = ...(...),
+        ... = ...(...),
+    )
+```
+
+:::
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+cog_data |>
+    group_by(Diagnosis, Task) |>
+    summarise(
+        Score_M  = mean(Score),
+        Score_SD = sd(Score),
+    )
+```
+
+For pretty-printing, load the library `kableExtra` and run:
+
+```{r}
+library(kableExtra)
+
+cog_data |>
+    group_by(Diagnosis, Task) |>
+    summarise(
+        Score_M  = mean(Score),
+        Score_SD = sd(Score),
+    ) |>
+    kable(
+        caption = "Descriptive statistics for performance scores in different memory tasks for different cognitive impairment diagnoses", 
+        digits = 2
+    ) |>
+    kable_styling(full_width = FALSE)
+```
+
+
+`r solend()`
+
+
+
+# q3
+
+`r qbegin(qcounter())`
+
+Visualise `Score` for each level of `Diagnosis` and each level of `Task`.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+One option (using facets):
+
+```{r}
+cog_data |>
+  ggplot(aes(x = Diagnosis, y = Score, fill = Diagnosis, colour = Diagnosis)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  facet_wrap(~ Task)
+```
+
+Or:
+
+```{r}
+cog_data |>
+  ggplot(aes(x = Task, y = Score, fill = Task, colour = Task)) +
+  geom_violin(alpha = 0.5) +
+  geom_jitter(alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  theme(legend.position = 'none') +
+  facet_wrap(~ Diagnosis)
+```
+
+<br>
+
+Another option (using colour only, no facetting):
+
+```{r}
+cog_data |>
+  ggplot(aes(x = Task, y = Score, fill = Diagnosis, colour = Diagnosis)) +
+  geom_violin(alpha = 0.5) +
+  geom_point(
+      alpha = 0.5, 
+      position = position_jitterdodge(dodge.width = 0.9)  # align points + violins
+  ) +
+  stat_summary(
+      fun = mean, 
+      geom = 'point', 
+      colour = 'black', 
+      show.legend = F,  # drop from legend
+      size = 3,
+      position = position_dodge(width = 0.9)  # align means + violins
+  )
+```
+
+Or:
+
+```{r}
+cog_data |>
+  ggplot(aes(x = Diagnosis, y = Score, fill = Task, colour = Task)) +
+  geom_violin(alpha = 0.5) +
+  geom_point(
+      alpha = 0.5, 
+      position = position_jitterdodge(dodge.width = 0.9)  # align points + violins
+  ) +
+  stat_summary(
+      fun = mean, 
+      geom = 'point', 
+      colour = 'black', 
+      show.legend = F,  # drop from legend
+      size = 3,
+      position = position_dodge(width = 0.9)  # align means + violins
+  )
+```
+
+`r solend()`
+
+# Anticipate the model coefficients
+
+# q4
+
+`r qbegin(qcounter())`
+
+What does `Diagnosis = 0` represent?
+What about `Task = 0`?
+
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- `Diagnosis = 0` represents the reference level of `Diagnosis`, namely `Control`.
+- `Task = 0` represents the reference level of `Task`, namely `Recognition`.
+
+`r solend()`
+
+# q5
+
+`r qbegin(qcounter())`
+
+How many dummy variables will it take to represent `Diagnosis`?
+How about `Task`?
+
+Further, if we model an interaction between `Diagnosis` and `Task`, how many interaction terms will our model contain?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`Diagnosis` will require two dummy variables: one comparing `Amnesia` to `Control`, and the other comparing `Huntingtons` to `Control`.
+
+`Task` only requires a single variable, which will compare `Grammar` to `Recognition`.
+
+For calculating the number of interaction terms: 
+This is a 3x2 design, so $r$ = 3 and $c$ = 2, so:
+
+$$
+\begin{align}
+  & (r - 1) \times (c - 1)\\
+  =~& (3 - 1) \times (2 - 1) \\
+  =~& 2 \times 1 \\
+  =~& 2
+\end{align}
+$$
+
+Our model will contain two interaction terms.
+
+`r solend()`
+
+# q6
+
+`r qbegin(qcounter())`
+
+Write the mathematical model expression for the model we'll fit, which in R syntax is `Score ~ Diagnosis * Task`.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\begin{align}
+\text{Score} ~=~& \beta_0 + 
+(\beta_1 \cdot \text{Diagnosis}_\text{Amnesia}) + 
+(\beta_2 \cdot \text{Diagnosis}_\text{Huntingtons}) + 
+(\beta_3 \cdot \text{Task}_\text{Grammar}) +  \\
+& (\beta_4 \cdot \text{Diagnosis}_\text{Amnesia} \cdot \text{Task}_\text{Grammar}) + 
+ (\beta_5 \cdot \text{Diagnosis}_\text{Huntingtons} \cdot \text{Task}_\text{Grammar}) + 
+\epsilon \\
+\end{align}
+$$
+
+
+<br>
+
+Note: The following model is **not** correct, because it doesn't contain dummy variables for `Diagnosis`:
+
+$$
+\text{Score} = \beta_0 + 
+(\beta_1 \cdot \text{Diagnosis}) + 
+(\beta_2 \cdot \text{Task}) + 
+(\beta_3 \cdot \text{Diagnosis} \cdot \text{Task}) + 
+\epsilon
+$$
+
+`r solend()`
+
+# q7
+
+`r qbegin(qcounter())`
+
+The model will have six coefficients in total.
+
+Based on the zero points you identified in Q4 and the model formula you worked out in Q6, write one sentence for each coefficient that describes what it will mean.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- $\beta_0$ = `(Intercept)`
+    - The estimated mean score for control participants on the recognition task.
+
+- $\beta_1$ = `DiagnosisAmnesia`
+    - On the recognition task, how does the score increase/decrease when moving from control participants to amnesia participants?
+
+- $\beta_2$ = `DiagnosisHuntingtons`
+    - On the recognition task, how does the score increase/decrease when moving from control participants to Huntingtons participants?
+
+- $\beta_3$ = `TaskGrammar`
+    - For control participants, how does the score increase/decrease when moving from the recognition task to the grammar task?
+
+- $\beta_4$ = `DiagnosisAmnesia:TaskGrammar`
+    - How does moving from the recognition task to the grammar task increase/decrease the difference between control participants and amnesia participants?
+    - Or: How does moving from control participants to amnesia participants increase/decrease the difference between the recognition task and the grammar task?
+
+- $\beta_5$ = `DiagnosisHuntingtons:TaskGrammar`
+    - How does moving from the recognition task to the grammar task increase/decrease the difference between control participants and Huntingtons participants?
+    - Or: How does moving from control participants to Huntingtons participants increase/decrease the difference between the recognition task and the grammar task?
+
+`r solend()`
+
+
+# Fit and interpret model
+
+# q8
+
+RESUME

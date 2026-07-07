@@ -1,0 +1,439 @@
+---
+title: "12: Numeric/numeric interactions"
+params: 
+    SHOW_SOLS: TRUE
+    TOGGLE: FALSE
+    # TOGGLE: TRUE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+# source('assets/setup.R')
+
+library(tidyverse)
+library(interactions)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+This week, you'll fit an model with an interaction between two numeric variables, and you'll practice interpreting the symmetry of that interaction.
+
+
+:::{.callout-note}
+### Get set up
+
+1. Open RStudio.
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab12.Rmd`).
+1. In the first code chunk, load the packages you'll need this week (and install them if you don't have them already):
+    - `tidyverse`
+    - `interactions`
+   
+:::
+
+---
+
+:::frame
+
+RQ: **Does the effect of social comparison on symptoms of depression, anxiety and stress vary depending on level of Neuroticism?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+scs_study <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+tibble(
+variable = names(scs_study),
+description = c("Openness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)","Conscientiousness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)", "Extraversion (Z-scored), measured on the Big-5 Aspects Scale (BFAS)", "Agreeableness (Z-scored), measured on the Big-5 Aspects Scale (BFAS)", "Neuroticism (Z-scored), measured on the Big-5 Aspects Scale (BFAS)", "Social Comparison Scale (SCS): An 11-item scale that measures an individual’s perception of their social rank, attractiveness and belonging relative to others. The scale is scored as a sum of the 11 items (each measured on a 5-point scale), with higher scores indicating more favourable perceptions of social rank", "Depression Anxiety and Stress Scale (DASS-21): The DASS-21 includes 21 items, each measured on a 4-point scale. The score is derived from the sum of all 21 items, with higher scores indicating higher a severity of symptoms")
+) %>% gt::gt()
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+```
+  
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+Previous research has identified an association between an individual's perception of their social rank and symptoms of depression, anxiety and stress. We are interested in the individual differences in this association. 
+
+The data in `scs_study.csv` contain seven attributes collected from a random sample of $n=656$ participants.
+
+:::
+
+:::
+
+# Read in data
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/scs_study.csv> and store it in a variable named `scdata` ("sc" stands for "social comparison").
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+sc_data <- read_csv("https://uoepsy.github.io/data/scs_study.csv")
+```
+
+`r solend()`
+
+# q2
+
+`r qbegin(qcounter())`
+
+`zn`, that is, z-scored neuroticism, is on the z-score scale already.
+But `scs` is not.
+
+Convert `scs` into a z-score and name the new variable `zscs`.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+sc_data <- sc_data |>
+    mutate(
+        zscs = (scs - mean(scs))/sd(scs)
+    )
+```
+
+Check that mean is 0 and SD is 1:
+
+```{r}
+mean(sc_data$zscs) |> round()
+sd(sc_data$zscs) |> round()
+```
+
+
+`r solend()`
+
+# Anticipate model coefficients
+
+# q3
+
+`r qbegin(qcounter())`
+
+<!-- Here's a plot that shows the associations between the variables we're interested in. -->
+<!-- (Don't worry about the code that generates this plot unless you want to.) -->
+
+<!-- ```{r fig.width=8, fig.height = 3} -->
+<!-- #| code-fold: true -->
+
+<!-- sc_data |> -->
+<!--   mutate( -->
+<!--     zn_bin = cut( -->
+<!--       zn,  -->
+<!--       breaks = c( min(zn), mean(zn) - sd(zn), mean(zn), mean(zn) + sd(zn), max(zn) ), -->
+<!--       include.lowest = TRUE, -->
+<!--       labels = c( 'zn,\n from min \nto mean – 1 SD', 'zn,\n from mean – 1 SD \nto mean', 'zn,\n from mean \nto mean + 1 SD', 'zn,\n from mean + 1 SD \nto max' ) -->
+<!--     ) -->
+<!--   ) |> -->
+<!--     ggplot(aes(x = scs, y = dass)) + -->
+<!--     facet_wrap(~zn_bin, nrow = 1) + -->
+<!--     geom_point() + -->
+<!--     geom_smooth(method = 'lm', se = F) -->
+<!-- ``` -->
+
+What does `zn = 0` represent?
+What about `zscs = 0`?
+
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- `zn = 0` represents the mean neuroticism in our sample.
+- `zscs = 0` represents the mean social comparison score (SCS) in our sample.
+
+`r solend()`
+
+
+# q4
+
+`r qbegin(qcounter())`
+
+The model you will fit in Q5 below is the following:
+
+$$
+\text{dass} = \beta_0 + 
+(\beta_1 \cdot \text{zscs}) + 
+(\beta_2 \cdot \text{zn}) + 
+(\beta_3 \cdot \text{zscs} \cdot \text{zn}) + 
+\epsilon
+$$
+
+This model has four coefficients.
+
+- `(Intercept)` = $\beta_0$
+- `zscs` = $\beta_1$
+- `zn` = $\beta_2$
+- `zscs:zn` = $\beta_3$
+
+Based on the zero points you identified in Q3, write one sentence for each coefficient that describes what it will mean.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- `(Intercept)` = $\beta_0$
+    - The estimated mean DASS score when SCS and Neuroticism are at their respective means (represented as zero because they are both z-scored).
+
+- `zscs` = $\beta_1$
+    - When z-scored Neuroticism is at its mean of zero, how much does DASS increase/decrease when z-scored SCS increases by one standard deviation?
+
+- `zn` = $\beta_2$
+    - When z-scored SCS is at its mean of zero, how much does DASS increase/decrease when z-scored Neuroticism increases by one standard deviation?
+
+- `zscs:zn` = $\beta_3$
+    - When z-scored SCS increases by one standard deviation, how much does the association between DASS and z-scored Neuroticism increase/decrease?
+    - Or equivalently: When z-scored Neuroticism increases by one standard deviation, how much does the association between DASS and z-scored SCS increase/decrease?
+
+
+
+`r solend()`
+
+
+# Set up and fit the model
+
+# q5
+
+`r qbegin(qcounter())`
+
+Fit the model describe by the mathematical model expression given in Q4.
+Name it `sc_mdl`.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+sc_mdl <- lm(dass ~ zscs * zn, data = sc_data)
+```
+
+`r solend()`
+
+# q6
+
+`r qbegin(qcounter())`
+
+Generate the model summary for `sc_mdl` and write a sentence or two to interpret each coefficient.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+summary(sc_mdl)
+```
+
+- `(Intercept)`
+    - The estimated mean DASS score when SCS and Neuroticism are at their respective means is 44.93 points.
+
+- `zscs`
+    - With z-scored Neuroticism is at its mean of zero, one standard deviation increase in z-scored SCS is associated with a decrease in DASS score of 1.57 points.
+    - This estimate is significantly different from zero ($p$ < .001).
+
+- `zn`
+    - With z-scored SCS is at its mean of zero, one standard deviation increase in z-scored Neuroticism is associated with an increase in DASS score of 1.58 points.
+    - This estimate is significantly different from zero ($p$ < .001).
+    
+
+- `zscs:zn`
+    - When z-scored SCS increases by one standard deviation, the association between DASS and z-scored Neuroticism is estimated to decrease by 1.83 points.
+    - Or equivalently: When z-scored Neuroticism increases by one standard deviation, the association between DASS and z-scored SCS is estimated to decrease by 1.83 points.
+    - This estimate is significantly different from zero ($p$ < .001).
+
+
+`r solend()`
+
+
+# Simple slopes from one angle
+
+# q7
+
+`r qbegin(qcounter())`
+
+Here's a plot of the simple slopes from this `sc_mdl`; that is, the lines associating `zscs` with `dass` for specific values of `zn` (the mean, mean + 1 SD, and mean – 1 SD).
+
+```{r}
+interact_plot(
+    sc_mdl,
+    pred = 'zscs',
+    modx = 'zn',
+    interval = T
+)
+```
+
+Write a sentence or two to explain how the model's interaction coefficient estimate relates to the lines shown on this plot.
+(If in doubt, refer to the interpretation you wrote in Q6.)
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Above we wrote: "When z-scored Neuroticism increases by one standard deviation, the association between DASS and z-scored SCS is estimated to decrease by 1.83 points."
+
+We can see that decrease in this plot if we compare the dashed medium-blue line (zn at its mean) to the solid dark blue line (zn at its mean +1 SD).
+The slope of the solid dark blue line is steeper and more negative, compared to the slope of the dashed medium-blue line—more negative precisely by 1.83 points, the value of the interaction coefficient.
+`r solend()`
+
+# q8
+
+`r qbegin(qcounter())`
+
+Generate a Johnson-Neyman plot with the `pred` and `modx` parameters set above (that is, `pred = zscs` and `modx = zn`).
+
+Write a sentence or two to explain to yourself what the plot is showing.
+
+
+:::{.callout-tip collapse='true'}
+### Code hint
+
+Replace `...` with the appropriate values.
+
+```{r eval=F}
+probe_interaction(
+  ...,
+  pred = ...,
+  modx = ...,
+  jnplot = T
+)$simslopes$jnplot
+```
+
+Alternatively:
+
+```{r eval=F}
+sim_slopes(
+    ..., 
+    pred = ..., 
+    modx = ..., 
+    jnplot = TRUE
+)$jnplot
+```
+
+:::
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+sim_slopes(sc_mdl, pred = zscs, modx = zn, jnplot = TRUE)$jnplot
+```
+
+The line on the plot shows that the slope of the line associating `zscs` with `dass` (y axis) decreases as the value of `zn` (x axis) increases.
+The colour/shading indicates that the slope of `zscs` is positive and significantly different from zero below about `zn` = –1.25, and that it's negative and significantly different from zero above about `zn` = –0.5.
+
+`r solend()`
+
+# Simple slopes from the other angle
+
+# q9
+
+
+`r qbegin(qcounter())`
+
+Now let's look at the simple slopes from the other angle, switching around how we're visualising the two continuous numeric variables.
+
+The plot below shows the lines associating `zn` with `dass` for specific values of `zscs` (the mean, mean + 1 SD, and mean – 1 SD).
+
+```{r}
+interact_plot(
+    sc_mdl,
+    pred = zn,
+    modx = zscs,
+    interval = T
+)
+```
+
+Write a sentence or two to explain how the model's interaction coefficient estimate relates to the lines shown on this plot.
+(If in doubt, refer to the interpretation you wrote in Q6.)
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+Above we wrote: "When z-scored SCS increases by one standard deviation, the association between DASS and z-scored Neuroticism is estimated to decrease by 1.83 points."
+
+Again, we can see that decrease in this plot the same way as before: if we compare the dashed medium-blue line (`zscs` at its mean) to the solid dark blue line (`zscs` at its mean +1 SD).
+The slope of the solid dark blue line is steeper and more negative, compared to the slope of the dashed medium-blue line—once again, more negative by 1.83 points, the value of the interaction coefficient.
+
+Q7 together with Q9 are meant to illustrate how the same interaction term can describe the same relationships between variables from two different angles.
+
+`r solend()`
+
+# q10
+
+`r qbegin(qcounter())`
+
+Generate a Johnson-Neyman plot with the `pred` and `modx` parameters set in Q9 (that is, `pred = zn` and `modx = zscs`).
+
+Write a sentence or two to explain to yourself what the plot is showing.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+sim_slopes(sc_mdl, pred = zn, modx = zscs, jnplot = TRUE)$jnplot
+```
+
+The line on the plot shows that the slope of the line associating `zn` with `dass` (y axis) decreases as the value of `zscs` (x axis) increases.
+The colour/shading indicates that the slope of `zn` is positive and significantly different from zero below about `zscs` = 0.6, and that it's negative and significantly different from zero above about `zscs` = 1.25.
+
+`r solend()`
+
+
