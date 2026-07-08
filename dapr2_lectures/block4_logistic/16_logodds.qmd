@@ -13,71 +13,17 @@ format:
 #| include: false
 
 library(tidyverse)
-library(emmeans)
+library(patchwork)
+
+source('../_theme/theme_quarto.R')
 
 dapr2red <- "#BF1932" 
-
-theme_set(
-  theme_minimal(
-    base_size = 28
-  )
-)
 ```
 
 
-# Course overview {background-color="white" style="font-size:80%;"}
+# Course overview {background-color="white"}
 
-<br>
-
-:::: {.columns}
-
-::: {.column width="50%"}
-
-```{r echo = FALSE, results='asis', warning = FALSE}
-block1_name = "Introduction to linear models <br>(with Dr. Patrick Sturt)"
-block1_lecs = c("Introduction to linear regression",
-                "Interpreting linear models",
-                "Testing individual predictors",
-                "Model testing and comparison",
-                "Simple linear model: Practice analysis")
-block2_name = "Extending linear models <br>(with Dr. Elizabeth Pankratz)"
-block2_lecs = c("Categorical predictors and treatment coding",
-                "Sum coding",
-                "Assumptions and diagnostics",
-                "Bootstrapping",
-                "Categorical predictors: Practice analysis (led by Patrick)")
-
-source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
-
-course_table(block1_name,block2_name,block1_lecs,block2_lecs,week = 0)
-```
-
-:::
-
-::: {.column width="50%"}
-
-```{r echo = FALSE, results='asis', warning = FALSE}
-block3_name = "Interactions <br>(with Dr. Elizabeth Pankratz)"
-block3_lecs = c("Mean-centering and numeric/categorical interactions",
-                "Numeric/numeric interactions",
-                "Categorical/categorical interactions",
-                "Correcting for multiple comparisons",
-                "Interactions: Practice analysis <br> (led by Patrick)")
-block4_name = "Logistic regression <br>(with Dr. Elizabeth Pankratz)"
-block4_lecs = c("Probabilities and log-odds",
-                "TODO",
-                "TODO",
-                "Logistic regression: Practice analysis <br> (led by Patrick)",
-                "Course Q&A and exam prep")
-
-source("https://raw.githubusercontent.com/uoepsy/junk/main/R/course_table.R")
-
-course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 6)
-```
-
-:::
-
-::::
+TODO
 
 
 ## This week's learning objectives
@@ -87,16 +33,26 @@ course_table(block3_name,block4_name,block3_lecs,block4_lecs,week = 6)
 ::::: {style="font-size: 125%;"}
 
 ::: {.dapr2callout}
-x
+What are binary outcomes?
+:::
+
+::: {.dapr2callout .fragment}
+Why does standard linear regression fail when we try to model binary outcomes?
+:::
+
+::: {.dapr2callout .fragment}
+What are log-odds?
+:::
+
+::: {.dapr2callout .fragment}
+How do we convert probabilities into log-odds, and log-odds into probabilities?
+:::
+
+::: {.dapr2callout .fragment}
+Why do *differences* between log-odds not map directly to differences between probabilities?
 :::
 
 :::::
-
-- What are binary outcomes?
-- Why does standard linear regression fail when we try to model binary outcomes?
-- What are log-odds and why are they useful?
-- How do we convert probabilities into log-odds, and log-odds into probabilities?
-- Why do *differences* between log-odds not map directly to differences between probabilities?
 
 
 # What are binary outcomes?
@@ -154,9 +110,9 @@ We assume that there is **some probability $p$ of observing a success.**
 :::
 
 
-<!-- ## Modelling probabilities of successful outcomes -->
+<br> 
 
-<!-- When we model binary outcome data, our goal is to: -->
+**Our goal is to use binary outcome data to estimate the probability of success.**
 
 <!-- - estimate what the probability of success will be (e.g., the probability of heads), and -->
 <!-- - estimate how that probability of success might be impacted by some predictor variable(s) (e.g., the kind of coin you're using, whether fair or weighted). -->
@@ -164,20 +120,62 @@ We assume that there is **some probability $p$ of observing a success.**
 
 ## But: how can we model binary outcome data?
 
-So far, we've been using linear models to model outcome data that's continuous and numeric.
+So far, we've been using linear models to model outcomes that's continuous and numeric.
 
-But if we try to model probabilities with a standard linear model, we run into problems: they can't cope with bounded outcome data like probabilities.
+Probabilities are numeric, but **they are not continuous: they are bounded between 0 and 1.**
 
-- A line, in principle, goes on forever in a continuous space.
-- But probabilities are bounded between 0 and 1.
-- This means we can't fit a line to probabilities directly.
+And standard linear models aren't suitable for bounded outcome variables.
 
-![](figs/TODO-16-lm-probs.png)
+If we try to fit a line to 0/1 data directly, we'll end up estimating impossible probabilities like 120% or –40%.
+
+<br>
+
+::::{.columns style="font-size:150%"}
+:::{.column width="50%" .hcenter}
+✅
+:::
+:::{.column width="50%" .hcenter}
+❌
+:::
+::::
+
+```{r echo=F, fig.width=10, fig.height = 5, fig.align='center'}
+set.seed(1)
+p_ynum <- tibble(
+  x = seq(0, 10, length.out = 21),
+  error = rnorm(21, 0, 3),
+  y_num = 5 + -x + error,
+  y_bin = ifelse(y_num >= 0.5, 1, 0)
+) |>
+  # ggplot(aes(x = x, y = y_bin)) +
+  ggplot(aes(x = x, y = y_num)) +
+  geom_point(size=3) +
+  geom_smooth(method = 'lm', se = F, fullrange = T) +
+  xlim(-3, 12) +
+  NULL
+
+p_ybin <- tibble(
+  x = seq(0, 10, length.out = 21),
+  error = rnorm(21, 0, 3),
+  y_num = 5 + -x + error,
+  y_bin = ifelse(y_num >= 0.5, 1, 0)
+) |>
+  ggplot(aes(x = x, y = y_bin)) +
+  geom_point(size=3) +
+  geom_smooth(method = 'lm', se = F, fullrange = T) +
+  xlim(-3, 12) +
+  # scale_y_continuous(breaks = c(0, 1), limits = c(-0.5, 1.4)) +
+  NULL
+
+
+p_ynum + p_ybin
+```
+
 
 
 ## The solution
 
-The solution: **transform the probabilities into a continuous space and model the transformed version using a linear model.**
+The solution: **transform the probabilities into a continuous space, and in that continuous space, we can use a linear model.**
 
 - The most common transformation is the **logit function**.
 - "Logit" is shortened from "**log**istic un**it**".
@@ -219,9 +217,12 @@ $$
 \end{align}
 $$
 
+(Note: You'll sometimes also hear "odds" called "odds ratios".)
+
+
 ## How odds map to probabilities
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 p_odds <- tibble(
@@ -229,14 +230,15 @@ p_odds <- tibble(
   odds = prob/(1 - prob)
 ) |>
   ggplot(aes(x = prob, y = odds)) +
-  geom_line() +
+  geom_line(linewidth = 2) +
   labs(
     y = 'Odds',
     x = 'Probability',
     title = 'From probabilities to odds'
   ) +
   scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-  scale_y_continuous(expand = c(0, 0))
+  scale_y_continuous(expand = c(0, 0)) +
+  theme(plot.margin = margin(t = 10, l = 10, r = 30))
 
 p_odds
 ```
@@ -244,7 +246,7 @@ p_odds
 
 ## How odds map to probabilities: Odds of rain
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 odds <- function(p){
@@ -255,23 +257,27 @@ prob <- 0.7
 
 p_odds +
   # horiz
-  geom_segment( x = prob, xend = 0, y = odds(prob), yend = odds(prob), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = prob, xend = 0, y = odds(prob), yend = odds(prob), colour = dapr2red, arrow = arrow(), linewidth = 2) +
   # vert
-  geom_segment( x = prob,  xend = prob,  y = 0, yend = odds(prob), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = prob,  xend = prob,  y = 0, yend = odds(prob), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle('Prob of 70% = odds of 2.333...')
 ```
 
 
 ## Not quite continuous numeric yet, <br> because odds are still bounded on one side
 
-![](figs/TODO-16-odds-scale.png)
+<br>
+<br>
+<br>
+
+![](figs/16-odds-scale.png){fig-align="center"}
 
 
 ## Logarithms to the rescue
 
 The log function takes values between 0 and 1 (the bit that's still squished on the odds scale) and expands them to the range of any negative number between $-\infty$ and 0.
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 p_log <- tibble(
@@ -279,70 +285,71 @@ p_log <- tibble(
   y = log(x)
 ) |>
   ggplot(aes(x = x, y = y)) +
-  geom_line() +
+  geom_line(linewidth = 2) +
   labs(
     title = 'log-odds = log(odds)',
-    x = 'odds',
-    y = 'log-odds'
+    x = 'Odds',
+    y = 'Log-odds'
   ) +
   scale_x_continuous(limits = c(0, 2), expand = c(0, 0)) +
   scale_y_continuous(limits = c(-6.22, 2), expand = c(0, 0)) +
+  theme(plot.margin = margin(t = 10, l = 10, r = 30)) +
   NULL
 
 p_log
 ```
 
 
-## Logarithms to the rescue
+## Logarithms to the rescue {visibility="uncounted"}
 
 The log function takes values between 0 and 1 (the bit that's still squished on the odds scale) and expands them to the range of any negative number between $-\infty$ and 0.
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 odds <- 0.9
 
 p_log +
   # horiz
-  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0('Odds of ', odds, ' = log-odds of ', round(log(odds), 2) ))
 ```
 
 
-## Logarithms to the rescue
+## Logarithms to the rescue {visibility="uncounted"}
 
 The log function takes values between 0 and 1 (the bit that's still squished on the odds scale) and expands them to the range of any negative number between $-\infty$ and 0.
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 odds <- 0.5
 
 p_log +
   # horiz
-  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0('Odds of ', odds, ' = log-odds of ', round(log(odds), 2) ))
 ```
 
 
-## Logarithms to the rescue
+## Logarithms to the rescue {visibility="uncounted"}
 
 The log function takes values between 0 and 1 (the bit that's still squished on the odds scale) and expands them to the range of any negative number between $-\infty$ and 0.
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 odds <- 0.04
 
 p_log +
   # horiz
-  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds, xend = 0, y = log(odds), yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = odds,  xend = odds,  y = -6.22, yend = log(odds), colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0('Odds of ', odds, ' = log-odds of ', round(log(odds), 2) ))
 ```
 
@@ -350,17 +357,78 @@ p_log +
 
 ## Log-odds (the log of the odds) are continuous and unbounded
 
-![](figs/TODO-16-logodds-scale.png)
-
+<br>
+<br>
 <br>
 
+![](figs/16-logodds-scale.png){fig-align="center"}
+
+<br>
+<br>
+
+:::dapr2callout
 **Take-home message:** log-odds are a transformed version of probabilities (bounded between 0 and 1) that is continuous (can range between $-\infty$ and $\infty$).
+:::
+
+
+## Probability → odds → log-odds
+
+::::{.columns}
+:::{.column width="50%"}
+
+**In the two steps we've seen:**
+
+```{r echo=F}
+p_odds +
+  ggtitle('Probabilities and odds')
+```
+
+:::{.hcenter style="font-size:200%"}
+**↓**
+:::
+
+```{r echo=F}
+p_log +
+  ggtitle('Odds and log-odds')
+```
+
+:::
+:::{.column width="50%" .fragment}
+
+**In just one step:**
+
+<br>
+<br>
+<br>
+<br>
+
+```{r echo=F, fig.height = 8}
+tibble(
+  logodds = seq(-5, 5, length.out = 100),
+  prob = plogis(logodds)
+) |>
+  ggplot(aes(x = logodds, y = prob)) +
+  geom_line(linewidth=2) +
+  scale_x_continuous(expand = c(0, 0), breaks = -5:5) +
+  scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
+  labs(
+    y = 'Probability',
+    x = 'Log-odds',
+    title = 'Probabilities and log-odds'
+  ) +
+  theme(
+    panel.grid.minor.x = element_blank()
+  )
+```
+
+:::
+::::
 
 
 
 ## Log-odds and probabilities are linked via the logistic function (hence "logistic regression")
 
-```{r}
+```{r fig.width=14, fig.height=7}
 #| code-fold: true
 
 p_logistic <- tibble(
@@ -368,7 +436,7 @@ p_logistic <- tibble(
   prob = plogis(logodds)
 ) |>
   ggplot(aes(x = logodds, y = prob)) +
-  geom_line() +
+  geom_line(linewidth = 2) +
   scale_x_continuous(expand = c(0, 0), breaks = -5:5) +
   scale_y_continuous(expand = c(0, 0), limits = c(0, 1)) +
   labs(
@@ -376,7 +444,8 @@ p_logistic <- tibble(
     x = 'Log-odds'
   ) +
   theme(
-    panel.grid.minor.x = element_blank()
+    panel.grid.minor.x = element_blank(),
+    plot.margin = margin(t = 20, r = 20)
   )
 
 p_logistic
@@ -393,22 +462,22 @@ p_logistic
 plogis(-1)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 logodds <- -1
 
 p_logistic +
   # vert
-  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow(), linewidth = 2) +
   # horiz
-  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0( logodds, ' log-odds = ', 100 * round(plogis(logodds), 3), '% probability'))
 ```
 
 
 
-## From log-odds to probabilities: `plogis()`, <br> the logistic function (aka inverse logit function)
+## From log-odds to probabilities: `plogis()`, <br> the logistic function (aka inverse logit function) {visibility="uncounted"}
 
 <br>
 
@@ -416,22 +485,22 @@ p_logistic +
 plogis(0)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 logodds <- 0
 
 p_logistic +
   # vert
-  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # horiz
-  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0( logodds, ' log-odds = ', 100 * round(plogis(logodds), 3), '% probability'))
 ```
 
 
 
-## From log-odds to probabilities: `plogis()`, <br> the logistic function (aka inverse logit function)
+## From log-odds to probabilities: `plogis()`, <br> the logistic function (aka inverse logit function) {visibility="uncounted"}
 
 <br>
 
@@ -439,16 +508,16 @@ p_logistic +
 plogis(2)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 logodds <- 2
 
 p_logistic +
   # vert
-  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds, xend = logodds, yend = plogis(logodds), y = 0, colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # horiz
-  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = logodds,  xend = -5,  y =  plogis(logodds),  yend =  plogis(logodds),  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0( logodds, ' log-odds = ', 100 * round(plogis(logodds), 3), '% probability'))
 ```
 
@@ -461,20 +530,20 @@ p_logistic +
 qlogis(0.3)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 prob <- 0.3
 p_logistic +
   # horiz
-  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0(prob*100, '% probability = ', round(qlogis(prob), 2), ' log-odds'))
 ```
 
 
-## From probabilities to log-odds: `qlogis()`, <br> the logit function
+## From probabilities to log-odds: `qlogis()`, <br> the logit function {visibility="uncounted"}
 
 <br>
 
@@ -482,20 +551,20 @@ p_logistic +
 qlogis(0.5)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 prob <- 0.5
 p_logistic +
   # horiz
-  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0(prob*100, '% probability = ', round(qlogis(prob), 2), ' log-odds'))
 ```
 
 
-## From probabilities to log-odds: `qlogis()`, <br> the logit function
+## From probabilities to log-odds: `qlogis()`, <br> the logit function {visibility="uncounted"}
 
 <br>
 
@@ -503,15 +572,15 @@ p_logistic +
 qlogis(0.7)
 ```
 
-```{r}
+```{r fig.width = 14, fig.height = 6}
 #| code-fold: true
 
 prob <- 0.7
 p_logistic +
   # horiz
-  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = -5, xend = qlogis(prob), y = prob, yend = prob, colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   # vert
-  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow() ) +
+  geom_segment( x = qlogis(prob),  xend = qlogis(prob),  y = prob,  yend = 0,  colour = dapr2red, arrow = arrow(), linewidth = 2 ) +
   ggtitle(paste0(prob*100, '% probability = ', round(qlogis(prob), 2), ' log-odds'))
 ```
 
@@ -585,14 +654,14 @@ ggsave('figs/p_logistic.svg', p_logistic, width = 8, height = 4)
 <br>
 
 :::hcenter
-a difference of 1 log-odd &nbsp; **IS NOT EQUAL TO** &nbsp; a difference of 73.1% probability
+a *difference* of 1 log-odd &nbsp; **IS NOT EQUAL TO** &nbsp; a *difference* of 73.1% probability
 :::
 
 <br>
 <br>
 
 
-**This is important because it impacts how we'll interpret logistic regression coefficients next week.**
+**This is important because it impacts how we'll interpret logistic regression coefficients next week** (since the slope of a line is the difference between two values!)
 
 <!-- <br> -->
 
@@ -611,21 +680,23 @@ a difference of 1 log-odd &nbsp; **IS NOT EQUAL TO** &nbsp; a difference of 73.1
 - Specifically, we know the log-odds of A happening is 1 log-odd greater than the log-odds of B happening.
 - In other words, **the difference between the two scenarios is 1 log-odd.**
 
-<br>
 
+:::{.dapr2callout}
 **Scenario 1:**
 
 - Imagine the log-odds of A happening are 1: `plogis(1)` = 73%.
 - Then the log-odds of B happening are 0: `plogis(0)` = 50%.
 - **The difference in probabilities that corresponds to a 1-log-odd difference is 23%.**
+:::
 
-<br>
 
+:::{.dapr2callout}
 **Scenario 2:**
 
 - Now imagine that the log-odds of A happening are 4: `plogis(4)` = 98%.
 - Then the log-odds of B happening are 3: `plogis(3)` = 95%.
 - **Now the difference in probabilities that corresponds to a 1-log-odd difference is just 3%.**
+:::
 
 
 
@@ -644,12 +715,13 @@ tibble(
   
   theme(
     panel.grid = element_blank(),
-    panel.border = element_rect(linewidth = 1)
+    panel.border = element_rect(linewidth = 1),
+    plot.margin = margin(t = 10)
     ) +
   
   # horiz green
-  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654') +
-  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654') +
+  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654', linewidth=2) +
+  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654', linewidth=2) +
   geom_text(
     x = -4.8,
     y = 0.62,
@@ -659,8 +731,8 @@ tibble(
     size = 6
   ) +
   # vert green
-  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654') +
-  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654') +
+  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654', linewidth=2) +
+  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654', linewidth=2) +
   geom_text(
     x = 0.5,
     y = 0.15,
@@ -670,8 +742,8 @@ tibble(
   ) +
   
   # horiz pink
-  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A') +
-  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A') +
+  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A', linewidth=2) +
+  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A', linewidth=2) +
   geom_text(
     x = -4.8,
     y = 0.91,
@@ -681,8 +753,8 @@ tibble(
     size = 6
   ) +
   # vert pink
-  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A') +
-  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A') +
+  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A', linewidth=2) +
+  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A', linewidth=2) +
   geom_text(
     x = 3.5,
     y = 0.15,
@@ -691,7 +763,7 @@ tibble(
     size = 6
   ) +
 
-  geom_line() +
+  geom_line(linewidth=2) +
   NULL
 ```
 
@@ -755,7 +827,7 @@ mallow |>
 ```{r echo=F, fig.width = 7, fig.height = 7}
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_point()
+  geom_point(size = 3)
 ```
 
 :::
@@ -783,8 +855,7 @@ set.seed(1)
 
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_jitter(height = 0.01) +
-  
+  geom_jitter(height = 0.01, size = 3) +
   NULL
 ```
 
@@ -817,7 +888,7 @@ set.seed(1)
 
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_jitter(height = 0.01) +
+  geom_jitter(height = 0.01, size = 3) +
   scale_y_continuous(breaks = c(0, 1)) +
   NULL
 ```
@@ -861,9 +932,9 @@ set.seed(1)
 
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_jitter(height = 0.01) +
+  geom_jitter(height = 0.01, size = 3) +
   scale_y_continuous(breaks = c(0, 1)) +
-  geom_smooth(method = "glm", method.args = list(family = binomial), se = F) +
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = F, linewidth=2) +
   NULL
 ```
 
@@ -912,13 +983,14 @@ set.seed(1)
 
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_jitter(height = 0.01) +
+  geom_jitter(height = 0.01, size = 3) +
   scale_y_continuous(breaks = c(0, 1)) +
-  geom_smooth(method = "glm", method.args = list(family = binomial), se = F) +
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = F, linewidth=2) +
   labs(
     y = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
     x = 'Age (years)'
   ) +
+  theme(plot.margin = margin(t = 15)) +
   NULL
 ```
 
@@ -942,7 +1014,7 @@ mallow |>
 ```
 :::
 :::{.column width="50%"}
-```{r echo=F, fig.width = 7, fig.height = 7}
+```{r echo=F, fig.width = 8, fig.height = 7}
 mallow |>
   ggplot(aes(x = factor(taken), fill = agegroup)) +
   geom_bar(position = 'fill') +
@@ -984,7 +1056,7 @@ mallow |>
 ```
 :::
 :::{.column width="50%"}
-```{r echo=F, fig.width = 7, fig.height = 7}
+```{r echo=F, fig.width = 8, fig.height = 7}
 mallow |>
   ggplot(aes(x = factor(taken), fill = agegroup)) +
   geom_bar(position = 'fill') +
@@ -1003,9 +1075,44 @@ mallow |>
 
 # Back matter
 
-## Revisiting this week's learning objectives
+## Revisiting this week's learning objectives (1)
 
-TODO
+::: {.dapr2callout}
+**What are binary outcomes?**
+
+- Outcome variables that can only have one of two levels (e.g., yes/no, correct/incorrect, ADHD/not ADHD).
+- One level must be defined as a "success", represented numerically as 1, and the other level as a "failure", represented numerically as 0 (these are statistical terms and don't need to map to "good" or "bad" levels).
+:::
+
+::: {.dapr2callout}
+**Why does standard linear regression fail when we try to model binary outcomes?**
+
+- If we fit a standard linear model to binary outcome data, it will estimate probabilities of success that are impossible, that is, outside the range of 0 to 1.
+
+:::
+
+::: {.dapr2callout}
+**What are log-odds?**
+
+- Log-odds are a transformed version of probabilities that is continuous (in other words, log-odds can range between $-\infty$ and $\infty$, unlike probabilities).
+:::
+
+## Revisiting this week's learning objectives (2)
+
+::: {.dapr2callout}
+**How do we convert probabilities into log-odds, and log-odds into probabilities?**
+
+- The inverse logistic function, or logit function, converts probabilities into log-odds. In R, that's `qlogis()`.
+- The logistic function converts log-odds into probabilities. In R, that's `plogis()`.
+:::
+
+::: {.dapr2callout}
+**Why do *differences* between log-odds not map directly to differences between probabilities?**
+
+- The logistic transformation is not linear, so differences on the log-odds scale can map to various differences on the probability scale, depending on *where* the differences on the log-odds scale originally were.
+:::
+
+
 
 
 ## This week 
