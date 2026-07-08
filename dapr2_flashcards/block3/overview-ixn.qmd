@@ -8,131 +8,172 @@ params:
 source('../assets/setup.R')
 ```
 
-## Specifying interaction models
+## What do interactions do?
 
-Interaction models allow us to model the idea of “the association between $x_1$ and $y$ differs depending on the level of $x_2$” by including a product (multiplication) term between the two predictors.
+Interaction models allow us to model a scenario when the association between one predictor $x$ and the outcome $y$ is different, depending on the level of another predictor $z$.
+Mathematically, this works by adding another predictor to the model that is the product (in other words, the result of multiplying) those two predictors.
 
-**Formula:**  
+
+
+::: {.callout-caution collapse="true"}
+#### Why multiplication?
+
+In a multiple regression model without the interaction, the effect of `x` on `y` is just $\beta_1$, a single constant number.
 
 $$
-y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon
+y = \beta_0 + (\underbrace{\beta_1}_{\text{effect of } x} \cdot x) + (\beta_2 \cdot z) + \epsilon
 $$
 
+But if the effect of `x` *depends* on `z`, then the effect isn't just a single constant number.
+It's more like "some number plus some amount of `z`".
 
-If we fit the interaction `x1:x2`, we almost always want to also fit the separate effects `x1` and `x2`:
+To represent "some amount of `z`", we can write $\beta_3 \cdot z$ and add it on to $\beta_1$, the effect of `x`.
 
-:::quote
-"Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  
---- Ramsey, 2012
+$$
+y = \beta_0 + (\underbrace{(\overbrace{\beta_1}^{\text{some number}} + \overbrace{\beta_3 \cdot z}^{\text{some amount of } z})}_{\text{effect of } x} \cdot x) + (\beta_2 \cdot z) + \epsilon
+$$
+
+And if you expand this expression by multiplying both $\beta_1$ and $\beta_3 \cdot z$ by $x$, you get the final linear expression we use for this model:
+
+$$
+y = \beta_0 + (\beta_1 \cdot x) + (\beta_2 \cdot z) + (\beta_3 \cdot x \cdot z) + \epsilon
+$$
+
 :::
 
 
-:::blue
 
+## Mathematical model formulation
 
-In **R**:
+$$
+y = \beta_0 + 
+(\beta_1 \cdot x) + 
+(\beta_2 \cdot z) + 
+(\beta_3 \cdot x \cdot z) + 
+\epsilon
+$$
 
-There are basically two pieces of information that we need to pass to the `lm()` function:
+Write:
 
-1. The formula: The regression formula should be specified in the form `y ~ x` where $y$ is the dependent variable (DV), $x_1$ the first independent variable (IV1), and $x_2$ the second independent variable (IV2). We then also need to include the interaction term between $x_1$ and $x_2$.
-
-2. The data: Specify which dataframe (`data = `) contains the variables specified in the formula.
-
-+ run interaction model via `lm()` function
-
-```{r eval=FALSE}
-model_name <- lm(DV ~ IV1*IV2, data = data_name)
+```
+$$
+y = \beta_0 + 
+(\beta_1 \cdot x) + 
+(\beta_2 \cdot z) + 
+(\beta_3 \cdot x \cdot z) + 
+\epsilon
+$$
 ```
 
-**OR**
+For your analyses, interaction models should always include the two predictors individually *as well as* their interaction.
+
+> "Except in special circumstances, a model including a product term for interaction between two explanatory variables should also include terms with each of the explanatory variables individually, even though their coefficients may not be significantly different from zero. Following this rule avoids the logical inconsistency of saying that the effect of $X_1$ depends on the level of $X_2$ but that there is no effect of $X_1$."  (Ramsey, 2012)
+
+
+## In R
+
+We usually write:
 
 ```{r eval=FALSE}
-model_name <- lm(DV ~ IV1 + IV2 + IV1:IV2, data = data_name)
+model_name <- lm(y ~ x * z, data = data_name)
 ```
 
-:::
+where `x * z` is a shorthand for `x + z + x:z`, which we could also write in full:
+
+```{r eval=FALSE}
+model_name <- lm(y ~ x + z + x:z, data = data_name)
+```
+
+
+
 
 ## Interpreting coefficients
 
+The interaction model illustrated above will have four coefficients: `(Intercept)`, `x`, `z`, and `x:z`.
 
-::: {.panel-tabset}
+### `(Intercept)`
 
-#### Interpreting coefficients for A and B in the presence of an interaction A:B
+The intercept has the same interpretation as always: the estimated mean outcome when all predictors are equal to zero.
 
-When you include an interaction between $x_1$ and $x_2$ in a regression model, you are estimating the extent to which the effect of $x_1$ on $y$ is different across the values of $x_2$.  
 
-What this means is that the effect of $x_1$ on $y$ *depends on/is conditional upon* the value of $x_2$ (and vice versa, the effect of $x_2$ on $y$ is different across the values of $x_1$).  
-  
-This means that we can no longer talk about the "effect of $x_1$ _holding $x_2$ constant_". Instead we can talk about a _marginal effect_ of $x_1$ on $y$ at a specific value of $x_2$. 
+### `x` and `z` (slopes = conditional effects)
 
-:::frame
-When we fit the model $y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \beta_3 (x_1 \cdot x_2) + \epsilon$ using `lm()`:  
+For each slope parameter in an interaction model, we estimate its association with the outcome **specifically when the other interacting predictor is equal to zero.**
 
-- the parameter estimate $\hat \beta_1$ is the _marginal effect_ of $x_1$ on $y$ where $x_2 = 0$  
-- the parameter estimate $\hat \beta_2$ is the _marginal effect_ of $x_2$ on $y$ where $x_1 = 0$ 
-In other words, when we fit a model with an interaction in R, we get out coefficients for both predictors, and for the interaction. The coefficients for each individual predictor reflect the effect on the outcome when the other predictor is zero.
+This means we can no longer talk about the "effect of `x` holding `z` constant, like we would if it were just a multiple regression model.
+Instead we must talk about `x` as a **conditional effect**: its interpretation is conditional on (dependent on, contingent on) `z` being at a specific value, namely zero.
+
+So when we fit the model
+
+$$
+y = \beta_0 + 
+(\beta_1 \cdot x) + 
+(\beta_2 \cdot z) + 
+(\beta_3 \cdot x \cdot z) + 
+\epsilon
+$$
+
+
+- the $\beta_1$ is the _conditional effect_ of $x$ on $y$ when $z = 0$  
+- the $\beta_2$ is the _conditional effect_ of $z$ on $y$ when $x = 0$ 
+
+
+::: {.callout-caution collapse="true"}
+#### Aren't all parameter estimates "conditional" on something?
+
+Yes, technically speaking, all parameter estimates in multiple regression are "conditional" in the sense that they are dependent upon the inclusion of other variables in the model.
+
+For instance, in the multiple regression model $y = \beta_0 + \beta_1 \cdot x_1 + \beta_2 \cdot x_2 + \epsilon$, the coefficient $\hat \beta_1$ is conditional upon holding $x_2$ constant. 
+**But we are only going to use the term "conditional effects" for the slope coefficients of interaction models, in order to distinguish them from the slope coefficients of multiple regression models.**
 
 :::
 
-<div style="margin-left: 15px">
-<small>
-__N.B.__ Regardless of whether or not there is an interaction term in our model, all parameter estimates in multiple regression are "conditional" in the sense that they are dependent upon the inclusion of other variables in the model. For instance, in $y = \beta_0 + \beta_1 \cdot x_1 + \beta_2 \cdot x_2 + \epsilon$ the coefficient $\hat \beta_1$ is conditional upon holding $x_2$ constant. 
-</small>
-</div>
 
-#### Interpreting the interaction term A:B 
 
-The coefficient for an interaction term can be thought of as providing an _adjustment to the slope._   
+### `x:z` (the interaction term)
 
-Let's take the following model as an example:
+The coefficient for an interaction term is
+
+- an **adjustment to the conditional effect of `x` when `z` increases by 1**, and at the same time,
+- an **adjustment to the conditional effect of `z` when `x` increases by 1**.
+
+For example, if the interaction term is –2:
+
+- increasing `x` by 1 decreases the association between `z` and `y` by 2 units, and at the same time,
+- increasing `z` by 1 decreases the association between `x` and `y` by 2 units.
+
+
+### What about other non-interacting predictors?
+
+The interaction `x:z` changes how we interpret the slope coefficients for the interacting predictors `x` and `z`.
+But it does not change how we interpret the slope coefficients for other predictors in our model.
+
+Any variables that are not involved in the interaction **are still just held constant.**
+And when we interpret those non-interacting coefficients, we hold constant the interacting variables.
+
+For example, suppose we _also_ had another predictor $c$ in our model:
+
+$$
+y = \beta_0 + 
+(\beta_1 \cdot x) + 
+(\beta_2 \cdot z) + 
+(\beta_3 \cdot x \cdot z) + 
+(\beta_4 \cdot c) + 
+\epsilon
+$$
+
+or equivalently in R notation
 
 ```
-lm(formula = y ~ x1 * x2, data = df)
-...
-
-...
-Coefficients:
-             Estimate Std. Error t value Pr(>|t|)  
-(Intercept)  ...        ....       ...      ...  
-x1           ...        ....       ...      ...  
-x2           ...        ....       ...      ...  
-x1:x2        ...        ....       ...      ...  
----
+lm(y ~ x + z + x:z + c)
 ```
 
-These coefficients can be interpreted, in turn as:  
+the interpretations are as follows:
 
 | Coefficient      | Interpretation |
 | ----------- | ----------- |
-| `(Intercept)` | the estimated $y$ when all predictors ($x_1$ and $x_2$) are zero is [*estimate*] |
-| `x1`  | **when $x_2$ is zero,** a 1 unit increase in $x_1$ is associated with a [*estimate*] change in $y$ |
-| `x2`  | **when $x_1$ is zero,** a 1 unit increase in $x_2$ is associated with a [*estimate*] change in $y$. |
-| `x1:x2`  | as $x_2$ increases by 1, the association between $x_1$ and $y$ changes by [*estimate*]<br>_**or**_<br>as $x_1$ increases by 1, the association between $x_2$ and $y$ changes by [*estimate*] |
-
-:::
-
-::: {.callout-note}
-#### What if there are other things (e.g., other predictors/covariates) in the model too?
-
-Note that the interaction `x1:x2` changes how we interpret the individual coefficients for `x1` and `x2`.  
-
-It does __*not*__ change how we interpret coefficients for other predictors that might be in our model. For variables that **aren't** involved in the interaction term, these are still held constant.  
-
-For example, suppose we _also_ had another predictor $c_1$ in our model: 
-
-```
-lm(y ~ c1 + x1 + x2 + x1:x2)
-```
-
-| Coefficient      | Interpretation |
-| ----------- | ----------- |
-| `(Intercept)` | the estimated $y$ when all predictors ($c_1$, $x_1$ and $x_2$) are zero is [*estimate*] |
-| `c1` | a 1 unit increase in $c_1$ is associated with a [*estimate*] increase in $y$, holding constant all other variables in the model ($x_1$ and $x_2$) |
-| `x1`  | holding $c_1$ constant, **when $x_2$ is zero,** a 1 unit increase in $x_1$ is associated with a [*estimate*] change in $y$ |
-| `x2`  | holding $c_1$ constant, **when $x_1$ is zero,** a 1 unit increase in $x_2$ is associated with a [*estimate*] change in $y$. |
-| `x1:x2`  | holding $c_1$ constant, as $x_2$ increases by 1, the association between $x_1$ and $y$ changes by [*estimate*]<br>_**or**_<br>holding $c_1$ constant, as $x_1$ increases by 1, the association between $x_2$ and $y$ changes by [*estimate*] |
-
-:::
-
-
-
+| `(Intercept)`  = $\beta_0$| The estimated mean outcome when all predictors are zero |
+| `x` = $\beta_1$ | **Holding `c` constant, when `z` is zero,** how much does `y` increase/decrease when `x` is increased by one unit? |
+| `z` = $\beta_2$ | **Holding `c` constant, when `x` is zero,** how much does `y` increase/decrease when `z` is increased by one unit? |
+| `x:z` = $\beta_3$ | (1) How much does the association between `x` and `y` increase/decrease when `z` is increased by one unit, **holding `c` constant?** <br> (2) How much does the association between `z` and `y` increase/decrease when `x` is increased by one unit, **holding `c` constant?** |
+| `c` = $\beta_4$ | **Holding `x` and `z` constant,** how much does `y` increase/decrease when `c` is increased by one unit? |
