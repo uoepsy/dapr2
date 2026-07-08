@@ -13,15 +13,10 @@ format:
 #| include: false
 
 library(tidyverse)
-library(emmeans)
+
+source('../_theme/theme_quarto.R')
 
 dapr2red <- "#BF1932" 
-
-theme_set(
-  theme_minimal(
-    base_size = 28
-  )
-)
 ```
 
 
@@ -40,6 +35,28 @@ x
 :::
 
 :::::
+
+- What scale are logistic regression coefficients estimated on?
+  - log-odds
+- How is interpreting logistic regression coefficients different from standard regression coefficients?
+  - it's not: everything you learned about predictors equalling zero, holding things constant, etc. still applies for logistic regression
+  - the only difference is that the outcome scale is log-odds, not "test score" or "wellbeing" or whatever else we've been using in the first 15 weeks
+- How can we use a logistic regression model to predict the probability of "success" (whatever we've defined "success" to mean for our analysis)?
+  - same as always, with one extra transformation step at the end!
+  - substitute coefficients estimated by the model into the linear expression
+  - substitute whatever predictor values we want to make predictions for
+  - work out the math to get a single model-predicted value (same as always up til here)
+  - new thing: that value is in log-odds space, so use `plogis()` to transform it into a probability
+  
+
+## Where we are in the analysis plan
+
+![](figs/workflow-16.svg){fig-align="center"}
+
+
+## Where we are in the analysis plan {visibility="uncounted"}
+
+![](figs/workflow-17.svg){fig-align="center"}
 
 
 # Modelling binary outcomes
@@ -212,7 +229,7 @@ cat(paste0(capture.output(
 - **For a child aged 0 years, the estimated log-odds of taking the marshmallow immediately are 3.76.**
   - To ease interpretation, we can back-transform the intercept to probability space:
     - For a child aged 0 years, the probability of taking the marshmallow immediately is `plogis(3.76)` = 97.7%.
-- **This estimate is significantly different from zero (95% CI [2.18, 5.55], $p$ < 0.001).**
+- **This estimate is significantly different from zero ($p$ < 0.001).**
   - Why are we interpreting the significance of the intercept now, when we never did before?
   - Because on the log-odds scale, being different from zero is actually interesting! 
   - `plogis(0)` = 50% probability = <br> random chance.
@@ -262,7 +279,7 @@ cat(paste0(capture.output(
 
 **`age`:**
 
-- **Increasing age by 1 year is associated with a decrease of 0.62 in the log-odds of taking the marshmallow immediately.**
+- **Increasing age by 1 year is associated with a decrease of 0.63 in the log-odds of taking the marshmallow immediately.**
   - We *cannot* back-transform the slope to probability space.
   - Slopes are differences in log-odds, and recall from last week that a given difference in log-odds space can map to lots of various differences in probability space:
   
@@ -301,10 +318,76 @@ tibble(
   NULL
 ```
   
-- **This estimate is significantly different from zero (95% CI [–0.91, –0.37], $p$ < 0.001).**
+- **This estimate is significantly different from zero ($p$ < 0.001).**
 
 :::
 ::::
+
+
+
+
+## Predicting the probability of different ages taking the marshmallow: By hand
+
+Like always, we can use logistic regression models to predict outcome data for any predictor values we choose.
+
+We start with the linear expression, with coefficients substituted in:
+
+$$
+\text{logodds(taken)} = 3.764 + (–0.625 \cdot \text{age})
+$$
+
+**Let's predict the probability of a child who's 6 years old taking the marshmallow immediately.**
+
+<br>
+
+First, we'll work out the log-odds of a six-year-old taking the marshmallow immediately.
+
+\begin{align}
+\text{logodds(taken)}_\text{age=6} &= 3.764 + (–0.625 \cdot 6) \\
+  &= 3.764 - 3.75 \\
+  &= 0.014 \\
+
+\end{align}
+
+<br>
+
+Now we can transform this model-predicted log-odds value into probability space using `plogis()`. <br>
+(You'll never be expected to do this transformation by hand!)
+
+```{r}
+plogis(0.014)
+```
+
+**A six-year-old has an estimated probability of taking the marshmallow immediately of 50.3%.**
+
+
+## Predicting the probability of different ages taking the marshmallow: With `predict()`
+
+All we need to give our old friend `predict()` is a dataframe that specifies the values of our predictor that we want it to make predictions for.
+
+```{r}
+ages_to_predict = tibble(age = c(2, 6, 20))
+
+predict(
+  mallow_m1,
+  type = 'response',  # show values in probability space
+  newdata = ages_to_predict
+)
+```
+
+- A 2-year-old has a 92.5% probability of taking the marshmallow immediately.
+- A 6-year-old has a 50.4% probability of taking the marshmallow immediately.
+- A 20-year-old has a near-0% probability of taking the marshmallow immediately.
+
+<br>
+
+(We can also ask `predict()` to show us the log-odds version with `type = 'link'`.)
+
+```{r}
+predict(mallow_m1, type = 'link', newdata = ages_to_predict)
+```
+
+
 
 
 ## Plotting model-fitted values: Log-odds (1)
@@ -644,6 +727,90 @@ cat(paste0(capture.output(
 :::
 ::::
 
+
+## Predicting the probability of each age group taking the marshmallow: By hand
+
+Substituting the model-estimated coefficients into the linear expression:
+
+$$
+\text{logodds(taken)} = 0.944 + (-1.99 \cdot \text{agegroup}_{6+})
+$$
+
+<br>
+
+::::{.columns}
+:::{.column width="50%"}
+**For children younger than 6 (`agegroup = 0`):**
+
+$$
+\begin{align}
+\text{logodds(taken)}_{\text{agegroup = 0}} &= 0.944 + (-1.99 \cdot 0) \\
+  &= 0.944 \\
+\end{align}
+$$
+
+<br>
+<br>
+
+```{r}
+plogis(0.944)
+```
+
+<br>
+
+Children younger than six have an estimated 72% probability of taking the marshmallow immediately.
+
+:::
+:::{.column width="50%"}
+**For children 6 or older (`agegroup = 1`):**
+
+
+$$
+\begin{align}
+\text{logodds(taken)}_{\text{agegroup = 1}} &= 0.944 + (-1.99 \cdot 1) \\
+  &= 0.944 - 1.99 \\
+  &= -1.05 \\
+\end{align}
+$$
+
+<br>
+
+```{r}
+plogis(-1.05)
+```
+
+<br>
+
+Children six or older have an estimated 25.9% probability of taking the marshmallow immediately.
+
+:::
+::::
+
+It's often nice to present probabilities like this to help the reader really understand what your model predicts.
+
+
+## Predicting the probability of each age group taking the marshmallow: With `predict()`
+
+We'll define a data frame that contains the two levels of `agegroup` and give it to `predict()`.
+
+<br>
+
+```{r}
+agegroups_to_predict = tibble(
+  agegroup = levels(mallow$agegroup)   # "below 6" and "6+"
+)
+
+predict(
+  mallow_m2,
+  type = 'response',  # show values in probability space
+  newdata = agegroups_to_predict
+)
+```
+
+<br>
+
+- Children below 6 have an estimated probability of 72% to take the marshmallow immediately.
+- Children 6 or older have an estimated probability of 26% to take the marshmallow immediately.
 
 
 ## Plot model-fitted values: Log-odds (1)

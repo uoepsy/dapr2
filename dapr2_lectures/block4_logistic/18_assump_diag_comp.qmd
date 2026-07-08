@@ -1,5 +1,5 @@
 ---
-title: "Logistic regression assumptions, influence diagnostics, and model comparisons"
+title: "Interactions, assumptions, diagnostics, comparisons"
 author: "Dr. Elizabeth Pankratz (elizabeth.pankratz@ed.ac.uk)"
 editor_options: 
   chunk_output_type: inline
@@ -15,13 +15,8 @@ format:
 library(tidyverse)
 library(effects)
 
-dapr2red <- "#BF1932" 
+source('../_theme/theme_quarto.R')
 
-theme_set(
-  theme_minimal(
-    base_size = 28
-  )
-)
 ```
 
 
@@ -42,29 +37,39 @@ x
 
 :::::
 
+## Where we are in the analysis plan {visibility="uncounted"}
 
-# Running example: Marshmallow experiment
+![](figs/workflow-17.svg){fig-align="center"}
 
-## Running example: Marshmallow experiment
 
-In the marshmallow experiment, a child is shown a marshmallow.
-The child is told that they can take the marshmallow now, but if they wait, they can have two marshmallows later.
+# This week's data: Logistic regression with an interaction 🌶️
 
-**We have data on 100 children's ages and whether they took the marshmallow immediately (0 = no, 1 = yes).**
+## This week's data: Logistic regression with an interaction 🌶️
 
-<br>
 
-::::{.columns}
-:::{.column width="30%"}
-![](figs/mallow.jpg){fig-align="left" width="100%"}
 
-:::{style="font-size:70%;"}
-image from pixabay
-:::
-:::
-:::{.column width="10%"}
-:::
-:::{.column width="60%"}
+<!-- # Running example: Marshmallow experiment -->
+
+<!-- ## Running example: Marshmallow experiment -->
+
+<!-- In the marshmallow experiment, a child is shown a marshmallow. -->
+<!-- The child is told that they can take the marshmallow now, but if they wait, they can have two marshmallows later. -->
+
+<!-- **We have data on 100 children's ages and whether they took the marshmallow immediately (0 = no, 1 = yes).** -->
+
+<!-- <br> -->
+
+<!-- ::::{.columns} -->
+<!-- :::{.column width="30%"} -->
+<!-- ![](figs/mallow.jpg){fig-align="left" width="100%"} -->
+
+<!-- :::{style="font-size:70%;"} -->
+<!-- image from pixabay -->
+<!-- ::: -->
+<!-- ::: -->
+<!-- :::{.column width="10%"} -->
+<!-- ::: -->
+<!-- :::{.column width="60%"} -->
 ```{r include=F}
 mallow <- read_csv("https://uoepsy.github.io/data/mallow.csv")
 mallow <- mallow |>
@@ -74,55 +79,13 @@ mallow <- mallow |>
       levels = c('below 6', '6+')
     ), .before = taken
   )
-```
 
-```{r}
-mallow |> head(16)
-```
-:::
-::::
-
-
-## Continuous and categorical predictor examples
-
-::::{.columns}
-:::{.column width="50%"}
-
-:::hcenter
-**Continuous predictor:**
-:::
-
-```{r}
 mallow_m1 <- glm(
   taken ~ age,
   data = mallow,
   family = binomial(link = 'logit')
 )
-```
 
-```{r fig.width = 7, fig.height = 7}
-#| code-fold: true
-
-effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
-  as.data.frame(type = 'link') |>
-  ggplot(aes(x = age, y = fit)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
-  labs(
-    y = 'Log-odds of taking\nthe marshmallow immediately',
-    x = 'Age (years)'
-  ) +
-  scale_x_continuous(breaks = seq(0, 10, 2))
-```
-
-:::
-:::{.column width="50%"}
-
-:::hcenter
-**Categorical predictor:**
-:::
-
-```{r}
 mallow_m2 <- glm(
   taken ~ agegroup,
   data = mallow,
@@ -130,25 +93,79 @@ mallow_m2 <- glm(
 )
 ```
 
-
-```{r fig.width = 7, fig.height = 7}
-#| code-fold: true
-
-effect(term = 'agegroup', mod = mallow_m2) |>
-  as.data.frame(type = 'link') |>
-  ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
-  labs(
-    y = 'Log-odds of taking\nthe marshmallow immediately',
-    x = 'Age group'
-  ) 
-```
-:::
-::::
+<!-- ```{r} -->
+<!-- mallow |> head(16) -->
+<!-- ``` -->
+<!-- ::: -->
+<!-- :::: -->
 
 
-## ? Retrieval practice: interpret?
+<!-- ## Continuous and categorical predictor examples -->
+
+<!-- ::::{.columns} -->
+<!-- :::{.column width="50%"} -->
+
+<!-- :::hcenter -->
+<!-- **Continuous predictor:** -->
+<!-- ::: -->
+
+<!-- ```{r} -->
+<!-- mallow_m1 <- glm( -->
+<!--   taken ~ age, -->
+<!--   data = mallow, -->
+<!--   family = binomial(link = 'logit') -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ```{r fig.width = 7, fig.height = 7} -->
+<!-- #| code-fold: true -->
+
+<!-- effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |> -->
+<!--   as.data.frame(type = 'link') |> -->
+<!--   ggplot(aes(x = age, y = fit)) + -->
+<!--   geom_line() + -->
+<!--   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) + -->
+<!--   labs( -->
+<!--     y = 'Log-odds of taking\nthe marshmallow immediately', -->
+<!--     x = 'Age (years)' -->
+<!--   ) + -->
+<!--   scale_x_continuous(breaks = seq(0, 10, 2)) -->
+<!-- ``` -->
+
+<!-- ::: -->
+<!-- :::{.column width="50%"} -->
+
+<!-- :::hcenter -->
+<!-- **Categorical predictor:** -->
+<!-- ::: -->
+
+<!-- ```{r} -->
+<!-- mallow_m2 <- glm( -->
+<!--   taken ~ agegroup, -->
+<!--   data = mallow, -->
+<!--   family = binomial(link = 'logit') -->
+<!-- ) -->
+<!-- ``` -->
+
+
+<!-- ```{r fig.width = 7, fig.height = 7} -->
+<!-- #| code-fold: true -->
+
+<!-- effect(term = 'agegroup', mod = mallow_m2) |> -->
+<!--   as.data.frame(type = 'link') |> -->
+<!--   ggplot(aes(x = agegroup, y = fit)) + -->
+<!--   geom_point() + -->
+<!--   geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) + -->
+<!--   labs( -->
+<!--     y = 'Log-odds of taking\nthe marshmallow immediately', -->
+<!--     x = 'Age group' -->
+<!--   )  -->
+<!-- ``` -->
+<!-- ::: -->
+<!-- :::: -->
+
+
+<!-- ## ? Retrieval practice: interpret? -->
 
 
 # Logistic regression model assumptions
