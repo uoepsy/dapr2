@@ -160,6 +160,74 @@ effect(term = 'agegroup', mod = mallow_m2) |>
 
 
 
+# new week 3 data with an interaction
+
+pro-genAI views as a function of age and culture
+
+```{r}
+n_obs <- 50
+
+set.seed(1)
+proAI_data <- tibble(
+  Anglo_Above20 = rnorm(n_obs, mean = qlogis(.50), sd = 1),
+  Anglo_Below20 = rnorm(n_obs, mean = qlogis(.65), sd = 1),
+  China_Above20 = rnorm(n_obs, mean = qlogis(.80), sd = 1.5),
+  China_Below20 = rnorm(n_obs, mean = qlogis(.80), sd = 1),
+) |>
+  pivot_longer(cols = everything(), names_to = 'splitme', values_to = 'logodds_pro') |>
+  separate(splitme, into = c('culture', 'age')) |>
+  mutate(
+    age = factor(age, levels = c('Below20', 'Above20')),
+    prob_pro = plogis(logodds_pro),
+    proAI = factor(ifelse(prob_pro > .5, 1, 0))
+  )
+
+proAI_data |>
+  ggplot(aes(x = age, fill = proAI)) +
+  geom_bar(position = 'fill') +
+  facet_wrap(~ culture)
+
+```
+
+
+## model
+
+```{r}
+proAI_mdl <- glm(
+  proAI ~ culture * age, data = proAI_data, family = binomial
+)
+summary(proAI_mdl)
+```
+
+
+## std dev resids
+
+```{r}
+rstandard(proAI_mdl, type = 'deviance') |> plot()
+```
+
+
+## influential obs
+
+```{r}
+cooks.distance(proAI_mdl) |> plot()
+```
+
+
+## diff in deviance
+
+define an intercept-only model that just predicts the outcome
+
+```{r}
+proAI_null <- glm(proAI ~ 1, data = proAI_data, family = binomial)
+
+anova(proAI_null, proAI_mdl, test = 'Chisq')
+```
+
+so yes, the diff in dev is significant and the interaction model deviates significantly less from the data comapred to the null model. big whoop?
+
+
+
 # week 3: assumptions
 
 ## mallow continuous – Assump: check std dev resids
