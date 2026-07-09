@@ -31,23 +31,19 @@ TODO
 ::::: {style="font-size: 125%;"}
 
 ::: {.dapr2callout}
-x
+In logistic regression models, what scale are coefficients estimated on (i.e., what units do the coefficients use)?
+:::
+
+::: {.dapr2callout .fragment}
+How is interpreting coefficients different in logistic regression compared to standard linear regression?
+:::
+
+::: {.dapr2callout .fragment}
+How do we use a fitted logistic regression model to predict the probability of "success" for a new data point?
 :::
 
 :::::
 
-- What scale are logistic regression coefficients estimated on?
-  - log-odds
-- How is interpreting logistic regression coefficients different from standard regression coefficients?
-  - it's not: everything you learned about predictors equalling zero, holding things constant, etc. still applies for logistic regression
-  - the only difference is that the outcome scale is log-odds, not "test score" or "wellbeing" or whatever else we've been using in the first 15 weeks
-- How can we use a logistic regression model to predict the probability of "success" (whatever we've defined "success" to mean for our analysis)?
-  - same as always, with one extra transformation step at the end!
-  - substitute coefficients estimated by the model into the linear expression
-  - substitute whatever predictor values we want to make predictions for
-  - work out the math to get a single model-predicted value (same as always up til here)
-  - new thing: that value is in log-odds space, so use `plogis()` to transform it into a probability
-  
 
 ## Where we are in the analysis plan
 
@@ -108,9 +104,9 @@ mallow |> head(16)
 
 mallow |>
   ggplot(aes(x = age, y = taken)) +
-  geom_jitter(height = 0.01) +
+  geom_jitter(height = 0.01, size = 3) +
   scale_y_continuous(breaks = c(0, 1)) +
-  geom_smooth(method = "glm", method.args = list(family = binomial), se = F) +
+  geom_smooth(method = "glm", method.args = list(family = binomial), se = F, linewidth = 2) +
   labs(
     y = 'Took marshmallow immediately\n(0 = No, 1 = Yes)',
     x = 'Age (years)'
@@ -164,6 +160,8 @@ mallow_m1 <- glm(                        # new: use glm() instead of lm()
   family = binomial(link = 'logit')      # new: define the type of outcome 
                                          # (0s and 1s = "binomial")
                                          # and the link function we want to use
+                                         # ("logit" = inverse logistic function,
+                                         # converts probabilities to log-odds)
 )
 ```
 
@@ -198,7 +196,7 @@ confint(mallow_m1)
 effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth = 2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   labs(
     y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -207,7 +205,7 @@ effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
   scale_x_continuous(breaks = seq(0, 10, 2))
 ```
 
-:::{style="font-size:80%;"}
+:::{style="font-size:75%;"}
 ```{r echo = F}
 cat(paste0(capture.output(
   summary(mallow_m1)
@@ -251,7 +249,7 @@ cat(paste0(capture.output(
 effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth = 2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   labs(
     y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -260,7 +258,7 @@ effects::effect(term = "age",  mod = mallow_m1, xlevels = list(age = 0:10)) |>
   scale_x_continuous(breaks = seq(0, 10, 2))
 ```
 
-:::{style="font-size:80%;"}
+:::{style="font-size:75%;"}
 ```{r echo = F}
 cat(paste0(capture.output(
   summary(mallow_m1)
@@ -295,24 +293,25 @@ tibble(
   
   theme(
     panel.grid = element_blank(),
-    panel.border = element_rect(linewidth = 1)
+    panel.border = element_rect(linewidth = 1),
+    plot.margin = margin(t = 10)
     ) +
   
   # horiz green
-  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654') +
-  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654') +
+  geom_segment(x = 0, y = plogis(0), xend = -5, yend = plogis(0), colour = '#2B8654', linewidth=1.5) +
+  geom_segment(x = 1, y = plogis(1), xend = -5, yend = plogis(1), colour = '#2B8654', linewidth=1.5) +
 
   # vert green
-  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654') +
-  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654') +
+  geom_segment(x = 0, y = 0, xend = 0, yend = plogis(0), colour = '#2B8654', linewidth=1.5) +
+  geom_segment(x = 1, y = 0, xend = 1, yend = plogis(1), colour = '#2B8654', linewidth=1.5) +
   
   # horiz pink
-  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A') +
-  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A') +
+  geom_segment(x = 3, y = plogis(3), xend = -5, yend = plogis(3), colour = '#FF6D9A', linewidth=1.5) +
+  geom_segment(x = 4, y = plogis(4), xend = -5, yend = plogis(4), colour = '#FF6D9A', linewidth=1.5) +
 
   # vert pink
-  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A') +
-  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A') +
+  geom_segment(x = 3, y = 0, xend = 3, yend = plogis(3), colour = '#FF6D9A', linewidth=1.5) +
+  geom_segment(x = 4, y = 0, xend = 4, yend = plogis(4), colour = '#FF6D9A', linewidth=1.5) +
 
   geom_line() +
   NULL
@@ -370,7 +369,7 @@ ages_to_predict = tibble(age = c(2, 6, 20))
 
 predict(
   mallow_m1,
-  type = 'response',  # show values in probability space
+  type = 'response',  # 'response' means 'show values in probability space'
   newdata = ages_to_predict
 )
 ```
@@ -427,7 +426,7 @@ effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
 effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth=2) +
   # geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   # labs(
   #   y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -469,7 +468,7 @@ effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
 effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth=2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   # labs(
   #   y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -515,7 +514,7 @@ effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
 effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth=2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   labs(
     y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -584,7 +583,7 @@ effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
 effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
   as.data.frame() |>
   ggplot(aes(x = age, y = fit)) +
-  geom_line() +
+  geom_line(linewidth=2) +
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
   labs(
     y = 'Probability of taking\nthe marshmallow immediately',
@@ -655,7 +654,6 @@ mallow_m2 <- glm(                        # use glm() instead of lm()
   data = mallow,                         # define data as usual
       
   family = binomial(link = 'logit')      # define the type of outcome 
-                                         # (0s and 1s = "binomial")
                                          # and the link function we want to use
 )
 ```
@@ -687,8 +685,8 @@ confint(mallow_m2)
 effect(term = 'agegroup', mod = mallow_m2) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  geom_point(size=5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0, linewidth=2) +
   labs(
     y = 'Log-odds of taking\nthe marshmallow immediately',
     x = 'Age group'
@@ -851,7 +849,7 @@ effect(
 ) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
+  geom_point(size=5) +
   # geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
   # labs(
   #   y = 'Log-odds of taking\nthe marshmallow immediately',
@@ -894,8 +892,8 @@ effect(
 ) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  geom_point(size=5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0, linewidth=2) +
   # labs(
   #   y = 'Log-odds of taking\nthe marshmallow immediately',
   #   x = 'Age group'
@@ -943,8 +941,8 @@ effect(
 ) |>
   as.data.frame(type = 'link') |>
   ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  geom_point(size=5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0, linewidth=2) +
   labs(
     y = 'Log-odds of taking\nthe marshmallow immediately',
     x = 'Age group'
@@ -957,7 +955,7 @@ effect(
 
 ## Plot model-fitted values: Probabilities
 
-Exact same process except without `type = 'link'` in the second line!
+Exact same code except `as.data.frame()` does not contain `type = 'link'`!
 
 <br>
 
@@ -995,8 +993,8 @@ effect(term = 'age', mod = mallow_m1, xlevels = 20) |>
 effect(term = 'agegroup', mod = mallow_m2) |>
   as.data.frame() |>
   ggplot(aes(x = agegroup, y = fit)) +
-  geom_point() +
-  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+  geom_point(size=5) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0, linewidth=2) +
   labs(
     y = 'Probability of taking\nthe marshmallow immediately',
     x = 'Age group'
@@ -1024,8 +1022,32 @@ effect(term = 'agegroup', mod = mallow_m2) |>
 
 ## Revisiting this week's learning objectives
 
-TODO
+::: {.dapr2callout}
+**In logistic regression models, what scale are coefficients estimated on (i.e., what units do the coefficients use)?**
 
+- All coeficients are estimated on the log-odds scale.
+- The intercept is the estimated mean log-odds of success when all predictors = 0.
+- A slope is a change in the log-odds of success when a predictor moves from 0 to 1, holding other predictors constant (if multiple regression)/with other predictors equal to zero (if interaction).
+
+:::
+
+::: {.dapr2callout}
+**How is interpreting coefficients different in logistic regression compared to standard linear regression?**
+
+- It's not! Everything you learned about interpreting coefficients this year is the same.
+- The only difference is that the outcome variable is the log-odds of success, not "test score" or "wellbeing" etc.
+:::
+
+::: {.dapr2callout}
+**How do we use a fitted logistic regression model to predict the probability of "success" for a new data point?**
+
+- Also same as always, but with one extra transformation step at the end.
+- Substitute coefficients estimated by the model into the linear expression.
+- Substitute whatever predictor values we want to make predictions for.
+- Do the maths to get a single model-predicted value.
+- The only new thing: That model-predicted value is in log-odds space, so use `plogis()` to transform it into a probability.
+  
+:::
 
 ## This week 
 
