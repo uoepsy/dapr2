@@ -19,8 +19,12 @@ fomo <- read_csv("https://uoepsy.github.io/data/FOMOdataset.csv")
 
 
 # Tidy data if needed
-summary(fomo)
-# Ranges all look reasonable, and there are no NAs, so we're good to continue
+glimpse(fomo)  # all numeric, so we'll use psych::describe() to look for weird data
+describe(fomo)  # min and max look reasonable
+
+# - Check for NAs
+table(is.na(fomo))  # no NAs
+# - good to continue!
 
 
 ### 1b: Set up the variables we'll model ----

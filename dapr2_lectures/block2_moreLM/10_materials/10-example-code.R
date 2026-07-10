@@ -21,8 +21,21 @@ attend_df <- attend_df |>
   rename(Consc = Conscientiousness)
 
 # **Tidy data** (e.g., any missingness, any implausible values? are data types set correctly?).
-summary(attend_df)  # no NAs, no wacky values
-glimpse(attend_df)  # lets us see example values for categorical preds, looks OK
+glimpse(attend_df)  # some numeric, some continuous
+
+# - Check numeric for weird values using describe()
+attend_df |>
+  select(pid, Attendance) |>
+  describe() # min and max look reasonable
+
+# - Check each categorical for weird values using table()
+table(attend_df$Consc)         # fine
+table(attend_df$Time)          # fine
+table(attend_df$OnlineAccess)  # fine
+table(attend_df$Year)          # fine
+
+# - Check for NAs
+table(is.na(attend_df))  # no NAs, good to continue
 
 
 ## 1b: Set up the variables you'll model ----

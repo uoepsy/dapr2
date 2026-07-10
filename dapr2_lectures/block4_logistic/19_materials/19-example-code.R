@@ -10,7 +10,6 @@ library(tidyverse)
 library(psych)
 library(sjPlot)
 library(kableExtra)
-# library(patchwork)
 library(car)
 library(effects)
 
@@ -135,7 +134,7 @@ delay_data |>
 #   $$
 #   \text{logodds(waited)} = \beta_0 + 
 #   (\beta_1 \cdot \text{visibility}_\text{visible}) + 
-#   (\beta_2 \cdot \text{timeofday})_\text{pm]} + 
+#   (\beta_2 \cdot \text{timeofday}_\text{pm}) + 
 #   (\beta_3 \cdot \text{age})
 #   $$
   
@@ -151,7 +150,7 @@ delay_data |>
 
 # Fit your model(s) using `lm()` or `glm()` as appropriate.
 delay_mdl <- glm(
-  taken ~ visibility + timeofday + age_c,
+  taken ~ age_c + visibility + timeofday, 
   data = delay_data,
   family = binomial
 )
@@ -186,6 +185,12 @@ plogis( coef(delay_mdl)[[1]] )  # or 65% probability
 #   - This estimate is significantly different from zero (p = .011), 
 #     so significantly more likely than chance.
 
+# age_c:
+#   - Holding visibility and time of day constant, increasing one year in age
+#     is associated with an increase of 0.58 in the log-odds of delaying gratification.
+#   - This estimate is significantly different from zero (p < .001), 
+
+
 # - visibilityvisible:
 #   - Holding age and time of day constant, changing the marshmallow from hidden to visible 
 #     is associated with a decrease of 1.20 in the log-odds of delaying gratification.
@@ -195,11 +200,6 @@ plogis( coef(delay_mdl)[[1]] )  # or 65% probability
 #   - Holding age and visibility constant, changing the time of day from am to pm
 #     is associated with an increase of 0.49 in the log-odds of delaying gratification.
 #   - This estimate is not significantly different from zero (p = .096).
-
-# age_c:
-#   - Holding visibility and time of day constant, increasing one year in age
-#     is associated with an increase of 0.58 in the log-odds of delaying gratification.
-#   - This estimate is significantly different from zero (p < .001), 
 
 
 # Generate a nicely-formatted regression table.

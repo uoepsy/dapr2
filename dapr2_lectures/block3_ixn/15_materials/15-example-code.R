@@ -18,8 +18,17 @@ library(interactions)
 notes_df <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
 
 # Tidy data (e.g., any missingness, any implausible values? are data types set correctly?).
-summary(notes_df)  # no NAs, test_score range looks plausible
-glimpse(notes_df)  # lets us see example values for categorical preds, looks OK
+glimpse(notes_df) # one numeric, two categorical
+
+# - Check numeric for weird values using describe()
+describe(notes_df$test_score)  # min and max look reasonable
+
+# Check each categorical for weird values using table()
+table(notes_df$medium)         # fine
+table(notes_df$study)          # fine
+
+# - Check for NAs
+table(is.na(notes_df))  # no NAs, good to continue
 
 
 ## 1b: Set up the variables you'll model ----
