@@ -1,0 +1,641 @@
+---
+title: "18: Logistic regression with multiple predictors"
+params: 
+    SHOW_SOLS: TRUE
+    # TOGGLE: TRUE
+    TOGGLE: FALSE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(effects)
+library(patchwork)
+library(car)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+
+In this lab, you'll practice fitting and interpreting a logistic regression model with three continuous predictors based on the Dark Triad.
+You'll also check the model's assumptions and diagnostics.
+
+
+:::{.callout-note}
+### Get set up
+
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab18.Rmd`).
+1. In the first code chunk, load the packages you'll need this week:
+    - `tidyverse`
+    - `effects`
+    - `patchwork`
+    - `car`
+:::
+
+---
+
+:::frame
+
+RQ: **How are the three Dark Triad traits (Machiavellianism, Psychopathy, Narcissism) associated with so-called "problematic social media use"?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+psmu_data <- read_csv("https://uoepsy.github.io/data/psmu_darktriad.csv")
+tibble(
+    variable = names(psmu_data),
+    description = c(
+    'Subject ID',
+    "subject's Machiavellianism, z-scored (reflecting manipulativeness and deceptiveness)",
+    "subject's Psychopathy, z-scored (reflecting antisociality, impulsivity, lack of empathy)",
+    "subject's Narcisissm, z-scored (reflecting arrogance and grandiosity)",
+    'Whether the subject displays "problematic social media use" (PSMU): 0 if no, 1 if yes'
+)
+) |> gt::gt()
+```
+
+
+
+:::{.callout-note collapse='true'}
+### More detail about this dataset
+
+"Problematic social media use" (PSMU) has been defined as people being uncontrollably motivated to use social media, to the detriment of other areas of their life.
+
+The data in `psmu_darktriad.csv` data contains simulated personality measures and PSMU behaviour for $n = 80$ individuals, based on findings from [this paper by Kircaburun et al (2019)](https://link.springer.com/article/10.1007/s11469-018-9900-1){target="_blank"}.
+
+:::
+
+
+:::
+
+# Read in and visualise data
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/psmu_darktriad.csv> and store it in a variable named `psmu_data`.
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+psmu_data <- read_csv('https://uoepsy.github.io/data/psmu_darktriad.csv')
+```
+
+`r solend()`
+
+# q2
+
+`r qbegin(qcounter())`
+
+Use `patchwork` to recreate the following plot of `psmu_data` (or get as close as you can—do your best!).
+
+```{r fig.width = 10, fig.height = 4, echo=F}
+p_mach <- psmu_data |>
+  ggplot(aes(x = Mach_z, y = PSMU)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1)) +
+
+  # add curve of best fit
+  geom_smooth(
+    # glm = "generalised linear model"
+    method = "glm",
+    # binomial = outcomes are 0s and 1s
+    method.args = list(family = binomial),
+    # remove standard error ribbon 
+    se = FALSE
+  ) +
+    
+  # add axis labels for reader-friendliness
+  labs(
+    y = 'Problematic social media use\n(0 = No, 1 = Yes)',
+    x = 'Machiavellianism (z-scored)'
+  )
+
+p_psyc <- psmu_data |>
+  ggplot(aes(x = Psyc_z, y = PSMU)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    se = FALSE
+  ) +
+  labs(
+    y = '',
+    x = 'Psychopathy (z-scored)'
+  )
+
+p_narc <- psmu_data |>
+  ggplot(aes(x = Narc_z, y = PSMU)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    se = FALSE
+  ) +
+  labs(
+    y = '',
+    x = 'Narcissism (z-scored)'
+  )
+
+p_mach + p_psyc + p_narc
+```
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The strategy: create each plot separately and then combine them using `patchwork`.
+
+The machiavellianism plot:
+
+```{r fig.width = 10, fig.height = 4}
+p_mach <- psmu_data |>
+  ggplot(aes(x = Mach_z, y = PSMU)) +
+  
+  # wiggle the points around a little bit 
+  # so they don't all overlap
+  geom_jitter(height = 0.01) +
+  
+  # label only 0 and 1 on the y axis
+  scale_y_continuous(breaks = c(0, 1)) +
+
+  # add curve of best fit
+  geom_smooth(
+    # glm = "generalised linear model"
+    method = "glm",
+    # binomial = outcomes are 0s and 1s
+    method.args = list(family = binomial),
+    # remove standard error ribbon 
+    se = FALSE
+  ) +
+    
+  # add axis labels for reader-friendliness
+  labs(
+    y = 'Problematic social media use\n(0 = No, 1 = Yes)',
+    x = 'Machiavellianism (z-scored)'
+  )
+```
+
+
+The psychopathy plot:
+
+```{r fig.width = 10, fig.height = 4}
+p_psyc <- psmu_data |>
+  ggplot(aes(x = Psyc_z, y = PSMU)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    se = FALSE
+  ) +
+  labs(
+    y = '',
+    x = 'Psychopathy (z-scored)'
+  )
+```
+
+The narcissism plot:
+
+```{r fig.width = 10, fig.height = 4}
+p_narc <- psmu_data |>
+  ggplot(aes(x = Narc_z, y = PSMU)) +
+  geom_jitter(height = 0.01) +
+  scale_y_continuous(breaks = c(0, 1)) +
+  geom_smooth(
+    method = "glm",
+    method.args = list(family = binomial),
+    se = FALSE
+  ) +
+  labs(
+    y = '',
+    x = 'Narcissism (z-scored)'
+  )
+```
+
+
+Put them together using patchwork:
+
+```{r fig.width = 10, fig.height = 4}
+p_mach + p_psyc + p_narc
+```
+
+`r solend()`
+
+# Fit and interpret the model
+
+# q3
+
+`r qbegin(qcounter())`
+
+Our model will predict the log-odds of an individual displaying PSMU as a function of their Machiavellianism, their psychopathy, and their narcissism (all z-scored).
+
+Write the mathematical expression for this model.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\text{logodds(PSMU)} = \beta_0 + 
+(\beta_1 \cdot \text{Mach\_z}) + 
+(\beta_2 \cdot \text{Psyc\_z}) +
+(\beta_3 \cdot \text{Narc\_z})
+$$
+
+
+
+Write:
+
+```
+$$
+\text{logodds(PSMU)} = \beta_0 + 
+(\beta_1 \cdot \text{Mach\_z}) + 
+(\beta_2 \cdot \text{Psyc\_z}) +
+(\beta_2 \cdot \text{Narc\_z})
+$$
+```
+
+`r solend()`
+
+# q4
+
+`r qbegin(qcounter())`
+
+Use `glm()` to fit the model defined above.
+Name the outcome `psmu_mdl` and display the model summary.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+```{r}
+psmu_mdl <- glm(
+    PSMU ~ Mach_z + Psyc_z + Narc_z,
+    data = psmu_data,
+    family = binomial
+)
+
+summary(psmu_mdl)
+```
+
+`r solend()`
+
+# q5
+
+`r qbegin(qcounter())`
+
+For each coefficient in the model summary, write two sentences: one to interpret its meaning and another to report its statistical significance.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`(Intercept)`:
+
+- For somebody with average Machiavellianism, psychopathy, and narcissism, the estimated log-odds of displaying PSMU are –1.59, which corresponds to an estimated probability of PSMU of 16.9%.
+- This estimate is significantly different from zero log-odds, that is, from 50% chance ($p$ < .001).
+
+[Note: in general, personality psychologists don't think it's useful to make claims about people with 'average' personality traits—the more interesting things for them are how personality traits are associated with different outcomes, that is, the slopes.]
+
+<br>
+
+`Mach_z`:
+
+- Holding psychopathy and narcissism constant, somebody whose Machiavellianism is one standard deviation above the mean is 0.59 log-odds more likely to display PSMU, compared to someone with mean Machiavellianism.
+- This estimate is not significantly different from zero ($p$ = .139).
+
+
+`Psyc_z`:
+
+- Holding Machiavellianism and narcissism constant, somebody whose psychopathy is one standard deviation above the mean is 0.20 log-odds less likely to display PSMU, compared to someone with mean psychopathy.
+- This estimate is not significantly different from zero ($p$ = .564).
+
+`Narc_z`:
+
+- Holding Machiavellianism and psychopathy constant, somebody whose narcissism is one standard deviation above the mean is 0.93 log-odds more likely to display PSMU, compared to someone with mean narcissism.
+- This estimate is significantly different from zero ($p$ = .033).
+
+
+`r solend()`
+
+
+# Check assumptions and diagnostics
+
+# q6
+
+`r qbegin(qcounter())`
+
+Check the distribution of `psmu_mdl`'s standardised deviance residuals.
+
+Do any residuals indicate a problem with the model's fit?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+rstandard(psmu_mdl, type = 'deviance') |> plot()
+```
+
+
+All standardised deviance residuals fall between –3 and 3, so there's no cause here for concern.
+
+`r solend()`
+
+
+# q7
+
+`r qbegin(qcounter())`
+
+Check the distribution of Cook's Distance values for `psmu_mdl`.
+
+Do any observations appear to exert moderate or high influence on the model's estimates?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+plot(psmu_mdl, which = 4)
+```
+
+All Cook's distance values are below 0.5, so there's no cause for concern here either.
+
+`r solend()`
+
+# q8
+
+`r qbegin(qcounter())`
+
+Check whether the predictors are correlated with one another (i.e., multicollinear) to such an extent that the model's variance is problematically inflated.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+vif(psmu_mdl)
+```
+
+All VIF values are close to 1, so we're not looking at problematic variance inflation for this model.
+
+`r solend()`
+
+
+# Making and plotting predictions
+
+# q9
+
+`r qbegin(qcounter())`
+
+Use `Effect()` and `patchwork` to recreate the following plot (or get as close as you can—again, just do your best :) ).
+
+```{r echo=F, fig.width=10, fig.height=4}
+p_mach_eff <- Effect(
+    focal.predictors = 'Mach_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Mach_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = 'Probability of problematic\nsocial media use',
+        x = 'Machiavellianism (z-scored)'
+    ) +
+    ylim(0, 1)
+
+p_psyc_eff <- Effect(
+    focal.predictors = 'Psyc_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Psyc_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = '',
+        x = 'Psychopathy (z-scored)'
+    ) +
+    ylim(0, 1)
+
+p_narc_eff <- Effect(
+    focal.predictors = 'Narc_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Narc_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = '',
+        x = 'Narcissism (z-scored)'
+    ) +
+    ylim(0, 1)
+
+p_mach_eff + p_psyc_eff + p_narc_eff
+```
+
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The Machiavellianism plot:
+
+```{r}
+p_mach_eff <- Effect(
+    focal.predictors = 'Mach_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Mach_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = 'Probability of problematic\nsocial media use',
+        x = 'Machiavellianism (z-scored)'
+    ) +
+    ylim(0, 1)
+```
+
+The psychopathy plot:
+
+```{r}
+p_psyc_eff <- Effect(
+    focal.predictors = 'Psyc_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Psyc_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = '',
+        x = 'Psychopathy (z-scored)'
+    ) +
+    ylim(0, 1)
+```
+
+The narcissism plot:
+
+```{r}
+p_narc_eff <- Effect(
+    focal.predictors = 'Narc_z',
+    mod = psmu_mdl,
+    xlevels = 20
+) |>
+    as.data.frame() |>
+    ggplot(aes(x = Narc_z, y = fit)) +
+    geom_line() +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = .3) +
+    labs(
+        y = '',
+        x = 'Narcissism (z-scored)'
+    ) +
+    ylim(0, 1)
+```
+
+Put them all together:
+
+```{r fig.width = 10, fig.height = 4}
+p_mach_eff + p_psyc_eff + p_narc_eff
+```
+
+
+`r solend()`
+
+
+# q10
+
+`r qbegin(qcounter())`
+
+What is the probability of somebody displaying probablematic social media use if their
+
+- Machiavellianism is one standard deviation below average,
+- Psychopathy is two standard deviations below average, and
+- Narcissism is one standard deviation above average?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+This question is asking us to use the model's estimates to make predictions about a hypothetical individual with specified values for each predictor.
+
+The first step toward solving this question is to substitute the model's coefficients into its linear expression. 
+
+$$
+\text{logodds(PSMU)} = -1.59 + 
+(0.59 \cdot \text{Mach\_z}) + 
+(-0.20 \cdot \text{Psyc\_z}) +
+(0.93 \cdot \text{Narc\_z})
+$$
+
+
+Then we'll work out what numbers for `Mach_z`, `Psyc_z`, and `Narc_z` correspond to the description in the question.
+In general, because all variables are z-scores, a value $n$ SDs above the mean is just equal to $n$, and $n$ SDs below the mean is $-n$.
+So, for this hypothetical individual:
+
+- `Mach_z` = –1
+- `Psyc_z` = –2
+- `Narc_z` = 1
+
+$$
+\text{logodds(PSMU)} = -1.59 + 
+(0.59 \cdot -1) + 
+(-0.20 \cdot -2) +
+(0.93 \cdot 1)
+$$
+
+Let's use R to work out this quantity:
+
+```{r}
+(q10_logodds <- (-1.59 + (0.59 * -1) + (-0.20 * -2) + (0.93 * 1)))
+```
+
+The log-odds of this individual displaying PSMU are –0.85, and thus the probability of them displaying PSMU is ...
+
+```{r}
+plogis(q10_logodds) |> round(3) * 100
+```
+
+... 29.9%.
+
+`r solend()`
+
+
+
+
+
+
+
+
+

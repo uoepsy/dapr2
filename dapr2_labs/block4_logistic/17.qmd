@@ -1,0 +1,586 @@
+---
+title: "17: Logistic regression with one predictor"
+params: 
+    SHOW_SOLS: TRUE
+    # TOGGLE: TRUE
+    TOGGLE: FALSE
+editor_options: 
+  chunk_output_type: inline
+---
+
+<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
+<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
+
+```{r}
+#| label: setup
+#| include: false
+
+source('../assets/setup.R')
+
+library(tidyverse)
+library(effects)
+
+qcounter <- function(){
+  if(!exists("qcounter_i")){
+    qcounter_i <<- 1
+  }else{
+    qcounter_i <<- qcounter_i + 1
+  }
+  qcounter_i
+}
+```
+
+
+In this lab, you'll practice fitting and interpreting a logistic regression model with that contains one four-level categorical predictor.
+
+
+:::{.callout-note}
+### Get set up
+
+1. Create a new .Rmd file for this week's exercises.
+1. Save it somewhere you can find it again.
+1. Give it a clear name (for example, `dapr2_lab17.Rmd`).
+1. In the first code chunk, load the packages you'll need this week:
+    - `tidyverse`
+    - `effects`
+:::
+
+---
+
+:::frame
+
+RQ: **How are current intentions to quit smoking associated with the probability that an individual has previously attempted to quit smoking?**
+
+Data dictionary:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+quit_data <- read_csv("https://uoepsy.github.io/data/QuitAttempts.csv")
+tibble(
+variable = names(quit_data),
+description = c("Subject Number","Whether the subject made an attempt to quit using tobacco products (0 = no attempt to quit; 1 = attempted to quit).", "Subject's intention to quit (1 = Never intend to quit; 2 = May intend to quit eventually; 3 = Intend to quit in the next 6 months; 4 = Intend to quit in the next 30 days)")
+) %>% gt::gt()
+```
+
+:::
+
+# Read in and set up data
+
+# q1
+
+`r qbegin(qcounter())`
+
+Read in the data from <https://uoepsy.github.io/data/scs_study.csv> and store it in a variable named `quit_data`.
+
+Then copy and run the following code to make the dataset clearer and more human-readable.
+
+```{r eval=F}
+quit_data <- quit_data|>
+    rename(
+        pptID = S,
+        QuitAttempt = Q,
+        Intent = I
+    ) |>
+    mutate(
+        Intent = case_when(
+            Intent == 1 ~ 'Never',
+            Intent == 2 ~ 'Maybe',
+            Intent == 3 ~ 'Yes6mo',
+            Intent == 4 ~ 'Yes30days'
+        )
+    )
+```
+
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+quit_data <- read_csv('https://uoepsy.github.io/data/QuitAttempts.csv')
+
+quit_data <- quit_data|>
+    rename(
+        pptID = S,
+        QuitAttempt = Q,
+        Intent = I
+    ) |>
+    mutate(
+        Intent = case_when(
+            Intent == 1 ~ 'Never',
+            Intent == 2 ~ 'Maybe',
+            Intent == 3 ~ 'Yes6mo',
+            Intent == 4 ~ 'Yes30days'
+        )
+    )
+
+head(quit_data)
+```
+
+
+`r solend()`
+
+# q2
+
+`r qbegin(qcounter())`
+
+We'll model people's previous quitting behaviour as a function of their current intent to quit, so `Intent` is going to be our predictor in this model.
+And the `Never` level would be a good reference level to compare all the other levels back to.
+
+Convert `Intent` into a factor and set `Never` as its first level.
+Then use `contrasts()` to generate a contrast matrix.
+If you've done it right, you should see something like the following output:
+
+```{r echo=F}
+quit_data <- quit_data |>
+    mutate(
+        Intent = factor(Intent, levels = c('Never', 'Maybe', 'Yes6mo', 'Yes30days'))
+    )
+
+contrasts(quit_data$Intent)
+```
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+quit_data <- quit_data |>
+    mutate(
+        Intent = factor(Intent, levels = c('Never', 'Maybe', 'Yes6mo', 'Yes30days'))
+    )
+
+contrasts(quit_data$Intent)
+```
+
+`r solend()`
+
+
+# q3
+
+`r qbegin(qcounter())`
+
+Make a plot that visualises, for each value of `QuitAttempt`, the proportion of different `Intent`s to quit.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+quit_data |>
+    ggplot(aes(
+        x = factor(QuitAttempt), 
+        fill = Intent)
+    ) +
+    geom_bar(position = 'fill') +
+    
+    # update labels (the automatic label "count" on the y axis is wrong!)
+    labs(
+        y = 'Proportion of individuals',
+        x = 'Previously attempted to quit smoking (0 = No, 1 = Yes)',
+        fill = 'Intent to quit'
+    )
+```
+
+<br>
+
+Bonus, if you want to get fancy and relabel the levels of `QuitAttempt` and `Intent` in the plot:
+
+```{r}
+quit_data |>
+    ggplot(aes(
+        x = factor(QuitAttempt), 
+        fill = Intent)
+    ) +
+    geom_bar(position = 'fill') +
+    
+    # Change how the fill variable's levels are labelled
+    # (careful to match the original order!)
+    scale_fill_discrete(labels = c('Never', 'Maybe', 'Yes (within 6 months)', 'Yes (within 30 days)')) +
+    
+    # Change how the x axis variable's levels are labelled
+    # (careful to match the original order!)
+    scale_x_discrete(labels = c('No', 'Yes')) +
+    
+    # update labels (the automatic label "count" on the y axis is wrong!)
+    labs(
+        y = 'Proportion of individuals',
+        x = 'Previously attempted to quit smoking?',
+        fill = 'Intent to quit'
+    )
+```
+
+
+
+`r solend()`
+
+
+# Set up and fit model
+
+# q4
+
+`r qbegin(qcounter())`
+
+The logistic regression model we will fit has the formula `QuitAttempt ~ Intent`.
+
+Based on the contrast matrix you generated above, write the mathematical expression that represents this model.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+$$
+\text{logodds(QuitAttempt)} = \beta_0 + 
+(\beta_1 \cdot \text{Intent}_\text{Maybe}) + 
+(\beta_2 \cdot \text{Intent}_\text{Yes6mo}) + 
+(\beta_3 \cdot \text{Intent}_\text{Yes30days})
+$$
+
+Write:
+
+```
+$$
+\text{logodds(QuitAttempt)} = \beta_0 + 
+(\beta_1 \cdot \text{Intent}_\text{Maybe}) + 
+(\beta_2 \cdot \text{Intent}_\text{Yes6mo}) + 
+(\beta_3 \cdot \text{Intent}_\text{Yes30days})
+$$
+```
+
+`r solend()`
+
+# q5
+
+`r qbegin(qcounter())`
+
+For each $\beta$ coefficient in the model expression above, write a sentence to describe what it will mean.
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+- $\beta_0$ (the intercept): the estimated log-odds of having previously attempted to quit smoking for people who currently intend to never quit smoking.
+- $\beta_1$: the difference in the log-odds of having a previous quit attempt between people who intend to maybe quit smoking and people who intend to never quit smoking.
+- $\beta_2$: the difference in the log-odds of having a previous quit attempt between people who intend to quit smoking within the next six months and people who intend to never quit smoking.
+- $\beta_3$: the difference in the log-odds of having a previous quit attempt between people who intend to quit smoking within the next 30 days and people who intend to never quit smoking.
+
+`r solend()`
+
+# q6
+
+`r qbegin(qcounter())`
+
+Use `glm()` to fit this logistic regression model.
+Save the output as `quit_mdl` and generate the model summary.
+
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+quit_mdl <- glm(
+    QuitAttempt ~ Intent,
+    data = quit_data,
+    family = binomial
+)
+
+summary(quit_mdl)
+```
+
+
+`r solend()`
+
+# q7
+
+`r qbegin(qcounter())`
+
+For each coefficient estimated in `quit_mdl`, write a sentence that interprets it and another sentence that reports its statistical significance.
+(Remember that for logistic regression, we want to report the significance of the intercept as well because now it tests whether a particular outcome is significantly more or less likely than random chance!)
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+`(Intercept)`:
+
+- The log-odds of having a previous quit attempt for somebody who currently never intends to quit smoking is –1.95; this corresponds to a probability of about 12.5%.
+- This estimate (in log-odds space) is not significantly different from zero, that is, from 50% chance ($p$ = .069).
+
+
+`IntentMaybe`
+
+- The log-odds of having a previous quit attempt for somebody who currently intends to maybe quit smoking is estimated to increase by 2.58 log-odds compared to someone who never intends to quit.
+- This estimate is significantly different from zero ($p$ = .024).
+
+
+`IntentYes6mo`
+
+- The log-odds of having a previous quit attempt for somebody who currently intends to quit smoking within the next six months is estimated to increase by 3.23 log-odds compared to someone who never intends to quit.
+- This estimate is significantly different from zero ($p$ = .006).
+
+
+
+`IntentYes30days`
+
+- The log-odds of having a previous quit attempt for somebody who currently intends to quit smoking within the next 30 months is estimated to increase by 3.33 log-odds compared to someone who never intends to quit.
+- This estimate is significantly different from zero ($p$ = .031).
+
+
+`r solend()`
+
+# Predict probabilities of quit attempts
+
+# q8
+
+`r qbegin(qcounter())`
+
+What is the predicted log-odds of each group (that is, each level of `Intent`) to have previously attempted to quit smoking?
+
+Use the mathematical model expression from Q4 and the contrast matrix from Q2 to calculate the model-predicted log-odds by hand (that is, not using `predict()`).
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+The mathematical model expression, with the model-estimated coefficients substituted in (and "QuitAttempt" shortened to "QA" for convenience), is:
+
+$$
+\text{logodds(QA)} = –1.95 + 
+(2.58 \cdot \text{Intent}_\text{Maybe}) + 
+(3.23 \cdot \text{Intent}_\text{Yes6mo}) + 
+(3.33 \cdot \text{Intent}_\text{Yes30days})
+$$
+
+The contrast matrix tells us what values to substitute in for each predictor in order to calculate the estimated log-odds of having a previous quit attempt for each level of `Intent`.
+
+```{r}
+contrasts(quit_data$Intent)
+```
+
+<br>
+
+**For `Intent = Never`, the values we substitute in for each dummy variable are:**
+
+```{r}
+contrasts(quit_data$Intent)['Never',]
+```
+
+
+So:
+
+$$
+\begin{align}
+\text{logodds(QA)}_\text{Never} &= –1.95 + 
+(2.58 \cdot \text{Intent}_\text{Maybe}) + 
+(3.23 \cdot \text{Intent}_\text{Yes6mo}) + 
+(3.33 \cdot \text{Intent}_\text{Yes30days}) \\
+ &= –1.95 + 
+(2.58 \cdot 0 ) + 
+(3.23 \cdot 0 ) + 
+(3.33 \cdot 0 ) \\
+  &= –1.95 \\
+\end{align}
+$$
+
+<br>
+
+**For `Intent = Maybe`:**
+
+```{r}
+contrasts(quit_data$Intent)['Maybe',]
+```
+
+So:
+
+$$
+\begin{align}
+\text{logodds(QA)}_\text{Maybe} &= –1.95 + 
+(2.58 \cdot \text{Intent}_\text{Maybe}) + 
+(3.23 \cdot \text{Intent}_\text{Yes6mo}) + 
+(3.33 \cdot \text{Intent}_\text{Yes30days}) \\
+ &= –1.95 + 
+(2.58 \cdot 1 ) + 
+(3.23 \cdot 0 ) + 
+(3.33 \cdot 0 ) \\
+  &= –1.95 + 2.58 \\
+  &= 0.63 \\
+\end{align}
+$$
+
+
+<br>
+
+**For `Intent = Yes6mo`:**
+
+
+```{r}
+contrasts(quit_data$Intent)['Yes6mo',]
+```
+
+So:
+
+$$
+\begin{align}
+\text{logodds(QA)}_\text{Yes6mo} &= –1.95 + 
+(2.58 \cdot \text{Intent}_\text{Maybe}) + 
+(3.23 \cdot \text{Intent}_\text{Yes6mo}) + 
+(3.33 \cdot \text{Intent}_\text{Yes30days}) \\
+ &= –1.95 + 
+(2.58 \cdot 0 ) + 
+(3.23 \cdot 1 ) + 
+(3.33 \cdot 0 ) \\
+  &= –1.95 + 3.23 \\
+  &= 1.28 \\
+\end{align}
+$$
+
+<br>
+
+**For `Intent = Yes30days`:**
+
+```{r}
+contrasts(quit_data$Intent)['Yes30days',]
+```
+
+So:
+
+$$
+\begin{align}
+\text{logodds(QA)}_\text{Yes30days} &= –1.95 + 
+(2.58 \cdot \text{Intent}_\text{Maybe}) + 
+(3.23 \cdot \text{Intent}_\text{Yes6mo}) + 
+(3.33 \cdot \text{Intent}_\text{Yes30days}) \\
+ &= –1.95 + 
+(2.58 \cdot 0 ) + 
+(3.23 \cdot 0 ) + 
+(3.33 \cdot 1 ) \\
+  &= –1.95 + 3.33 \\
+  &= 1.38 \\
+\end{align}
+$$
+
+`r solend()`
+
+
+
+# q9
+
+`r qbegin(qcounter())`
+
+Convert each of the log-odds values you calculated in Q8 to probabilities.
+
+How much more probable is it to have a previous quit attempt for someone who intends to quit within the next 30 days, compared to someone who intends never to quit?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+**For `Intent = Never`:**
+
+```{r}
+plogis(-1.95) |> round(3) * 100
+```
+
+The probability of a previous quit attempt for people who intend never to quit is 12.5%.
+(notice that this works out to the same value as the model's intercept, which matches our interpretation above!)
+
+<br>
+
+**For `Intent = Maybe`:**
+
+```{r}
+plogis(0.63) |> round(3) * 100
+```
+
+The probability of a previous quit attempt for people who intend maybe to quit is 65.2%.
+
+<br>
+
+**For `Intent = Yes6mo`:**
+
+```{r}
+plogis(1.28) |> round(3) * 100
+```
+
+The probability of a previous quit attempt for people who intend to quit within the next six months is 78.2%.
+
+<br>
+
+**For `Intent = Yes30days`:**
+
+```{r}
+plogis(1.38) |> round(3) * 100
+```
+
+The probability of a previous quit attempt for people who intend to quit within the next 30 days is 79.9%.
+
+
+If someone intends to quit within 30 days, they're 79.9% – 12.5% = 67.4% more likely to have a previous quitting attempt, compared to someone who never intends to quit.
+(Fun fact: *This* is how you can calculate the difference between groups in probability space! Not by converting the slope from log-odds to probabilities, but rather by calculating the model-predicted probabilities for the two groups you want to compare, and then subtracting them :) )
+
+`r solend()`
+
+
+# q10
+
+`r qbegin(qcounter())`
+
+Use `Effect()` to plot the model-predicted probabilities of a previous quit attempt for each level of `Intent`.
+Do the values you calculated in Q9 match the estimates shown in the resulting plot?
+If they don't, can you identify where your calculations went wrong?
+
+:::red
+🗂️
+See [TODO](TODO){target="_blank"} flash card.
+:::
+
+`r qend()`
+`r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+```{r}
+Effect(focal.predictors = 'Intent', mod = quit_mdl) |>
+    as.data.frame() |>
+    ggplot(aes(x = Intent, y = fit)) +
+    geom_point() +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0) +
+    labs(
+        y = 'Probability of having a previous quit attempt',
+        x = 'Intent to quit smoking'
+    ) +
+    ylim(0, 1) +
+    # fancy bonus line to make x axis labels nice
+    scale_x_discrete(labels = c('Never', 'Maybe', 'Yes (within\n6 months)', 'Yes (within\n30 days)'))
+```
+
+`r solend()`

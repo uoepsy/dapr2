@@ -141,7 +141,7 @@ Your guesses might be different from mine, and that's OK!
 
 Now compute the actual log-odds value for each probability given in Q2.
 
-If any of your guesses were really different from the actual log-odds, why do you think that is?
+If any of your guesses were very different from the actual log-odds, why do you think that is?
 
 :::red
 🗂️
@@ -195,7 +195,7 @@ Likewise for 100% probability: this value is never reached by the logistic funct
 Try running the following three lines of code.
 They will fail to return sensible log-odds values.
 
-Explain why each line fails.
+For each line, explain why it fails.
 
 ```{r eval=F}
 qlogis(-0.5)
@@ -254,7 +254,7 @@ Your guesses might be different from mine, and that's OK!
 
 Now compute the actual probabilities for each log-odds value given in Q2.
 
-If any of your guesses were really different from the actual probability, why do you think that is?
+If any of your guesses were very different from the actual probability, why do you think that is?
 
 :::red
 🗂️
@@ -311,9 +311,8 @@ There are no values that make `plogis()` fail.
 It will take any number (even `-Inf` and `Inf`) and map it via the logistic function to a probability between 0 and 1.
 
 This is because the input to `plogis()` are values on the log-odds scale.
-And log-odds can be any number between $-\infty$ and $\infty$.
-(This property is exactly what makes log-odds a suitable scale for linear modelling!)
-
+And no log-odds values are off-limits or impossible.
+Log-odds can be any number between $-\infty$ and $\infty$, and it's this property that's exactly what makes log-odds a suitable scale for linear modelling!
 `r solend()`
 
 # Why we can't back-transform slopes from log-odds space to probability space
@@ -396,11 +395,11 @@ Are the outcome values you computed in Q8 possible probabilities?
 
 Probabilities can range between 0 and 1. Therefore:
 
-- 0.73 is a possible probability (this is the y-intercept in probability space).
+- 0.73 is a possible probability.
 - 1.35 is not a possible probability, because it's greater than 1.
 - 1.97 is also not a possible probability, because it's greater than 1.
 
-Because our model generates nonsense predictions (i.e., impossible probability values), the assumptions behind the model must be incorrect.
+Because our model generates some nonsense predictions (i.e., impossible probability values), the assumptions behind the model must be incorrect.
 Specifically, our assumption that a linear relationship in log-odds translates exactly to a linear relationship in probability space is not right.
 
 
@@ -417,13 +416,15 @@ Below are two plots.
 Plot A (left) shows the intentionally wrong way we tried to convert the log-odds line into probability space: by transforming each parameter individually to end up with $y = 0.73 + 0.62 \cdot x$.
 
 Plot B (right) shows the correct way of converting the log-odds line into probability space.
+(The correct way is to calculate the actual predicted log-odds of success for each value of `x`, and then back-transform that predicted value into probability space—uncollapse the code to see the difference.)
 
 ```{r fig.width = 10, fig.height = 5}
 #| code-fold: true
 
 p_prob_bad <- tibble(
   x = 0:5,
-  prob_success = 0.73 + 0.62 * x
+  logodds_success = 1 + (0.5 * x),
+  prob_success = plogis(1) + (plogis(0.5) * x)  # the bad way
 ) |>
   ggplot(aes(x = x, y = prob_success)) +
   geom_line() +
@@ -432,8 +433,8 @@ p_prob_bad <- tibble(
 
 p_prob_good <- tibble(
   x = 0:5,
-  logodds_success = 1 + 0.5 * x,
-  prob_success = plogis(logodds_success)
+  logodds_success = 1 + (0.5 * x),
+  prob_success = plogis(logodds_success)  # the good way
 ) |>
   ggplot(aes(x = x, y = prob_success)) +
   geom_line() +
@@ -453,45 +454,13 @@ Based on these two plots, try to explain in your own words why transforming the 
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 You might observe that the bad transformation gives us impossible probabilities (> 1), while the good transformation only gives us reasonable probabilities (between 0 and 1).
-
 That's absolutely true, and that observation is the goal of this lab.
 
 If you want to go a bit deeper, you might also look at Plot B and observe that the good line isn't a straight line at all: in fact, the slope is constantly changing as $x$ increases.
-This is because the logistic function has to squish the straight line down so that it fits in between 0 and 1.
+This is because the logistic function has to squish the straight line down so that it fits in between 0 and 1, and there's no way to do this without compressing that line down, making it get flatter and flatter at either end.
+(In technical terms, for this reason we call the logistic function a "non-linear transformation".)
 
-Because the line in probability space is not straight, there's no single slope value that applies to the whole line.
+TLDR: Because the line in probability space is not straight, **there's no single slope value that applies to the whole line.**
 Consequently, it doesn't make sense to transform the slope from log-odds space to probability space and expect the resulting straight line to accurately describe the probability of success.
 
 `r solend()`
-
-<!-- `r qbegin(qcounter())` -->
-
-<!-- **Optional bonus challenge:** If we can't back-transform slopes to probability space, how *can* we describe the effect that a predictor has on the probability of success? -->
-
-<!-- Here's the trick:  -->
-
-<!-- 1. Use the model to predict outcome values in log-odds space for whatever values of the predictor we are interested in. -->
-<!--     - Typically for a continuous predictor, these values are the predictor's mean and one SD above the predictor's mean. -->
-<!-- 1. Transform each of those log-odds values into probability space. -->
-<!-- 1. Subtract the estimated probability of success at the predictor's mean from the estimated probability of success at mean + 1 SD. -->
-
-
-<!-- - Find the mean of `mallow$age` and store it in a variable called `age_mean`. -->
-<!-- - Find the SD of `mallow$age` and store it in a variable called `age_sd`. -->
-<!-- - Add the mean and SD together and store the result in a variable called `age_mean_plus_1`. -->
-<!-- - -->
-
-
-<!-- `r qend()` -->
-<!-- `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)` -->
-
-<!-- ```{r} -->
-<!-- age_mean <- mean(mallow$age) -->
-<!-- age_sd   <- sd(mallow$age) -->
-<!-- age_mean_plus_1 <- age_mean + age_sd -->
-
-
-<!-- ``` -->
-
-
-<!-- `r solend()` -->
