@@ -248,12 +248,12 @@ Now we have to hold the other predictors constant while we look at each one in t
 
 <br>
 
-**The solution: Component+residual plots** (CR plots, aka "partial-residual plots").
+**The solution for single/multiple regression models: Component+residual plots** (CR plots, aka "partial-residual plots").
 
-- **Component:** The association between one particular predictor and the outcome, with all the other predictors held constant.
+- **"Component":** The association between one particular predictor and the outcome, with all the other predictors held constant.
   - Think of this as each predictor's individual contribution to the overall linear model.
 
-- **Residual:** The differences between the line the model predicts and the actual observed data points.
+- **"Residual":** The differences between the line the model predicts and the actual observed data points.
 
 <br>
 
@@ -307,7 +307,7 @@ In order of increasing spiciness:
 
 :::
 ::: {.column width="75%"}
-Report the non-linearity in your write-up. A good solution if the deviation isn't huge.
+Report the non-linearity in your write-up (then your reader knows that your model's estimates are a bit less trustworthy). Totally fine if the deviation isn't huge.
 :::
 ::::
 
@@ -714,9 +714,9 @@ tibble(residuals=m_nonnorm$residuals) |>
 ```
 
 Very right-skewed! This is not a normal distribution.
+
 :::
 ::::
-
 
 
 ## 2. To check normality of errors: Q-Q plots
@@ -782,39 +782,25 @@ A perfect match to the diagonal is rare.
 
 ## What to do if errors are not normal
 
+<br>
+
 :::: {.columns}
-::: {.column width="40%"}
-
-<br>
-
-![](figs/dont-keep-calm.png){fig-align="center" width="350"}
-
+::: {.column width="25%"}
+<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 :::
-::: {.column width="60%"}
-<br>
-
-If errors are extremely non-normally distributed, then a model which assumes they *are* will produce weird (aka biased) estimates:
-
-```{r echo=F, fig.align = 'center', fig.height = 6}
-mean_beta <- mean(m_nonnorm$residuals)
-sd_beta <- sd(m_nonnorm$residuals)
-
-tibble(residuals = m_nonnorm$residuals) |> 
-  ggplot(aes(x = residuals)) +
-  geom_histogram(fill = 'grey') +
-  geom_function(
-    fun = function(x) dnorm(x, mean = 0, sd = .95) * 35,
-    linewidth = 2
-  ) +
-  xlim(-4.5, 4.5)
-```
-
-
+::: {.column width="75%"}
+Transform outcome or predictor to make errors more normally distributed (e.g., if your distribution of errors is very right-skewed like in this example, taking the logarithm of the outcome is often a good trick).
 :::
 ::::
 
-Next week: we'll learn how to get around this problem using a method called **bootstrapping**.
-
+:::: {.columns}
+::: {.column width="25%"}
+<img style="margin-top:-10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg"> <img style="margin-top:-10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
+:::
+::: {.column width="75%"}
+Bootstrap your model's estimates. More on this next week!
+:::
+::::
 
 
 ## What a linear model assumes about the data
@@ -918,7 +904,7 @@ m_unequal <- lm(
 
 ## To check equal variance of errors
 
-A plot of residuals vs. predicted values shows:
+A "residuals vs Fitted" plot shows:
 
 - **x axis:** the predicted outcome values (aka the "fitted values" across their whole range).
 - **y axis:** the residuals of each data point.
@@ -973,6 +959,65 @@ We want to see a random-looking cloud of data points with the same vertical dist
 
 **We must decide: is the variance of errors equal enough that it's OK to model the data using the linear model machinery?**
 
+
+## Residuals-vs-fitted plots also check linearity
+
+<br>
+
+Before, we saw that each predictor's linearity of association can be checked using component-residual plots.
+But sometimes those plots aren't possible (e.g., in Block 3 when our models contain interactions).
+
+So it's good to know that **we can also assess linearity of association for the model overall by looking at the wobbly red line in the residuals-vs-fitted plot.**
+
+<br>
+
+:::: {.columns}
+::: {.column width="50%"}
+
+```{r eval=F}
+plot(m_equal, which = 1)
+```
+
+
+```{r fig.asp=.6, fig.width=7, echo=F, fig.align = 'center'}
+par(mar = c(5, 5, 3, 0))  # bltr
+
+plot(
+  m_equal, which = 1, 
+  cex.axis = 2,
+  cex.lab = 2.5,
+  cex.caption = 3,
+  cex.id = 2,
+  cex = 2
+)
+```
+
+:::
+::: {.column width="50%"}
+
+```{r eval=F}
+plot(m_unequal, which = 1)
+```
+
+```{r fig.asp=.6, fig.width=7, echo=F, fig.align = 'center'}
+par(mar = c(5, 5, 3, 0))  # bltr
+
+plot(
+  m_unequal, which = 1, 
+  cex.axis = 2,
+  cex.lab = 2.5,
+  cex.caption = 3,
+  cex.id = 2,
+  cex = 2
+)
+```
+:::
+::::
+
+We want the red line to be straight and flat, closely matching the (tiny) dotted black line at y = 0.
+
+**There's a bit of deviation on the left-hand plot, but not enough to force us to stop using a linear model. And the right-hand plot looks pretty good!**
+
 ## What to do if errors don't have equal variance
 
 <br>
@@ -983,31 +1028,30 @@ In order of increasing spiciness:
 
 :::: {.columns}
 ::: {.column width="25%"}
-**<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">**
+<img style="margin-top:10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 :::
 ::: {.column width="75%"}
-Keep the variable as-is and report the non-equal variance in your write-up.
+Keep the variable as-is and report the non-equal variance in your write-up (then your reader knows that your model's estimates are a bit less trustworthy).
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
-<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
+<img style="margin-top:10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
+<img style="margin-top:10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 :::
 ::: {.column width="75%"}
-Include additional predictors or interaction terms (more on interactions next semester).
-These *may* help account for some of that extra variance.
+Sometimes the model is misspecified and is missing important predictors or interaction terms (mroe on interactions next term!), so adding them in may help account for some of this unequal variance.
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
-<img style="vertical-align: text-bottom; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
+<img style="margin-top:-10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
+<img style="margin-top:-10px; width: 2em;" src="figs/lucide-lab--pepper-chilli.svg">
 :::
 ::: {.column width="75%"}
-Bootstrap your model estimates (more next week).
+Bootstrap your model estimates (more next week!).
 :::
 ::::
 
@@ -1283,15 +1327,18 @@ Data point 102 has the greatest influence on the model's estimates.
 
 ## Sensitivity analysis
 
-A sensitivity analysis asks: **Do our conclusions change if we leave out the unusual data point(s)?**
+A sensitivity analysis asks: **Do our conclusions change if we leave out the unusual data point?**
 
-- If our conclusions don't change, then the data points don't matter too much.
-- If our conclusions DO change, then we need to report that as a big limitation of our analysis.
+Specific coefficient values will almost definitely change, but **our overall conclusions are based on whether or not we reject the H0 at our chosen $\alpha$ level, usually .05.**
+
+- If our conclusions don't change, then the influential data point doesn't actually matter.
+- If our conclusions DO change, then we need to report this limitation and tell the reader they probably shouldn't believe the original analysis too much.
+
 
 <br>
 
 :::: {.columns}
-::: {.column width="50%"}
+::: {.column width="48%"}
 
 We found one very high-influence data point, number 102:
 
@@ -1300,9 +1347,12 @@ p_infl + labs(title='', y = 'y')
 ```
 
 :::
-::: {.column width="50%"}
+::: {.column width="4%"}
+:::
+::: {.column width="48%"}
 
 Let's remove that data point and re-fit the model.
+Will the pattern of significance at $\alpha = .05$ change?
 
 ```{r message = FALSE, warning=F, echo=F, fig.align='center', fig.width = 7}
 p_good + labs(title='')
@@ -1688,18 +1738,3 @@ So
 $$D_i = \text{Outlyingness} \times \text{Leverage}.$$
 
 
-
-
-
-<!-- :::: {.columns} -->
-<!-- ::: {.column width="50%"} -->
-<!-- a -->
-<!-- ::: -->
-<!-- ::: {.column width="50%"} -->
-<!-- b -->
-<!-- ::: -->
-<!-- :::: -->
-
-<!-- style="font-size: 125;" -->
-
-<!-- {{< iconify icon-park-twotone brain >}} -->
