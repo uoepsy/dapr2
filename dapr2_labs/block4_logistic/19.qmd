@@ -223,30 +223,6 @@ delay_data |>
     y = 'Delayed gratification? (0 = took marshmallow, 1 = waited)'
   )
 
-# Make a nice descriptives table of all relevant variables for the write-up
-# - Instead of treating `taken` as another categorical variable, we'll compute
-#   the proportion of children for each combination of visibility/timeofday
-#   who delayed gratification (i.e., where taken == 1 == waited)
-delay_data |>
-  group_by(visibility, timeofday) |>
-  summarise(
-    age_M = mean(age),
-    age_SD = sd(age),
-    proportion_waited = mean(taken == '1')  # alternative: sum(taken=='1')/n()
-  ) |>
-  # rename column headers for nicer display
-  rename(
-    'Marshmallow visibility' = visibility,
-    'Time of day' = timeofday,
-    'Mean age (years)' = age_M,
-    'SD of age' = age_SD,
-    'Delayed gratification (proportion)' = proportion_waited
-  ) |>
-  kable(
-    caption = "Descriptive statistics about children's age and their delay of gratification by marshmallow visibility and time of day",
-    digits = 2
-  ) |>
-  kable_styling()
 
 # Phase 2: Model fitting ----
 
@@ -409,43 +385,12 @@ We are interested in how children's age, the visibility of the marshmallow, and 
 
 - [ ] Introduce the variables the study is using to test this question, but avoid using R variable names; describe the variables in human-readable terms instead (e.g., what scale are they on? how were they measured?)
 - [ ] Briefly describe the data set: how many observations? what does each observation represent? 
-- [ ] Include a table of descriptive statistics for all the relevant variables (and make sure to refer to it in the text).
-  - Tip: If this table is really long, then you can keep the main text streamlined by putting the table in an Appendix section.
 - [ ] If applicable, mention any data cleaning / outlier removal / transformations.
   
 `r qend()`
 `r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 We have data from 301 children, including their ages in years, whether the marshmallow was visible to the child or hidden from them ("visible" vs. "hidden"), the time of day the experiment was run (morning "am" vs. afternoon "pm"), and whether or not the child waited to take the marshmallow (i.e., whether or not they delayed gratification).
-These variables are summarised in Table 1.
-
-```{r}
-#| code-fold: true
-
-delay_data |>
-  group_by(visibility, timeofday) |>
-  summarise(
-    age_M = mean(age),
-    age_SD = sd(age),
-    proportion_waited = mean(taken == '1')  # alternative: sum(taken=='1')/n()
-  ) |>
-  # rename column headers for nicer display
-  rename(
-    'Marshmallow visibility' = visibility,
-    'Time of day' = timeofday,
-    'Mean age (years)' = age_M,
-    'SD of age' = age_SD,
-    'Delayed gratification (proportion)' = proportion_waited
-  ) |>
-  kable(
-    caption = "Table 1: Descriptive statistics about children's age and their delay of gratification by marshmallow visibility and time of day",
-    digits = 2
-  ) |>
-  kable_styling()
-```
-
-<br>
-
 Because we have no observations of children aged zero, we chose to mean-centre the age variable to make the model coefficients' interpretations more intuitive.
 
 `r solend()`
@@ -460,7 +405,6 @@ Because we have no observations of children aged zero, we chose to mean-centre t
   - Tip: If you transform any continuous predictors for analysis, use the transformed version of the predictor in the plot.
   - Tip: Academic writing styles vary, but Elizabeth likes it when figure captions give the reader a brief take-home message about what they should see in the plot.
 - [ ] In a sentence or two, describe the overall pattern of results.
-  - Tip: If you find yourself listing loads of numbers in the text, consider using tables or plots instead (and they're better for your word count too!). 
   - Tip: No inferential stats have been done yet, so we can't make any claims just yet about whether the predictions were supported. But it is OK to say whether the results appear broadly in line with the prediction.
 
 
@@ -611,7 +555,7 @@ plogis(
 ) |> round(3) * 100
 ```
 
-See Table 2 for all estimated model coefficients.
+See Table 1 for all estimated model coefficients.
 Because at least one slope coefficient is significantly different from zero, we reject the null hypothesis defined above.
 
 ```{r}
@@ -623,7 +567,7 @@ tab_model(
   pred.labels = c(
     'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
   ),
-  title = "Table 2: Logistic regression model coefficient estimates"
+  title = "Table 1: Logistic regression model coefficient estimates"
 )
 ```
 
@@ -665,7 +609,6 @@ Effect(
 
 **Appendices might include:**
 
-- [ ] Descriptives tables that are too big/disruptive to include in main text
 - [ ] Figures that visualise assumption checks
 - [ ] Sensitivity analysis regression table / any other useful details
 
@@ -695,33 +638,6 @@ This study investigates how children delay gratification using the classic marsh
 We are interested in how children's age, the visibility of the marshmallow, and the time of day might play into children's delay gratification behaviour.
 
 We have data from 301 children, including their ages in years, whether the marshmallow was visible to the child or hidden from them ("visible" vs. "hidden"), the time of day the experiment was run (morning "am" vs. afternoon "pm"), and whether or not the child waited to take the marshmallow (i.e., whether or not they delayed gratification).
-These variables are summarised in Table 1.
-
-```{r echo=F}
-delay_data |>
-  group_by(visibility, timeofday) |>
-  summarise(
-    age_M = mean(age),
-    age_SD = sd(age),
-    proportion_waited = mean(taken == '1')  # alternative: sum(taken=='1')/n()
-  ) |>
-  # rename column headers for nicer display
-  rename(
-    'Marshmallow visibility' = visibility,
-    'Time of day' = timeofday,
-    'Mean age (years)' = age_M,
-    'SD of age' = age_SD,
-    'Delayed gratification (proportion)' = proportion_waited
-  ) |>
-  kable(
-    caption = "Table 1: Descriptive statistics about children's age and their delay of gratification by marshmallow visibility and time of day",
-    digits = 2
-  ) |>
-  kable_styling()
-```
-
-<br>
-
 Because we have no observations of children aged zero, we chose to mean-centre the age variable to make the model coefficients' interpretations more intuitive.
 
 Whether children delayed gratification across ages, marshmallow visibility, and time of day is shown in Figure 1.
@@ -796,7 +712,7 @@ In terms of probabilities, the model suggests that children of average age in a 
 Further, increasing one year of age is estimated to increase the log-odds of delaying gratification by 0.58, holding visibility and time of day constant ($b$ = 0.58, 95% CI [0.42, 0.76], $p$ < .001).
 Compared to the probability of 65.2% that children of average age will delay gratification in morning sessions with a hidden marshmallow, children who are one year older than average (in morning sessions with a hidden marshmallow) are estimated to delay gratification with a probability of 77.1%.
 
-See Table 2 for all estimated model coefficients.
+See Table 1 for all estimated model coefficients.
 Because at least one slope coefficient is significantly different from zero, we reject the null hypothesis defined above.
 
 ```{r echo=F}
@@ -807,7 +723,7 @@ tab_model(
   pred.labels = c(
     'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
   ),
-  title = "Table 2: Logistic regression model coefficient estimates"
+  title = "Table 1: Logistic regression model coefficient estimates"
 )
 ```
 
