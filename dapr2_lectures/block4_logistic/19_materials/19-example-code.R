@@ -102,30 +102,7 @@ delay_data |>
     y = 'Delayed gratification? (0 = took marshmallow, 1 = waited)'
   )
 
-# Make a nice descriptives table of all relevant variables for the write-up
-# - Instead of treating `taken` as another categorical variable, we'll compute
-#   the proportion of children for each combination of visibility/timeofday
-#   who delayed gratification (i.e., where taken == 1 == waited)
-delay_data |>
-  group_by(visibility, timeofday) |>
-  summarise(
-    age_M = mean(age),
-    age_SD = sd(age),
-    proportion_waited = mean(taken == '1')  # alternative: sum(taken=='1')/n()
-  ) |>
-  # rename column headers for nicer display
-  rename(
-    'Marshmallow visibility' = visibility,
-    'Time of day' = timeofday,
-    'Mean age (years)' = age_M,
-    'SD of age' = age_SD,
-    'Delayed gratification (proportion)' = proportion_waited
-  ) |>
-  kable(
-    caption = "Descriptive statistics about children's age and their delay of gratification by marshmallow visibility and time of day",
-    digits = 2
-  ) |>
-  kable_styling()
+
 
 # Phase 2: Model fitting ----
 

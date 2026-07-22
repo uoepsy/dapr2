@@ -80,27 +80,6 @@ notes_df |>
   )
 
 
-# Make a nice descriptives table of all relevant variables for the write-up
-notes_df |>
-  group_by(study, medium) |>
-  summarise(
-    n = n(), 
-    Mean = mean(test_score), 
-    SD = sd(test_score),
-    Minimum = min(test_score),
-    Maximum = max(test_score)
-  ) |>
-  # rename study and medium column headers for nicer display
-  rename(
-    'Amount of study' = study,
-    'Note-taking medium' = medium
-  ) |>
-  kable(
-    caption = "Descriptive statistics about test score by amount of study and note-taking medium", 
-    digits = 2
-  ) |>
-  kable_styling()   
-
 # Phase 2: Model fitting ----
 
 # Write the mathematical model formulation for your model(s)

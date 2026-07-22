@@ -107,24 +107,6 @@ p_year
 p_consc + p_year
 
 
-# Make a nice descriptives table of all relevant variables for the write-up
-attend_df |>
-  rename(Conscientiousness = Consc) |>
-  group_by(Year, Conscientiousness) |>
-  summarise(
-    n = n(), 
-    Mean = mean(Attendance), 
-    SD = sd(Attendance),
-    Minimum = min(Attendance),
-    Maximum = max(Attendance)
-  ) |>
-  kable(
-    caption = "Descriptive statistics about attendance by year of study and level of conscientiousness", 
-    digits = 2
-  ) |>
-  kable_styling()   
-
-
 # Phase 2: Model fitting ----
 
 # Write the mathematical model formulation for your model(s)

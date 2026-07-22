@@ -61,35 +61,6 @@ p_followers
 p_age + p_followers  # combine using patchwork
 
 
-# Make a nice descriptives table
-
-fomo |> 
-  # Select only the variables we want in the table
-  select(FOMO, Age, TotalFollowers) |>
-  
-  # Give the variables more readable names
-  rename(
-    "Fear of Missing Out" = FOMO, 
-    "Age (in years)" = Age, 
-    "Number of Instagram Followers" = TotalFollowers
-  ) |>
-  
-  # Use describe() from the psych package to get descriptive stats
-  describe() |>
-  
-  # Select only the summary stats we care about
-  select(n, mean, sd, min, max) |>
-  
-  # Give these stats more readable names
-  rename("N" = n, "Mean" = mean, "SD" = sd, "Minimum" = min, "Maximum" = max) |>
-  
-  # kable() from the kableExtra package formats the table nicely
-  kable(
-    caption = "Descriptive statistics for FOMO and socio-demographic factors", 
-    digits = 2
-  ) |>
-  kable_styling()
-
 
 ## Phase 2: Model fitting ----
 
