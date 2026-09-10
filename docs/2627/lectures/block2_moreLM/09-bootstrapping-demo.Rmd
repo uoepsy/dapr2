@@ -1,0 +1,135 @@
+---
+title: "Bootstrapping demo"
+subtitle: "DAPR2 09 2026/27"
+output: 
+  html_notebook:
+    toc: true
+---
+
+```{r setup, message = F}
+library(tidyverse)
+```
+
+
+## Read in data from Qualtrics
+
+Export settings:
+
+- CSV
+- tick "Download all fields"
+- select "Export labels"
+
+Read in CSV data downloaded from Qualtrics. 
+
+```{r message = F}
+DATAFILE <- "DAPR2 09 Bootstrapping_10 September 2026_10.02.csv"
+
+# Wrangle Qualtrics data so it's formatted in a less horrible way
+headers      <- read_csv(DATAFILE, col_names = FALSE, n_max = 1)
+df           <- read_csv(DATAFILE, skip = 3, col_names = FALSE)
+colnames(df) <- headers
+df_tall <- df |>
+  select(ResponseId, starts_with('Q')) |>
+  pivot_longer(cols = starts_with('Q'),names_to = 'q', values_to = 'sampled_value')
+
+# Save a vector containing each response ID
+ppts <- df$ResponseId
+```
+
+How many respondents do we have data from?
+
+```{r}
+length(ppts)
+```
+
+Show a random handful of bootstrapped samples:
+
+```{r}
+df_tall |>
+  # for nicer plotting, convert sampled value into a factor
+  mutate(sampled_value = factor(sampled_value)) |>
+  # select only a random sample of three participants
+  filter(ResponseId %in% sample(ppts, size = 3)) |>
+  # make the bar plot showing how many times each value was chosen per sample
+  ggplot(aes(x = sampled_value, fill = ResponseId))+
+  geom_bar() +
+  facet_wrap(~ ResponseId) +
+  # hide the legend bc the info already comes from the facet headers
+  theme(legend.position = 'none') +
+  # show all numbers on the x axis in every plot
+  scale_x_discrete(drop = FALSE)
+```
+
+
+## Making the sampling distribution 
+
+Compute the mean of each bootstrapped sample.
+The result is the **sampling distribution of sample means.**
+
+```{r}
+sampling_distrib <- df_tall |>
+  group_by(ResponseId) |>
+  summarise(sample_mean = mean(sampled_value))
+
+sampling_distrib
+```
+
+
+```{r warning=F}
+p_samp_dist_dens <- sampling_distrib |>
+  ggplot(aes(x = sample_mean)) +
+  geom_density(fill = 'black', colour = 'black', alpha = 0.2) +
+  geom_rug(colour = 'black') +
+  labs(
+    title = 'Sampling distribution of sample means',
+    x = 'Mean of each bootstrapped sample'
+  ) +
+  xlim(0, 100)
+
+p_samp_dist_dens
+```
+
+
+
+
+## Mean of the sampling distribution
+
+What is the mean of our sampling distribution of means?
+
+```{r}
+samp_distrib_mean <- mean( sampling_distrib$sample_mean )
+samp_distrib_mean
+```
+
+```{r}
+p_samp_dist_dens +
+  geom_vline(xintercept = samp_distrib_mean, linewidth = 2, colour = 'red') +
+  geom_label(
+    x = samp_distrib_mean+2, 
+    y = 0.005, 
+    colour = 'red', 
+    label = paste('mean of bootstrapped\nsample means =', 
+                  round(samp_distrib_mean, 2)),
+    hjust = 0)
+```
+
+
+Probably pretty close to the mean of our main sample:
+
+```{r}
+main_sample <- c(6, 8, 17, 32, 70, 76, 79, 81, 85, 93)
+mean(main_sample)
+```
+
+
+
+## The REALLY useful thing: Variability of the sampling distribution
+
+```{r}
+sd( sampling_distrib$sample_mean )
+```
+
+
+Why is this number useful?
+
+We use the **standard deviation of the sampling distribution** to represent the **standard error of the mean** in situations where the formula for the standard error can't be used (e.g., because the assumptions about errors are not met.)
