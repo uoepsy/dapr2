@@ -160,14 +160,17 @@ Antidepressant medication <br> (`Meds`):
 
 :::: {.columns}
 ::: {.column width="70%"}
-```{r echo=F, fig.align = 'center', fig.dim = c(12, 7)}
+```{r echo=F, fig.align = 'center', fig.width = 12, fig.height = 7}
 hosp |>
   ggplot(aes(x = Treatment, y = SWB, colour = Treatment, fill = Treatment)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5, size = 5) +
   facet_wrap(~ Hospital) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = F) +
-  theme(legend.position = 'none') +
+  theme(
+    legend.position = 'none',
+    strip.text.x = element_text(size = 24)
+    ) +
   NULL
 ```
 :::
@@ -205,7 +208,24 @@ contrasts(hosp$Hospital)
 
 <br>
 
-The model in R syntax:
+The model in R syntax: `SWB ~ Treatment * Hospital`
+
+<br>
+
+For the mathematical model formulation:
+
+- How many predictors do we need to represent `Treatment`?
+- How many predictors do we need to represent `Hospital`?
+- How many interaction terms do we need?
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/IDEPDLG/
+:::
+:::
+
+
+## Fit the model
 
 ```{r}
 m1 <- lm(SWB ~ Treatment * Hospital, data = hosp)
@@ -213,30 +233,23 @@ summary(m1)
 ```
 
 
-<br>
-
-On your own time, practice writing out the model's linear expression in mathematical terms, and check the appendix for the solution :)
-
-<!-- TODO WOO -->
-
-<!-- :::{.dapr2callout style="font-size:120%" .hcenter} -->
-<!-- `wooclap.com`, code `UBEQCF` -->
-<!-- ::: -->
-
-
 
 
 # Testing simple effects
 
-## Retrieval practice: Testing simple effects
+## Retrieval practice: Simple effects
 
 <br>
 
-- What's a simple effect?
-- If I ask for simple effects of `Hospital` at each level of `Treatment`, what am I looking for?
-- What's the difference between simple effects and simple slopes?
-- What does it mean to *test* a simple effect?
+If I ask for simple effects of `Hospital` at each level of `Treatment`, what am I looking for?
 
+<br>
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/IDEPDLG/
+:::
+:::
 
 ## Testing simple effects with `pairs()`
 
@@ -244,13 +257,15 @@ On your own time, practice writing out the model's linear expression in mathemat
 
 We've seen the math of how to compute simple effects by hand.
 
-But that only gives us the value of the effect, not a test of whether that value is significantly different from zero.
+But that only gives us the value of the effect, not a **test of whether that value is significantly different from zero.**
 
 <br>
 
 When we had continuous predictors, we could test simple slopes using `probe_interactions()`.
 
-Now that we have categorical predictors, the best way to test simple slopes is using the R code below (don't worry too much about what the function `emmeans()` is doing, just trust that it works).
+Now that we have categorical predictors, the best way to test simple slopes is using the R code below.
+
+(Don't worry too much about what the function `emmeans()` is doing, just trust that it works.)
 
 <br>
 
@@ -403,29 +418,62 @@ $$
 :::
 
 :::{.dapr2callout .fragment .hcenter}
-**What's the probability that we'll roll a 1 at least once in twenty rolls?**
+**What's the probability that we'll roll a 1 at least once in $m$ rolls?**
 
-`wooclap.com`,  code `UBEQCF`
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/IQEPDLG/
+:::
+:::
 
 :::
 
+```{r include=F}
+1 - (1 - 0.05)^5  |> round(2)
+1 - (1 - 0.05)^10 |> round(2)
+1 - (1 - 0.05)^15 |> round(2)
+1 - (1 - 0.05)^20 |> round(2)
+```
+
+
+## The probability of rolling 1 as a function of $m$
+
+```{r fig.width = 9, fig.height = 7, fig.align="center"}
+#| code-fold: true
+
+tibble(
+  m = 0:100,
+  prob = 1 - (1 - 0.05)^m
+) |>
+  ggplot(aes(x = m, y = prob)) +
+  geom_point(size = 3) +
+  labs(
+    y = 'Prob of rolling at least one 1',
+    x = 'm\n(number of rolls)'
+  )
+```
 
 
 
 ## From dice to statistical tests
 
+
 <br>
-
-**Why did we spend time rolling those dice?**
-
 
 - When $\alpha = .05$,
   - we accept the risk that 5% of the time, we'll reject the H0 when actually we shouldn't.
   - (aka that we'll get a false positive result)
   - (aka that we'll make a Type I error)
 - **A d20 rolling a 1 happens with the same probability as us rejecting the H0 when actually we shouldn't: one time in twenty.**
+
+<br>
+
 - We saw that the probability of rolling a 1 at least once increases, the more dice you roll.
-**It's also true that the probability of rejecting the H0 when actually we shouldn't will increase, the more statistical tests we run.**
+- **It's also true that the probability of rejecting the H0 when actually we shouldn't will increase, the more statistical tests we run.**
+
+<br>
+
 - So if we run 20 statistical tests, say, then even though we only want to incorrectly reject the H0 one time out of twenty (5% of the time), we would actually reject it with much higher probability.
 - The actual level of risk becomes higher than the level of risk that we wanted.
 
@@ -530,6 +578,8 @@ We'll start with Bonferroni, because it's simplest.
 
 The goal is to lower the $\alpha$ level of our tests so that it matches our desired level of risk.
 
+We're essentially setting the probability of incorrectly rejecting H0 **at least once in this set of tests** to .05.
+
 The Bonferroni correction takes our original $\alpha$ level and divides it by the number of tests:
 
 $$
@@ -570,7 +620,7 @@ pairs(
 
 
 
-## Tukey's Honest Significant Differences (HSD)
+## Another common correction: <br> Tukey's Honest Significant Differences (HSD)
 
 <br>
 
@@ -619,37 +669,41 @@ pairs(
 
 **When to choose Tukey:**
 
-- When you want to compare the means of levels of a categorical predictor.
+- When you want to compare the means of levels of a categorical predictor (which is what we're doing, when we're testing simple effects!).
 - When you're interested in many/all pairwise comparisons between groups.
 
 <br>
 
-Check the [flashcards](https://uoepsy.github.io/dapr2/2526/labs/1_b3_reading.html#multiple-comparisons){target="_blank"} for more details.
+<!-- Check the [flashcards](https://uoepsy.github.io/dapr2/2627/flashcards/){target="_blank"} for more details. -->
 
 
 
 
-# When does the multiple comparisons problem arise?
+# When do we need to correct for multiple comparisons?
 
-## When does the multiple comparisons problem arise?
+## When do we need to correct for multiple comparisons?
 
-<br>
+<!-- This is a question that even statisticians disagree about. -->
 
-Anytime you're running multiple statistical tests on the same dataset and using them both to draw conclusions.
+<!-- <br> -->
 
-<br>
+**Whenever you are using more than one test to draw conclusions.**
 
-- For example, imagine that for your dissertation one day, you're running a t-test AND a linear model on the same dataset.
-  - For example, a t-test addresses RQ1, while the linear model addresses RQ2.
-- Because both tests are run on the same data, you'd need to correct all the $p$-values involved. (In this case, Bonferroni is the easiest.)
+For example, this could be:
 
-<br>
+- testing multiple simple effects (like we saw before)
+- running two linear models
+- running one linear model and one t-test
+- running one linear model and one chi-squared test
+- ...
 
-Elizabeth's advice to avoid the multiple comparisons problem:
+
+**My advice to avoid the multiple comparisons problem:**
 
 - You can very often address multiple research questions using one single well-designed linear model.
-- Only run the statistical tests that are absolutely necessary for addressing your research question(s).
-- In general: run as few statistical tests as possible. 
+- Only run the statistical tests that are **absolutely necessary** for addressing your research question(s).
+  - This also helps avoid [Questionable Research Practices like p-hacking and HARKing](https://www.psychiatrist.com/jcp/harking-cherry-picking-p-hacking-fishing-expeditions-and-data-dredging-and-mining-as-questionable-research-practices/){target="_blank"}.
+- In general: run as few statistical tests as possible.
 - If in doubt, correct your $p$-values.
   It's never a bad thing to be more conservative about rejecting H0.
 
@@ -689,8 +743,8 @@ Elizabeth's advice to avoid the multiple comparisons problem:
 ::: {.dapr2callout}
 **When does the multiple comparisons problem arise?**
 
-- Not just when you're testing multiple simple slopes.
-- Any time you're running and interpreting more than one statistical test with the same data.
+- Not just when you're testing multiple simple effects.
+- Any time you're running and drawing conclusions based on more than one statistical test.
 :::
 
 ## This week 
