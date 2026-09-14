@@ -185,12 +185,12 @@ proAI_mdl <- glm(
 summary(proAI_mdl)
 ```
 
-## Interpret coefficients (1)
+## What does each coefficient mean?
 
 ::::{.columns}
-:::{.column width="60%"}
+:::{.column width="65%"}
 
-```{r fig.width = 10, fig.height = 8}
+```{r fig.width = 10, fig.height = 7}
 #| code-fold: true
 
 p_proAI_logodds <- Effect(focal.predictors = c('culture', 'age'), mod = proAI_mdl) |>
@@ -222,7 +222,7 @@ p_proAI_logodds
 ```
 
 
-:::{style="font-size:75%;"}
+:::{style="font-size:80%;"}
 ```{r echo=F}
 cat(paste0(capture.output(
   summary(proAI_mdl)
@@ -233,56 +233,15 @@ cat(paste0(capture.output(
 
 
 :::
-:::{.column width="40%"}
+:::{.column width="35%"}
 
-**`(Intercept)`:**
+<br> <br> <br> <br> <br> <br> <br> <br> <br> <br>
 
-- For someone below 20 from an anglophone country, the estimated log-odds of having pro-gen-AI views are 1.39 (or `plogis(1.39)` = 80.1%).
-- This estimate is significantly different from zero ($p$ < 0.001).
-  - Recall: the intercept being different from zero means **being different from chance,** so now it's actually an interesting hypothesis to test.
-  
-**`cultureChina`:**
-
-- The log-odds of a person below 20 from China having pro-gen-AI views is estimated to increase by 1.37, compared to someone below 20 from an anglo country.
-- This estimate is significantly different from zero ($p$ = 0.049).
-
+:::hcenter
+:::woo
+https://app.wooclap.com/events/IEYMMTQ/
 :::
-::::
-
-## Interpret coefficients (2)
-
-::::{.columns}
-:::{.column width="60%"}
-
-```{r fig.width = 10, fig.height = 8}
-#| code-fold: true
-p_proAI_logodds
-```
-
-
-:::{style="font-size:75%;"}
-```{r echo=F}
-cat(paste0(capture.output(
-  summary(proAI_mdl)
-), '\n')[6:12])
-```
-
 :::
-
-
-:::
-:::{.column width="40%"}
-
-**`ageAbove20`:**
-
-- The log-odds of a person above 20 from an anglo country having pro-gen-AI views is estimated to decrease by 1.31, compared to someone below 20 from an anglo country.
-- This estimate is significantly different from zero ($p$ = 0.004).
-
-**`cultureChina:ageAbove20`**:
-
-- For a person from China, the effect of being above 20 is increased by 0.37 log-odds compared to a person from an anglo country.
-- Or: For a person above 20, the effect of being from China is increased by 0.37 log-odds compared to a person below 20.
-- This estimate is not significantly different from zero ($p$ = 0.664).
 
 :::
 ::::
@@ -327,15 +286,30 @@ cat(paste0(capture.output(
 
 <br>
 
-**Null deviance:** the deviance of an intercept-only version of the model: `proAI ~ 1`.
+**Null deviance:** the deviance of an intercept-only version of the model: `proAI ~ 1`:
 
-**Residual deviance:** the deviance of the actual model we fit: `proAI ~ culture * age`.
+$$
+\text{logodds(proAI)} = \beta_0
+$$
+
+**Residual deviance:** the deviance of the actual model we fit: `proAI ~ culture * age`:
+
+$$
+\text{logodds(proAI)} = \beta_0 + 
+(\beta_1 \cdot \text{culture}_\text{China}) + 
+(\beta_2 \cdot \text{age}_\text{Above20}) + 
+(\beta_3 \cdot \text{culture}_\text{China} \cdot \text{age}_\text{Above20})
+$$
 
 <br>
 
 The smaller number represents the model with better fit.
 
-But to know whether the full model has a **significantly** better fit than the intercept-only model, we'd need to actually statistically compare models.
+**The full model will basically always have smaller deviance** (unless the predictors are total nonsense).
+
+<br>
+
+But to know whether the full model has a **significantly** better fit than the intercept-only model, we need to actually statistically compare models.
 
 We'll do that soon, but first...
 
@@ -386,9 +360,12 @@ For each observation, logistic regression has:
 
 ## Checking (standardised) deviance residuals
 
+:::dapr2callout
 For a logistic regression model to be a good choice for modelling this data, **the model’s standardised deviance residuals should not be smaller than –3 or bigger than 3.**
+:::
 
-<br>
+::::{.columns}
+:::{.column width="70%"}
 
 Extract a model's standardised deviance residuals using `rstandard()` with `type = 'deviance'`:
 
@@ -402,11 +379,42 @@ And plot them:
 rstandard(proAI_mdl, type = 'deviance') |> plot()
 ```
 
-```{r echo=F, fig.align = 'center', fig.height = 6, fig.width = 8}
+```{r echo=F, fig.align = 'center', fig.height = 5, fig.width = 7}
 rstandard(proAI_mdl, type = 'deviance') |> plot(cex.lab = 1.6, cex.axis = 1.6, cex = 1.6)
 ```
 
-All within –3 to 3 ✅
+:::
+:::{.column width="5%"}
+:::
+:::{.column width="25%" .fragment}
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+:::dapr2callout
+**Are all standardised deviance residuals between –3 and 3? **
+
+:::hcenter
+<img style="margin-bottom:-10px; width: 2em;" src="../figs/codicon--thumbsup-filled.svg"> <img style="margin-bottom:-20px; width: 2em;" src="../figs/codicon--thumbsdown-filled.svg">
+:::
+
+:::
+:::
+::::
+
+
+
+
+<!-- All within –3 to 3 ✅ -->
 <!-- (The negative deviance residuals are a lot bigger than the positive ones because the overall probability of pro-AI views are all quite high, so any anti-AI views are very "deviant" from the overall probabilities) -->
 
 
@@ -420,10 +428,12 @@ Recall that **Cook's Distance = the average distance that the predicted outcome 
 
 <br>
 
+:::dapr2callout
 For logistic regression, we can compare to some threshold values:
 
 - Cook's Distance **> 0.5** indicates **moderately influential** values.
 - Cook's Distance **> 1** indicates **highly influential** values.
+:::
 
 <br>
 
@@ -445,9 +455,16 @@ cooks.distance(proAI_mdl) |> plot()
 cooks.distance(proAI_mdl) |> plot(cex.lab = 1.6, cex.axis = 1.6, cex = 1.6)
 ```
 
-Everything well below 0.5, so no moderately or highly influential values ✅
+:::{.dapr2callout .hcenter .fragment}
+**Does this data contain any moderately or highly influential values?**
 
-(If we *did* find influential values, follow the process outlined in Lecture 08: double-check your data for mistakes, and if in doubt, run a sensitivity analysis.)
+<img style="margin-bottom:-10px; width: 2em;" src="../figs/codicon--thumbsup-filled.svg"> <img style="margin-bottom:-20px; width: 2em;" src="../figs/codicon--thumbsdown-filled.svg">
+
+:::
+
+<!-- Everything well below 0.5, so no moderately or highly influential values ✅ -->
+
+<!-- (If we *did* find influential values, follow the process outlined in Lecture 08: double-check your data for mistakes, and if in doubt, run a sensitivity analysis.) -->
 
 
 
@@ -479,7 +496,100 @@ $$
 
 And like always, we want to know: **How likely is it that we would observe this value (or one more extreme) just by chance, if there were no difference in fit between the two models?**
 
-To get a p-value, we can compare the difference in deviance to a $\chi^2$ distribution (the same way we'd compare an observed $t$ statistic to the $t$ distribution).
+## How can we get a p-value for the observed difference in deviance?
+
+<br>
+
+**Compare the difference in deviance to a $\chi^2$ (chi-squared) distribution** with the appropriate degrees of freedom.
+
+<br>
+
+The $\chi^2$ distribution:
+
+```{r fig.align="center"}
+#| code-fold: true
+
+tibble(x = c(0, 15)) |>
+  ggplot(aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 2), colour = '#002060', linewidth = 2) +
+  stat_function(fun = dchisq, args = list(df = 4), colour = '#BF1932', linewidth = 2) +
+  stat_function(fun = dchisq, args = list(df = 6), colour = '#88B04B', linewidth = 2) +
+  stat_function(fun = dchisq, args = list(df = 8), colour = '#FCBB06', linewidth = 2) +
+  annotate(geom = 'text', x = 12, y = 0.45, label = 'df = 2', colour = '#002060', size = 8) +
+  annotate(geom = 'text', x = 12, y = 0.4,  label = 'df = 4', colour = '#BF1932', size = 8) +
+  annotate(geom = 'text', x = 12, y = 0.35, label = 'df = 6', colour = '#88B04B', size = 8) +
+  annotate(geom = 'text', x = 12, y = 0.3,  label = 'df = 8', colour = '#FCBB06', size = 8) +
+  labs(x=expression(chi^{2}), y = 'Probability density') +
+  NULL
+```
+
+## Compare to a $\chi^2$ distribution
+
+The degrees of freedom = how many more $\beta$s does the full model contain, compared to the null model?
+
+**Null model: one $\beta$.**
+
+$$
+\text{logodds(proAI)} = \beta_0
+$$
+
+**Full model: four $\beta$s.**
+
+$$
+\text{logodds(proAI)} = \beta_0 + 
+(\beta_1 \cdot \text{culture}_\text{China}) + 
+(\beta_2 \cdot \text{age}_\text{Above20}) + 
+(\beta_3 \cdot \text{culture}_\text{China} \cdot \text{age}_\text{Above20})
+$$
+
+So 4 – 1 = **3 degrees of freedom.**
+
+```{r fig.align='center'}
+#| code-fold: true
+#| 
+tibble(x = c(0, 30)) |>
+  ggplot(aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 3), colour = '#BF1932', linewidth = 2) +
+  labs(x=expression(chi^{2}), y = 'Probability density') +
+  annotate(geom = 'text', x = 12, y = 0.2,  label = 'df = 3', colour = '#BF1932', size = 8) +
+  NULL
+```
+
+
+## Compare to a $\chi^2$ distribution {visibility="uncounted"}
+
+The degrees of freedom = how many more $\beta$s does the full model contain, compared to the null model?
+
+**Null model: one $\beta$.**
+
+$$
+\text{logodds(proAI)} = \beta_0
+$$
+
+**Full model: four $\beta$s.**
+
+$$
+\text{logodds(proAI)} = \beta_0 + 
+(\beta_1 \cdot \text{culture}_\text{China}) + 
+(\beta_2 \cdot \text{age}_\text{Above20}) + 
+(\beta_3 \cdot \text{culture}_\text{China} \cdot \text{age}_\text{Above20})
+$$
+
+So 4 – 1 = **3 degrees of freedom.**
+
+```{r fig.align='center'}
+#| code-fold: true
+
+tibble(x = c(0, 30)) |>
+  ggplot(aes(x = x)) +
+  stat_function(fun = dchisq, args = list(df = 3), colour = '#BF1932', linewidth = 2) +
+  labs(x=expression(chi^{2}), y = 'Probability density') +
+  annotate(geom = 'text', x = 12, y = 0.2,  label = 'df = 3', colour = '#BF1932', size = 8) +
+  geom_vline(xintercept = 27.38, linewidth = 2) +
+  annotate(geom = 'text', x = 26, y = 0.1,  label = 'difference in\ndeviance =\n27.38', size = 8, hjust = 1) +
+  NULL
+```
+
 
 ## In R: Test difference in deviance
 
@@ -577,6 +687,17 @@ In fact, **most model comparisons are not very useful.** For example, using mode
 <!-- - Comparison to null model? Yes -->
 <!-- - Comparison to some non-null nested model? No -->
 
+# Chance for Q+A
+
+## Chance for Q+A
+
+<br>
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/IEYMMTQ/
+:::
+:::
 
 # To conclude
 
@@ -680,7 +801,30 @@ We really like seeing you in office hours!
 :::
 ::::
 
+<!-- # Appendix {.appendix} -->
+
+<!-- ## Coefficients -->
+
+<!-- **`(Intercept)`**: -->
+
+<!-- - For someone below age 20 from an anglophone country, the estimated log-odds of having pro-gen-AI views are 1.39 (or `plogis(1.39)` = 80.1% probability). -->
+<!-- <!-- - This estimate is significantly different from zero ($p$ < 0.001). --> -->
+<!--   <!-- - Recall: the intercept being different from zero means **being different from chance,** so now it's actually an interesting hypothesis to test. --> -->
+
+<!-- **`cultureChina`**: -->
+
+<!-- - The log-odds of a person below age 20 from China having pro-gen-AI views is estimated to increase by 1.37, compared to someone below age 20 from an anglo country. -->
+<!-- <!-- - This estimate is significantly different from zero ($p$ = 0.049). --> -->
 
 
+<!-- **`ageAbove20`**: -->
 
+<!-- - The log-odds of a person above 20 from an anglo country having pro-gen-AI views is estimated to decrease by 1.31, compared to someone below 20 from an anglo country. -->
+<!-- <!-- - This estimate is significantly different from zero ($p$ = 0.004). --> -->
+
+<!-- **`cultureChina:ageAbove20`**: -->
+
+<!-- - For a person from China, the effect of being above age 20 is increased by 0.37 log-odds compared to a person from an anglo country. -->
+<!-- - Or: For a person above age 20, the effect of being from China is increased by 0.37 log-odds compared to a person below age 20. -->
+<!-- <!-- - This estimate is not significantly different from zero ($p$ = 0.664). --> -->
 
