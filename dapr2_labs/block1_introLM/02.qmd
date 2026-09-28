@@ -4,10 +4,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
-<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
-
-
 ```{r}
 #| label: setup
 #| include: false
@@ -87,7 +83,6 @@ Participants filled out a questionnaire including items concerning: estimated av
 
 Read in the data from  <https://uoepsy.github.io/data/wellbeing_rural.csv> and store it in a variable named `mwdata` ("mw" stands for "mental wellbeing").
 
-
 :::red
 🗂️
 See [Multiple regression  > Example](https://uoepsy.github.io/dapr2/2627/flashcards/block1/multiple-regression.html#example){target="_blank"} flash card.
@@ -109,7 +104,8 @@ mwdata <- read_csv("https://uoepsy.github.io/data/wellbeing_rural.csv")
 
 Recall our RQ: **Is there an association between wellbeing and time spent outdoors, when controlling for the effect that social interaction has on wellbeing?**
 
-**Identify** the three relevant variables (that is, the three columns in `mwdata`) which we'll use to address this question.
+**Identify** the three relevant variables (that is, the three columns in `mwdata`) which we'll use to address this question. 
+**Write down** which one is the outcome variable and which two are the predictors.
 
 **Create** two scatterplots, showing how each of the independent (predictor) variables is individually associated with the outcome variable.
 
@@ -117,6 +113,35 @@ Recall our RQ: **Is there an association between wellbeing and time spent outdoo
 This will add the straight line of best fit to each scatterplot.
 
 Bonus challenge: use `patchwork` to **create a single graphic** that shows the two scatterplots beside each other.
+
+
+:::{.callout-tip collapse='true'}
+### Code hint: `patchwork`
+
+To patchwork two plots together, you'll first need to store each of the plots under their own name, for example:
+
+```{r}
+# the first plot
+plot_petallength <- iris |>
+  ggplot(aes(x = Sepal.Width, y = Petal.Length)) +
+  geom_point()
+
+# the second plot
+plot_petalwidth <- iris |>
+  ggplot(aes(x = Sepal.Width, y = Petal.Width)) +
+  geom_point()
+```
+
+Then as long as you've got the `patchwork` library loaded, you can write the two names with a + sign in between, and you'll get the two plots placed side by side:
+
+```{r}
+# the first plot + the second plot
+plot_petallength + plot_petalwidth
+```
+
+(If `patchwork` is not loaded, you'll get an error about bad use of arithmetic operator, because R won't know how to handle the + sign.)
+
+:::
 
 :::red
 🗂️
@@ -153,6 +178,14 @@ wellbeing_social <-
 wellbeing_outdoor + wellbeing_social
 ```
 
+
+Note: You'll probably have noticed that `geom_smooth()` makes R print out some extra plotting info, namely:
+
+> `geom_smooth()` using formula = 'y ~ x'
+
+If you want to suppress that message, write `message = FALSE` in the header of your code chunk.
+
+
 `r solend()`
 
 <!-- # q3 -->
@@ -165,15 +198,21 @@ When we include multiple predictors in a linear model, we want to make sure that
 
 Use the `cor()` function to **find the correlation coefficient** for the correlation between the two predictor variables.
 
-**Write down** what kind of correlation this coefficient represents. (Positive or negative? Weak, medium, or strong?)
+**Write down** what kind of correlation this coefficient represents. (Positive or negative? Weak, medium, or strong?) If in doubt, check the flash cards.
 
 :::{.callout-tip collapse='true'}
-### Code hint
+### Code hint: `cor()`
 
 Here's the basic usage of `cor()` for getting the correlation between two variables:
 
 ```{r eval=F}
 cor(variable1, variable2)
+```
+
+If you want to pull each of the two variables out of a dataframe called `df`:
+
+```{r eval=F}
+cor(df$variable1, df$variable2)
 ```
 
 Or, if the two variables are the only two columns in a dataframe called `df`:
@@ -359,7 +398,7 @@ plot_model(
     mdl, 
     type = 'eff', 
     terms = c(
-        'outdoor_time', 
+        'outdoor_time' 
         'social_int'
     ),
     show.data = TRUE
@@ -371,7 +410,10 @@ Pay attention to what changes.)
 
 <br>
 
-**Based on this plot and the relevant model coefficient you identified above, write a sentence or two in response to the RQ.**
+**Write down** brief responses to each of the following questions:
+
+i. Based on the plot, is the effect of `outdoor_time` the same for all values of `social_int`?
+i. Based on the coefficient estimates and/or the plot, is the RQ supported by this analysis?
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -388,10 +430,12 @@ plot_model(
 )
 ```
 
-This plot shows a positive association between outdoor time and wellbeing, even when accounting for social interaction: no matter how much social interaction people get, people with more outdoor time are estimated to have higher wellbeing scores.
+
+i. Yes, the effect of `outdoor_time` is the same for all values of `social_int`. We can tell because all three coloured lines, which show different values of `social_int` (the mean in blue, the mean + 1 SD in red, and the mean – 1 SD in green), have the same slope over `outdoor_time`.
+
+ii. This plot shows a positive association between outdoor time and wellbeing, even when controlling for social interaction: no matter how much social interaction people get, people with more outdoor time are estimated to have higher wellbeing scores.
 And the $\beta$ coefficient that quantifies the slope of this line is also positive at 0.20.
 Therefore I'd conclude that yes, there seems to be a positive association between wellbeing and time spent outdoors, controlling for the effect that social interaction also has on wellbeing.
-
 (Next week, we'll learn how to report the corresponding significance test!)
 
 
@@ -416,6 +460,14 @@ See [Compute model-predicted values > Example](https://uoepsy.github.io/dapr2/26
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+To let R do the rounding for you:
+
+```{r}
+coef(mdl) |> round(2)
+```
+
+<br>
 
 $$
 \text{wellbeing} = 28.62 + 
@@ -446,7 +498,7 @@ Last week, you used your linear expression to reconstruct the estimated `wellbei
 
 Finally, this week, you'll use the linear expression you wrote in Q9 to predict `wellbeing` scores for people that we *haven't* observed any data from.
 
-**Calculate** the `wellbeing` scores of the following three people (remember you can use the R console as a calculator):
+**Calculate by hand (not using `predict()`)** the `wellbeing` scores of the following three people:
 
 - Shuting:
     - Outdoor time = 36 hours
@@ -480,7 +532,7 @@ $$
 \end{align}
 $$
 
-Write:
+If you wanted to present the working-out nicely (which is not required), here's how you might write it:
 
 ```
 \begin{align}
