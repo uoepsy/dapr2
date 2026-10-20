@@ -71,11 +71,14 @@ p_age + p_followers  # combine using patchwork
 
 
 # Explicitly define the hypotheses that your RQ is aiming to test.
+## note: \begin{aligned}\end{aligned} aligns the text.
+## You can also use "align", but "aligned" works better for knitting to pdf
+##
 #  $$
-#  \begin{align}
+#  \begin{aligned}
 #  H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2 \\
 #  H_1 &: \text{ Any } \beta_j \neq 0 \\
-#  \end{align}
+#  \end{aligned}
 #  $$
 
 # Fit your model(s) using lm().
@@ -204,10 +207,10 @@ fomo |>
 # Explicitly define the hypotheses that your RQ is aiming to test.
 # - The null hypothesis that corresponds to this model comparison is that none of Big 5 predictors are significantly associated with FOMO.
 #   $$
-#   \begin{align}
+#   \begin{aligned}
 #   H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 3, 4, 5, 6, 7 \\
 #   H_1 &: \text{ Any } \beta_j \neq 0 \\
-#   \end{align}
+#   \end{aligned}
 #   $$
 
 # Fit your model(s) using lm().
