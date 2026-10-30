@@ -4,9 +4,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-<!-- when rendering in RStudio / not production profile (tutor-facing):      SHOW_SOLS: TRUE  -->
-<!-- when rendering in terminal / with production profile (student-facing):  SHOW_SOLS: FALSE -->
-
 ```{r}
 #| label: setup
 #| include: false
@@ -51,7 +48,7 @@ This week, you'll practice implementing and interpreting a treatment-coded categ
 
 :::frame
 
-To investigate if the number of words typed per minute (WPM) differs between people who've consumed different kinds of beverages, the researchers conducted an experiment where 40 participants were each randomly allocated to one of four beverage conditions.
+To investigate if typing speed, measured in words per minute (WPM), differs between people who've consumed different kinds of beverages, the researchers conducted an experiment where 40 participants were each randomly allocated to one of four beverage conditions.
 
 The data in `caffeinedrink.csv` contained two attributes collected from $n=40$ participants:
 
@@ -65,6 +62,8 @@ tibble(
 :::
 
 <!-- # q1 -->
+
+## Get to know the data
 
 `r qbegin(qcounter())`
 
@@ -85,7 +84,7 @@ wpm_data <- read_csv("https://uoepsy.github.io/data/caffeinedrink.csv")
 
 `r qbegin(qcounter())`
 
-A quick-and-dirty way to plot a numeric outcome as a function of a categorical predictor is a boxplot:
+As you know, a quick-and-dirty way to plot a numeric outcome as a function of a categorical predictor is a boxplot:
 
 ```{r}
 wpm_data |>
@@ -93,22 +92,24 @@ wpm_data |>
   geom_boxplot()
 ```
 
+But by summarising the data into median and inter-quartile range, you don't actually see the information that's helpful for linear modelling, where we care about group *means*, not medians.
+(And sometimes the distribution of data is just totally misrepresented; [read more here if you're curious](https://nightingaledvs.com/ive-stopped-using-box-plots-should-you/){target="_blank"}).
 
-But [boxplots aren't great, because the way they summarise the data can often misrepresent how the data is actually distributed](https://nightingaledvs.com/ive-stopped-using-box-plots-should-you/){target="_blank"}.
-Also, they show the median by default, whereas in linear modelling, we are usually focused on the means.
+Elizabeth's favourite alternative is the violin plot (a kind of vertical density plot, which shows the  lumps and bumps of the data's distribution more faithfully) with jittered points over top (so that we can see each actual observed data point), and with each group's mean shown as a big black dot.
 
-A better style of plot for this purpose is a violin plot (a kind of vertical density plot, which shows the overall distribution more faithfully) with jittered points (so that we can see each actual observed data point), as well as each group's mean shown over top.
 
-To create a violin plot that shows how `wpm` varies based on beverage `treatment`, copy the following code template and replace the `...` bits with the appropriate variable names.
+To make a violin plot that shows how `wpm` varies based on beverage `treatment`, **copy** the following code template, **replace** the `...` bits with the appropriate variable names, and **create** your own violin plot.
 
 ```{r eval=F}
 ... |>
-  ggplot(aes(x = ..., y = ..., fill = ..., colour = ...)) +
-  geom_violin(alpha = 0.5) +
-  geom_jitter(alpha = 0.5) +
-  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  ggplot(aes(x = ..., y = ...)) +
+  geom_violin() +
+  geom_jitter(height = 0, alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 4) +
   theme(legend.position = 'none')
 ```
+
+(Once you have this code running, if you're not sure what part of it does, then comment out or delete that bit, try running what's left over, and see what changes.)
 
 
 :::red
@@ -121,23 +122,36 @@ See [Exploring data visually > Violin plot](https://uoepsy.github.io/dapr2/2627/
 
 ```{r}
 wpm_data |>
+  ggplot(aes(x = treatment, y = wpm)) +
+  geom_violin() +
+  geom_jitter(height = 0, alpha = 0.5) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 4)
+```
+
+<br>
+
+Bonus, if you want to get fancy with colour:
+
+```{r}
+wpm_data |>
   ggplot(aes(x = treatment, y = wpm, fill = treatment, colour = treatment)) +
   geom_violin(alpha = 0.5) +
   geom_jitter(alpha = 0.5) +
-  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 4) +
   theme(legend.position = 'none') 
 ```
 
 
 `r solend()`
 
+## Think about treatment coding
 
 <!-- # q3 -->
 
 `r qbegin(qcounter())`
 
 Which of the four levels of `treatment` do you think would be a suitable reference level?
-Write down briefly why you think so.
+**Write down** which level you'd choose, and **write one sentence** to describe why you chose that one.
 
 :::red
 🗂️
@@ -147,9 +161,10 @@ See [Treatment coding](https://uoepsy.github.io/dapr2/2627/flashcards/block2/tre
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-I'd make the reference level the `control` level, which represents people just drinking water.
+I personally would make the reference level the `control` level of the variable `treatment`, which represents people just drinking water.
 
-This is an appropriate reference level because we can think of water as the "default" or "baseline" beverage, compared to the other beverages coffee, mint tea, and red bull.
+I think this is an appropriate reference level because we can think of water as the "default" or "baseline" beverage.
+The other beverages (coffee, mint tea, and red bull) are all more specific.
 
 `r solend()`
 
@@ -162,7 +177,7 @@ Based on the reference level you chose above, you'll now try to predict what the
 (You'll get R to generate the actual contrast matrix later, and you can check your predictions then.)
 
 Here is some code for creating a Markdown table.
-Copy this code to your own Rmd file, placing it it **outside a code chunk.**
+**Copy** this code to your own Rmd file, placing it **outside a code chunk** (in other words: treat it as if it's text, not R code).
 
 ```{markdown}
 |            | ... | ... | ... |
@@ -173,8 +188,9 @@ Copy this code to your own Rmd file, placing it it **outside a code chunk.**
 | `red_bull` | ... | ... | ... |
 ```
 
-Your task is to replace all the "`...`" in this table with appropriate values.
-Specifically, fill in the column names with the appropriate levels of `treatment`, and fill in the other empty cells with 0s and 1s.
+Your task is to **replace** all the `...` bits in this table with appropriate values.
+
+Specifically, **fill in** the column names with the appropriate levels of `treatment`, and **fill in** the other empty cells with 0s and 1s.
 
 :::red
 🗂️
@@ -184,7 +200,7 @@ See [Treatment coding](https://uoepsy.github.io/dapr2/2627/flashcards/block2/tre
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-If the reference level is `control`, then we know a couple things:
+If the reference level is `control`, then we know a couple things about how the contrast matrix must look:
 
 - the columns, which represent the three dummy variables, will be named after the *other* three levels;
 - the row labelled `control` will be filled with 0s all the way across.
@@ -238,24 +254,24 @@ Here's the code for the finished Markdown table:
 
 `r qbegin(qcounter())`
 
-Use `mutate()` to convert `treatment` into a factor and reorder the levels so that your chosen reference level comes first.
+Now you'll check your work from the previous question.
 
-Then, run the following code to produce the contrast matrix:
-
-```{r eval=F}
-contrasts(wpm_data$treatment)
-```
-
-Did your predictions match this output?
-(Don't worry if the rows are in a different order!
-Just pay attention to the column names and where the 0s and 1s are placed.)
+Using `mutate()`, **convert** `treatment` into a factor and **reorder** the levels so that your chosen reference level comes first.
 
 :::red
 🗂️
 See [Treatment coding > Changing reference level](https://uoepsy.github.io/dapr2/2627/flashcards/block2/treatment-coding.html#changing-reference-level){target="_blank"} flash card.
 :::
 
+Then, **run** the following code to produce the contrast matrix:
 
+```{r eval=F}
+contrasts(wpm_data$treatment)
+```
+
+**Check:** Did your predictions match this output?
+(Don't worry if the rows are in a different order!
+Just pay attention to the column names and where the 0s and 1s are placed.)
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -269,17 +285,20 @@ wpm_data <- wpm_data |>
 contrasts(wpm_data$treatment)
 ```
 
-(Note: The rows here are in a different order than in the Markdown table in Q4 above.
-That's because the contrast matrix always orders the rows based on the current order of factor levels.
-We reordered the factor levels at the beginning of this step, so the order of the rows in the contrast matrix we created here will match the new order of levels, not the old one.)
+The rows here are in a different order than in the Markdown table in Q4 above.
+That's because the contrast matrix always orders the rows based on the **current order of factor levels,** with the reference level at the top.
+
+We reordered the factor levels at the beginning of this step, so the order of the rows in the contrast matrix we created here will match the new order of levels, not the old one.
 
 `r solend()`
+
+## Set up the model
 
 <!-- # q6 -->
 
 `r qbegin(qcounter())`
 
-Write the mathematical model formulation for the model that we're about to fit, using the dummy variables from the contrast matrix in Q5.
+**Write** the mathematical model formulation for the model that we're about to fit, using the dummy variables from the contrast matrix generated by R in Q5.
 
 :::red
 🗂️
@@ -330,16 +349,21 @@ Write:
 \end{align}
 ```
 
+(Depending on your operating system, you might need to write `aligned` instead of `align`.)
+
 <br>
 
-Note that the following mathematical model formulation is **incorrect,** because it does not contain any dummy variables and therefore has too few $\beta$ coefficients.
-(The number of $\beta$s in the equation should always match the number of coefficients produced by the model summary.)
+Note that the following mathematical model formulation is **incorrect.**
+
 
 $$
 \text{WPM} = \beta_0 + 
 (\beta_1 \cdot \text{Treatment}) + 
 \epsilon
 $$
+If `treatment` were continuous, it would be fine.
+But because `treatment` is categorical with four different levels, the model must contain three dummy variables and the corresponding number of $\beta$ coefficients.
+(The number of $\beta$s in the equation should always match the number of coefficients produced by the model summary.)
 
 `r solend()`
 
@@ -351,14 +375,23 @@ $$
 
 The model you'll fit will have four coefficients: one intercept and three slopes which each compare one of the non-reference levels back to the reference level.
 
-Based on the plot you created back in Q2, write down your best guess about the approximate value that each of the model's four coefficients will have.
-If you're really not sure, at least write down whether you think each coefficient will be positive or negative.
-(After you fit the model later, you'll check your predictions.)
+Based on the plot you created back in Q2, **write down** your best guess about the approximate value that each of the model's four coefficients will have.
+
+If you're really not sure, at least **write down** whether you think each coefficient will be positive or negative.
+
+After you fit the model, you'll check your predictions.
+(I know this is a hard task, but I promise that making these predictions will help your understanding in the long run.)
+
+:::red
+🗂️
+See [Treatment coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2627/flashcards/block2/treatment-coding.html#model-fit-and-interpretation-1){target="_blank"} flash card.
+:::
+
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
-For convenience, here's the plot again:
+For convenience, here's the plot again (notice how the levels of `treatment` are now reordered, so that the reference level `control` comes first!):
 
 ```{r}
 wpm_data |>
@@ -371,16 +404,16 @@ wpm_data |>
 ```
 
 
-The four coefficients will be:
+I would guess that the four coefficients will be:
 
 - `(Intercept)` $\beta_0$: 
-    - The mean of the reference level `control`, which appears to be about 112 WPM.
+    - The estimated mean of the reference level `control`, which appears to be about 112 WPM.
 - `treatmentcoffee` $\beta_1$: 
-    - WPM for `coffee` minus WPM for `control` (i.e., the difference between `coffee` and `control`), which appears to be a bit less than 3 WPM.
+    - Estimated WPM for `coffee` minus estimated WPM for `control` (i.e., the difference between `coffee` and `control`), which appears to be a bit less than 3 WPM.
 - `treatmentmint_tea` $\beta_2$: 
-    - The difference between `mint_tea` and `control`, which appears to be about –1 WPM.
+    - Estimated WPM for `mint_tea` minus estimated WPM for `control`, which appears to be about –1 WPM.
 - `treatmentred_bull` $\beta_3$: 
-    - The difference between `red_bull` and `control`, which appears to be just under 5 WPM.
+    - Estimated WPM for `red_bull` minus estimated WPM for `control`, which appears to be just under 5 WPM.
 
 `r solend()`
 
@@ -388,12 +421,17 @@ The four coefficients will be:
 
 `r qbegin(qcounter())`
 
-Now fit the model in R and check the model summary.
-Were your predictions about the coefficients correct?
+Now **fit** the model in R and **display** the model summary.
+
+**Check:** Were your predictions about the coefficients correct?
 
 If they were, celebrate!
-If not, can you figure out how you can update your thinking to better match the results?
+If not, try to figure out how you can update your thinking to better match the results (and ask a tutor/ask on Piazza if you're not sure!).
 
+:::red
+🗂️
+See [Treatment coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2627/flashcards/block2/treatment-coding.html#model-fit-and-interpretation-1){target="_blank"} flash card.
+:::
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -405,6 +443,7 @@ summary(wpm_m1)
 
 `r solend()`
 
+## A new reference level
 
 <!-- # q9 -->
 
@@ -449,19 +488,26 @@ The four coefficients will be:
 
 `r qbegin(qcounter())`
 
-Now actually change the reference level of `treatment` to `coffee`, and generate the contrast matrix to verify that `coffee` is the reference level.
-Then re-fit the model and check the model summary.
+Now actually **change** the reference level of `treatment` to `coffee`  (or if you already used `coffee` as your reference level, change it to something else).
 
-Were your predictions from Q9 supported?
-Why or why not?
-
-Optional but recommended (your future self will thank you!): After checking your predictions, write a little guide for yourself, in your own words, about how to interpret treatment-coded predictors.
+**Generate** the contrast matrix to verify your new reference level.
 
 :::red
 🗂️
 See [Treatment coding > Changing reference level](https://uoepsy.github.io/dapr2/2627/flashcards/block2/treatment-coding.html#changing-reference-level){target="_blank"} flash card.
 :::
 
+Then **re-fit** the model and **display** the model summary.
+
+:::red
+🗂️
+See [Treatment coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2627/flashcards/block2/treatment-coding.html#model-fit-and-interpretation-1){target="_blank"} flash card.
+:::
+
+**Check:** Were your predictions from Q9 supported?
+Why or why not?
+
+Optional but recommended (your future self will thank you!): After checking your predictions, **write** a little guide for yourself, in your own words, about how to interpret treatment-coded predictors.
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -492,6 +538,8 @@ summary(wpm_m2)
 # Optional: Knit your report to PDF
 
 :::red
+
+**Note: During the labs, please spend your time on the exercises above, not on rendering your document. This guidance is here in case you have extra time at the end.**
 
 Rmarkdown is a useful format because it can be used as a foundation for generating different kinds of documents.
 For the group report, you'll be asked to render your Rmd file to PDF.
