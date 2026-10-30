@@ -20,6 +20,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -342,7 +377,8 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#if-you-find-an-influential-value" id="toc-if-you-find-an-influential-value" class="nav-link active" data-scroll-target="#if-you-find-an-influential-value">If you find an influential value</a></li>
+  <li><a href="#example" id="toc-example" class="nav-link active" data-scroll-target="#example">Example</a></li>
+  <li><a href="#how-to-handle-influential-values" id="toc-how-to-handle-influential-values" class="nav-link" data-scroll-target="#how-to-handle-influential-values">How to handle influential values</a></li>
   </ul>
 </nav>
     </div>
@@ -368,22 +404,94 @@ window.Quarto = {
 </header>
 
 
-<p><strong>High influence cases:</strong> When a case has high leverage <em>and</em> is an outlier, it will have a large influence on the regression model.</p>
-<p><strong>Cook’s Distance:</strong> combines <em>leverage</em> with <em>outlyingness</em> to capture influence: <span class="math inline">\(D_i = \text{Outlyingness} \times \text{Leverage}\)</span>. Cook’s distance refers to the average distance the predicxted outcome values will move if a given case is removed.</p>
-<p>In <code>R</code>, the <code>cooks.distance(modelname)</code> function will provide these values. You can plot them with <code>plot(modelname, which = 4)</code>.</p>
+<p>Sometimes, individual observations that don’t behave like the rest of the data can <strong>influence</strong> the estimates of the regression model.</p>
+<p>To check the influence of each data point, we use a measure called <strong>Cook’s Distance.</strong> Cook’s Distance refers to the average distance the predicted outcome values will move if a given case is removed.</p>
+<p>In R, the <code>cooks.distance(modelname)</code> function will provide these values. You can plot them with <code>plot(modelname, which = 4)</code>.</p>
+<section id="example" class="level2">
+<h2 class="anchored" data-anchor-id="example">Example</h2>
+<p>Load in some data (the mental wellbeing data from Block 1 labs):</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mwdata <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">'https://uoepsy.github.io/data/wellbeing_rural.csv'</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(mwdata)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 6 x 7
+    age outdoor_time social_int routine wellbeing location steps_k
+  &lt;dbl&gt;        &lt;dbl&gt;      &lt;dbl&gt;   &lt;dbl&gt;     &lt;dbl&gt; &lt;chr&gt;      &lt;dbl&gt;
+1    28           12         13       1        36 rural       21.6
+2    56            5         15       1        41 rural       12.3
+3    25           19         11       1        35 rural       49.8
+4    60           25         15       0        35 rural       NA  
+5    19            9         18       1        32 rural       48.1
+6    34           18         13       1        34 rural       67.3</code></pre>
+</div>
+</div>
+<p>Fit a model:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>wb_mdl <span class="ot">&lt;-</span> <span class="fu">lm</span>(wellbeing <span class="sc">~</span> outdoor_time <span class="sc">+</span> social_int, <span class="at">data =</span> mwdata)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<p>Now, we can find the Cook’s Distance of each observation. This function will print out a value for each observation in the dataset. It represents how much the model’s estimates will change if that particular observation were removed.</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cooks.distance</span>(wb_mdl) <span class="sc">|&gt;</span> <span class="fu">head</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       1        2        3        4        5        6 
+4.89e-05 1.37e-02 8.37e-05 2.18e-03 6.40e-03 4.53e-04 </code></pre>
+</div>
+</div>
+<p>It’s easier (for me at least!) to interpret these values in a plot:</p>
+<div class="cell" data-layout-align="center">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(wb_mdl, <span class="at">which =</span> <span class="dv">4</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="influence_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid quarto-figure quarto-figure-center figure-img" style="width:100.0%"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Looks like observation 109 is pretty darn influential, compared to all the rest!</p>
+</section>
+<section id="how-to-handle-influential-values" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-handle-influential-values">How to handle influential values</h2>
+<p>The first step is to re-examine your data. <!-- It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible.  --> Could it be the case that you have missed some impossible values (e.g., a negative value of a person’s height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don’t make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)?</p>
+<!-- If there is a simple error in the data, it could be that you can fix the typo.  -->
+<!-- If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because  you know that it is incorrect.  -->
+<!-- We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results).  -->
+<!-- If there is an extreme, but legitimate value that you have determined is adversely influencing your model (i.e., by examining the assumptions and diagnostics as outlined above), you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value). -->
+<p>If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you should conduct a <a href="sensitivity-analysis.html" target="_blank">sensitivity analysis</a> to see how much this influential value may be impacting your conclusions.</p>
+<!-- ### removing observations -->
+<!-- ```{r} -->
+<!-- mwdata  <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') -->
+<!-- ``` -->
+<!-- Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is, and reduce statistical power by reducing the size of your sample.  -->
+<!-- If you do decide to remove observations, you will need to document what specific data points you excluded, and provide an explanation as to why these were excluded.  -->
+<!-- To set specific values to `NA` in our dataset (and save this updated dataset in a new object named `mwdata2`), we could use the following code. For the purpose of this demonstration, lets say that we wanted to set any `age` values of <20 as `NA`. In the original dataset `mwdata`, we had 3 individuals aged 18, and 6 aged 19, so we should end up with 9 `NA` values in `mwdata2` column `age`: -->
+<!-- ```{r} -->
+<!-- #specify age column in original dataset, where age is < 20, for values to be set to NA and save to new object named mwdata2 to avoid overwriting original data -->
+<!-- mwdata2 <-  mwdata |>  -->
+<!--     mutate(age = replace(age, age < 20, NA)) -->
+<!-- #check how many NA values we have - there should be 9 (so 9 TRUEs): -->
+<!-- table(is.na(mwdata2$age)) -->
+<!-- ``` -->
+<!-- If we wanted to remove a full row from the datset, we could use the following code. For the purpose of this demonstration, lets say that we wanted to remove all rows that were highlighted in the above assumption and diagnostic checks as potentially having an adverse influence on our model estimates: -->
+<!-- ```{r} -->
+<!-- # create new dataset 'mwdata3' without (by specifying -) identified outliers and potentially influential observations -->
+<!-- mwdata3 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ] -->
+<!-- # check dimensions - should now have 32 rows less than original dataset 200 - 32 = 168 -->
+<!-- dim(mwdata3) -->
+<!-- ``` -->
 <div class="callout callout-style-default callout-caution callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Caution</span>Additional case diagnostics
+<span class="screen-reader-only">Caution</span>Additional diagnostics (beyond the scope of DAPR2)
 </div>
 <div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
 <div id="callout-1" class="callout-1-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>We have seen that some specific individual cases in our data can influence our model more than others. We can identify these as:</p>
+<p>Some specific individual cases in our data can influence our model more than others. We can identify these as:</p>
 <ul>
 <li><strong>Regression outliers:</strong> A large residual <span class="math inline">\(\hat \epsilon_i\)</span> - i.e., a big discrepancy between their predicted y-value and their observed y-value.
 <ul>
@@ -409,34 +517,6 @@ window.Quarto = {
 </div>
 </div>
 </div>
-<section id="if-you-find-an-influential-value" class="level2">
-<h2 class="anchored" data-anchor-id="if-you-find-an-influential-value">If you find an influential value</h2>
-<p>The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a person’s height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don’t make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)!</p>
-<p>If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn’t collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an <code>NA</code>), because you know that it is incorrect.</p>
-<p>We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results).</p>
-<!-- If there is an extreme, but legitimate value that you have determined is adversely influencing your model (i.e., by examining the assumptions and diagnostics as outlined above), you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value). -->
-<p>If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach, for example, a sensitivity analysis.</p>
-<!-- ### removing observations -->
-<!-- ```{r} -->
-<!-- mwdata  <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv') -->
-<!-- ``` -->
-<!-- Removing outliers and potentially influential observations should be a last resort - not all outliers are inherently 'bad' - we do expect natural variation in our population(s) of interest. Outliers can be informative about the topic under investigation, and this is why you need to be very careful about excluding outliers due only to their 'extremeness'. In doing so, you can distort your results by removing variability - i.e., by forcing the data to be more normal and less variable than it actually is, and reduce statistical power by reducing the size of your sample.  -->
-<!-- If you do decide to remove observations, you will need to document what specific data points you excluded, and provide an explanation as to why these were excluded.  -->
-<!-- To set specific values to `NA` in our dataset (and save this updated dataset in a new object named `mwdata2`), we could use the following code. For the purpose of this demonstration, lets say that we wanted to set any `age` values of <20 as `NA`. In the original dataset `mwdata`, we had 3 individuals aged 18, and 6 aged 19, so we should end up with 9 `NA` values in `mwdata2` column `age`: -->
-<!-- ```{r} -->
-<!-- #specify age column in original dataset, where age is < 20, for values to be set to NA and save to new object named mwdata2 to avoid overwriting original data -->
-<!-- mwdata2 <-  mwdata |>  -->
-<!--     mutate(age = replace(age, age < 20, NA)) -->
-<!-- #check how many NA values we have - there should be 9 (so 9 TRUEs): -->
-<!-- table(is.na(mwdata2$age)) -->
-<!-- ``` -->
-<!-- If we wanted to remove a full row from the datset, we could use the following code. For the purpose of this demonstration, lets say that we wanted to remove all rows that were highlighted in the above assumption and diagnostic checks as potentially having an adverse influence on our model estimates: -->
-<!-- ```{r} -->
-<!-- # create new dataset 'mwdata3' without (by specifying -) identified outliers and potentially influential observations -->
-<!-- mwdata3 <- mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ] -->
-<!-- # check dimensions - should now have 32 rows less than original dataset 200 - 32 = 168 -->
-<!-- dim(mwdata3) -->
-<!-- ``` -->
 
 
 </section>

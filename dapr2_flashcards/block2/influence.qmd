@@ -9,48 +9,65 @@ source('../assets/setup.R')
 library(tidyverse)
 ```
 
-**High influence cases:** When a case has high leverage *and* is an outlier, it will have a large influence on the regression model. 
+Sometimes, individual observations that don't behave like the rest of the data can **influence** the estimates of the regression model.
 
-**Cook's Distance:** combines *leverage* with *outlyingness* to capture influence: $D_i = \text{Outlyingness} \times \text{Leverage}$.
-Cook's distance refers to the average distance the predicxted outcome values will move if a given case is removed. 
+To check the influence of each data point, we use a measure called **Cook's Distance.**
+Cook's Distance refers to the average distance the predicted outcome values will move if a given case is removed. 
 
-In `R`, the `cooks.distance(modelname)` function will provide these values.
+In R, the `cooks.distance(modelname)` function will provide these values.
 You can plot them with `plot(modelname, which = 4)`.
 
-::: {.callout-caution collapse="true"}
-#### Additional case diagnostics
+## Example
 
-We have seen that some specific individual cases in our data can influence our model more than others. We can identify these as:
+Load in some data (the mental wellbeing data from Block 1 labs):
 
-+ **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
-    + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
-    + **Studentised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `rstudent()` function will give you these.
-+ **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
-    + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
+```{r}
+mwdata <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
+head(mwdata)
+```
 
-+ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
-+ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it’s included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients. A commonly used cut-off or threshold to compare $|DFBETA|$ values (absolute values) against is $\frac{2}{\sqrt{n}}$ (see Belsley et al., (1980) p. 28 for more info)^[Belsley, D. A., Kuh, E., & Welsch, R. E. (2005). Regression diagnostics: Identifying influential data and sources of collinearity. John Wiley & Sons. DOI: 10.1002/0471725153]. 
-+ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
-+ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors. Values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence. 
 
-In R, we can get lots of these measures with the `influence.measures()` function:
+Fit a model:
 
-+ `influence.measures(my_model)` will give you out a dataframe of the various measures.
-+ `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
+```{r}
+wb_mdl <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
+```
 
-:::
 
-## If you find an influential value
+Now, we can find the Cook's Distance of each observation.
+This function will print out a value for each observation in the dataset.
+It represents how much the model's estimates will change if that particular observation were removed.
 
-The first step is to re-examine your data. It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible. Could it be the case that you have missed some impossible values (e.g., a negative value of a person's height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)! 
+```{r}
+cooks.distance(wb_mdl) |> head()
+```
 
-If there is a simple error in the data, it could be that you can fix the typo. If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because you know that it is incorrect. 
+It's easier (for me at least!) to interpret these values in a plot:
 
-We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results). 
+```{r}
+plot(wb_mdl, which = 4)
+```
+
+
+Looks like observation 109 is pretty darn influential, compared to all the rest!
+
+
+
+
+## How to handle influential values
+
+The first step is to re-examine your data. 
+<!-- It is important to be familiar with your dataset, as you need to know what values are typical, normal, and possible.  -->
+Could it be the case that you have missed some impossible values (e.g., a negative value of a person's height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don't make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)?
+
+<!-- If there is a simple error in the data, it could be that you can fix the typo.  -->
+<!-- If that is not possible (maybe you didn't collect the data, so are unsure of what the value(s) should/could be), you will need to delete the value (i.e., set as an `NA`), because  you know that it is incorrect.  -->
+
+<!-- We should aim to never change a legitimate value where possible (and remember that if you have a large dataset, a small number of extreme values will be unlikely to have a strong influence on your results).  -->
 
 <!-- If there is an extreme, but legitimate value that you have determined is adversely influencing your model (i.e., by examining the assumptions and diagnostics as outlined above), you may want to consider ways to reduce this influence (e.g., **winsorizing** -  which essentially truncates or caps the identified extreme values to a specified percentile, in turn reducing their influence on the model without completely eliminating the observation(s). For example, you could replace values below the 5th percentile with the 5th percentile value, and values above the 95th percentile with the 95th percentile value). -->
 
-If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you may need to select a different approach, for example, a sensitivity analysis.
+If after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you should conduct a [sensitivity analysis](sensitivity-analysis.html){target="_blank"} to see how much this influential value may be impacting your conclusions.
 
 
 <!-- ### removing observations -->
@@ -86,3 +103,25 @@ If after re-examining your data you cannot identify any atypical, non-normal, or
 <!-- ``` -->
 
 
+::: {.callout-caution collapse="true"}
+#### Additional diagnostics (beyond the scope of DAPR2)
+
+Some specific individual cases in our data can influence our model more than others. We can identify these as:
+
++ **Regression outliers:** A large residual $\hat \epsilon_i$ - i.e., a big discrepancy between their predicted y-value and their observed y-value.  
+    + **Standardised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals. In R, the `rstandard()` function will give you these
+    + **Studentised residuals:** For residual $\hat \epsilon_i$, divide by the estimate of the standard deviation of the residuals excluding case $i$. In R, the `rstudent()` function will give you these.
++ **High leverage cases:** These are cases which have considerable _potential_ to influence the regression model (e.g., cases with an unusual combination of predictor values). 
+    + **Hat values:** are used to assess leverage. In R, The `hatvalues()` function will retrieve these. 
+
++ **DFFit:** the change in the predicted value at the $i^{th}$ observation with and without the $i^{th}$ observation is included in the regression.  
++ **DFbeta:**  the change in a specific coefficient with and without the $i^{th}$ observation is included in the regression.  DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it’s included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients. A commonly used cut-off or threshold to compare $|DFBETA|$ values (absolute values) against is $\frac{2}{\sqrt{n}}$ (see Belsley et al., (1980) p. 28 for more info)^[Belsley, D. A., Kuh, E., & Welsch, R. E. (2005). Regression diagnostics: Identifying influential data and sources of collinearity. John Wiley & Sons. DOI: 10.1002/0471725153]. 
++ **DFbetas:**  the change in a specific coefficient divided by the standard error, with and without the $i^{th}$ observation is included in the regression.  
++ **COVRATIO:** measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation's influence on standard errors. Values which are $>1+\frac{3(k+1)}{n}$ or $<1-\frac{3(k+1)}{n}$ are considered as having strong influence. 
+
+In R, we can get lots of these measures with the `influence.measures()` function:
+
++ `influence.measures(my_model)` will give you out a dataframe of the various measures.
++ `summary(influence.measures(my_model))` will provide a nice summary of what R deems to be the influential points.
+
+:::
