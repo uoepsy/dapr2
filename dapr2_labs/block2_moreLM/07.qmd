@@ -51,7 +51,8 @@ This week, you'll run an analysis using a three-level sum-coded categorical pred
 
 :::frame
 
-RQ: **Controlling for people's pre-existing anxiety levels, is coughing before a polygraph test significantly associated with a lower-than-average heart rate during the test?**
+RQ: **Controlling for people's pre-existing anxiety levels, is coughing before a lie detector test significantly associated with a lower-than-average heart rate during the test?**
+(Apparently coughing is a way to immediately lower heart rate!)
 
 Data dictionary:
 
@@ -82,7 +83,7 @@ They recruited 142 participants (ages 22 to 64).
 Participants were told they were playing a game in which their task was to deceive the polygraph test, and they would receive financial rewards if they managed successfully.
 At the outset of the study, they completed a questionnaire which asked about their anxiety in relation to taking part.
 Participants then chose one of three strategies to prepare themselves for the test, each lasting one minute.
-These were "deep breathing", "close your eyes", or "cough" (apparently coughing is a way to immediately lower heart rate!). 
+These were "deep breathing", "close your eyes", or "cough".
 Then the average heart rate of each participant was recorded during their polygraph test.
 
 :::
@@ -96,7 +97,7 @@ Then the average heart rate of each participant was recorded during their polygr
 
 `r qbegin(qcounter())`
 
-Read in the data from  <https://uoepsy.github.io/data/polygraph.csv> and store it in a variable named `heartrate`.
+**Read in** the data from  <https://uoepsy.github.io/data/polygraph.csv> and **store** it in a variable named `heartrate`.
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -111,7 +112,7 @@ heartrate <- read_csv('https://uoepsy.github.io/data/polygraph.csv')
 
 `r qbegin(qcounter())`
 
-Make a violin plot (including jittered points and group means) to show how heart rate `hr` is associated with each pre-test calming `strategy`.
+**Make** a violin plot (including jittered points and group means) to show the distribution of heart rate `hr` values for each pre-test calming `strategy`.
 
 :::red
 🗂️
@@ -125,7 +126,7 @@ See [Exploring data visually > Violin plot](https://uoepsy.github.io/dapr2/2627/
 heartrate |>
   ggplot(aes(x = strategy, y = hr, fill = strategy, colour = strategy)) +
   geom_violin(alpha = 0.5) +
-  geom_jitter(alpha = 0.5) +
+  geom_jitter(height = 0, alpha = 0.5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
   theme(legend.position = 'none') +
   labs(
@@ -142,15 +143,30 @@ heartrate |>
 
 `r qbegin(qcounter())`
 
-First, convert `strategy` into a factor.
+First, **convert** `strategy` into a factor (don't worry about ordering levels of the factor).
 
-Then, run the following code to show the contrast matrix that R would use by default if we used `strategy` as a predictor right now:
+:::{.callout-tip collapse='true'}
+##### Code hint
+
+For a dataframe `df` with a column called `variable`, the following code will take that column and change it into a factor.
+
+```{r eval=F}
+df <- df |>
+  mutate(
+    variable = factor(variable)
+  )
+```
+
+
+:::
+
+Then, **run** the following code to show the default contrast matrix that R would use if we used `strategy` as a predictor right now:
 
 ```{r eval=F}
 contrasts(heartrate$strategy)
 ```
 
-What contrast coding scheme does this contrast matrix represent?
+**Write down:** What contrast coding scheme does this contrast matrix represent?
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -176,17 +192,23 @@ By default, R will always treatment-code a categorical predictor unless we tell 
 
 `r qbegin(qcounter())`
 
-Tell R to apply sum coding to `strategy` using the function `contr.sum()`.
-
-Give the dummy variables (the columns of the contrast matrix) more useful names that tell you which level is coded as 1 in each variable.
-
-Finally, generate the contrast matrix for `strategy` again and verify that it looks the way you'd expect.
+**Apply** sum coding to the `strategy` variable using the function `contr.sum()`.
 
 :::red
 🗂️
 See [Sum coding > Define sum coding](https://uoepsy.github.io/dapr2/2627/flashcards/block2/sum-coding.html#define-sum-coding-1){target="_blank"} flash card.
 :::
 
+
+After using `contr.sum()`, **copy and run** the following code to give the dummy variables—the columns of the contrast matrix—more useful names that tell you which level is coded as 1 in each variable.
+You don't need to know what all the bits of this code mean (unless you want to!).
+
+```{r eval=F}
+dimnames(contrasts(heartrate$strategy))[[2]] <- c('CloseEyes', 'Cough')
+```
+
+Finally, **generate** the contrast matrix for `strategy` again.
+**Verify** that it looks the way you'd expect: do the column names match up with the values labelled 1 in each dummy variable?
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
@@ -219,16 +241,18 @@ Good!
 
 `r qbegin(qcounter())`
 
+**This is a conceptual/interpretation question—no coding needed.**
+
 The model we fit later will have two coefficients which correspond to the `strategy` variable: `strategyCloseEyes` and `strategyCough`.
 (We know this because there are two columns in the contrast matrix we generated above, and two columns $\rightarrow$ two dummy variables $\rightarrow$ two coefficients.)
 
-Write a brief sentence that describes what each coefficient will mean/represent, now that we've sum-coded them.
+For each of these two sum-coded slope coefficients, **write a brief sentence** that describes what each coefficient will mean/represent.
 
-Which of those coefficients will help you address the research question?
+**Decide:** Which one of those coefficients will help you address the research question?
 
 :::red
 🗂️
-See [Sum coding > Define sum coding](https://uoepsy.github.io/dapr2/2627/flashcards/block2/sum-coding.html#define-sum-coding-1){target="_blank"} flash card.
+See [Sum coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2627/flashcards/block2/sum-coding.html#model-fit-and-interpretation-1){target="_blank"} flash card.
 :::
 
 `r qend()`
@@ -237,9 +261,9 @@ See [Sum coding > Define sum coding](https://uoepsy.github.io/dapr2/2627/flashca
 - `strategyCloseEyes`: Estimated heart rate when `strategy = CloseEyes` minus the grand mean heart rate.
 - `strategyCough`: Estimated heart rate when `strategy = Cough` minus the grand mean heart rate.
 
-The research question: **Controlling for people's pre-existing anxiety levels, is coughing before a polygraph test significantly associated with a lower-than-average heart rate during the test?**
+Let's remind ourselves of the research question: **Controlling for people's pre-existing anxiety levels, is coughing before a lie detector test significantly associated with a lower-than-average heart rate during the test?**
 
-- The coefficient that will let us address this RQ is `strategyCough`.
+- The coefficient that will let us address this RQ is `strategyCough`, which looks exactly at what we want to know: the difference between the heart rate after coughing and the overall average (grand mean) heart rate.
 
 `r solend()`
 
@@ -247,11 +271,12 @@ The research question: **Controlling for people's pre-existing anxiety levels, i
 
 `r qbegin(qcounter())`
 
-This is a synthesis/review/challenge question.
+**This is a conceptual/interpretation question—no coding needed.**
 
 The RQ specifies that we must control for people's pre-existing anxiety levels, which are contained in the continuous numeric variable `anx`.
 Therefore, we'll include `anx` as a predictor in our model, and we'll get a coefficient estimate for `anx`.
-Write a brief sentence about what this coefficient will mean/represent.
+
+Think back to Block 1 and **write a brief sentence** about what the `anx` coefficient will mean/represent.
 
 :::red
 🗂️
@@ -273,9 +298,10 @@ Recall that `anx` has been z-scored, so `anx = 0` represents mean anxiety, and `
 
 `r qbegin(qcounter())`
 
-Using the predictors you've thought about in the last couple questions, write the mathematical formulation of this model.
+**Write out** the mathematical formulation of the model we will fit.
 
-Which $\beta$ coefficient will help you address the research question?
+Hint: Your model should have three predictors. 
+You can revisit the last couple questions to identify what the predictors should be.
 
 :::red
 🗂️
@@ -292,8 +318,6 @@ $$
 \epsilon
 $$
 
-The $\beta$ coefficient that's relevant for the research question is $\beta_2$, the coefficient of $\text{strategy}_\text{Cough}$.
-
 `r solend()`
 
 
@@ -303,8 +327,9 @@ The $\beta$ coefficient that's relevant for the research question is $\beta_2$, 
 
 `r qbegin(qcounter())`
 
-Fit the linear model in R and look at the model summary.
-Also use `confint()` to generate the 95% CIs for each coefficient.
+**Fit** this linear model in R and name it `hr_mdl`.
+
+**Display** the model summary.
 
 :::red
 🗂️
@@ -317,7 +342,6 @@ See [Sum coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2
 ```{r}
 hr_mdl <- lm(hr ~ strategy + anx, data = heartrate)
 summary(hr_mdl)
-confint(hr_mdl)
 ```
 
 `r solend()`
@@ -327,21 +351,30 @@ confint(hr_mdl)
 
 `r qbegin(qcounter())`
 
-Briefly interpret each of the model's four coefficients.
+**This is a conceptual/interpretation question—no coding needed.**
 
-Then, write one sentence that responds to the research question.
-Bonus: use APA formatting to report the relevant coefficient estimates.
+**Write a sentence** for each coefficient estimated by the model to interpret/explain what it means.
 
 :::red
 🗂️
 See [Sum coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2627/flashcards/block2/sum-coding.html#model-fit-and-interpretation-1){target="_blank"} flash card.
 :::
 
+Then, **write one sentence** that answers the RQ.
+
+Bonus: in the RQ sentence, report the relevant coefficient using APA formatting.
+
+:::red
+🗂️
+See [Resources > APA formatting for regression coefficients](https://uoepsy.github.io/dapr2/2627/flashcards/resources/formatting.html#apa-formatting-for-regression-coefficients){target="_blank"} flash card.
+:::
+
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
+
 - `(Intercept)`:
-  - The grand mean heart rate for somebody with average anxiety (equal to 0, because it's z-scored) is estimated to be 53.92 bpm.
+  - For people with average anxiety, the grand mean heart rate is estimated to be 53.92 bpm.
 
 - `strategyCloseEyes`:
   - Holding anxiety constant, closing one's eyes before the polygraph test is associated with an increase of 3.03 bpm compared to the grand mean bpm.
@@ -350,11 +383,16 @@ See [Sum coding > Model fit and interpretation](https://uoepsy.github.io/dapr2/2
   - Holding anxiety constant, coughing before the polygraph test is associated with a decrease of 0.84 bpm compared to the grand mean bpm.
 
 - `anx`:
-  - Holding strategy constant, increasing one SD of anxiety is associated with an increase of 3.40 bpm.
+  - Holding calming strategy constant, somebody with anxiety one SD above the mean is estimated to have a heart rate 3.40 bpm above the grand mean.
   
+ 
+```{r}
+confint(hr_mdl) |> round(2)
+```
   
-Responding to RQ: 
-When controlling for anxiety, coughing before a polygraph test is not significantly associated with a lower-than-average heart rate during the polygraph test ($b$ = 0.84, 95% CI [–2.13, 0.44], $p$ = .20)
+The coefficient that's relevant for the RQ is `strategyCough`, so we'll focus on that one in this sentence which addresses the RQ:
+
+When controlling for anxiety, coughing before a lie detector test is not significantly associated with a lower-than-average heart rate during the test ($b$ = 0.84, 95% CI [–2.13, 0.44], $p$ = .197).
 
 ```{r include=F, eval=F}
 # sense check
@@ -381,27 +419,43 @@ predict(hr_mdl, newdata=pdat |> mutate(anx=1)) - pdat$pred
 
 `r qbegin(qcounter())`
 
+**This is a conceptual/interpretation question—no coding needed.**
 
-When you want to model a categorical predictor, you need to choose between treatment coding or sum coding.
-In order to make this choice, you must think about what coding scheme will let you address your specific RQ the best.
+When you want to use a categorical predictor, you need to choose between treatment coding or sum coding.
+How do you choose?
+Based on which coding scheme will let you address your specific RQ best.
 
-Based on the phrasing of the following RQs, which contrast coding scheme would you choose, and why? 
-(And if you choose treatment coding, what would your reference level be, and why?)
+Here are five RQs.
+Based on the phrasing of each one, **write down** which contrast coding scheme you would use, and also **explain why** you chose that one.
+And if you choose treatment coding, also **write down** your choice of reference level.
 
 1. Do schoolchildren learn better when their classroom contains natural light compared to artificial light?
 1. What kind of background sound is associated with people spending more money in restaurants: no music, pop music, or classical music?
 1. Is life satisfaction in London lower than the average life satisfaction in the UK?
 1. Do students in Psychology spend more time studying than students in PPLS on average?
-1. In a Stroop task, do autistic people perform better than neurotypical people?
+1. In a Stroop task, do neurotypical people perform worse than autistic people?
 
-Bonus: Write down a note to your future self where you describe, in your own words, how you make this decision.
+<!-- Bonus: **Write** a note to your future self where you describe, in your own words, how you make this decision. -->
 
 `r qend()`
 `r solbegin(show=params$SHOW_SOLS, toggle=params$TOGGLE)`
+
+In general, if your RQ asks you to **compare one level of a categorical variable with another level,** you should use **treatment coding.** One of the levels involved in the comparison must be the reference level.
+
+- If the variable contains a "baseline" or "default" or "general" level, that should basically always be the reference level.
+- Otherwise, there's no specific right answer.
+- I generally choose the reference level that will make the slope coefficient have the same sign (positive or negative) as the direction of the association in the research question.
+Examples in (1) and (5) below.
+
+And if your RQ asks you to **compare one level of a categorical variable with the average of that variable,** then you want **sum coding.**
+Make sure that the level involved in the comparison is not your "dropped level", the one coded as –1.
+
+<br>
+
 1. Do schoolchildren learn better when their classroom contains natural light compared to artificial light?
 
 - The RQ asks about a direct comparison between two levels of a predictor, so we want treatment coding.
-- A good reference level: artificial light, so that the slope coefficient tells us how much learning increases when a classroom gets natural light.
+- A good reference level: artificial light, so that the slope coefficient tells us how learning is different given natural light. (Either response is OK here though!)
 
 <br>
 
@@ -424,10 +478,10 @@ Bonus: Write down a note to your future self where you describe, in your own wor
 
 <br>
 
-5. In a Stroop task, do autistic people perform better than neurotypical people?
+5. In a Stroop task, do neurotypical people perform worse than autistic people?
 
 - The RQ asks about a direct comparison between two levels of a predictor, so we want treatment coding.
-- A good reference level: neurotypical, so that the slope coefficient tells us whether performance is better (and if so, by how much) for autistic people.
+- A good reference level: autistic, so that the slope coefficient tells us how performance is different for neurotypical people. (Either response is OK here though!)
 
 `r solend()`
 
