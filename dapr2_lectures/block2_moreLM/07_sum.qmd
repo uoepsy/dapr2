@@ -105,9 +105,7 @@ course_table(block3_name, block4_name, block3_lecs, block4_lecs, week = 0)
 
 <br>
 
-I challenge you to challenge yourself! Can you remember:
-
-**With a treatment-coded categorical predictor, what do a model's intercept and slope mean?**
+With a treatment-coded categorical predictor, what do a model's intercept and slope mean?
 
 <br>
 
@@ -118,6 +116,41 @@ https://app.wooclap.com/events/TFBJACH/
 :::
 :::
 
+```{r fig.width = 8, fig.height = 7.5, fig.align='center'}
+#| code-fold: true
+
+xlim_lower <- -2.2
+xlim_upper <-  2.2
+ylim_lower <- -15
+ylim_upper <-  55
+
+set.seed(1)  # seed for constant jitter
+p_xy_study <- score_data |>
+  mutate(study_num = ifelse(study == 'alone', 0, 1)) |>
+  ggplot(aes(x = study_num, y = score)) +
+  geom_jitter(aes(colour = study), height = 0, alpha = 0.25, width = 0.1, size = 5) +
+  scale_x_continuous(limits = c(xlim_lower, xlim_upper), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(ylim_lower, ylim_upper), expand = c(0, 0)) +
+  geom_segment(x = xlim_lower, xend = xlim_upper, y = 0, yend = 0,
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  geom_segment(x = 0, xend = 0, y = ylim_lower, yend = ylim_upper, 
+               arrow = arrow(ends = 'both', length = unit(12, 'pt')), colour = 'black') +
+  stat_summary(fun = mean, geom = 'point', colour = 'black', size = 8, show.legend = FALSE) +
+
+  scale_colour_manual(values = pal) +
+  theme(
+    panel.grid.minor = element_blank(),
+    legend.position = 'bottom'
+  ) +
+  labs(
+    x = 'study (in numeric space)'
+  ) +
+ guides(colour = guide_legend(override.aes = list(alpha = 1))) + 
+  geom_abline(slope = mean_others - mean_alone, intercept = mean_alone, colour = 'black', linewidth = 2) +
+  NULL
+
+p_xy_study
+```
 
 ## This week's learning objectives
 
@@ -129,19 +162,20 @@ https://app.wooclap.com/events/TFBJACH/
 ::: {.fragment}
 ::: {.dapr2callout}
 The most common contrast coding scheme is treatment coding.
-What is another common contrast coding scheme, and how is it different from treatment coding?
+Another common one is sum coding.
+What is sum coding, and how is it different from treatment coding?
 :::
 :::
 
 ::: {.fragment}
 ::: {.dapr2callout}
-When we code predictors using this other coding scheme, how do we interpret the linear model's coefficients?
+When we code predictors using sum coding, how do we interpret the linear model's coefficients?
 :::
 :::
 
 ::: {.fragment}
 ::: {.dapr2callout}
-In this other coding scheme, what hypotheses are tested for each coefficient?
+In sum coding, what hypotheses are tested for each coefficient?
 :::
 :::
 
@@ -314,9 +348,6 @@ In sum coding,
 
 ## Defining sum coding in R
 
-<br>
-
-
 R uses treatment coding by default.
 
 ```{r}
@@ -326,22 +357,27 @@ contrasts(score_data$study)
 
 <br>
 
-So to make sure that our predictor is sum-coded, we use the function `contr.sum()`.
+To sum-code our predictor, we use the function `contr.sum()`.
 
 ```{r}
 contrasts(score_data$study) <- contr.sum(2)  # 2 because there are 2 levels
+contrasts(score_data$study) <- contr.sum     # or leave out the (2), also works
+
 contrasts(score_data$study)
 ```
 
 <br>
 
-It's also possible to leave out the `(2)` and just write
+If we use this variable as-is, the model coefficient would be named `study1`.
+That's not super helpful for interpretation. 
+Something like `studyalone` would be better.
+
+Here's an R trick to relabel the variable as `alone`, the level coded as 1:
 
 ```{r}
-contrasts(score_data$study) <- contr.sum
+dimnames(contrasts(score_data$study))[[2]] <- 'alone'
 contrasts(score_data$study)
 ```
-
 
 
 
@@ -349,7 +385,7 @@ contrasts(score_data$study)
 ## Model `score ~ study`
 
 $$
-\text{score} = \beta_0 + (\beta_1 \cdot \text{study}) + \epsilon
+\text{score} = \beta_0 + (\beta_1 \cdot \text{study}_\text{alone}) + \epsilon
 $$
 
 ```{r}
@@ -364,7 +400,7 @@ summary(m1)
 
 ```{r include = F}
 m1_int <- summary(m1)$coefficients['(Intercept)', 'Estimate']
-m1_slp <- summary(m1)$coefficients['study1', 'Estimate']
+m1_slp <- summary(m1)$coefficients['studyalone', 'Estimate']
 ```
 
 
@@ -381,7 +417,8 @@ m1_slp <- summary(m1)$coefficients['study1', 'Estimate']
 ::: {.column width="50%"}
 ```{r echo=F, fig.align = 'center', fig.asp = 1}
 set.seed(1)
-p_xy_study_eff
+p_xy_study_eff +
+  NULL
 ```
 :::
 ::: {.column width="50%" style='font-size:85%;'}
@@ -421,7 +458,7 @@ summary(m1)$coefficients
 
 :::: {.columns}
 ::: {.column width="50%"}
-```{r echo=F, fig.align = 'center', fig.asp = 1}
+```{r echo=F, fig.align = 'center', fig.asp=1}
 set.seed(1)
 library(latex2exp)
 
@@ -445,7 +482,7 @@ p_xy_study_eff +
              col = dapr2red) +
   geom_label(x = 1.8, 
              y = gm-1, 
-             label = 'study1',
+             label = 'study',
              size = 10, 
              col = dapr2red) +
   NULL
@@ -466,12 +503,15 @@ summary(m1)$coefficients
 :::{.fragment  data-fragment-index="1"}
 **`(Intercept)` aka $\beta_0$:**
 
-- `r round(m1_int, 2)` is the **grand mean**: the mean of the group means.
+- `r round(m1_int, 2)` is the **grand mean** outcome: the mean of the group mean outcomes.
 
 ```{r}
-(m1_grand_mean <- mean(
-  c(mean_others, mean_alone))
- )
+m1_grand_mean <- c(
+  mean_others, 
+  mean_alone
+) |> mean()
+
+m1_grand_mean
 ```
 
 :::
@@ -480,9 +520,9 @@ summary(m1)$coefficients
 <br>
 
 :::{.fragment  data-fragment-index="2"}
-**`study1` aka $\beta_1$:**
+**`studyalone` aka $\beta_1$:**
 
-- `r round(m1_slp, 2)` is the difference between the level coded as 1, `alone`, and the grand mean.
+- `r round(m1_slp, 2)` is the difference between the mean outcome of the level coded as 1, `alone`, and the grand mean outcome.
 
 ```{r}
 mean_alone - m1_grand_mean
@@ -535,7 +575,7 @@ cat(paste0(capture.output(summary(m1)), '\n')[10:12])
 <br> 
 
 :::{.fragment}
-**`study1`:**
+**`studyalone`:**
 
 - Null hypothesis: The mean score of `alone` minus the grand mean is equal to zero.
 - $p$-value: the probability of observing a difference of `r m1_slp` (or a value more extreme), assuming that the true difference is zero.
@@ -559,7 +599,15 @@ cat(paste0(capture.output(summary(m1)), '\n')[10:12])
 **In general, the H0 being tested for a given parameter is always "this parameter is equal to 0".**
 
 
+## What questions do you have right now?
 
+<br>
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/TFBJACH/
+:::
+:::
 
 <!-- ======================================== -->
 
@@ -600,7 +648,7 @@ Like in treatment coding, each **column** contains one dummy variable.
 
 <br>
 
-Naming the dummy variables "1" and "2" isn't really helpful, so here's an R trick to rename those columns more informatively:
+Naming the dummy variables "1" and "2" isn't really helpful, so here's that R trick to rename those columns more informatively:
 
 ```{r}
 dimnames(contrasts(score_data$method))[[2]] <- c('read', 'summ')
@@ -701,11 +749,11 @@ p1 + p2
 
 The thick black line shows the grand mean = the model's intercept.
 
-**The little red vertical line represents each dummy variable's slope.**
+**The little red vertical lines represents each dummy variable's slope.**
 
 Note: once sum coding uses >2 levels, the line between group means does not give us the correct intercept or slope anymore :( 
 
-(In a 3D representation, the *plane* between group means *would* have the right grand mean and slopes.)
+<!-- (In a 3D representation, the *plane* between group means *would* have the right grand mean and slopes.) -->
 
 
 
@@ -991,21 +1039,32 @@ https://app.wooclap.com/events/TFBJACH/
 ![](figs/workflow-07.svg){fig-align="center"}
 
 
+## What questions do you have right now?
+
+<br>
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/TFBJACH/
+:::
+:::
+
+
 # Back matter {.appendix}
 
 ## Revisiting this week's learning objectives
 
 ::: {.dapr2callout}
-**The most common contrast coding scheme is treatment coding. What is another common contrast coding scheme, and how is it different from treatment coding?**
+**The most common contrast coding scheme is treatment coding. Another common one is sum coding. What is sum coding, and how is it different from treatment coding?**
 
-- Sum coding. (Outside of DAPR, you might also see it called "effects coding", "deviation coding", or "sum-to-zero coding".)
 - Treatment coding uses 0/1, and one level of the predictor (the one coded as 0) is the reference level.
 - Sum coding uses –1/1, and there is no reference level. The level coded as –1 is the "dropped" level.
+- Outside of DAPR, you might also see "sum coding" called "effects coding", "deviation coding", or "sum-to-zero coding".)
 :::
 
 
 ::: {.dapr2callout}
-**When we code predictors using this other coding scheme, how do we interpret the linear model's coefficients?**
+**When we code predictors using sum coding, how do we interpret the linear model's coefficients?**
 
 - Intercept: The grand mean of the outcome (grand mean = the mean of every group's mean).
 - Slope: The mean of the group coded as 1 minus the grand mean.
@@ -1013,7 +1072,7 @@ https://app.wooclap.com/events/TFBJACH/
 
 
 ::: {.dapr2callout}
-**In this other coding scheme, what hypotheses are tested for each coefficient?**
+**In sum coding, what hypotheses are tested for each coefficient?**
 
 - The intercept's H0: The grand mean of the outcome is equal to zero.
 - The slopes' H0: The mean of the group coded as 1 minus the grand mean is equal to zero (if multiple regression: holding other predictors constant).
@@ -1145,4 +1204,40 @@ $$
 ::::
 
 
+
+
+## Why do we have a dropped level?
+
+Why can't we just compare each group individually to the overall mean? 
+
+Such a model might look something like this:
+
+$$
+\text{score} = \beta_0 + (\beta_1 \cdot \text{read}) + (\beta_2 \cdot \text{selftest}) +  (\beta_3 \cdot \text{summarise}) + \epsilon
+$$
+
+Each score is given by an intercept plus the difference between that intercept and each group's scores.
+The mean $\mu$ of each group would be:
+
+$$
+\begin{align}
+\mu_\text{read} &= \beta_0 + (\beta_1 \cdot \text{read})\\
+\mu_\text{selftest} &= \beta_0 + (\beta_2 \cdot \text{selftest})\\
+\mu_\text{summarise} &= \beta_0 + (\beta_3 \cdot \text{summarise})\\
+\end{align}
+$$
+
+**For technical reasons, we cannot model this data this way.**
+
+We have three group means: $\mu_\text{read}$,  $\mu_\text{selftest}$,  $\mu_\text{summarise}$.
+And for mathematical reasons, that means we can only have three parameters in our model.
+But the model above has four: $\beta_0$,  $\beta_1$, $\beta_2$, $\beta_3$.
+
+In technical terms, we say the model above is **overparameterised**.
+
+<br>
+
+Treatment coding with a reference level is one way to achieve **three parameters for three group means**: one intercept for the reference level and two differences between groups for the other two levels.
+
+Sum coding with a dropped level is another way to achieve **three parameters for three group means**: one intercept for the grand mean, which leaves over only two possible comparisons.
 
