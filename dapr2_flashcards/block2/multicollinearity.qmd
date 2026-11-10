@@ -6,30 +6,43 @@ params:
 
 ```{r setup, include=FALSE}
 source('../assets/setup.R')
+library(tidyverse)
 ```
 
 For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
 
-We can assess multicollinearity using the **variance inflation factor (VIF)**, which for a given predictor $x_j$ is calculated as:  
-
-$$
-VIF_j = \frac{1}{1-R_j^2} \\
-$$
+We can assess multicollinearity using the **variance inflation factor (VIF).**
 
 
 
 The `vif()` function from the `car` package will provide VIF values (or for categorical predictors, GVIF) for each predictor in your model. 
 
 ```{r, eval=FALSE}
+library(car)
 vif(INSERT_MODEL_NAME)
 ```
 
+::: {.callout-caution collapse="true"}
+#### Mathematical formula for multicollinearity
 
-**Interpretation Guidance:**
+For a given predictor $x_j$, VIF is calculated as:  
 
-Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what you will consider an acceptable value _prior_ to calculating it. You could loosely interpret VIF values $>5$ as moderate multicollinearity and values $>10$ as severe multicollinearity. 
+$$
+VIF_j = \frac{1}{1-R_j^2} \\
+$$
+
+:::
 
 
+## Interpreting VIF
+
+Suggested cut-offs for VIF are varied. Some suggest 10, others 5.
+We'll combine those thresholds and say:
+
+- **Close to 1 is ideal.**
+- **Below 5 is low,** no need to worry.
+- **Between 5 and 10 is moderate,** start to worry here.
+- **More than 10 is severe,** cause for lots of concern.
 
 :::frame
 
@@ -38,3 +51,112 @@ Suggested cut-offs for VIF are varied. Some suggest 10, others 5. Define what yo
 Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables will help to reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself).
 
 :::
+
+## High-VIF example
+
+We have a data set called `corr_df` with an outcome variable `y` and two predictors `x1` and `x2`.
+
+```{r include=F}
+set.seed(1)
+
+n_obs <- 101
+corr_x1y  <- 0.8
+corr_x2y  <- 0.6
+# corr_x1x2 <- 0.9
+corr_x1x2 <- 0.93   
+
+corr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, corr_x1x2,
+     corr_x2y, corr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(corr_df) <- c('y', 'x1', 'x2')
+corr_df <- as_tibble(corr_df)
+```
+
+```{r}
+corr_df |> head()
+```
+
+Here's a plot that shows the correlation between `x1` and `x2`.
+
+```{r}
+corr_df |>
+  ggplot(aes(x = x1, y =  x2)) +
+  geom_point()
+```
+
+
+In `corr_df`, `x1` and `x2` are highly correlated.
+The correlation appears as a strong diagonal line.
+
+Let's fit a model and check its VIF:
+
+```{r}
+m_corr <- lm(y ~ x1 + x2, data = corr_df)
+car::vif(m_corr)
+```
+
+Because this value is above 5, the variance of each predictor is much bigger than it would be without the other predictor in the model.
+
+If you see this in real life, you should
+
+- remove one of the correlated predictors (it's not adding anything new anyway), or
+- combine them into a composite score (more on this in DAPR3!)
+
+
+## Low-VIF example
+
+Here we have a data set called `uncorr_df`, again with an outcome variable `y` and two predictors `x1` and `x2`.
+
+
+```{r include=F}
+set.seed(1)
+
+uncorr_x1x2 <- 0.0  # ideally this quantity would be low
+
+uncorr_df <- MASS::mvrnorm(
+  n = n_obs,
+  mu = c(0, 0, 0),
+  Sigma = matrix(
+    c(1, corr_x1y, corr_x2y,
+     corr_x1y, 1, uncorr_x1x2,
+     corr_x2y, uncorr_x1x2, 1),
+    nrow = 3),
+  empirical = TRUE
+  )
+
+colnames(uncorr_df) <- c('y', 'x1', 'x2')
+uncorr_df <- as_tibble(uncorr_df)
+```
+
+```{r}
+uncorr_df |> head()
+```
+
+Here's a plot that shows the correlation between `x1` and `x2`.
+
+```{r}
+uncorr_df |>
+  ggplot(aes(x = x1, y =  x2)) +
+  geom_point()
+```
+
+In `uncorr_df`, `x1` and `x2` are not very correlated.
+The lack of correlation appears as the big dispersed cloud of data points.
+
+Let's fit a model and check its VIF:
+
+```{r}
+m_uncorr <- lm(y ~ x1 + x2, data = uncorr_df)
+car::vif(m_uncorr)
+```
+
+Hurray, VIFs equal to 1! 
+This is the ideal scenario: removing one of the predictors doesn't change the variance of the other predictor at all.
