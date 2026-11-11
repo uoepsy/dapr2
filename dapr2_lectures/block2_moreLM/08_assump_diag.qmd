@@ -64,14 +64,13 @@ What assumptions do we have to make and accept in order to use a linear model?
 
 ::: {.fragment}
 ::: {.dapr2callout}
-What property of a single data point might affect a linear model's estimates? 
-How can we diagnose it?
+How do we diagnose whether a single data point is strongly influencing a linear model's estimates?
 :::
 :::
 
 ::: {.fragment}
 ::: {.dapr2callout}
-What relationship between predictors do we want to avoid? How can we diagnose it?
+How do we diagnose whether predictors are correlated to a problematic extent?
 :::
 :::
 
@@ -423,6 +422,7 @@ plot(
   cex.id = 1.5,
   cex = 1.5
 )
+qqline(rstandard(m_norm), lwd = 2, lty = 3)
 ```
 
 <!-- A few small divergences at the extremes. -->
@@ -448,6 +448,7 @@ plot(
   cex.id = 1.5,
   cex = 1.5
 )
+qqline(rstandard(m_nonnorm), lwd = 2, lty = 3)
 ```
 
 <!-- Bottom left and top right diverge a *lot*! -->
@@ -726,7 +727,7 @@ Sometimes component-residual plots aren't possible (e.g., in Block 3 when our mo
 
 If we can't use a component-residual plot, then we check linearity of association using the residuals vs fitted plots.
 
-**We want the red line to be straight and flat, matching the (tiny) dotted black line at y = 0.**
+**We want the red line to be straight and flat, matching the dotted black line at y = 0.**
 
 <br>
 
@@ -747,6 +748,7 @@ plot(
   cex.id = 1.5,
   cex = 1.5
 )
+abline(h=0, lwd = 2, lty = 3)
 ```
 :::
 ::: {.column width="4%"}
@@ -769,13 +771,14 @@ plot(
   cex.id = 1.5,
   cex = 1.5
 )
+abline(h=0, lwd = 2, lty = 3)
 ```
 :::
 ::::
 
 <!-- Same question as always: based on these plots, are we willing to accept that the association is linear enough that a linear model can tell us something useful about our data? -->
 
-The last slide shows the kind of variability you might expect the red line to show when the true association is linear.
+The previous slide also shows the kind of variability you might expect the red line to show when the true association is linear.
 
 
 ## Summary: What we must assume about the data and the model
@@ -813,55 +816,12 @@ https://app.wooclap.com/events/OXJSKKS/
 
 <br>
 
-:::: {.columns}
-::: {.column width="50%" style="font-size: 125%;" }
+1. Checking whether any data points strongly **influence** the model's estimates.
 
-Diagnosing unusual properties of <br> individual data points <br> (aka "case diagnostics"):
-
-- High influence
-
-:::
-::: {.column width="50%" style="font-size: 125%;" }
-
-Diagnosing undesirable relationships <br> between predictors:
-
-- Multicollinearity
+1. Checking whether predictors are problematically correlated with other predictors (**"multicollinearity"**).
 
 
-:::
-::::
-
-
-# High influence
-
-<!-- ## High influence -->
-
-<!-- A single observation might influence our model's estimates more than it should if  -->
-
-<!-- - it has an unusual value for the outcome variable (i.e., if it's an outlier), -->
-<!-- - it has an unusual value for the predictor variable (i.e., if it has high leverage), -->
-<!-- - or both. -->
-
-<!-- <br> -->
-
-<!-- ::::{.columns} -->
-<!-- :::{.column width="33%"} -->
-<!-- **Outlier:** -->
-
-<!-- <img src="figs/outl.svg" width="300px"/> -->
-<!-- ::: -->
-<!-- :::{.column width="33%"} -->
-<!-- **High leverage:** -->
-
-<!-- <img src="figs/levg.svg" width="300px"/> -->
-<!-- ::: -->
-<!-- :::{.column width="33%"} -->
-<!-- **Outlier with high leverage:** -->
-
-<!-- <img src="figs/infl.svg" width="300px"/> -->
-<!-- ::: -->
-<!-- :::: -->
-
+# 1. Influence
 
 ## How can one point influence a model?
 
@@ -918,10 +878,7 @@ To see how much each data point influences the model's estimates, we use a measu
 
 ## Cook's distance
 
-<br>
-
 Cook's distance measures **the average distance that the predicted outcome values will move, if a given data point is removed** (mathy details in back matter).
-
 
 ```{r include=F}
 m_infl <- lm(y_infl ~ x, df_infl)
@@ -938,6 +895,7 @@ cooks.distance(m_infl) |> head()
 
 <br>
 
+
 ::::{.columns}
 :::{.column width="30%"}
 
@@ -952,7 +910,9 @@ plot(
 :::
 :::{.column width="70%"}
 
-```{r echo=F, fig.width = 7, fig.height = 4, fig.align = 'center'}
+```{r echo=F, fig.width = 7, fig.height = 3.5, fig.align = 'center'}
+par(mar = c(4, 5, 2, 0))  # bltr
+
 plot(
   m_infl,
   which = 4,
@@ -969,8 +929,20 @@ plot(
 
 Data point 25 has by far the greatest influence on the model's estimates.
 
+**Rule of thumb: If the biggest Cook's Distance is more than twice as big as the next-biggest Cook's Distance, you should investigate that data point further.**
 
-## Vote: What to do if you find unusual data points
+## Practice applying this rule of thumb
+
+<br>
+
+:::hcenter
+:::woo
+https://app.wooclap.com/events/OXJSKKS/
+:::
+:::
+
+
+## Vote: What to do if you find a <br> high-influence data point
 
 <br>
 
@@ -1070,7 +1042,7 @@ So we could just write something like
 
 
 
-# Multicollinearity
+# 2. Multicollinearity
 
 ## Multicollinearity
 
@@ -1136,19 +1108,25 @@ VIF measures **how much the standard error of a predictor is increased by correl
 
 <br> 
 
-Intepreting VIF:
+Interpreting VIF:
 
-- **Close to 1 is ideal.**
-- **Below 5 is low,** no need to worry.
-- **Between 5 and 10 is moderate,** start to worry here.
-- **More than 10 is severe,** very not good.
+- **Close to 1** is ideal.
+- **Below 5** is low, no need to worry.
+- **Between 5 and 10** is moderate, start to worry here.
+- **More than 10** is severe, very not good.
 
-If VIF > 5, remove one of the correlated predictors (it's not adding anything new anyway), or combine them into a composite score (more on this in DAPR3!)
+<br>
+
+If VIF is moderate/high **for your key predictors**, then that's bad news for your analysis.
+The estimates for the predictors you care about will be less precise.
+
+- You'll learn in DAPR3 the best way to deal with this scenario: by making a "composite measure" from the correlated variables and using *that* as your predictor.
+
+If VIF is moderate/high **for covariate/control variables**, that's fine.
+The key thing is that those predictors are in the model somewhere—it's fine if they're multicollinear.
 
 
-
-## VIF in R
-
+## Finding VIF in R
 
 Here's a dataset that I simulated to have highly correlated predictors `x1` and `x2`:
 
@@ -1181,7 +1159,7 @@ m_corr <- lm(y ~ x1 + x2, data = corr_df)
 car::vif(m_corr)
 ```
 
-VIF > 5, which means that **the variance in the model is much bigger with both predictors included than it would be if either one of them were left out.**
+VIF > 5, which means that **the variance in the model has been inflated quite a bit** because of how much information `x1` and `x2` share.
 
 
 
@@ -1191,6 +1169,13 @@ VIF > 5, which means that **the variance in the model is much bigger with both p
 
 ![](figs/workflow-07.svg){fig-align="center"}
 
+## Building an analysis workflow {visibility="uncounted"}
+
+![](figs/workflow-07a.svg){fig-align="center"}
+
+## Building an analysis workflow {visibility="uncounted"}
+
+![](figs/workflow-07b.svg){fig-align="center"}
 
 ## Building an analysis workflow {visibility="uncounted"}
 
@@ -1223,19 +1208,23 @@ https://app.wooclap.com/events/OXJSKKS/
 
 
 ::: {.dapr2callout}
-**What property of a single data point might affect a linear model's estimates? 
-How can we diagnose it?**
+**How do we diagnose whether a single data point is strongly influencing a linear model's estimates?**
 
-- High influence: an unusual value for the outcome and/or the predictor. 
-- Diagnose using Cook's Distance.
+- We diagnose the influence of each observation using Cook's Distance.
+- If an observation has a Cook's Distance more than two times as big as the next-biggest Cook's Distance, then it's worth investigating what impact it might actually have on our conclusions.
+- How do we investigate this? By doing a sensitivity analysis.
+
 :::
 
 ::: {.dapr2callout}
-**What relationship between predictors do we want to avoid? How can we diagnose it?**
+**How do we diagnose whether predictors are correlated to a problematic extent?**
 
-- We want to avoid predictors being highly correlated with one another. If they are, we call the situation "multicollinearity".
-- When predictors are highly correlated, they contain very similar information, so the model is very uncertain how each one individually is associated with the outcome.
-- Diagnose multicollinearity with the Variance Inflation Factor (VIF).
+- This situation is called "multicollinearity".
+<!-- - When predictors are highly correlated, they contain very similar information, which makes the model's estimates less precise, which makes the p-values larger, which makes a Type II error more likely (that is, failing to reject the null when really we should be rejecting it). -->
+- We diagnose multicollinearity with the Variance Inflation Factor (VIF), or for categorical variables GVIF.
+- We want our key predictor(s) to have VIF or GVIF values below 5.
+- If other predictors (covariates, control variables) have higher VIFs or GVIFs, that's OK.
+
 :::
 
 
@@ -1393,8 +1382,9 @@ sim_lm <- function(){
   df <- tibble(
     x = 1:n_obs,
     error = rnorm(n_obs, mean = 0, sd = sigma),  
-    # ^ normality + equal variance of error: error is independently sampled
-    # from a normal distribution
+    # ^ independence + normality + equal variance of error: 
+    # each error is sampled independently from a normal distribution
+    # with the same SD throughout
     y = int + (slp * x) + error  
     # ^ linearity: y is linearly associated with x
   )
@@ -1439,6 +1429,10 @@ png(filename = 'figs/woo/08-rf-quadratic.png', width = 550, height = 600, points
 plot(m_quadratic, which = 1)
 abline(h = 0, lwd = 2, lty = 3)
 dev.off()
+
+png(filename = 'figs/woo/08-cd-quadratic.png', width = 550, height = 600, pointsize = 24)
+plot(m_quadratic, which = 4)
+dev.off()
 ```
 
 
@@ -1467,6 +1461,10 @@ dev.off()
 png(filename = 'figs/woo/08-rf-normal.png', width = 550, height = 600, pointsize = 24)
 plot(m_normal, which = 1)
 abline(h = 0, lwd = 2, lty = 3)
+dev.off()
+
+png(filename = 'figs/woo/08-cd-normal.png', width = 550, height = 600, pointsize = 24)
+plot(m_normal, which = 4)
 dev.off()
 ```
 
@@ -1502,6 +1500,10 @@ png(filename = 'figs/woo/08-rf-sqrt.png', width = 550, height = 600, pointsize =
 plot(m_sqrt, which = 1)
 abline(h = 0, lwd = 2, lty = 3)
 dev.off()
+
+png(filename = 'figs/woo/08-cd-sqrt.png', width = 550, height = 600, pointsize = 24)
+plot(m_sqrt, which = 4)
+dev.off()
 ```
 
 
@@ -1536,5 +1538,9 @@ dev.off()
 png(filename = 'figs/woo/08-rf-skewed.png', width = 550, height = 600, pointsize = 24)
 plot(m_skewed, which = 1)
 abline(h = 0, lwd = 2, lty = 3)
+dev.off()
+
+png(filename = 'figs/woo/08-cd-skewed.png', width = 550, height = 600, pointsize = 24)
+plot(m_skewed, which = 4)
 dev.off()
 ```
