@@ -284,7 +284,7 @@
     "href": "block2/multicollinearity.html",
     "title": "Checking multicollinearity",
     "section": "",
-    "text": "For the linear model with multiple explanatory variables, we need to also think about multicollinearity - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.\nWe can assess multicollinearity using the variance inflation factor (VIF).\nThe vif() function from the car package will provide VIF values (or for categorical predictors, GVIF) for each predictor in your model.\nlibrary(car)\nvif(INSERT_MODEL_NAME)",
+    "text": "When predictors are correlated, we call this “multicollinearity”. It’s often the case that predictors are a little bit correlated. But what we don’t want is predictors to be highly correlated. When predictors are highly correlated, the model doesn’t know what information comes from which predictor, so the variance of its estimates increases (that is, the precision becomes worse).",
     "crumbs": [
       "Block 2: Extending LM",
       "Checking multicollinearity"
@@ -1311,6 +1311,83 @@
     "crumbs": [
       "Block 2: Extending LM",
       "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/multicollinearity.html#when-is-multicollinearity-a-problem-when-is-it-not",
+    "href": "block2/multicollinearity.html#when-is-multicollinearity-a-problem-when-is-it-not",
+    "title": "Checking multicollinearity",
+    "section": "When is multicollinearity a problem? When is it not?",
+    "text": "When is multicollinearity a problem? When is it not?\nMulticollinearity is a problem when the key predictor(s) of interest—the ones that will help us address our RQ—are highly collinear with other predictors in the model.\nWhy is this a problem? Because the standard error of our key predictor(s) will be larger, which means a less precise estimate, which means that our p-value for that predictor will be bigger, which means that we’re more likely to make a Type II error (failing to reject the null hypothesis when we actually should be rejecting it).\nMulticollinearity is not a problem when the only predictors that are highly collinear are covariates or control variables. In those cases, it only matters that they’re in the model at all—our goal is to control for them, not interpret them.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/multicollinearity.html#measuring-multicollinearity-using-vif",
+    "href": "block2/multicollinearity.html#measuring-multicollinearity-using-vif",
+    "title": "Checking multicollinearity",
+    "section": "Measuring multicollinearity using VIF",
+    "text": "Measuring multicollinearity using VIF\nWe assess multicollinearity using the variance inflation factor (VIF).\nThe vif() function from the car package will provide VIF values (or for categorical predictors, GVIF) for each predictor in your model.\n\nlibrary(car)\nvif(INSERT_MODEL_NAME)\n\n\n\n\n\n\n\nCautionMathematical formula for multicollinearity\n\n\n\n\n\nFor a given predictor \\(x_j\\), VIF is calculated as:\n\\[\nVIF_j = \\frac{1}{1-R_j^2} \\\\\n\\]\n\n\n\n\nInterpreting VIF values\nSuggested cut-offs for VIF are varied. Some suggest 10, others 5. We’ll combine those thresholds and say:\n\nClose to 1 is ideal.\nBelow 5 is low, no need to worry.\nBetween 5 and 10 is moderate, start to worry here.\nMore than 10 is severe, cause for lots of concern.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/multicollinearity.html#what-do-we-do-if-we-have-high-vif",
+    "href": "block2/multicollinearity.html#what-do-we-do-if-we-have-high-vif",
+    "title": "Checking multicollinearity",
+    "section": "What do we do if we have high VIF?",
+    "text": "What do we do if we have high VIF?\nActually dealing with correlated predictors is beyond the scope of DAPR2.\n\n\n\n\n\n\nCautionBut I want to know anyway\n\n\n\n\n\nIn DAPR3, you’ll learn how to combine multiple variables into a “composite measure”: a single variable that’s a compressed version of the original variables and contains much of the same information that they contained.\nYou can make a composite measure out of the correlated predictors, and then use that composite measure to replace the original collinear predictors in the linear model.\n\n\n\nFor now, we just want you to know what effect multicollinearity has on model estimates and to be able to identify it.\nOne thing you should not do if you have high VIF is delete correlated predictors just because they’re correlated. Your predictors are in your model for a reason—because your RQ wants them there, or because they’re important covariates or control variables. So it’s important that they stay.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/multicollinearity.html#examples",
+    "href": "block2/multicollinearity.html#examples",
+    "title": "Checking multicollinearity",
+    "section": "Examples",
+    "text": "Examples\n\nHigh VIF\nWe have a data set called corr_df with an outcome variable y and two predictors x1 and x2.\n\ncorr_df |&gt; head()\n\n# A tibble: 6 x 3\n       y     x1     x2\n   &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;\n1 -1.65  -1.29  -0.973\n2  0.305  0.655  0.869\n3  1.62   1.96   1.33 \n4 -1.55  -1.94  -1.10 \n5 -0.384 -1.27  -1.69 \n6 -0.797 -0.659 -0.812\n\n\nHere’s a plot that shows the correlation between x1 and x2.\n\ncorr_df |&gt;\n  ggplot(aes(x = x1, y =  x2)) +\n  geom_point()\n\n\n\n\n\n\n\n\nIn corr_df, x1 and x2 are highly correlated. The correlation appears as a strong diagonal line.\nLet’s fit a model and check its VIF:\n\nm_corr &lt;- lm(y ~ x1 + x2, data = corr_df)\ncar::vif(m_corr)\n\n x1  x2 \n7.4 7.4 \n\n\nBecause this value is above 5, the variance of each predictor is much bigger than it would be without the other predictor in the model.\n\n\nLow VIF\nHere we have a data set called uncorr_df, again with an outcome variable y and two predictors x1 and x2.\n\nuncorr_df |&gt; head()\n\n# A tibble: 6 x 3\n       y     x1      x2\n   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;\n1 -1.40  -0.604 -1.53  \n2  0.667  0.875 -0.0539\n3  1.78   1.21   1.35  \n4 -1.67  -1.05  -1.38  \n5 -1.22  -1.80   0.353 \n6 -0.814 -0.596 -0.561 \n\n\nHere’s a plot that shows the correlation between x1 and x2.\n\nuncorr_df |&gt;\n  ggplot(aes(x = x1, y =  x2)) +\n  geom_point()\n\n\n\n\n\n\n\n\nIn uncorr_df, x1 and x2 are not very correlated. The lack of correlation appears as the big dispersed cloud of data points.\nLet’s fit a model and check its VIF:\n\nm_uncorr &lt;- lm(y ~ x1 + x2, data = uncorr_df)\ncar::vif(m_uncorr)\n\nx1 x2 \n 1  1 \n\n\nHurray, VIFs equal to 1! This is the ideal scenario: removing one of the predictors doesn’t change the variance of the other predictor at all.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/multicollinearity.html#for-block-3-multicollinearity-in-interaction-models",
+    "href": "block2/multicollinearity.html#for-block-3-multicollinearity-in-interaction-models",
+    "title": "Checking multicollinearity",
+    "section": "For Block 3: Multicollinearity in interaction models",
+    "text": "For Block 3: Multicollinearity in interaction models\nInteraction terms often result in multicollinearity, because interaction terms are the product of the original predictors. So of course they’re correlated: they’re mathematically very closely related!\nHere’s a trick: if you have problematic multicollinearity for your interaction term, then try mean-centering the interacting predictors. Often this will help reduce the VIF/GVIF.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Checking multicollinearity"
+    ]
+  },
+  {
+    "objectID": "block2/influence.html#how-influential-is-too-influential",
+    "href": "block2/influence.html#how-influential-is-too-influential",
+    "title": "Influential observations",
+    "section": "How influential is “too” influential?",
+    "text": "How influential is “too” influential?\nIn the plot above, it looks like the Cook’s distance of observation 109 is about three times larger than the next-largest Cook’s distance, that of observation 53.\nOur rule of thumb is to eyeball the plot to check if you have a single observation with a Cook’s distance that appears more than two times larger than the next-biggest Cook’s distance. If you do (like we do above), then that’s an observation worth investigating.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Influential observations"
+    ]
+  },
+  {
+    "objectID": "block2/influence.html#how-to-investigate-highly-influential-values",
+    "href": "block2/influence.html#how-to-investigate-highly-influential-values",
+    "title": "Influential observations",
+    "section": "How to investigate highly influential values",
+    "text": "How to investigate highly influential values\nThe first step is to re-examine your data. Could it be the case that you have missed some impossible values (e.g., a negative value of a person’s height), values outwith the possible range (e.g., a score of 55 on a survey where scores can only range 10-50), values that don’t make any sense (e.g., an age of 200), or maybe there are even typos / data entry errors (e.g., forgetting to put a decimal point, so having a height of 152m instead of 1.52m)?\nIf after re-examining your data you cannot identify any atypical, non-normal, or impossible values, you should conduct a sensitivity analysis to see how much this influential value may be impacting your conclusions.\n \n\n\n\n\n\n\nCautionOther influence diagnostics (beyond the scope of DAPR2)\n\n\n\n\n\n\nDFFit: the change in the predicted value at the \\(i^{th}\\) observation with and without the \\(i^{th}\\) observation is included in the regression.\n\nDFbeta: the change in a specific coefficient with and without the \\(i^{th}\\) observation is included in the regression. DFbeta represents the difference in the beta coefficients when a case is excluded from the model versus when it’s included. A large DFbeta value would suggest that a case has a substantial impact on the estimated coefficients, and thus a high influence on the model results; a small DFbeta value would suggest that the case has less influence on the estimated coefficients. A commonly used cut-off or threshold to compare \\(|DFBETA|\\) values (absolute values) against is \\(\\frac{2}{\\sqrt{n}}\\) (see Belsley et al., (1980) p. 28 for more info)1.\nDFbetas: the change in a specific coefficient divided by the standard error, with and without the \\(i^{th}\\) observation is included in the regression.\n\nCOVRATIO: measures the effect of an observation on the covariance matrix of the parameter estimates. In simpler terms, it captures an observation’s influence on standard errors. Values which are \\(&gt;1+\\frac{3(k+1)}{n}\\) or \\(&lt;1-\\frac{3(k+1)}{n}\\) are considered as having strong influence.\n\nIn R, we can get lots of these measures with the influence.measures() function:\n\ninfluence.measures(my_model) will give you out a dataframe of the various measures.\nsummary(influence.measures(my_model)) will provide a nice summary of what R deems to be the influential points.",
+    "crumbs": [
+      "Block 2: Extending LM",
+      "Influential observations"
     ]
   }
 ]

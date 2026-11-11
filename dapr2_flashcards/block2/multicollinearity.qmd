@@ -9,11 +9,27 @@ source('../assets/setup.R')
 library(tidyverse)
 ```
 
-For the linear model with **multiple** explanatory variables, we need to also think about **multicollinearity** - this is when two (or more) of the predictors in our regression model are moderately or highly correlated.  
+When predictors are correlated, we call this "multicollinearity".
+It's often the case that predictors are a little bit correlated.
+But what we don't want is predictors to be *highly* correlated.
+When predictors are highly correlated, the model doesn't know what information comes from which predictor, so the variance of its estimates increases (that is, the precision becomes worse).
 
-We can assess multicollinearity using the **variance inflation factor (VIF).**
+## When is multicollinearity a problem? When is it not?
+
+Multicollinearity is a problem when the key predictor(s) of interest—the ones that will help us address our RQ—are highly collinear with other predictors in the model.
+
+Why is this a problem?
+Because the standard error of our key predictor(s) will be larger, which means a less precise estimate, which means that our p-value for that predictor will be bigger, which means that we're more likely to make a Type II error (failing to reject the null hypothesis when we actually should be rejecting it).
 
 
+
+Multicollinearity is *not* a problem when the only predictors that are highly collinear are covariates or control variables.
+In those cases, it only matters that they're in the model at all—our goal is to control for them, not interpret them.
+
+
+## Measuring multicollinearity using VIF
+
+We assess multicollinearity using the **variance inflation factor (VIF).**
 
 The `vif()` function from the `car` package will provide VIF values (or for categorical predictors, GVIF) for each predictor in your model. 
 
@@ -34,7 +50,7 @@ $$
 :::
 
 
-## Interpreting VIF
+### Interpreting VIF values
 
 Suggested cut-offs for VIF are varied. Some suggest 10, others 5.
 We'll combine those thresholds and say:
@@ -44,15 +60,30 @@ We'll combine those thresholds and say:
 - **Between 5 and 10 is moderate,** start to worry here.
 - **More than 10 is severe,** cause for lots of concern.
 
-:::frame
 
-[**Block 3 note: Multicollinearity in interaction models**]{style="color:darkred;"}
+## What do we do if we have high VIF?
 
-Interaction terms often result in multicollinearity, because these terms are made up of the product of some ‘main effects’. Mean-centering the variables will help to reduce this source of structural multicollinearity (“structural” here refers to the fact that multicollinearity is due to our model specification, rather than the data itself).
+Actually dealing with correlated predictors is beyond the scope of DAPR2.
+
+::: {.callout-caution collapse="true"}
+#### But I want to know anyway
+
+In DAPR3, you'll learn how to combine multiple variables into a "composite measure": a single variable that's a compressed version of the original variables and contains much of the same information that they contained.
+
+You can make a composite measure out of the correlated predictors, and then use that composite measure to replace the original collinear predictors in the linear model.
 
 :::
 
-## High-VIF example
+For now, we just want you to know what effect multicollinearity has on model estimates and to be able to identify it.
+
+One thing you should *not* do if you have high VIF is delete correlated predictors just because they're correlated.
+Your predictors are in your model for a reason—because your RQ wants them there, or because they're important covariates or control variables.
+So it's important that they stay.
+
+
+## Examples
+
+### High VIF
 
 We have a data set called `corr_df` with an outcome variable `y` and two predictors `x1` and `x2`.
 
@@ -105,13 +136,8 @@ car::vif(m_corr)
 
 Because this value is above 5, the variance of each predictor is much bigger than it would be without the other predictor in the model.
 
-If you see this in real life, you should
 
-- remove one of the correlated predictors (it's not adding anything new anyway), or
-- combine them into a composite score (more on this in DAPR3!)
-
-
-## Low-VIF example
+### Low VIF
 
 Here we have a data set called `uncorr_df`, again with an outcome variable `y` and two predictors `x1` and `x2`.
 
@@ -160,3 +186,13 @@ car::vif(m_uncorr)
 
 Hurray, VIFs equal to 1! 
 This is the ideal scenario: removing one of the predictors doesn't change the variance of the other predictor at all.
+
+
+
+## For Block 3: Multicollinearity in interaction models
+
+Interaction terms often result in multicollinearity, because interaction terms are the product of the original predictors.
+So of course they're correlated: they're mathematically very closely related!
+
+Here's a trick: if you have problematic multicollinearity for your interaction term, then try mean-centering the interacting predictors.
+Often this will help reduce the VIF/GVIF.
