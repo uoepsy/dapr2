@@ -15,7 +15,7 @@ library(car)
 library(broom.mixed)
 
 # Read in data
-attend_df <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
+attend_df <- read_csv("https://uoepsy.github.io/data/UGattendance.csv")
 
 # rename Conscientiousness because it's a lot to type
 attend_df <- attend_df |>
@@ -63,14 +63,15 @@ attend_df <- attend_df |>
 contrasts(attend_df$Consc)
 # - Reference level = `Low`, and two dummy variables which compare `Low` to `Moderate` and `Low` to `High`.
 
-# - Next, `Year` has many levels: Y1, Y2, Y3, Y4, MSc, and PhD.
-# - This is also not alphabetical, so we'll specify manually.
+# - Next, `Year` has many levels: Y1, Y2, Y3, Y4.
+# - We are comparing further years of study back to Y1, so we'll use Y1 as our reference level.
+# - Factor levels will end up in the right order, so we don't need to manually define them.
 attend_df <- attend_df |>
   mutate(
-    Year = factor(Year, c('Y1', 'Y2', 'Y3', 'Y4', 'MSc', 'PhD'))
+    Year = factor(Year)
   )
 contrasts(attend_df$Year)
-# - `Y1` is the ref level, and we have five dummy variables which compare Y1 to each following year.
+# - `Y1` is the ref level, and we have three dummy variables which compare Y1 to each following year.
 
 # Set up continuous predictors –  NA.
 
@@ -104,7 +105,7 @@ p_year <- attend_df |>
   theme(legend.position = 'none')
 p_year
 
-# - Patchwork violin plots together:
+# - Patchwork the violin plots together for the report:
 p_consc + p_year
 
 
@@ -115,29 +116,13 @@ p_consc + p_year
 #   $$
 #     \text{Attendance} = \beta_0 + 
 #     (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
-#     (\beta_2 \cdot \text{Consc}_\text{High}) +  \\
+#     (\beta_2 \cdot \text{Consc}_\text{High}) +
 #     (\beta_3 \cdot \text{Year}_\text{Y2}) + 
 #     (\beta_4 \cdot \text{Year}_\text{Y3}) + 
 #     (\beta_5 \cdot \text{Year}_\text{Y4}) + 
-#     (\beta_6 \cdot \text{Year}_\text{MSc}) + 
-#     (\beta_7 \cdot \text{Year}_\text{PhD}) + 
 #     \epsilon
 #   $$
 
-# - A nicely aligned version:
-#   $$
-#   \begin{align}
-#   \text{Attendance } =& \beta_0 + 
-#     (\beta_1 \cdot \text{Consc}_\text{Moderate}) + 
-#     (\beta_2 \cdot \text{Consc}_\text{High}) ~ + \\
-#   & (\beta_3 \cdot \text{Year}_\text{Y2}) + 
-#     (\beta_4 \cdot \text{Year}_\text{Y3}) + 
-#     (\beta_5 \cdot \text{Year}_\text{Y4}) + \\
-#   & (\beta_6 \cdot \text{Year}_\text{MSc}) + 
-#     (\beta_7 \cdot \text{Year}_\text{PhD}) + 
-#     \epsilon \\
-#   \end{align}
-#   $$
   
 # - NOTE: Incorrect model formula (because disregards dummy variables):
 #   $$
@@ -149,10 +134,11 @@ p_consc + p_year
   
   
 # Explicitly define the hypotheses that your RQ is aiming to test.
-# - We want to know whether there are significant associations between any dummy variable and Attendance, so:
+# - Essentially we want to know whether there are significant associations 
+#   between any dummy variable and Attendance, so:
 #   $$
 #   \begin{align}
-#   H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2, 3, 4, 5, 6, 7\\
+#   H_0 &: \text{ All } \beta_j = 0 \text{ for } j = 1, 2, 3, 4, 5\\
 #   H_1 &: \text{ Any } \beta_j \neq 0\\
 #   \end{align}
 #   $$
@@ -197,36 +183,22 @@ plot(attend_mdl, which = 4)
 summary(attend_mdl)
 confint(attend_mdl) |> round(2)
 # - `(Intercept)`
-#   - The estimated mean attendance for people with low conscientiousness (Consc = 0 = Low) in first-year (Year = 0 = Y1) is 14.57 days.
+#   - The estimated mean attendance for people with low conscientiousness (Consc = 0 = Low) in first-year (Year = 0 = Y1) is 14.41 days.
 # 
 # - `ConscModerate`
-#   - Holding year of study constant, moving from low conscientiousness to moderate conscientiousness is associated with an estimated increase in attendance of 10.80 days.
-#   - This estimate is significantly different from zero (p < .001).
+#   - Holding year of study constant, moving from low conscientiousness to moderate conscientiousness is associated with an estimated increase in attendance of 11.26 days.
 # 
 # - `ConscHigh`
-#   - Holding year of study constant, moving from low conscientiousness to high conscientiousness is associated with an estimated increase in attendance of 18.24 days.
-#   - This estimate is significantly different from zero (p < .001).
+#   - Holding year of study constant, moving from low conscientiousness to high conscientiousness is associated with an estimated increase in attendance of 18.09 days.
 # 
 # - `YearY2`
-#   - Holding conscientiousness constant, moving from Y1 to Y2 is associated with an estimated increase in attendance of 4.76 days.
-#   - This estimate is significantly different from zero (p = 0.004).
+#   - Holding conscientiousness constant, moving from Y1 to Y2 is associated with an estimated increase in attendance of 4.78 days.
 # 
 # - `YearY3`
-#   - Holding conscientiousness constant, moving from Y1 to Y3 is associated with an estimated increase in attendance of 3.44 days.
-#   - This estimate is not significantly different from zero (p = 0.07).
+#   - Holding conscientiousness constant, moving from Y1 to Y3 is associated with an estimated increase in attendance of 3.51 days.
 # 
 # - `YearY4`
-#   - Holding conscientiousness constant, moving from Y1 to Y4 is associated with an estimated increase in attendance of 4.60 days.
-#   - This estimate is significantly different from zero (p = 0.013).
-# 
-# - `YearMSc`
-#   - Holding conscientiousness constant, moving from Y1 to MSc is associated with an estimated increase in attendance of 5.96 days.
-#   - This estimate is significantly different from zero (p = 0.004).
-# 
-# - `YearPhD`   
-#   - Holding conscientiousness constant, moving from Y1 to PhD is associated with an estimated increase in attendance of 12.57 days.
-#   - This estimate is significantly different from zero (p < 0.001).
-
+#   - Holding conscientiousness constant, moving from Y1 to Y4 is associated with an estimated increase in attendance of 4.63 days.
 
 # Generate a nicely-formatted regression table.
 tidy(attend_mdl) |>
