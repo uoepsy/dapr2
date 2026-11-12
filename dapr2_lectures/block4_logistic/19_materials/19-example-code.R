@@ -180,15 +180,17 @@ plogis( coef(delay_mdl)[[1]] )  # or 65% probability
 
 
 # Generate a nicely-formatted regression table.
-tab_model(
-  delay_mdl,
-  transform = NULL,  # display coefficients as log-odds
-  dv.labels = 'Log-odds of delaying gratification',
-  pred.labels = c(
-    'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
-  ),
-  title = "Logistic regression model coefficient estimates"
-)
+tidy(delay_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Logistic model coefficient estimates (in log-odds space)'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) 
 # - NA.

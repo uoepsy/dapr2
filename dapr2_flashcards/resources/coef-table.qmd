@@ -57,7 +57,9 @@ The code chunk below has the following header line, which defines the label we'l
 tidy(recall_multi) |>
   mutate(
     estimate = round(estimate, 2),
-    std.error = round(std.error, 2)
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
   ) |>
   kable(
     booktabs = TRUE, 
@@ -76,6 +78,47 @@ To refer to this table in your Rmd file, write:
 This will appear as "Here I am cross-referencing Table 1".
 
 For more detail on table formatting and cross-referencing, see the [DAPR1 table formatting resources](https://uoepsy.github.io/dapr1/2526/labs/zf_formatting_resources.html#referencing-tables){target="_blank"}.
+
+**Bonus: If you want to make this table appear fully publication-ready, then there are a couple ways you can tidy it up (you will see examples of these in the write-up week lab solutions):**
+
+1. Rename the columns so they are formatted a bit more nicely. (Note: for logistic regression, `t-value` must become `z-value`!)
+2. Relabel the coefficients so that they are not in your specific R coefficient notation, but worded in a way that any reader would understand.
+
+```{r}
+tidy(recall_multi) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `t-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept',
+      Term == 'recall_confidence' ~ 'Recall confidence',
+      Term == 'age' ~ 'Age'
+    )
+  ) |>
+  # back to our regularly scheduled programming (ha ha)
+  kable(
+    booktabs = TRUE, 
+    caption = 'This is my caption'
+    # when you render to PDF (not to HTML as we are doing here), 
+    # the caption will appear as "Table 1: This is my caption"
+  )
+```
+
 
 
 ## `modelsummary()` from `modelsummary`

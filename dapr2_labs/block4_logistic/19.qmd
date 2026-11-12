@@ -22,6 +22,7 @@ library(patchwork)
 library(car)
 library(interactions)
 library(effects)
+library(broom.mixed)
 
 qcounter <- function(){
   if(!exists("qcounter_i")){
@@ -73,7 +74,8 @@ But you may refer to them for stylistic guidance.
     - `kableExtra`
     - `car`
     - `effects`
-   
+    - `broom.mixed`
+
 :::
 
 ---
@@ -136,6 +138,7 @@ library(sjPlot)
 library(kableExtra)
 library(car)
 library(effects)
+library(broom.mixed)
 
 # Read in data
 delay_data <- read_csv('https://uoepsy.github.io/data/mallow2_cleaned.csv')
@@ -303,15 +306,17 @@ plogis( coef(delay_mdl)[[1]] )  # or 65% probability
 
 
 # Generate a nicely-formatted regression table.
-tab_model(
-  delay_mdl,
-  transform = NULL,  # display coefficients as log-odds
-  dv.labels = 'Log-odds of delaying gratification',
-  pred.labels = c(
-    'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
-  ),
-  title = "Logistic regression model coefficient estimates"
-)
+tidy(delay_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Logistic model coefficient estimates (in log-odds space)'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) 
 # - NA.
@@ -468,10 +473,11 @@ Additionally, children appear to delay gratification more when the marshmallow i
 - [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
 - [ ] If categorical predictors, describe contrast coding, e.g.: "X1 has two levels, A (coded as –1) and B (coded as 1)".
 - [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
-- [ ] For each model assumption, state whether you are satisfied that the assumption has been met.
-- [ ] Include plots for each assumption check as figures in the Appendix section of the document (and refer to them in the main text).
+- [ ] For each model assumption, state whether you are willing to make that assumption and why (e.g., by  referring to the plots and describing what they show).
 - [ ] If applicable, check for multicollinearity and report VIF or GVIF.
-- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing each influential observation.
+- [ ] Include a plot showing the Cook's Distance of all observations in the Appendix section of the document (and refer to it in the main text).
+- [ ] State whether you detected any high-influence observations and how you can tell (e.g., by referring to the Cook's Distance plot and describing what it shows).
+- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing the influential observation.
   - Tip: If you'll report your results using the full regression table for your coefficients, then also include the full regression table for the sensitivity analysis in another Appendix section.
 
 
@@ -503,7 +509,7 @@ H_1 &: \text{Any } \beta_j \neq 0\\
 \end{align}
 $$
 
-After fitting this model, we ran assumption checks and verified that all standardised deviance residuals fall between –3 and 3 (see Figure A.1 in Appendix A).
+After fitting this model, we checked our assumptions and verified that all standardised deviance residuals fall between –3 and 3 (see Figure A.1 in Appendix A).
 To check for problematic correlations between predictors, we calculated each predictor's VIF and verified that all were close to 1, which indicates that multicollinearity is not a problem for this analysis.
 Finally, we checked for high-influence observations and verified that no data points have a Cook's Distance greater than 0.5 (see Figure A.2 in Appendix A). 
 
@@ -519,7 +525,7 @@ Finally, we checked for high-influence observations and verified that no data po
 - [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < .001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = .18)", if applicable.
   - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
   - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
-- [ ] Include a table of all coefficients estimated by the model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+- [ ] If applicable, include a table of all coefficients estimated by the model (and make sure to refer to it in the text).
   - Tip: if you DO report all coefficient estimates in the text, then there's no need to include the coefficient table because the information is redundant.
 - [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
 - [ ] Report the results of a model comparison, if applicable.
@@ -530,7 +536,7 @@ Finally, we checked for high-influence observations and verified that no data po
 
 The model indicates that age and marshmallow visibility are both significantly associated with the log-odds of delaying gratification, though time of day is not.
 Specifically, a visible marshmallow is estimated to lower the log-odds of delaying gratification by 1.20, holding age and time of day constant ($b$ = –1.20, 95% CI [–1.75, –0.67], $p$ < .001).
-**[To do an extra-nice and reader-friendly interpretation, include predicted probabilities!]** In terms of probabilities, the model suggests that children of average age in a morning session when the marshmallow is hidden delay gratification with a probability of about 65.2%, while children of average age in a morning session when the marshmallow is *visible* have a much lower probability of delaying gratification, at only 36.1%.
+**[To do an extra-nice and reader-friendly interpretation, you can include predicted probabilities like this:]** In terms of probabilities, the model suggests that children of average age in a morning session when the marshmallow is hidden delay gratification with a probability of about 65.2%, while children of average age in a morning session when the marshmallow is *visible* have a much lower probability of delaying gratification, at only 36.1%.
 
 ```{r eval=F}
 #| code-fold: true
@@ -563,15 +569,36 @@ Because at least one slope coefficient is significantly different from zero, we 
 
 ```{r}
 #| code-fold: true
-tab_model(
-  delay_mdl,
-  transform = NULL,  # display coefficients as log-odds
-  dv.labels = 'Log-odds of delaying gratification',
-  pred.labels = c(
-    'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
-  ),
-  title = "Table 1: Logistic regression model coefficient estimates"
-)
+tidy(delay_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `z-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (Hidden marshmallow, morning)',
+      Term == 'visibilityvisible' ~ 'Marshmallow visibility (Visible)',
+      Term == 'timeofdaypm' ~ 'Time of day (Afternoon)',
+      Term == 'age_c' ~ 'Age, mean-centered'
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Logistic model coefficient estimates, shown in log-odds space'
+  )
 ```
 
 <br>
@@ -612,7 +639,7 @@ Effect(
 
 **Appendices might include:**
 
-- [ ] Figures that visualise assumption checks
+- [ ] Figures that visualise assumption and diagnostic checks
 - [ ] Sensitivity analysis regression table / any other useful details
 
 `r qend()`
@@ -703,10 +730,9 @@ H_1 &: \text{Any } \beta_j \neq 0\\
 \end{align}
 $$
 
-After fitting this model, we ran assumption checks and verified that all standardised deviance residuals fall between –3 and 3 (see Figure A.1 in Appendix A).
+After fitting this model, we checked our assumptions and verified that all standardised deviance residuals fall between –3 and 3 (see Figure A.1 in Appendix A).
 To check for problematic correlations between predictors, we calculated each predictor's VIF and verified that all were close to 1, which indicates that multicollinearity is not a problem for this analysis.
-Finally, we checked for high-influence observations and verified that no data points have a Cook's Distance greater than 0.5 (see Figure A.2 in Appendix A).
-
+Finally, we checked for high-influence observations and verified that no data points have a Cook's Distance greater than 0.5 (see Figure A.2 in Appendix A). 
 
 The model indicates that age and marshmallow visibility are both significantly associated with the log-odds of delaying gratification, though time of day is not.
 Specifically, a visible marshmallow is estimated to lower the log-odds of delaying gratification by 1.20, holding age and time of day constant ($b$ = –1.20, 95% CI [–1.75, –0.67], $p$ < .001).
@@ -719,15 +745,36 @@ See Table 1 for all estimated model coefficients.
 Because at least one slope coefficient is significantly different from zero, we reject the null hypothesis defined above.
 
 ```{r echo=F}
-tab_model(
-  delay_mdl,
-  transform = NULL,  # display coefficients as log-odds
-  dv.labels = 'Log-odds of delaying gratification',
-  pred.labels = c(
-    'Intercept', 'Visibility [visible]', 'Time of day [pm]', 'Age (mean-centered)'
-  ),
-  title = "Table 1: Logistic regression model coefficient estimates"
-)
+tidy(delay_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `z-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (Hidden marshmallow, morning)',
+      Term == 'visibilityvisible' ~ 'Marshmallow visibility (Visible)',
+      Term == 'timeofdaypm' ~ 'Time of day (Afternoon)',
+      Term == 'age_c' ~ 'Age, mean-centered'
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Logistic model coefficient estimates, shown in log-odds space'
+  )
 ```
 
 <br>

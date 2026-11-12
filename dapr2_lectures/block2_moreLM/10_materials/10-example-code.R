@@ -12,6 +12,7 @@ library(sjPlot)
 library(kableExtra)
 library(patchwork)
 library(car)
+library(broom.mixed)
 
 # Read in data
 attend_df <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
@@ -169,12 +170,12 @@ attend_mdl
 ## 3a: Check assumptions and diagnostics ----
 
 # Check model assumptions:
-# - Linearity of association -- assume it's met bc all preds are categorical
-# - Independence of errors -- assume it's met bc we have one obs per ppt (pid column)
+# - Linearity of association -- we can assume bc all preds are categorical
+# - Independence of errors --   we can assume bc we have one obs per ppt (pid column)
 # - Normality of errors
-plot(attend_mdl, which = 2)  # good match to diagonal
+plot(attend_mdl, which = 2)  # good match to diagonal, sufficiently normal
 # - Equal variance of errors
-plot(attend_mdl, which = 1)  # vertical spread varies a little. judgement call. I say fine.
+plot(attend_mdl, which = 1)  # vertical spread varies a little. judgement call. I say sufficiently equal
 # - overall: looks fine!
   
 # Run diagnostics for multicollinearity.
@@ -183,32 +184,13 @@ vif(attend_mdl)
 
 # Run diagnostics for influential observations.
 plot(attend_mdl, which = 4)
-# - There are a few data points with relatively larger Cook's Distance values.
+# - There are a few data points with relatively higher Cook's Distance values,
+#   but none of them are twice as high as the next-highest, so we don't need to worry.
 
 # If you find extreme influential observations: run sensitivity analysis.
-# - (NOTE: You'll need to look at main model first to compare results, so come back to this
-#   if time allows!)
-# - Three sensitivity analyses, one for each of the three most extreme points.
+# - NA
 
-attend_mdl_no355 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-355,]
-)
-summary(attend_mdl_no355)  # no change to significance pattern
 
-attend_mdl_no365 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-365,]
-)
-summary(attend_mdl_no365) # no change to significance pattern
-
-attend_mdl_no161 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-161,]
-)
-summary(attend_mdl_no161)  # no change to significance pattern
-   
-   
 ## 3b: Plot and interpret model estimates ----
    
 # Interpret the coefficient estimates
@@ -247,11 +229,17 @@ confint(attend_mdl) |> round(2)
 
 
 # Generate a nicely-formatted regression table.
-tab_model(
-  attend_mdl,
-  dv.labels = 'Attendance (days)',
-  title = "Linear model coefficient estimates"
-)
+tidy(attend_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Linear model coefficient estimates'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
 

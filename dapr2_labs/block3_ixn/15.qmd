@@ -21,6 +21,7 @@ library(kableExtra)
 library(patchwork)
 library(car)
 library(interactions)
+library(broom.mixed)
 
 qcounter <- function(){
   if(!exists("qcounter_i")){
@@ -73,6 +74,7 @@ But you may refer to them for stylistic guidance.
     - `patchwork`
     - `car`
     - `interactions`
+    - `broom.mixed`
    
 :::
 
@@ -136,6 +138,7 @@ library(kableExtra)
 library(patchwork)
 library(car)
 library(interactions)
+library(broom.mixed)
 
 # Read in data
 notes_df <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
@@ -252,12 +255,12 @@ notes_mdl
 ## 3a: Check assumptions and diagnostics ----
 
 # Check model assumptions:
-# - Linearity of association -- assume it's met bc all preds are categorical
-# - Independence of errors -- assume it's met bc we have one obs per person
+# - Linearity of association -- we can assume bc all preds are categorical
+# - Independence of errors -- we can assume bc we have one obs per person
 # - Normality of errors
-plot(notes_mdl, which = 2)  # good!
+plot(notes_mdl, which = 2)  # good, sufficiently normal
 # - Equal variance of errors
-plot(notes_mdl, which = 1)  # good! 
+plot(notes_mdl, which = 1)  # good, sufficiently equal
 #   (the indiv lines are bc we only observed a handful of diff test scores)
   
 # Run diagnostics for multicollinearity.
@@ -265,9 +268,10 @@ vif(notes_mdl)  # obviously the interaction term is correlated with both, hence 
 vif(notes_mdl, type = 'predictor')  # all GVIF = 1, ideal!
 
 # Run diagnostics for influential observations.
-plot(notes_mdl, which = 4)  # no super extreme influential points, prob no need for sensitivity analysis
+plot(notes_mdl, which = 4)  # no individually influential points, no need for sensitivity analysis
 
-# If you find extreme influential observations: run sensitivity analysis. - NA
+# If you find extreme influential observations: run sensitivity analysis. 
+# - NA
 
    
 ## 3b: Plot and interpret model estimates ----
@@ -311,11 +315,17 @@ confint(notes_mdl) |> round(2)
 #   - This estimate is significantly different from zero ($p$ < .001).
 
 # Generate a nicely-formatted regression table.
-tab_model(
-  notes_mdl,
-  dv.labels = 'Test score',
-  title = "Linear model coefficient estimates"
-)
+tidy(notes_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Linear model coefficient estimates'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
 
@@ -436,10 +446,11 @@ notes_df |>
 - [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
 - [ ] If categorical predictors, describe contrast coding, e.g.: "X1 has two levels, A (coded as –1) and B (coded as 1)".
 - [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
-- [ ] For each model assumption, state whether you are satisfied that the assumption has been met.
-- [ ] Include plots for each assumption check as figures in the Appendix section of the document (and refer to them in the main text).
+- [ ] For each model assumption, state whether you are willing to make that assumption and why (e.g., by  referring to the plots and describing what they show).
 - [ ] If applicable, check for multicollinearity and report VIF or GVIF.
-- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing each influential observation.
+- [ ] Include a plot showing the Cook's Distance of all observations in the Appendix section of the document (and refer to it in the main text).
+- [ ] State whether you detected any high-influence observations and how you can tell (e.g., by referring to the Cook's Distance plot and describing what it shows).
+- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing the influential observation.
   - Tip: If you'll report your results using the full regression table for your coefficients, then also include the full regression table for the sensitivity analysis in another Appendix section.
 
 
@@ -476,10 +487,10 @@ H_0 &: \text{All } \beta_j = 0 \text{ for } j = 5, 6, 7\\
 H_1 &: \text{Any } \beta_j \neq 0\\
 \end{align}
 $$
-After we fit the model, we made sure we were satisfied that its assumptions were met.
+After we fit the model, we made sure we were satisfied with our modelling assumptions.
 Linearity of association can be assumed, since the predictors are categorical, and independence of errors can be assumed, since each participant contributed only one observation to the dataset.
 We are also satisfied that errors are sufficiently normally distributed (see Figure A.1 in Appendix A) with sufficiently equal variance (see Figure A.2 in Appendix A).
-Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates unduly.
+Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates particularly highly (see Figure A.3 in Appendix A).
 We therefore proceed to report the results of our analysis.
 
 `r solend()`
@@ -494,7 +505,7 @@ We therefore proceed to report the results of our analysis.
 - [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < .001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = .18)", if applicable.
   - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
   - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
-- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+- [ ] If applicable, include a table of all coefficients estimated by the model (and make sure to refer to it in the text).
   - Tip: if you DO report all coefficient estimates in the text, then there's no need to include the coefficient table because the information is redundant.
 - [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
 - [ ] Report the results of a model comparison, if applicable.
@@ -517,12 +528,44 @@ For an overview of all regression coefficients, see Table 1.
 
 ```{r}
 #| code-fold: true
-tab_model(
-  notes_mdl,
-  dv.labels = 'Test score',
-  title = "Table 1: Linear model coefficient estimates"
-)
+
+tidy(notes_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `t-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (No study, Year 1)',
+      Term == 'studyMinimal' ~ 'Study (Minimal)',
+      Term == 'studyModerate' ~ 'Study (Moderate)',
+      Term == 'studyExtensive' ~ 'Study (Extensive)',
+      Term == 'mediumLonghand' ~ 'Medium (Longhand)',
+      Term == 'studyMinimal:mediumLonghand' ~ 'Study (Minimal) x Medium (Longhand)',
+      Term == 'studyModerate:mediumLonghand' ~ 'Study (Moderate) x Medium (Longhand)',
+      Term == 'studyExtensive:mediumLonghand' ~ 'Study (Extensive) x Medium (Longhand)',     
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Linear model coefficient estimates'
+  )
 ```
+
+<br>
 
 The pattern of model-estimated test scores for all combinations of conditions is shown in Figure 2.
 
@@ -547,7 +590,7 @@ cat_plot(
 
 **Appendices might include:**
 
-- [ ] Figures that visualise assumption checks
+- [ ] Figures that visualise assumption and diagnostic checks
 - [ ] Sensitivity analysis regression table / any other useful details
 
 `r qend()`
@@ -567,6 +610,12 @@ plot(notes_mdl, which = 2)
 plot(notes_mdl, which = 1)
 ```
 
+<br>
+
+```{r fig.cap = "Figure A.3: None of the most influential observations have a Cook's Distance more than twice as large as the next-largest value, so none of the observations influence the model particularly highly."}
+#| code-fold: true
+plot(notes_mdl, which = 4)
+```
 
 `r solend()`
 
@@ -634,10 +683,10 @@ H_1 &: \text{Any } \beta_j \neq 0\\
 \end{align}
 $$
 
-After we fit the model, we made sure we were satisfied that its assumptions were met.
+After we fit the model, we made sure we were satisfied with our modelling assumptions.
 Linearity of association can be assumed, since the predictors are categorical, and independence of errors can be assumed, since each participant contributed only one observation to the dataset.
 We are also satisfied that errors are sufficiently normally distributed (see Figure A.1 in Appendix A) with sufficiently equal variance (see Figure A.2 in Appendix A).
-Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates unduly.
+Additionally, we checked for multicollinearity between predictors and found that all GVIF values were equal to 1, indicating no problematic correlation between predictors, and we found no observations that influenced the model's estimates particularly highly (see Figure A.3 in Appendix A).
 We therefore proceed to report the results of our analysis.
 
 
@@ -654,11 +703,40 @@ Finally, after extensive study, laptop note-takers' scores were estimated to inc
 For an overview of all regression coefficients, see Table 1.
 
 ```{r echo=F}
-tab_model(
-  notes_mdl,
-  dv.labels = 'Test score',
-  title = "Table 1: Linear model coefficient estimates"
-)
+tidy(notes_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `t-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (No study, Year 1)',
+      Term == 'studyMinimal' ~ 'Study (Minimal)',
+      Term == 'studyModerate' ~ 'Study (Moderate)',
+      Term == 'studyExtensive' ~ 'Study (Extensive)',
+      Term == 'mediumLonghand' ~ 'Medium (Longhand)',
+      Term == 'studyMinimal:mediumLonghand' ~ 'Study (Minimal) x Medium (Longhand)',
+      Term == 'studyModerate:mediumLonghand' ~ 'Study (Moderate) x Medium (Longhand)',
+      Term == 'studyExtensive:mediumLonghand' ~ 'Study (Extensive) x Medium (Longhand)',     
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Linear model coefficient estimates'
+  )
 ```
 
 <br>
@@ -690,8 +768,12 @@ plot(notes_mdl, which = 2)
 plot(notes_mdl, which = 1)
 ```
 
+<br>
 
-
+```{r fig.cap = "Figure A.3: None of the most influential observations have a Cook's Distance more than twice as large as the next-largest value, so none of the observations influence the model particularly highly."}
+#| code-fold: true
+plot(notes_mdl, which = 4)
+```
 <br>
 
 **References**

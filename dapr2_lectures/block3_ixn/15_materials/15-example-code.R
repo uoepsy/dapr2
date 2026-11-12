@@ -13,6 +13,7 @@ library(kableExtra)
 library(patchwork)
 library(car)
 library(interactions)
+library(broom.mixed)
 
 # Read in data
 notes_df <- read_csv('https://uoepsy.github.io/data/laptop_vs_longhand.csv')
@@ -128,12 +129,12 @@ notes_mdl
 ## 3a: Check assumptions and diagnostics ----
 
 # Check model assumptions:
-# - Linearity of association -- assume it's met bc all preds are categorical
-# - Independence of errors -- assume it's met bc we have one obs per person
+# - Linearity of association -- we can assume bc all preds are categorical
+# - Independence of errors -- we can assume bc we have one obs per person
 # - Normality of errors
-plot(notes_mdl, which = 2)  # good!
+plot(notes_mdl, which = 2)  # good, sufficiently normal
 # - Equal variance of errors
-plot(notes_mdl, which = 1)  # good! 
+plot(notes_mdl, which = 1)  # good, sufficiently equal
 #   (the indiv lines are bc we only observed a handful of diff test scores)
   
 # Run diagnostics for multicollinearity.
@@ -141,9 +142,10 @@ vif(notes_mdl)  # obviously the interaction term is correlated with both, hence 
 vif(notes_mdl, type = 'predictor')  # all GVIF = 1, ideal!
 
 # Run diagnostics for influential observations.
-plot(notes_mdl, which = 4)  # no super extreme influential points, prob no need for sensitivity analysis
+plot(notes_mdl, which = 4)  # no individually influential points, no need for sensitivity analysis
 
-# If you find extreme influential observations: run sensitivity analysis. - NA
+# If you find extreme influential observations: run sensitivity analysis. 
+# - NA
 
    
 ## 3b: Plot and interpret model estimates ----
@@ -187,11 +189,17 @@ confint(notes_mdl) |> round(2)
 #   - This estimate is significantly different from zero ($p$ < .001).
 
 # Generate a nicely-formatted regression table.
-tab_model(
-  notes_mdl,
-  dv.labels = 'Test score',
-  title = "Linear model coefficient estimates"
-)
+tidy(notes_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Linear model coefficient estimates'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
 

@@ -20,6 +20,7 @@ library(sjPlot)
 library(kableExtra)
 library(patchwork)
 library(car)
+library(broom.mixed)
 
 qcounter <- function(){
   if(!exists("qcounter_i")){
@@ -71,7 +72,8 @@ But you may refer to them for stylistic guidance.
     - `kableExtra`
     - `patchwork`
     - `car`
-   
+    - `broom.mixed`
+
 :::
 
 ---
@@ -128,6 +130,7 @@ library(sjPlot)
 library(kableExtra)
 library(patchwork)
 library(car)
+library(broom.mixed)
 
 # Read in data
 attend_df <- read_csv("https://uoepsy.github.io/data/DapR2_S1B2_PracticalPart1.csv")
@@ -287,12 +290,12 @@ attend_mdl
 ## 3a: Check assumptions and diagnostics ----
 
 # Check model assumptions:
-# - Linearity of association -- assume it's met bc all preds are categorical
-# - Independence of errors -- assume it's met bc we have one obs per ppt (pid column)
+# - Linearity of association -- we can assume, bc all preds are categorical
+# - Independence of errors -- we can assume, bc we have one obs per ppt (pid column)
 # - Normality of errors
-plot(attend_mdl, which = 2)  # good match to diagonal
+plot(attend_mdl, which = 2)  # good match to diagonal, sufficiently normal
 # - Equal variance of errors
-plot(attend_mdl, which = 1)  # vertical spread varies a little. judgement call. I say fine.
+plot(attend_mdl, which = 1)  # vertical spread varies a little. judgement call. I say sufficiently equal
 # - overall: looks fine!
   
 # Run diagnostics for multicollinearity.
@@ -301,31 +304,12 @@ vif(attend_mdl)
 
 # Run diagnostics for influential observations.
 plot(attend_mdl, which = 4)
-# - There are a few data points with relatively larger Cook's Distance values.
+# - There are a few data points with relatively higher Cook's Distance values,
+#   but none of them are twice as high as the next-highest, so we don't need to worry.
 
 # If you find extreme influential observations: run sensitivity analysis.
-# - (NOTE: You'll need to look at main model first to compare results, so come back to this
-#   if time allows!)
-# - Three sensitivity analyses, one for each of the three most extreme points.
+# - NA
 
-attend_mdl_no355 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-355,]
-)
-summary(attend_mdl_no355)  # no change to significance pattern
-
-attend_mdl_no365 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-365,]
-)
-summary(attend_mdl_no365) # no change to significance pattern
-
-attend_mdl_no161 <- lm(
-  Attendance ~ Consc + Year,
-  data = attend_df[-161,]
-)
-summary(attend_mdl_no161)  # no change to significance pattern
-   
    
 ## 3b: Plot and interpret model estimates ----
    
@@ -363,17 +347,18 @@ confint(attend_mdl) |> round(2)
 #   - Holding conscientiousness constant, moving from Y1 to PhD is associated with an estimated increase in attendance of 12.57 days.
 #   - This estimate is significantly different from zero (p < 0.001).
 
-
 # Generate a nicely-formatted regression table.
-tab_model(
-  attend_mdl,
-  dv.labels = 'Attendance (days)',
-  pred.labels = c(
-    "ConscModerate" = "Conscientiousness [Moderate]",
-    "ConscHigh" = "Conscientiousness [High]"
-    ),
-  title = "Linear model coefficient estimates"
-)
+tidy(attend_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Linear model coefficient estimates'
+  )
 
 # Compare models and interpret model comparison statistics (if appropriate for your RQ) - NA.
 
@@ -509,10 +494,12 @@ p_consc + p_year
 - [ ] Explain the hypotheses that your analysis will test and include them in mathematical notation.
 - [ ] If categorical predictors, describe contrast coding, e.g.: "X1 has two levels, A (coded as –1) and B (coded as 1)".
 - [ ] If continuous predictors have been transformed, describe the transformation, e.g.: "X2 has been z-scored".
-- [ ] For each model assumption, state whether you are satisfied that the assumption has been met.
 - [ ] Include plots for each assumption check as figures in the Appendix section of the document (and refer to them in the main text).
+- [ ] For each model assumption, state whether you are willing to make that assumption and why (e.g., by  referring to the plots and describing what they show).
 - [ ] If applicable, check for multicollinearity and report VIF or GVIF.
-- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing each influential observation.
+- [ ] Include a plot showing the Cook's Distance of all observations in the Appendix section of the document (and refer to it in the main text).
+- [ ] State whether you detected any high-influence observations and how you can tell (e.g., by referring to the Cook's Distance plot and describing what it shows).
+- [ ] If you detected any high-influence observations and then conducted a sensitivity analysis, mention whether the pattern of results stayed the same even after removing the influential observation.
   - Tip: If you'll report your results using the full regression table for your coefficients, then also include the full regression table for the sensitivity analysis in another Appendix section.
 
 
@@ -548,17 +535,16 @@ H_1 &: \text{ Any } \beta_j \neq 0\\
 \end{align}
 $$
 
-After fitting this model, we checked its assumptions.
-First, we can assume that associations are linear, because all predictors are categorical.
+After fitting this model, we checked the assumptions we must make about the model and the data.
+First, we can readily assume that associations are linear, because all predictors are categorical.
 Second, we can also assume that all data points are independent, because each observation comes from a different student.
-Third, errors appear sufficiently normally-distributed (see Figure B.1 in Appendix A), and fourth, errors also have sufficiently equal variance (see Figure B.2 in Appendix A).
+Third, errors appear sufficiently normally-distributed (see Figure A.1 in Appendix A), and fourth, errors also have sufficiently equal variance (see Figure A.2 in Appendix A).
 
 We also checked for multicollinearity between the two predictors.
 Both GVIF values are close to 1, indicating little variance inflation, so multicollinearity is not a concern for this analysis.
 
-Finally, we checked for influential data points and found three which had a relatively large Cook's distance compared to the others (about 0.03 or greater).
-We performed sensitivity analyses, leaving out each one of those data points in turn, and found that none of them impact the pattern of results.
-Coefficient tables for the sensitivity analysis models are presented in Appendix B.
+Finally, we checked for influential data points and found none with extreme Cook's Distance values compared to the others (see Figure A.3 in Appendix A).
+So we now turn to interpreting our model's estimates.
 
 `r solend()`
 
@@ -572,7 +558,7 @@ Coefficient tables for the sensitivity analysis models are presented in Appendix
 - [ ] State the key coefficient estimates along with their 95% CI and p-value, e.g.: "The slope associating X1 and Y was significantly different from zero ($b$ = 0.26, 95% CI [0.23, 0.29], $p$ < .001)" or "The slope associating X1 and Y was not significantly different from zero ($b$ = 0.26, 95% CI [–0.04, 0.56], $p$ = .18)", if applicable.
   - Tip: You don't need to report every single parameter estimate. Focus on the one(s) you identified as being relevant to your prediction(s).
   - Tip: Briefly link the direction and significance of the effect back to your earlier predictions—is the prediction supported by the parameter estimate?
-- [ ] Include a table of all coefficients estimated by the linear model (and make sure to refer to it in the text), if applicable. The function `tab_model()` from the package `sjPlot` may be useful here, but note that `tab_model()` causes Rmd files to fail to knit to PDF, so you might want to manually recreate the table it produces.
+- [ ] If applicable, include a table of all coefficients estimated by the model (and make sure to refer to it in the text).
   - Tip: if you DO report all coefficient estimates in the text, then there's no need to include the coefficient table because the information is redundant.
 - [ ] Plot the model-fitted values (and refer to the plot in the text), if applicable.
 - [ ] Report the results of a model comparison, if applicable.
@@ -592,11 +578,41 @@ See Table 1 for a summary of regression coefficients.
 
 ```{r}
 #| code-fold: true
-tab_model(
-  attend_mdl,
-  dv.labels = 'Attendance (days)',
-  title = "Table 1: Linear model coefficient estimates"
-)
+
+tidy(attend_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `t-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (Low Consc, Year 1)',
+      Term == 'ConscModerate' ~ 'Consc (Moderate)',
+      Term == 'ConscHigh' ~ 'Consc (High)',
+      Term == 'YearY2' ~ 'Year (Y2)',
+      Term == 'YearY3' ~ 'Year (Y3)',
+      Term == 'YearY4' ~ 'Year (Y4)',
+      Term == 'YearMSc' ~ 'Year (MSc)',
+      Term == 'YearPhD' ~ 'Year (PhD)'
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Linear model coefficient estimates'
+  )
 ```
 
 <br>
@@ -629,23 +645,23 @@ plot_model(
 
 **Appendices might include:**
 
-- [ ] Figures that visualise assumption checks
+- [ ] Figures that visualise assumption and diagnostic checks
 - [ ] Sensitivity analysis regression table / any other useful details
 
 `r qend()`
 `r solbegin(label='example', show=params$SHOW_SOLS, toggle=params$TOGGLE)`
 
 
-**Appendix A: Model assumption checks**
+**Appendix A: Assumption and diagnostic checks**
 
-```{r fig.cap = 'Figure B.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+```{r fig.cap = 'Figure A.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
 #| code-fold: true
 plot(attend_mdl, which = 2)
 ```
 
 <br>
 
-```{r fig.cap = "Figure B.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
+```{r fig.cap = "Figure A.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
 #| code-fold: true
 plot(attend_mdl, which = 1)
 ```
@@ -653,59 +669,11 @@ plot(attend_mdl, which = 1)
 <br>
 
 
-**Appendix B: Details of sensitivity analysis**
-
-The Cook's distance of each observation is shown in Figure C.1, which highlights the three potentially influential points: observations 355, 161, and 365.
-
-```{r fig.cap = "Cook's distance for each observation in our data set. Observations 355, 365, and 161 have higher Cook's distance, and thus potentially greater influence on model estimates, than the other data points."}
+```{r fig.cap = "Figure A.3: None of the most influential observations has a Cook's Distance that's more than twice as large as the next-largest one."}
 #| code-fold: true
 plot(attend_mdl, which = 4)
 ```
 
-<br>
-
-We present coefficient tables for the models in which each of those data points is left out in turn: Table C.1 without observation 355, Table C.2 without observation 161, and Table C.3 without observation 365.
-
-
-```{r}
-#| code-fold: true
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-355,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.1: Linear model coefficient estimates for the sensitivity analysis model without observation 355"
-)
-```
-
-<br>
-
-```{r}
-#| code-fold: true
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-161,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.2: Linear model coefficient estimates for the sensitivity analysis model without observation 161"
-)
-```
-
-<br>
-
-```{r}
-#| code-fold: true
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-365,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.3: Linear model coefficient estimates for the sensitivity analysis model without observation 365"
-)
-```
 
 `r solend()`
 
@@ -783,18 +751,16 @@ H_1 &: \text{ Any } \beta_j \neq 0\\
 \end{align}
 $$
 
-After fitting this model, we checked its assumptions.
-First, we can assume that associations are linear, because all predictors are categorical.
+After fitting this model, we checked the assumptions we must make about the model and the data.
+First, we can readily assume that associations are linear, because all predictors are categorical.
 Second, we can also assume that all data points are independent, because each observation comes from a different student.
 Third, errors appear sufficiently normally-distributed (see Figure B.1 in Appendix A), and fourth, errors also have sufficiently equal variance (see Figure B.2 in Appendix A).
 
 We also checked for multicollinearity between the two predictors.
 Both GVIF values are close to 1, indicating little variance inflation, so multicollinearity is not a concern for this analysis.
 
-Finally, we checked for influential data points and found three which had a relatively large Cook's distance compared to the others (about 0.03 or greater).
-We performed sensitivity analyses, leaving out each one of those data points in turn, and found that none of them impact the pattern of results.
-Coefficient tables for the sensitivity analysis models are presented in Appendix B.
-
+Finally, we checked for influential data points and found none with extreme Cook's Distance values compared to the others (see Figure A.3 in Appendix A).
+So we now turn to interpreting our model's estimates.
 
 Focusing first on conscientiousness: if attendance increases as conscientiousness increases, then we would expect the coefficient that compares moderate to low conscientiousness to be positive and the coefficient that compares high to low conscientiousness to be even more positive.
 That is what we find.
@@ -806,11 +772,41 @@ This pattern is borne out in general, though with some variability in the underg
 See Table 1 for a summary of regression coefficients.
 
 ```{r echo=F}
-tab_model(
-  attend_mdl,
-  dv.labels = 'Attendance (days)',
-  title = "Table 1: Linear model coefficient estimates"
-)
+
+tidy(attend_mdl) |>
+  mutate(
+    estimate = round(estimate, 2),
+    std.error = round(std.error, 2),
+    statistic = round(statistic, 2),
+    p.value = ifelse(p.value < .001, '<.001', round(p.value, 3))
+  ) |>
+  # this next bit gives the columns nicer-looking names
+  rename(
+    Term = term,
+    Estimate = estimate,
+    SE = std.error,
+    `t-value` = statistic,
+    `p-value` = p.value
+  ) |>
+  # # this next bit tidies up what's displayed in the "Term" column
+  mutate(
+    Term = case_when(
+      # in general, the syntax here is:
+      # Term == '<current coef name>' ~ '<the nice name you want to show>'
+      Term == '(Intercept)' ~ 'Intercept (Low Consc, Year 1)',
+      Term == 'ConscModerate' ~ 'Consc (Moderate)',
+      Term == 'ConscHigh' ~ 'Consc (High)',
+      Term == 'YearY2' ~ 'Year (Y2)',
+      Term == 'YearY3' ~ 'Year (Y3)',
+      Term == 'YearY4' ~ 'Year (Y4)',
+      Term == 'YearMSc' ~ 'Year (MSc)',
+      Term == 'YearPhD' ~ 'Year (PhD)'
+    )
+  ) |>
+  kable(
+    booktabs = TRUE, 
+    caption = 'Table 1: Linear model coefficient estimates'
+  )
 ```
 
 <br>
@@ -832,70 +828,28 @@ plot_model(
 
 
 
-**Appendix A: Model assumption checks**
+**Appendix A: Assumption and diagnostic checks**
 
-```{r echo=F, fig.cap = 'Figure B.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+```{r fig.cap = 'Figure A.1: In a Q-Q plot, normally-distributed errors should follow the dashed diagonal line. The residuals of our model appear sufficiently normally distributed.'}
+#| code-fold: true
 plot(attend_mdl, which = 2)
 ```
 
 <br>
 
-```{r echo=F, fig.cap = "Figure B.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
+```{r fig.cap = "Figure A.2: In a residuals vs. fitted plot, errors with equal variance should be evenly vertically distributed across the whole range of the fitted values on the x axis. Our model's residuals may show some small deviations from equal variance (e.g., slightly less variability for large fitted values), but we consider the variance equal enough."}
+#| code-fold: true
 plot(attend_mdl, which = 1)
 ```
 
 <br>
 
 
-**Appendix B: Details of sensitivity analysis**
-
-The Cook's distance of each observation is shown in Figure C.1, which highlights the three potentially influential points: observations 355, 161, and 365.
-
-```{r echo=F, fig.cap = "Cook's distance for each observation in our data set. Observations 355, 365, and 161 have higher Cook's distance, and thus potentially greater influence on model estimates, than the other data points."}
+```{r fig.cap = "Figure A.3: None of the most influential observations has a Cook's Distance that's more than twice as large as the next-largest one."}
+#| code-fold: true
 plot(attend_mdl, which = 4)
 ```
 
-<br>
-
-We present coefficient tables for the models in which each of those data points is left out in turn: Table C.1 without observation 355, Table C.2 without observation 161, and Table C.3 without observation 365.
-
-
-```{r echo=F}
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-355,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.1: Linear model coefficient estimates for the sensitivity analysis model without observation 355"
-)
-```
-
-<br>
-
-```{r echo=F}
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-161,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.2: Linear model coefficient estimates for the sensitivity analysis model without observation 161"
-)
-```
-
-<br>
-
-```{r echo=F}
-tab_model(
-  lm(
-    Attendance ~ Consc + Year,
-    data = attend_df[-365,]
-  ),
-  dv.labels = 'Attendance (days)',
-  title = "Table C.3: Linear model coefficient estimates for the sensitivity analysis model without observation 365"
-)
-```
 
 <br>
 
