@@ -15,40 +15,61 @@ A sensitivity analysis lets us check how **sensitive** our conclusions are to ch
 
 In DAPR2, we'll do sensitivity analyses by excluding a potentially influential observation, re-fitting our model, and seeing whether the directions (the signs, positive vs. negative) of the coefficients and/or the pattern of statistical significance (and therefore our conclusions based on our model) will change.
 
-In the [Influential observations](influence.html){target="_blank"} flash card, we saw an example of one very influential value.
-Here we'll see how to handle it.
 
 ## Example
 
-In the mental wellbeing data from the Block 1 labs, one data point—number 109—has a much higher Cook's Distance than the rest.
+Here's the simulated dataset from the [Influential observations](influence.html){target="_blank"} flash card, in which the observation in row 46 has a much higher Cook's Distance than the rest.
+
+```{r include=F}
+set.seed(3)
+n_obs <- 50
+df <- tibble(
+  x = 1:n_obs,
+  error = rnorm(n_obs, mean = 0, sd = 0.2) * x,
+  y = log(x) + error
+)
+```
+
 
 ```{r}
-mwdata <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
-wb_mdl <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
-plot(wb_mdl, which = 4)
+mdl <- lm(y ~ x, data = df)
+plot(mdl, which = 4)
 ```
 
+<br>
 
-To do the sensitivity analysis, we must remove observation 109 from the dataset and fit the same model again on that new, smaller dataset.
+To do the sensitivity analysis, we must remove observation 46 from the dataset and fit the same model again on that new, smaller dataset.
+There are two equivalent ways you can do this.
+
+**A two-step process: first create a new df with that row removed, then re-fit the model:**
 
 ```{r} 
-# remove the content of row 109
-mwdata_no109 <- mwdata[-109,]
+# remove the content of row 46
+df_no46 <- df[-46,]
 
 # fit a model with the same formula on the new, reduced dataset
-wb_mdl_no109 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata_no109)
+mdl_no46 <- lm(y ~ x, data = df_no46)
 ```
 
-Now, compare the pattern of statistical significance in the two models:
+**A one-liner: remove that row *within* your call to `lm()`:**
+
+```{r} 
+mdl_no46 <- lm(y ~ x, data = df[-46,])
+```
+
+
+<br>
+
+Regardless of how you get the new reduced model, the next step is to compare the coefficients and the pattern of statistical significance in the two models.
 
 
 ::::{.columns}
 :::{.column width="48%"}
 
-Original model, including observation 109:
+**Original model, including observation 46:**
 
 ```{r}
-summary(wb_mdl)
+summary(mdl)
 ```
 
 :::
@@ -57,83 +78,39 @@ summary(wb_mdl)
 :::
 :::{.column width="48%"}
 
-Reduced model, not including observation 109:
+**Reduced model, not including observation 46:**
 
 ```{r}
-summary(wb_mdl_no109)
+summary(mdl_no46)
 ```
 
 :::
 ::::
 
-The coefficients all have the same signs: they were positive in the original model, they are still positive in the reduced model.
+<br>
 
-And the pattern of significance also does not change.
-All estimates with original p-values below $\alpha$ = .05 are still beyond that threshold in the reduced model.
+This is a rare and fun outcome!
 
-Therefore, even though observation 109 has a large Cook's Distance, our model is not sensitive to its removal and it doesn't actually impact our conclusions.
-This means that our conclusions based on the original model still hold.
+A predictor that was *not* significant in the original model has now become significant in the reduced model.
+(More often the change goes in the opposite direction: a significant result becomes non-significant.)
 
+**If there were no difference between the conclusions you'd draw from the two models, you'd report that:**
 
-## What if I see lots of very influential values?
-
-My advice: do a sensitivity analysis that drops only the observation with the *greatest* Cook's Distance.
-If it makes no impact on your conclusions, then probably the other values which have lower Cook's Distance scores will also have no impact on your conclusions.
-
-If it *does* impact your conclusions, then you must report this as part of your description of your analysis.
-You should also move on to drop each additional high-influence  case point, removing one row from your dataset each time, until your conclusions stop changing.
-Every step of this process must be described in a report.
+- You did a sensitivity analysis to check on a potentially influential data point.
+- You found that removing it did not change the signs of the coefficients nor the pattern of significance.
 
 
-<!-- ::: {.callout-important icon=false collapse=false} -->
+**Since there *is* a difference between the conclusions you'd draw from the two models, you'd report that:**
 
-<!-- # Remove all influential points at once, or one by one? -->
+- You did a sensitivity analysis to check on a potentially influential data point.
+- After removing it, the slope of `x` changed from 0.06 to 0.11 and became significantly different from 0 (p = .033).
 
-<!-- The current example involves removing all potentially influential observations at the same time. -->
-<!-- **Ideally, and to ensure a more thorough sensitivity analysis, you would remove each of these observations one at a time,** assess the effects on the model by comparing to your original, reassessing the remaining pre-identified observations, and repeating the process if necessary.  -->
+<br>
 
-<!-- ::: -->
+The decision of which model to use to draw conclusions from is not always clear-cut.
+You must use your researcher judgement and ask yourself: **do you believe that that influential data point is a legitimate sample from the population you're interested in studying?**
 
-<!-- ### Original Model -->
+If something about that observation tells you that it doesn't seem to come from your population of interest, then you are justified in removing it and focusing your interpretation on the updated model.
 
-<!-- ```{r} -->
-<!-- ## wellbeing model -->
-<!-- wb_mdl1 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)  -->
-<!-- summary(wb_mdl1) -->
-<!-- ``` -->
-
-
-<!-- ### Model with Observations Removed -->
-
-<!-- ```{r} -->
-<!-- ## wellbeing model -->
-<!-- wb_mdl2 <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata[-c(16, 25, 50, 53, 56, 58, 59, 60, 62, 72, 73, 75, 76, 78, 79, 85, 101, 109, 125, 126, 127, 131, 149, 151, 159, 163, 165, 169, 173, 176, 179, 197), ]) -->
-<!-- summary(wb_mdl2) -->
-<!-- ``` -->
-
-
-<!-- ### Compare `summary()` output -->
-
-<!-- ```{r} -->
-<!-- tab_model(wb_mdl1, wb_mdl2, -->
-<!--           dv.labels = c("Wellbeing (WEMWBS Scores)", "Wellbeing (WEMWBS Scores)"), -->
-<!--           pred.labels = c("outdoor_time" = "Outdoor Time (hours per week)", -->
-<!--                           "social_int" = "Social Interactions (number per week)"), -->
-<!--           title = "Regression Table for Wellbeing Models wb1 and wb2") -->
-<!-- ``` -->
-
-<!-- ::: -->
-
-<!-- ::: {.callout-important icon=false appearance="minimal"} -->
-
-<!-- We conducted a sensitivity analysis to assess how robust our conclusions were regarding outdoor time and the weekly number of social interactions in the presence of previously identified potentially influential observations. We re-fit the model, excluding these 28 observations (14% of our original sample), and compared these model results (`wb_mdl2`) to those of our original model (`wb_mdl1`).  -->
-
-<!-- There was little difference in the estimates from `wb_mdl1` and `wb_mdl2`, and so we can conclude that after conducting a sensitivity analysis, there were no meaningful differences in our results, and hence our conclusions from our original model hold. Specifically: -->
-
-<!-- + The direction of all model estimates are the same in `wb_mdl1` and `wb_mdl2` (i.e., all positive) -->
-<!-- + There is no difference in statistical significance, and the p-values were of a similar magnitude (i.e., all < .001) -->
-<!-- + The estimate and confidence intervals for `outdoor_time` are very similar -->
-<!-- + There are some quantitative differences in the estimate and confidence intervals for `social_int`. The estimate differs slightly in magnitude by 0.07), but given that this remains positive and significant, we do not need to be too concerned about this.  -->
-
-<!-- ::: -->
-
+If you believe that it does still come from your population of interest, then the discussion becomes more interesting: you can talk about both models and speculate about why you think that particular observation has such an impact.
+In this case, we recommend a cautious and conservative interpretation, since your conclusions have still changed from one model to another, so you should be much more tentative in any conclusions you draw.

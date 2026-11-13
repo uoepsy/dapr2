@@ -19,19 +19,31 @@ You can plot them with `plot(modelname, which = 4)`.
 
 ## Example
 
-Load in some data (the mental wellbeing data from Block 1 labs):
+Here's a simulated dataset (with very unequal variance!) where we'll model how continuous `x` is associated with continuous `y`.
+
+```{r include=F}
+set.seed(3)
+n_obs <- 50
+df <- tibble(
+  x = 1:n_obs,
+  error = rnorm(n_obs, mean = 0, sd = 0.2) * x,
+  y = log(x) + error
+)
+```
 
 ```{r}
-mwdata <- read_csv('https://uoepsy.github.io/data/wellbeing_rural.csv')
-head(mwdata)
+df |>
+  ggplot(aes(x = x, y = y)) +
+  geom_point()
 ```
 
 
 Fit a model:
 
 ```{r}
-wb_mdl <- lm(wellbeing ~ outdoor_time + social_int, data = mwdata)
+mdl <- lm(y ~ x, data = df)
 ```
+
 
 
 Now, we can find the Cook's Distance of each observation.
@@ -39,22 +51,21 @@ This function will print out a value for each observation in the dataset.
 It represents how much the model's estimates will change if that particular observation were removed.
 
 ```{r}
-cooks.distance(wb_mdl) |> head()
+cooks.distance(mdl) |> head()
 ```
 
 It's easier (for me at least!) to interpret these values in a plot:
 
 ```{r}
-plot(wb_mdl, which = 4)
+plot(mdl, which = 4)
 ```
 
 
-Looks like observation 109 is pretty darn influential, compared to all the rest!
-
+Looks like observation 46 is pretty darn influential, compared to all the rest!
 
 ## How influential is "too" influential?
 
-In the plot above, it looks like the Cook's distance of observation 109 is about **three times larger** than the next-largest Cook's distance, that of observation 53.
+In the plot above, it looks like the Cook's distance of observation 46 is at least **two times larger** than the next-largest Cook's distance, that of observation 43.
 
 Our rule of thumb is to eyeball the plot to check if you have a single observation with a Cook's distance that appears **more than two times larger than the next-biggest Cook's distance.**
 If you do (like we do above), then that's an observation worth investigating.
