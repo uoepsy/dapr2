@@ -78,6 +78,7 @@ contrasts(attend_df$Year)
 # Explore patterns in the data by plotting outcome and predictor variables together
 # - Consc:
 #   boxplots are fine for a quick look, but not as good because it doesn't show the data itself
+#   and also only shows the median, where what we want for linear modelling is the mean
 attend_df |>
   ggplot(aes(x = Consc, y = Attendance)) +
   geom_boxplot()
@@ -86,7 +87,7 @@ attend_df |>
 p_consc <- attend_df |>
   ggplot(aes(x = Consc, y = Attendance, fill = Consc, colour = Consc)) +
   geom_violin(alpha = 0.5) +
-  geom_jitter(alpha = 0.5) +
+  geom_jitter(height = 0, alpha = 0.5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
   theme(legend.position = 'none')
 p_consc
@@ -100,7 +101,7 @@ attend_df |>
 p_year <- attend_df |>
   ggplot(aes(x = Year, y = Attendance, fill = Year, colour = Year)) +
   geom_violin(alpha = 0.5) +
-  geom_jitter(alpha = 0.5) +
+  geom_jitter(height = 0, alpha = 0.5) +
   stat_summary(fun = mean, geom = 'point', colour = 'black', size = 3) +
   theme(legend.position = 'none')
 p_year
