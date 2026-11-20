@@ -1,9 +1,6 @@
 ---
-title: "Bootstrapping demo"
-subtitle: "DAPR2 09 2026/27"
-output: 
-  html_notebook:
-    toc: true
+title: "DAPR2 09 -- Bootstrapping demo (2026/27)"
+output: html_notebook
 ---
 
 ```{r setup, message = F}
@@ -11,29 +8,26 @@ library(tidyverse)
 ```
 
 
-## Read in data from Qualtrics
+## Read in data
 
-Export settings:
-
-- CSV
-- tick "Download all fields"
-- select "Export labels"
-
-Read in CSV data downloaded from Qualtrics. 
+Read in xlsx data downloaded from MS Forms.
 
 ```{r message = F}
-DATAFILE <- "DAPR2 09 Bootstrapping_10 September 2026_10.02.csv"
+FILENAME <- "DAPR2 09 – Bootstrapping demo(1-5).xlsx"
 
-# Wrangle Qualtrics data so it's formatted in a less horrible way
-headers      <- read_csv(DATAFILE, col_names = FALSE, n_max = 1)
-df           <- read_csv(DATAFILE, skip = 3, col_names = FALSE)
-colnames(df) <- headers
+df <- readxl::read_xlsx(FILENAME)
+
 df_tall <- df |>
-  select(ResponseId, starts_with('Q')) |>
-  pivot_longer(cols = starts_with('Q'),names_to = 'q', values_to = 'sampled_value')
+  select(ID, ends_with('number.')) |>
+  pivot_longer(cols = -ID, names_to = 'q', values_to = 'sampled_value') |>
+  select(ID, sampled_value) |>
+  mutate(
+    ID = factor(ID),
+    sampled_value = as.numeric(sampled_value)
+    )
 
 # Save a vector containing each response ID
-ppts <- df$ResponseId
+ppts <- df$ID
 ```
 
 How many respondents do we have data from?
@@ -46,16 +40,21 @@ Show a random handful of bootstrapped samples:
 
 ```{r}
 df_tall |>
+  
   # for nicer plotting, convert sampled value into a factor
   mutate(sampled_value = factor(sampled_value)) |>
+  
   # select only a random sample of three participants
-  filter(ResponseId %in% sample(ppts, size = 3)) |>
+  filter(ID %in% sample(ppts, size = 3)) |>
+  
   # make the bar plot showing how many times each value was chosen per sample
-  ggplot(aes(x = sampled_value, fill = ResponseId))+
+  ggplot(aes(x = sampled_value, fill = ID))+
   geom_bar() +
-  facet_wrap(~ ResponseId) +
+  facet_wrap(~ ID) +
+  
   # hide the legend bc the info already comes from the facet headers
   theme(legend.position = 'none') +
+  
   # show all numbers on the x axis in every plot
   scale_x_discrete(drop = FALSE)
 ```
@@ -68,7 +67,7 @@ The result is the **sampling distribution of sample means.**
 
 ```{r}
 sampling_distrib <- df_tall |>
-  group_by(ResponseId) |>
+  group_by(ID) |>
   summarise(sample_mean = mean(sampled_value))
 
 sampling_distrib
